@@ -16,7 +16,6 @@ namespace PortBoss
         public Material LitMat, EmissiveMat, ParticleMat, WaterMat, CloudMat;
         public GameObject[] Models; public int[] ModelKit; public Material[] KitMats;
         public Font TitleFont;
-        public GameObject[] Characters; public AnimationClip[] CharacterClips; // by CharAnim.Slot
 
         enum Screen { Menu, Join, Settings, Playing }
         Screen screen = Screen.Menu;
@@ -31,6 +30,7 @@ namespace PortBoss
         static readonly List<Pop> pops = new();
 
         Light sun;
+        bool oldFog;
         AudioSource amb;
         Music music;
         GameObject menuBoat;
@@ -51,6 +51,12 @@ namespace PortBoss
         void Awake()
         {
             I = this;
+            // Graphics A/B switches for before/after comparisons (test runs only).
+            var args = System.Environment.GetCommandLineArgs();
+            bool Arg(string a) => System.Array.IndexOf(args, a) >= 0;
+            if (Arg("-pb-oldwater")) { var w = new Material(LitMat); w.SetColor("_BaseColor", new Color(0.13f, 0.3f, 0.36f)); w.SetFloat("_Smoothness", 0.88f); WaterMat = w; }
+            oldFog = Arg("-pb-oldfog");
+            if (Arg("-pb-noclouds")) CloudMat = null;
             Art.Lit = LitMat; Art.Emissive = EmissiveMat; Art.Particle = ParticleMat; Art.WaterMat = WaterMat; Art.Cloud = CloudMat;
             Application.targetFrameRate = 144;
             World.Build();
@@ -94,6 +100,7 @@ namespace PortBoss
             RenderSettings.ambientMode = AmbientMode.Trilight;
             RenderSettings.fog = true; RenderSettings.fogMode = FogMode.ExponentialSquared;
             RenderSettings.fogDensity = 0.0021f;
+            if (oldFog) { RenderSettings.fogMode = FogMode.Linear; RenderSettings.fogStartDistance = 70; RenderSettings.fogEndDistance = 650; }
             var sky = RenderSettings.skybox;
             if (sky != null && sky.HasProperty("_SunSize")) { sky.SetFloat("_SunSize", 0.035f); sky.SetFloat("_AtmosphereThickness", 1.15f); sky.SetColor("_SkyTint", new Color(0.55f, 0.6f, 0.7f)); }
 
@@ -119,7 +126,7 @@ namespace PortBoss
             sun.color = day;
             sun.intensity = night ? 0f : Mathf.Lerp(1.7f, 1.2f, u);
             if (RenderSettings.skybox != null && RenderSettings.skybox.HasProperty("_Exposure"))
-                RenderSettings.skybox.SetFloat("_Exposure", night ? 0.25f : 1.3f);
+                RenderSettings.skybox.SetFloat("_Exposure", night ? 0.12f : Mathf.Lerp(1.1f, 0.85f, u));
             RenderSettings.ambientSkyColor = night ? new Color(0.22f, 0.28f, 0.45f) : Color.Lerp(new Color(0.62f, 0.68f, 0.78f), new Color(0.6f, 0.5f, 0.5f), u);
             RenderSettings.ambientEquatorColor = night ? new Color(0.14f, 0.16f, 0.24f) : Color.Lerp(new Color(0.62f, 0.56f, 0.48f), new Color(0.7f, 0.5f, 0.38f), u);
             RenderSettings.ambientGroundColor = night ? new Color(0.05f, 0.05f, 0.08f) : new Color(0.28f, 0.24f, 0.2f);
@@ -177,11 +184,14 @@ namespace PortBoss
             return "day";
         }
 
-        // Decorative, unspawned boat for the title scene (its scripts stay idle without a session).
+        // Decorative boat for the title scene (visuals only).
         GameObject MenuBoat()
         {
             var b = Instantiate(BoatPrefab);
-            b.GetComponent<Boat>().enabled = false;
+            // Strip networking, or NGO would treat it as an in-scene object and spawn it when a session starts.
+            DestroyImmediate(b.GetComponent<Boat>());
+            DestroyImmediate(b.GetComponent<Unity.Netcode.Components.NetworkTransform>());
+            DestroyImmediate(b.GetComponent<NetworkObject>());
             b.AddComponent<Bob>();
             return b;
         }

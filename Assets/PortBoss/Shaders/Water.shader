@@ -13,7 +13,7 @@ Shader "PortBoss/Water"
         _RippleScale ("Ripple scale", Float) = 0.45
         _RippleStrength ("Ripple strength", Float) = 0.28
         _Gloss ("Sun glint sharpness", Float) = 350
-        _CrestHeight ("Crest foam above (y)", Float) = -0.98
+        _CrestHeight ("Crest foam above (y)", Float) = -0.93
     }
     SubShader
     {
@@ -89,7 +89,7 @@ Shader "PortBoss/Water"
                 float lit = L.shadowAttenuation;
                 half3 water = lerp(_Shallow.rgb, _Deep.rgb, d01) * (0.35 + 0.65 * L.color * lit) + _PB_SkyZenith.rgb * 0.15;
 
-                float fres = pow(1 - saturate(dot(n, v)), 4) * 0.8 + 0.03;
+                float fres = pow(1 - saturate(dot(n, v)), 5) * 0.55 + 0.03;
                 float3 r = reflect(-v, n);
                 half3 sky = lerp(_PB_SkyHorizon.rgb, _PB_SkyZenith.rgb, saturate(r.y * 1.6));
                 float3 h = normalize(L.direction + v);
@@ -100,7 +100,7 @@ Shader "PortBoss/Water"
                 float fn = 0.5 + 0.5 * sin(i.positionWS.x * 3.1 + t * 1.5) * sin(i.positionWS.z * 2.7 - t * 1.2);
                 float contact = saturate(1 - depth / _FoamWidth);
                 float foam = contact * step(0.3, fn + contact * 0.7);
-                foam = max(foam, saturate((i.positionWS.y - _CrestHeight) * 3) * 0.45 * fn);
+                foam = max(foam, saturate((i.positionWS.y - _CrestHeight) * 3) * 0.3 * fn);
                 col = lerp(col, _FoamColor.rgb * (0.55 + 0.45 * L.color * lit), foam);
 
                 col = MixFog(col, i.fogFactor);

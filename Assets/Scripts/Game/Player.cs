@@ -54,7 +54,6 @@ namespace PortBoss
             model = new GameObject("model").transform;
             model.SetParent(transform, false);
             var m = model;
-            if (TrySpawnCharacter(m)) goto spawned;
             Art.Prim(PrimitiveType.Capsule, m, new Vector3(0, 1.08f, 0), Quaternion.identity, new Vector3(0.66f, 0.6f, 0.6f), c, false, "body");
             Art.Box(m, new Vector3(0, 0.98f, 0.04f), new Vector3(0.7f, 0.45f, 0.62f), Art.Hex("#3b4a5a"), false, "overalls");
             Art.Prim(PrimitiveType.Sphere, m, new Vector3(0, 1.66f, 0), Quaternion.identity, Vector3.one * 0.4f, Art.Hex("#c99b7a"), false, "head");
@@ -64,7 +63,6 @@ namespace PortBoss
             legR = Limb(m, new Vector3(0.15f, 0.64f, 0), new Vector3(0.2f, 0.64f, 0.22f), Art.Hex("#3b4a5a"));
             armL = Limb(m, new Vector3(-0.42f, 1.38f, 0), new Vector3(0.14f, 0.6f, 0.14f), c);
             armR = Limb(m, new Vector3(0.42f, 1.38f, 0), new Vector3(0.14f, 0.6f, 0.14f), c);
-            spawned:
             if (IsOwner)
             {
                 Local = this;
@@ -94,37 +92,8 @@ namespace PortBoss
             return p;
         }
 
-        CharAnim charAnim;
-        float lastY;
-
-        // Rigged character (CC0 pack) if the build has one; a different character per player. Scaled to 1.8 m.
-        bool TrySpawnCharacter(Transform parent)
-        {
-            var ui = GameUI.I;
-            if (ui == null || ui.Characters == null || ui.Characters.Length == 0) return false;
-            var prefab = ui.Characters[(int)(OwnerClientId % (ulong)ui.Characters.Length)];
-            if (prefab == null) return false;
-            var g = Instantiate(prefab, parent, false);
-            foreach (var col in g.GetComponentsInChildren<Collider>()) Destroy(col);
-            var b = new Bounds(g.transform.position, Vector3.zero);
-            foreach (var r in g.GetComponentsInChildren<Renderer>()) b.Encapsulate(r.bounds);
-            if (b.size.y > 0.01f) g.transform.localScale *= 1.8f / b.size.y;
-            var anim = g.GetComponentInChildren<Animator>() ?? g.AddComponent<Animator>();
-            anim.applyRootMotion = false;
-            charAnim = g.AddComponent<CharAnim>();
-            charAnim.Init(anim, ui.CharacterClips);
-            return true;
-        }
-
         void Animate(float speed)
         {
-            if (charAnim != null)
-            {
-                bool grounded = IsOwner ? cc.isGrounded : Mathf.Abs(transform.position.y - lastY) < 0.04f;
-                lastY = transform.position.y;
-                charAnim.Tick(speed, grounded, Carrying > 0 || Pushing);
-                return;
-            }
             float k = Mathf.Clamp01(speed / 4f);
             walkPhase += speed * Time.deltaTime * 2.2f;
             float sw = Mathf.Sin(walkPhase) * k * 38f;
@@ -349,7 +318,6 @@ namespace PortBoss
                 var dir = Quaternion.Euler(0, yaw, 0) * Vector3.forward;
                 if (Vector3.Dot(dir, transform.forward) < 0.3f) dir = transform.forward;
                 ThrowRpc(dir);
-                charAnim?.Throw();
                 Sfx.Play("whoosh", transform.position, 0.6f);
             }
             if (input.push)
@@ -460,9 +428,11 @@ namespace PortBoss
         void FxRpc(string sfx, Vector3 p) => Sfx.Play(sfx, p, 0.7f);
 
         // ---- camera (owner) ----
+        public static bool CamOverride; // test shots drive the camera themselves
+
         void LateUpdate()
         {
-            if (!IsOwner || !IsSpawned) return;
+            if (!IsOwner || !IsSpawned || CamOverride) return;
             var cam = Camera.main;
             if (cam == null) return;
             var target = transform.position + Vector3.up * (1.7f + Carrying * 0.18f);

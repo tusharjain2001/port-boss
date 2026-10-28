@@ -32,7 +32,7 @@ namespace PortBoss
             Bay();
             RivalPort();
             OpenSea();
-            Clouds();
+            if (Art.Cloud != null) Clouds();
             Water.Create(new Vector3(0, 0, 80), 280, 112);
             // Far sea to the horizon (flat, slightly below the wave mean).
             var far = Art.Box(Root, new Vector3(0, Water.Level - 0.35f, 600), new Vector3(3000, 0.1f, 1600), Art.Hex("#2f5562"), false, "far_sea", 0.8f);
@@ -100,7 +100,7 @@ namespace PortBoss
             Art.Box(p, new Vector3(0, y - 0.2f, 15), new Vector3(0.25f, 0.25f, 30), Art.WoodDark, false, "stringer");
             for (float z = 1.5f; z < 30.5f; z += 3f)
                 foreach (var x in new[] { -2.9f, 2.9f })
-                    Art.Prim(PrimitiveType.Cylinder, p, new Vector3(x, -2.0f, z), Quaternion.identity, new Vector3(0.32f, 2.5f, 0.32f), Art.WoodDark * 0.7f, true, "post", 0.55f);
+                    Art.Prim(PrimitiveType.Cylinder, p, new Vector3(x, -2.0f, z), Quaternion.identity, new Vector3(0.32f, 2.5f, 0.32f), Art.WoodDark, true, "post");
             // Low edge beam on the left side, rope bollards on the right (boat side).
             for (float z = 4f; z < 30f; z += 6f)
                 Art.Prim(PrimitiveType.Cylinder, p, new Vector3(2.75f, PierTop + 0.2f, z), Quaternion.identity, new Vector3(0.3f, 0.2f, 0.3f), Art.Hex("#3b3b3b"), true, "bollard");

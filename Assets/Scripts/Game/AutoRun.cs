@@ -58,6 +58,38 @@ namespace PortBoss
             if (float.TryParse(Arg("-pb-night"), out var n)) StartCoroutine(ForceNight(n));
             if (Has("-pb-trolleytest")) StartCoroutine(TrolleyTest());
             if (Has("-pb-wobbletest")) StartCoroutine(WobbleTest());
+            if (Arg("-pb-charshots") != null) StartCoroutine(CharShots(Arg("-pb-charshots")));
+        }
+
+        // Character close-ups: front, side, walking (side), carrying (front).
+        IEnumerator CharShots(string dir)
+        {
+            Directory.CreateDirectory(dir);
+            while (Player.Local == null) yield return null;
+            var pl = Player.Local;
+            pl.DebugTeleport(new Vector3(-20, 0.2f, -8), 90);
+            yield return new WaitForSeconds(1.5f);
+            Player.CamOverride = true;
+            var cam = Camera.main;
+            void Look(Vector3 offset) { var t = pl.transform.position + Vector3.up * 1.1f; cam.transform.position = t + offset; cam.transform.LookAt(t); }
+            Look(pl.transform.forward * 3.2f + Vector3.up * 0.4f); yield return Snap(dir, "char-front");
+            Look(-pl.transform.right * 3.2f + Vector3.up * 0.4f); yield return Snap(dir, "char-side");
+            Player.BotInput = () => new Player.In { hasWorldMove = true, worldMove = Vector3.right * 0.6f };
+            for (int i = 0; i < 40; i++) { Look(Vector3.forward * -4f + Vector3.up * 0.5f); yield return null; }
+            yield return Snap(dir, "char-walking-side");
+            Player.BotInput = () => new Player.In();
+            pl.DebugGiveCrates(3);
+            yield return new WaitForSeconds(1f);
+            Look(pl.transform.forward * 4f + Vector3.up * 1.2f); yield return Snap(dir, "char-carrying-front");
+            Player.CamOverride = false;
+        }
+
+        IEnumerator Snap(string dir, string name)
+        {
+            yield return new WaitForEndOfFrame();
+            ScreenCapture.CaptureScreenshot(Path.Combine(dir, name + ".png"));
+            yield return null;
+            Debug.Log("[PB] snap " + name);
         }
 
         IEnumerator WobbleTest()

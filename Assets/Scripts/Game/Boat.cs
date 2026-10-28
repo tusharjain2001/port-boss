@@ -217,7 +217,7 @@ namespace PortBoss
         {
             var g = new GameObject("Gangplank");
             var gp = g.AddComponent<Gangplank>();
-            gp.plank = Art.Box(g.transform, Vector3.zero, new Vector3(1.1f, 0.1f, 1f), Art.WoodLight, true, "plank").transform;
+            gp.plank = Art.Box(g.transform, Vector3.zero, new Vector3(1.1f, 0.1f, 1f), Art.WoodLight, true, "plank_gp").transform;
             for (int i = 0; i < 5; i++)
                 Art.Box(gp.plank, new Vector3(0, 0.6f, -0.4f + i * 0.2f), new Vector3(1f, 0.6f, 0.04f), Art.WoodDark, false, "cleat");
         }

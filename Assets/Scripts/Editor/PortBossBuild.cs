@@ -110,6 +110,7 @@ namespace PortBoss.EditorTools
                 }
             }
             var ui = new GameObject("Game").AddComponent<GameUI>();
+
             ui.TitleFont = AssetDatabase.LoadAssetAtPath<Font>("Assets/Art/Fonts/AlfaSlabOne-Regular.ttf");
             ui.Models = models.ToArray(); ui.ModelKit = kits.ToArray(); ui.KitMats = kitMats.ToArray();
             ui.CratePrefab = crate; ui.BoatPrefab = boat; ui.TrolleyPrefab = trolley; ui.PortGamePrefab = game;
@@ -157,6 +158,7 @@ namespace PortBoss.EditorTools
 
         public static void SetupAndBuild() { Setup(); Build(); }
 
+        // ---- imported art ----
         // ---- helpers ----
         static void Dir(string p) { if (!AssetDatabase.IsValidFolder(p)) { var parent = Path.GetDirectoryName(p).Replace('\\', '/'); AssetDatabase.CreateFolder(parent, Path.GetFileName(p)); } }
 

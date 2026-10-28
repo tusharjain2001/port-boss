@@ -38,7 +38,7 @@ namespace PortBoss
             vis = new GameObject("vis").transform;
             vis.SetParent(transform, false);
             float s = Size;
-            Art.Box(vis, Vector3.zero, new Vector3(s * 0.96f, s * 0.9f, s * 0.96f), Art.Wood, false, "body");
+            Art.Box(vis, Vector3.zero, new Vector3(s * 0.96f, s * 0.9f, s * 0.96f), Art.Wood, false, "crate_body");
             for (int i = -1; i <= 1; i += 2)
             {
                 Art.Box(vis, new Vector3(0, i * s * 0.22f, s * 0.49f), new Vector3(s, s * 0.14f, 0.03f), Art.WoodDark, false, "slat");
