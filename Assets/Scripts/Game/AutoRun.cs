@@ -70,6 +70,7 @@ namespace PortBoss
             if (Has("-pb-storm")) StartCoroutine(StormTest());
             if (Arg("-pb-carrytest") != null) StartCoroutine(CarryTest(Arg("-pb-carrytest")));
             if (Arg("-pb-mapshots") != null) StartCoroutine(MapShots(Arg("-pb-mapshots")));
+            if (Arg("-pb-uishots") != null) StartCoroutine(UiShots(Arg("-pb-uishots")));
             if (float.TryParse(Arg("-pb-weather"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var wsev)) StartCoroutine(ForceWeatherSoon(wsev));
             if (Has("-pb-forklifttest")) StartCoroutine(ForkliftTest());
         }
@@ -231,6 +232,41 @@ namespace PortBoss
                 if ((q - headC).sqrMagnitude < 0.19f * 0.19f) return false;            // head + hard hat
             }
             return true;
+        }
+
+        // The front door: each title shot (camera only in batchmode; with the menu drawn when windowed), the logo texture,
+        // then Join, Settings and (in a solo session) Pause.
+        IEnumerator UiShots(string dir)
+        {
+            Directory.CreateDirectory(dir);
+            yield return new WaitForSecondsRealtime(3f);
+            for (int i = 0; i < 4; i++)
+            {
+                GameUI.TitleTime = i * 14f + 5f;
+                yield return new WaitForSecondsRealtime(1.2f);
+                yield return Snap(dir, $"title-{i}");
+            }
+            var rt = ui.Logo();
+            var lc = GameObject.Find("LogoCam"); if (lc != null) lc.GetComponent<Camera>().Render();
+            if (rt != null)
+            {
+                yield return new WaitForEndOfFrame();
+                RenderTexture.active = rt;
+                var tex = new Texture2D(rt.width, rt.height, TextureFormat.RGB24, false);
+                tex.ReadPixels(new Rect(0, 0, rt.width, rt.height), 0, 0); tex.Apply();
+                RenderTexture.active = null;
+                File.WriteAllBytes(Path.Combine(dir, "logo.png"), tex.EncodeToPNG());
+            }
+            GameUI.TitleTime = 5f;
+            ui.DebugScreen(1); yield return new WaitForSecondsRealtime(1f); yield return Snap(dir, "join");
+            ui.DebugOpenSettings(0); yield return new WaitForSecondsRealtime(1f); yield return Snap(dir, "settings");
+            ui.DebugScreen(0);
+            GameUI.TitleTime = -1;
+            ui.Play();
+            yield return WaitGame();
+            yield return new WaitForSecondsRealtime(3f);
+            ui.DebugPause(); yield return new WaitForSecondsRealtime(1f); yield return Snap(dir, "pause");
+            Debug.Log("[PB] ui shots done");
         }
 
         // Fixed cameras over the harbour map (same every build, for A/B), with the frame rate at each.

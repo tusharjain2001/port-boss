@@ -231,16 +231,12 @@ namespace PortBoss
             Cursor.lockState = wantCursor || AutoRun.Active ? CursorLockMode.None : CursorLockMode.Locked;
             Cursor.visible = wantCursor;
 
-            // Menu backdrop: slow orbit over the pier.
             if (Player.Local == null)
             {
-                // Title scene: a slow drifting camera over the pier and a boat bobbing alongside.
                 if (menuBoat == null && !nm.IsListening) menuBoat = MenuBoat();
-                float a = Time.unscaledTime * 0.035f;
-                var focus = new Vector3(3, 1.2f, 15 + Mathf.Sin(a * 0.7f) * 4);
-                cam.transform.position = new Vector3(-16 + Mathf.Sin(a) * 9, 5.5f + Mathf.Sin(a * 1.3f) * 1.2f, -6 + Mathf.Cos(a) * 5);
-                cam.transform.rotation = Quaternion.Slerp(cam.transform.rotation, Quaternion.LookRotation(focus - cam.transform.position), 1 - Mathf.Exp(-2f * Time.unscaledDeltaTime));
+                TitleScene(nm);
             }
+            if (menuWorker != null && nm.IsListening) Destroy(menuWorker);
             if (menuBoat != null && nm.IsListening) Destroy(menuBoat);
         }
 
@@ -351,7 +347,7 @@ namespace PortBoss
             t.Apply();
             return t;
         }
-        Texture2D panelTex, btnTex, btnHot;
+        Texture2D panelTex;
         float S => UnityEngine.Screen.height / 1080f;
 
         Texture2D Tex(Color c) { var t = new Texture2D(1, 1); t.SetPixel(0, 0, c); t.Apply(); return t; }
@@ -360,8 +356,6 @@ namespace PortBoss
         {
             if (big != null && Mathf.Approximately(big.fontSize, Mathf.RoundToInt(64 * S))) return;
             panelTex ??= Tex(new Color(0.08f, 0.1f, 0.12f, 0.82f));
-            btnTex ??= Tex(new Color(0.85f, 0.55f, 0.2f, 0.95f));
-            btnHot ??= Tex(new Color(1f, 0.68f, 0.3f, 1f));
             big = new GUIStyle(GUI.skin.label) { fontSize = Mathf.RoundToInt(64 * S), fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, wordWrap = true };
             mid = new GUIStyle(big) { fontSize = Mathf.RoundToInt(30 * S) };
             small = new GUIStyle(big) { fontSize = Mathf.RoundToInt(20 * S), fontStyle = FontStyle.Normal, alignment = TextAnchor.UpperLeft };
@@ -371,8 +365,9 @@ namespace PortBoss
             fadeTex ??= Gradient();
             shoutS = new GUIStyle(big) { fontSize = Mathf.RoundToInt(38 * S * Settings.ShoutSize) };
             panel = new GUIStyle(GUI.skin.box) { normal = { background = panelTex } };
-            btn = new GUIStyle(GUI.skin.button) { fontSize = Mathf.RoundToInt(28 * S), fontStyle = FontStyle.Bold };
-            btn.normal.background = btnTex; btn.hover.background = btnHot; btn.active.background = btnHot;
+            ThemeTextures();
+            btn = new GUIStyle(GUI.skin.button) { fontSize = Mathf.RoundToInt(28 * S), fontStyle = FontStyle.Normal, font = TitleFont, border = new RectOffset(10, 10, 10, 10) };
+            btn.normal.background = plateTex; btn.hover.background = plateHot; btn.active.background = plateHot;
             btn.normal.textColor = btn.hover.textColor = btn.active.textColor = new Color(0.1f, 0.07f, 0.04f);
         }
 
@@ -392,27 +387,15 @@ namespace PortBoss
             bool b = GUI.Button(r, s, btn);
             GUI.enabled = true;
             Hover(r, s, enabled);
-            if (b) Sfx.Play2D("click", 0.6f);
+            if (b) Sfx.Play2D("blip", 0.6f);
             return b;
         }
 
         void Hover(Rect r, string id, bool enabled)
         {
             if (Event.current.type != EventType.Repaint) return;
-            if (enabled && r.Contains(Event.current.mousePosition)) { if (hovered != id) { hovered = id; Sfx.Play2D("hover", 0.35f); } }
+            if (enabled && r.Contains(Event.current.mousePosition)) { if (hovered != id) { hovered = id; Sfx.Play2D("clank", 0.35f); } }
             else if (hovered == id) hovered = null;
-        }
-
-        // Text menu entry for the front door: hover slides it right and lights it up.
-        bool MenuItem(Rect r, string s, bool enabled = true)
-        {
-            bool hot = enabled && r.Contains(Event.current.mousePosition);
-            var rr = new Rect(r.x + (hot ? 18 * S : 0), r.y, r.width, r.height);
-            Label(rr, (hot ? "› " : "") + s, menuItem, !enabled ? new Color(1, 1, 1, 0.3f) : hot ? new Color(1f, 0.8f, 0.4f) : new Color(1f, 0.96f, 0.88f));
-            Hover(r, s, enabled);
-            bool b = enabled && GUI.Button(r, GUIContent.none, GUIStyle.none);
-            if (b) Sfx.Play2D("click", 0.7f);
-            return b;
         }
 
         void OnGUI()
@@ -433,31 +416,6 @@ namespace PortBoss
                 Label(new Rect(0, H - 80 * S, W, 50 * S), Session.Status, mid, new Color(1f, 0.8f, 0.6f));
         }
 
-        void DrawMenu(float W, float H)
-        {
-            GUI.DrawTexture(new Rect(0, 0, W * 0.55f, H), fadeTex);
-            float x = 90 * S;
-            // Title: gold slab type with a deep shadow + outline, a rope rule, a tagline.
-            var tr = new Rect(x, H * 0.12f, W, 150 * S);
-            var ink = new Color(0.05f, 0.08f, 0.13f, 0.95f);
-            for (int dx = -1; dx <= 1; dx++) for (int dy = -1; dy <= 1; dy++)
-                Label(new Rect(tr.x + dx * 3 * S, tr.y + dy * 3 * S + 4 * S, tr.width, tr.height), "PORT BOSS", title, ink);
-            Label(tr, "PORT BOSS", title, new Color(0.98f, 0.79f, 0.38f));
-            for (int i = 0; i < 26; i++)
-                GUI.DrawTexture(new Rect(x + 6 * S + i * 25 * S, tr.yMax + 4 * S + (i % 2) * 3 * S, 18 * S, 6 * S), Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(0.82f, 0.68f, 0.45f, 0.9f), 0, 3 * S);
-            Label(new Rect(x + 4 * S, tr.yMax + 22 * S, W, 40 * S), "A FISHING PIER  ·  A BOAT  ·  TWO MINUTES", new GUIStyle(small) { fontSize = Mathf.RoundToInt(22 * S), fontStyle = FontStyle.Bold }, new Color(1f, 0.9f, 0.75f, 0.9f));
-
-            float y = H * 0.46f, gap = 66 * S, w = 520 * S, h = 58 * S;
-            if (MenuItem(new Rect(x, y, w, h), "Play")) Play();
-            if (MenuItem(new Rect(x, y + gap, w, h), "Host co-op", Session.SteamOk)) Host(false);
-            if (MenuItem(new Rect(x, y + gap * 2, w, h), "Join a friend")) { screen = Screen.Join; Refresh(); }
-            if (MenuItem(new Rect(x, y + gap * 3, w, h), "Settings")) { settingsFromPause = false; screen = Screen.Settings; }
-            if (MenuItem(new Rect(x, y + gap * 4, w, h), "Quit")) Application.Quit();
-
-            Label(new Rect(x, H - 52 * S, W, 30 * S), Session.SteamOk ? $"Steam: {Steamworks.SteamClient.Name}  ·  co-op via test app 480" : "Steam offline: solo works, co-op needs Steam", small, new Color(1, 1, 1, 0.6f));
-            Label(new Rect(W - 520 * S, H - 52 * S, 500 * S, 30 * S), $"v{Application.version}  ·  overnight build", new GUIStyle(small) { alignment = TextAnchor.UpperRight }, new Color(1, 1, 1, 0.5f));
-        }
-
         async void Refresh()
         {
             if (searching) return;
@@ -470,8 +428,8 @@ namespace PortBoss
         {
             float pw = 760 * S, ph = 620 * S;
             var r = new Rect((W - pw) / 2, (H - ph) / 2, pw, ph);
-            GUI.Box(r, "", panel);
-            Label(new Rect(r.x, r.y + 20 * S, pw, 60 * S), "Join a port", mid, Color.white);
+            SteelPanel(r);
+            Label(new Rect(r.x, r.y + 30 * S, pw, 60 * S), "Join a port", mid, new Color(1f, 0.85f, 0.55f));
             float y = r.y + 100 * S;
             if (!Session.SteamOk) Label(new Rect(r.x + 30 * S, y, pw, 40 * S), "Steam isn't running.", small, Color.white);
             else if (searching) Label(new Rect(r.x + 30 * S, y, pw, 40 * S), "Looking for Steam lobbies…", small, Color.white);
@@ -676,18 +634,6 @@ namespace PortBoss
                 y += 250 * S;
             }
             if (!host) Label(new Rect(r.x, r.yMax - 50 * S, r.width, 30 * S), "The host books the boats.", new GUIStyle(small) { alignment = TextAnchor.UpperCenter }, new Color(1, 1, 1, 0.6f));
-        }
-
-        void DrawPause(float W, float H)
-        {
-            GUI.Box(new Rect(0, 0, W, H), "", panel);
-            Label(new Rect(0, H * 0.2f, W, 90 * S), "Paused", big, Color.white);
-            float bw = 380 * S, bh = 64 * S, x = (W - bw) / 2, y = H * 0.38f, gap = 80 * S;
-            if (Button(new Rect(x, y, bw, bh), "Resume")) SetPaused(false);
-            if (Session.Lobby != null && Button(new Rect(x, y + gap, bw, bh), "Invite Steam friends")) Session.Invite();
-            if (Button(new Rect(x, y + gap * 2, bw, bh), "Settings")) settingsFromPause = true;
-            if (Button(new Rect(x, y + gap * 3, bw, bh), "Quit to menu")) BackToMenu();
-            if (Button(new Rect(x, y + gap * 4, bw, bh), "Quit game")) Application.Quit();
         }
     }
 }

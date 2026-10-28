@@ -78,8 +78,8 @@ namespace PortBoss
         {
             float pw = Mathf.Min(W - 80 * S, 980 * S), ph = Mathf.Min(H - 60 * S, 820 * S);
             var r = new Rect((W - pw) / 2, (H - ph) / 2, pw, ph);
-            GUI.Box(r, "", panel);
-            Label(new Rect(r.x, r.y + 14 * S, pw, 56 * S), "Settings", mid, new Color(1f, 0.85f, 0.55f));
+            SteelPanel(r);
+            Label(new Rect(r.x, r.y + 24 * S, pw, 56 * S), "Settings", mid, new Color(1f, 0.85f, 0.55f));
             float tw = (pw - 60 * S) / Tabs.Length;
             for (int i = 0; i < Tabs.Length; i++)
             {
