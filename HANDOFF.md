@@ -14,7 +14,12 @@ Feature freeze **09:00**. 09:00–09:45 fixes + release into `Desktop/Port Boss/
 - Keep the PC quiet: tests in `-batchmode` (shots render the camera); windowed only for IMGUI shots. Never gdigrab (it records whatever window is on top).
 - Release builds only for Manan (no Development console).
 
-## Done (latest release `builds/20261029-0314`)
+## Done (latest release `builds/20261029-0440`)
+- New harbour map (`HarbourMap.cs`, skin only) + Kufu's map fixes (t-827e3b13): neat container blocks + yard cranes, roads/rail/barriers,
+  tank farm, pipes, light towers, parked kit, stains, city skyline + hills, shabby berth; `[PB] map check` (tilt/float pass) logs 0 flagged.
+  Water: fresnel ~1 (no refracted-screen smudges), deep-blue base (`GameUI` water setup).
+- Menu redo (t-6f6de594, `GameUI.Menu.cs`): title flyovers + idle worker, container logo (off-stage camera → texture), manifest clipboard
+  menu/pause, steel panels for Settings/Join, plate buttons, clank/blip sounds, bottom bar. Test: `-pb-uishots dir` (windowed for UI).
 - Toon Harbor skin, data-driven (`Skin.cs` slots filled by `PortBossBuild.MakeSkin()` when the pack exists; own art otherwise):
   pack sky/fog/post/water, toon shader for own pieces (`Art.Get` solid-colour textures + pack ramp, `ToonGain`), pack dock workers
   (`Player.BuildWorker` + `CharAnim`: CC0 UAL1 clips via Humanoid, arm IK for carry/throw/flail), pack crates/barrels/pallets/dinghy/buyer,
@@ -24,7 +29,7 @@ Feature freeze **09:00**. 09:00–09:45 fixes + release into `Desktop/Port Boss/
 - `docs/PORT-STAGES.md` (5 stages → pack prefabs). Proof: `Desktop/Port Boss/proof/overnight/toon-harbor/`.
 
 ## Next
-1. Milestone B: first-10-minutes playthrough pass (tutorial hints for the first boat, readable UI in the new look, sounds on every action,
+1. (in progress) Milestone B: first-10-minutes playthrough pass (tutorial hints for the first boat, readable UI in the new look, sounds on every action,
    no floating/clipping, no placeholder labels). One message to Kufu with shots.
 2. Milestone C: day 1→3 progression tuning (trolley, forklift day 3, contracts, rival wake, overlapping boats; weather is random now).
 3. #7 player shove only if time remains.
