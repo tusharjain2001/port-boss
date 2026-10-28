@@ -41,6 +41,19 @@ namespace PortBoss
             AddLadder(new Vector3(-26f, 0, 0.15f), Vector3.back);
             RivalPort();
             OpenSea();
+            if (Skin.On)
+            {
+                // The big harbour: our plain boxes stay as colliders, the pack pieces are what you see.
+                Art.Box(Root, new Vector3(155, -3, -15), new Vector3(190, 6, 90), Art.Concrete, true, "east_lot").GetComponent<Renderer>().enabled = false;
+                Art.Box(Root, new Vector3(62.5f, -3, 75), new Vector3(5, 6, 90), Art.Concrete, true, "east_edge").GetComponent<Renderer>().enabled = false;
+                foreach (var n in new[] { "quay_left", "quay_right", "quay_mid", "beach_left", "land_left", "land_right" })
+                    foreach (Transform c in Root) if (c.name == n) c.GetComponent<Renderer>().enabled = false;
+                // The concrete jetty replaces the planks (colliders kept, holes filled, no sag).
+                foreach (var r in GameObject.Find("Pier").GetComponentsInChildren<Renderer>()) if (r.name != "rung" && !r.name.StartsWith("ladder")) r.enabled = false;
+                foreach (var r in PierEnd.GetComponentsInChildren<Renderer>()) if (r.name != "rung" && !r.name.StartsWith("ladder")) r.enabled = false;
+                SetRepaired(true);
+                HarbourMap.Build(Root);
+            }
             if (Art.Cloud != null) Clouds();
             Speedboat.Create();
             // Sea floor: the transparent toon water needs something below it (else the sky's ground colour shows through).
@@ -58,7 +71,7 @@ namespace PortBoss
             var t = Root;
             Art.Box(t, new Vector3(-28, -3, -30), new Vector3(28, 6, 60), Art.Concrete, true, "quay_left");   // x -42..-14
             Art.Box(t, new Vector3(27, -3, -30), new Vector3(66, 6, 60), Art.Concrete, true, "quay_right");  // x -6..60
-            Art.Box(t, new Vector3(-55, -2.5f, -30), new Vector3(30, 6, 60), Art.Sand, true, "beach_left");
+            Art.Box(t, new Vector3(-55, Skin.On ? -3f : -2.5f, -30), new Vector3(30, 6, 60), Art.Sand, true, "beach_left");
             // Slipway ramp: from the quay edge down into the sea (the trolley rolls down this).
             float len = 17f, drop = 3.4f, ang = Mathf.Atan2(drop, len) * Mathf.Rad2Deg;
             var ramp = Art.Box(t, new Vector3(-10, -drop / 2 - 0.25f, len / 2 - 0.4f), new Vector3(7.5f, 0.5f, Mathf.Sqrt(len * len + drop * drop)), Art.Hex("#8c8374"), true, "slipway");
@@ -72,7 +85,7 @@ namespace PortBoss
             for (int i = 0; i < 4; i++)
                 if (Skin.On) Art.Place(Skin.Pick(Skin.I.Barrels, i), t, new Vector3(14 + i * 0.85f, 0, -3.5f + (i % 2) * 0.8f), i * 70, 0.8f, true);
                 else Art.Prim(PrimitiveType.Cylinder, t, new Vector3(14 + i * 0.75f, 0.5f, -3.5f + (i % 2) * 0.7f), Quaternion.identity, new Vector3(0.6f, 0.5f, 0.6f), i % 2 == 0 ? Art.Navy : Art.Rust, true, "barrel");
-            Lamp(t, new Vector3(3.5f, 0, -1.5f));
+            if (!Skin.On) Lamp(t, new Vector3(3.5f, 0, -1.5f));
             // Net pile, a beached rowboat, empty crate stacks by the shed.
             Art.Prim(PrimitiveType.Sphere, t, new Vector3(5.5f, 0.1f, -3.4f), Quaternion.identity, new Vector3(2.2f, 0.5f, 1.6f), Art.Hex("#4c5a43"), true, "net_pile");
             if (Skin.On) Art.Place(Skin.Pick(Skin.I.Dinghies, 0), t, new Vector3(-20, 0, -5), 25, 0.7f, true);
@@ -102,6 +115,7 @@ namespace PortBoss
                 ec.gameObject.AddComponent<BoxCollider>().size = Vector3.one * 0.58f;
                 CrateLook.Build(ec, 0.58f, false, i);
             }
+            if (Skin.On) return; // the harbour map dresses the rest
             Lamp(t, new Vector3(-15.5f, 0, -1.5f));
             for (int x = -40; x < 60; x += 3)
                 Art.Box(t, new Vector3(x, 0.55f, -24), new Vector3(2.9f, 1.1f, 0.08f), Art.WoodDark, true, "fence");
@@ -230,7 +244,7 @@ namespace PortBoss
             var s = new GameObject("Shed").transform;
             s.SetParent(Root, false);
             var o = new Vector3(9, 0, -9);
-            Color wall = Art.Hex("#7b8f8a");
+            Color wall = Skin.On ? Art.Hex("#e0b23c") : Art.Hex("#7b8f8a"); // the pack's yellow sheds
             Art.Box(s, o + new Vector3(0, 1.75f, -2.5f), new Vector3(6, 3.5f, 0.15f), wall, true, "wall_back");
             Art.Box(s, o + new Vector3(3, 1.75f, 0), new Vector3(0.15f, 3.5f, 5), wall, true, "wall_side");
             Art.Box(s, o + new Vector3(-3, 1.75f, 0), new Vector3(0.15f, 3.5f, 5), wall, true, "wall_side");
@@ -251,6 +265,7 @@ namespace PortBoss
             // Low land either side of the bay, rolling hills on top, rocks at the waterline.
             Art.Box(Root, new Vector3(-150, -2, 110), new Vector3(190, 4, 240), Art.Grass, true, "land_left");
             Art.Box(Root, new Vector3(155, -2, 75), new Vector3(180, 4, 90), Art.Grass, true, "land_right");
+            if (Skin.On) return; // the terminals stand here
             Hills(new Vector2(-62, 15), new Vector2(-75, 210), 9, 30, 7);
             Hills(new Vector2(-110, 40), new Vector2(-120, 220), 6, 55, 11);
             Hills(new Vector2(72, 40), new Vector2(84, 112), 5, 28, 3);
@@ -295,6 +310,7 @@ namespace PortBoss
                 Art.Prim(PrimitiveType.Cylinder, lh, new Vector3(0, 2 + i * 2.6f, 0), Quaternion.identity, new Vector3(3.2f - i * 0.18f, 1.3f, 3.2f - i * 0.18f), i % 2 == 0 ? Art.Cream : Art.Red, false, "lh_band");
             Art.Prim(PrimitiveType.Cylinder, lh, new Vector3(0, 17.6f, 0), Quaternion.identity, new Vector3(2.2f, 0.9f, 2.2f), Art.Cream, false, "lh_lamp").GetComponent<Renderer>().sharedMaterial = Art.Glow(Art.Hex("#ffe2a8"), 2.5f);
             Art.Prim(PrimitiveType.Sphere, lh, new Vector3(0, 19f, 0), Quaternion.identity, new Vector3(2.4f, 1.4f, 2.4f), Art.Red, false, "lh_cap");
+            if (Skin.On) Object.Destroy(lh.gameObject); // pack lighthouses stand on the breakwater instead
             // Distant islands on the horizon.
             var rng = new System.Random(9);
             foreach (var (x, z, r) in new[] { (320f, 520f, 70f), (520f, 380f, 45f), (230f, 760f, 110f), (-260f, 820f, 90f) })

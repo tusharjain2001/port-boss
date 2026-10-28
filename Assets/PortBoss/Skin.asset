@@ -68,3 +68,91 @@ MonoBehaviour:
   - {fileID: 8136428365022718900, guid: 9cc9e1781ad6e014280e30b9d3f3ccad, type: 3}
   - {fileID: 3242281033347475928, guid: 8463ca1b1d02d484f979dbd33b02677c, type: 3}
   - {fileID: 6861812768923619748, guid: 43d06aafc81f2e940ab59033662e9740, type: 3}
+  LibNames:
+  - slab
+  - slabB
+  - quayEdge
+  - quayCorner
+  - pile
+  - tetraA
+  - tetraB
+  - lighthouse
+  - streetlight
+  - streetlight2
+  - gantry
+  - gantryB
+  - harbourCrane
+  - smallCrane
+  - whYellow
+  - whWhite
+  - whRed
+  - whBlue
+  - whBig
+  - whGreen
+  - office
+  - office2
+  - cabin
+  - truck
+  - truckB
+  - trailer
+  - forklift
+  - tug
+  - tugB
+  - freighter
+  - freighterB
+  - tugBow
+  - tugStern
+  - tugBridge
+  - woodStack
+  - cageBarrels
+  - canopy
+  - cont0
+  - cont1
+  - cont2
+  - cont3
+  - cont4
+  - cont5
+  Lib:
+  - {fileID: 5454047481911501846, guid: ffbfac16823460b44937568f93f1370d, type: 3}
+  - {fileID: 7901741716693010492, guid: dc32bbaad23de584e89f857809ad238c, type: 3}
+  - {fileID: 8408309376259121520, guid: 0617851e07edba448b3f97e06d7d1a28, type: 3}
+  - {fileID: 2342950034134716674, guid: 06740113b4825f840a8ce668856254c3, type: 3}
+  - {fileID: 2145735026115514573, guid: 6e82200d0b2ae3c47984333b000f9b1a, type: 3}
+  - {fileID: 5673710366122810099, guid: 102d135ea96aa3042974d0428e6792a9, type: 3}
+  - {fileID: 59286511171910309, guid: c1148a6ff38de9c4bbc34f952549c7b3, type: 3}
+  - {fileID: 3712103298230484314, guid: 0cc98d095d47c5d4a90b81ad6548f98f, type: 3}
+  - {fileID: 2087608525769551407, guid: f95d0420d62aaa442b9775f132cbb519, type: 3}
+  - {fileID: 1341133597037892636, guid: ec1faf708f358c549b98c29775d2ce8e, type: 3}
+  - {fileID: 8013331467970495413, guid: d57a0f6f412ccc542b25a811004f37be, type: 3}
+  - {fileID: 3618111897002801981, guid: e6ab4c0324ffac040b3c614d0b374452, type: 3}
+  - {fileID: 6040020189969492144, guid: ff7f31acb7b0bab48a773b7e88592e3a, type: 3}
+  - {fileID: 8190503552028099132, guid: f6682696bb1b8bf4388ff78b41230246, type: 3}
+  - {fileID: 8136428365022718900, guid: 9cc9e1781ad6e014280e30b9d3f3ccad, type: 3}
+  - {fileID: 4686734414977774215, guid: 118557a6a52879642aea9ce91724e514, type: 3}
+  - {fileID: 2824459985674175904, guid: d7281994ad203a14b9bd6cbd3661997f, type: 3}
+  - {fileID: 3242281033347475928, guid: 8463ca1b1d02d484f979dbd33b02677c, type: 3}
+  - {fileID: 8978199247471671640, guid: a6ef24ba9c6737d4d9d87fd9ebd3d2a5, type: 3}
+  - {fileID: 6861812768923619748, guid: b28781106798a4342b2fb93d7421eee8, type: 3}
+  - {fileID: 6416595571422339894, guid: f2045051f8fbef946aeb833ba2794396, type: 3}
+  - {fileID: 1357531330560334097, guid: aeb0047619d956b43a858667a4bf9886, type: 3}
+  - {fileID: 4458879356237206516, guid: f945b276a18cd2344b02e8fc67b2e955, type: 3}
+  - {fileID: 680636651155497209, guid: 1bb649337af53074587fda2f05e4e0a7, type: 3}
+  - {fileID: 4211393264025925087, guid: 4e1389be535dde64f9caadb0905a00c7, type: 3}
+  - {fileID: 5774401028028678609, guid: 4589d20f3075af545ba4c95367018a43, type: 3}
+  - {fileID: 8490637239327389848, guid: 44ad7d2111331444fbc7a20a8555c22b, type: 3}
+  - {fileID: 4782828130976198612, guid: acd0b216df9051942a8c80c4deb029e2, type: 3}
+  - {fileID: 1026150094183421939, guid: 3db444d6033c2014481bbb1693316b90, type: 3}
+  - {fileID: 4046552384964963577, guid: 0ffa70260f10d9d4b983a2a40c385e87, type: 3}
+  - {fileID: 7597716906323786434, guid: 29130aba4a95a5c41b5447cb9c0880b5, type: 3}
+  - {fileID: 8097115300489029346, guid: fe5b20dbcdcf83249aa81a8df03b3271, type: 3}
+  - {fileID: 8460060969793275664, guid: 0e34a40c8281f5c4d9dba29d7c267140, type: 3}
+  - {fileID: 3408518586814620485, guid: 3917388cbf196f54facc6b8124090de5, type: 3}
+  - {fileID: 4319512782152990556, guid: 6720d2cf65c057c4ca9b488982f00ac9, type: 3}
+  - {fileID: 4063897981637517869, guid: 0f05edce91e062e41b255eb6687ba3b5, type: 3}
+  - {fileID: 2888772683134435110, guid: 5477b72687d9afc41b90ae2b5c3e583b, type: 3}
+  - {fileID: 2807533455641652487, guid: 706ed5d1574c6a04084975d0e8d640bb, type: 3}
+  - {fileID: 1290694293412823745, guid: d642e0f55a9b1da47b1250f4b0270b0d, type: 3}
+  - {fileID: 3392544953255907380, guid: 5df097366f19ffd43970bfa63fd0c392, type: 3}
+  - {fileID: 3247649777707758480, guid: 83e735e49dbf2034b9ef390e405e0c27, type: 3}
+  - {fileID: 859419222383163694, guid: 84af850c39a7dc04c873d98b81807026, type: 3}
+  - {fileID: 840024985540208883, guid: 64b01c27d1def664c8af014c746b7175, type: 3}

@@ -69,6 +69,7 @@ namespace PortBoss
             if (Has("-pb-settingstest")) StartCoroutine(SettingsTest());
             if (Has("-pb-storm")) StartCoroutine(StormTest());
             if (Arg("-pb-carrytest") != null) StartCoroutine(CarryTest(Arg("-pb-carrytest")));
+            if (Arg("-pb-mapshots") != null) StartCoroutine(MapShots(Arg("-pb-mapshots")));
             if (float.TryParse(Arg("-pb-weather"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var wsev)) StartCoroutine(ForceWeatherSoon(wsev));
             if (Has("-pb-forklifttest")) StartCoroutine(ForkliftTest());
         }
@@ -230,6 +231,32 @@ namespace PortBoss
                 if ((q - headC).sqrMagnitude < 0.19f * 0.19f) return false;            // head + hard hat
             }
             return true;
+        }
+
+        // Fixed cameras over the harbour map (same every build, for A/B), with the frame rate at each.
+        IEnumerator MapShots(string dir)
+        {
+            Directory.CreateDirectory(dir);
+            yield return WaitGame();
+            PortGame.I.ForceWeather(0);
+            yield return new WaitForSeconds(3f);
+            Player.CamOverride = true;
+            var cam = Camera.main;
+            foreach (var (name, pos, look) in new[] {
+                ("map-aerial", new Vector3(-40, 70, -90), new Vector3(30, 0, 90)),
+                ("map-berth", new Vector3(-14, 9, -24), new Vector3(10, 0, 20)),
+                ("map-east", new Vector3(20, 14, -10), new Vector3(140, 0, 60)),
+                ("map-west", new Vector3(10, 14, 40), new Vector3(-120, 0, 110)),
+                ("map-mouth", new Vector3(30, 18, 120), new Vector3(190, 0, 300)),
+                ("map-demo-angle", new Vector3(40, 17, 40), new Vector3(5, 0, 5)) })
+            {
+                cam.transform.position = pos; cam.transform.LookAt(look);
+                float t0 = Time.realtimeSinceStartup; int f0 = Time.frameCount;
+                yield return new WaitForSeconds(1.5f);
+                Debug.Log($"[PB] map shot {name}: fps={(Time.frameCount - f0) / (Time.realtimeSinceStartup - t0):0}");
+                yield return Snap(dir, name);
+            }
+            Player.CamOverride = false;
         }
 
         IEnumerator ForceWeatherSoon(float s) { yield return WaitGame(); PortGame.I.ForceWeather(s); }

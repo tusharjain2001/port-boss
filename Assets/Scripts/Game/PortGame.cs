@@ -207,6 +207,7 @@ namespace PortBoss
         // Host: how much is standing on the old pier end? Crates count 1, people 3 (+ what they carry).
         void WeighPierEnd()
         {
+            if (Skin.On) return; // the harbour's jetty is concrete: it doesn't sag
             var end = World.PierEnd;
             if (end == null) return;
             int load = 0;

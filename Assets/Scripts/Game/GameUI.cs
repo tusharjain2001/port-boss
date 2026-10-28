@@ -628,7 +628,7 @@ namespace PortBoss
                 y += lh * 1.25f;
             }
             Row(g.HasTrolley.Value, "Hand trolley: owned", "Hand trolley (6 crates)", PortGame.TrolleyPrice, g.BuyTrolleyRpc);
-            Row(g.PierRepaired.Value, "Pier: repaired", "Repair the pier", PortGame.RepairPrice, g.BuyRepairRpc);
+            if (!Skin.On) Row(g.PierRepaired.Value, "Pier: repaired", "Repair the pier", PortGame.RepairPrice, g.BuyRepairRpc);
             if (g.ForkliftForSale) Row(g.HasForklift.Value, "Forklift: in the yard", "Forklift + 2 pallets", PortGame.ForkliftPrice, g.BuyForkliftRpc);
             y += lh * 1.6f;
             if (NetworkManager.Singleton.IsServer)

@@ -287,7 +287,28 @@ namespace PortBoss.EditorTools
                     k.Jump = C("Jump_Loop"); k.Swim = C("Swim_Fwd_Loop"); k.SwimIdle = C("Swim_Idle_Loop"); k.Drive = C("Driving_Loop"); k.Push = C("Push_Loop");
                     Debug.Log($"[PBBuild] skin clips idle={k.Idle?.name} walk={k.Walk?.name} run={k.Run?.name} jump={k.Jump?.name} swim={k.Swim?.name}");
                 }
-                Debug.Log("[PBBuild] skin: Toon Harbor ON");
+                // Harbour map library: short name → pack prefab (HarbourMap.cs asks for these by name).
+                var lib = new System.Collections.Generic.List<(string, string)>
+                {
+                    ("slab", "Concrete Structure Elements/TH_Ground_Concrete_Base_01A_Regular"), ("slabB", "Concrete Structure Elements/TH_Ground_Concrete_Base_01B_Regular"),
+                    ("quayEdge", "Concrete Structure Elements/TH_Ground_Concrete_Block_Edge_01A"), ("quayCorner", "Concrete Structure Elements/TH_Ground_Concrete_Block_Corner_01A"),
+                    ("pile", "Concrete Structure Elements/TH_Ground_Concrete_Block_Pole_01A"),
+                    ("tetraA", "Props/TH_Concrete_Tetrapod_01A"), ("tetraB", "Props/TH_Concrete_Tetrapod_01B"),
+                    ("lighthouse", "Props/TH_Lighthouse_01A"), ("streetlight", "Road System/TH_Streetlight_01A"), ("streetlight2", "Props/TH_Streetlight_03A"),
+                    ("gantry", "Cranes/TH_Gantry_Crane_01A"), ("gantryB", "Cranes/TH_Gantry_Crane_01C"), ("harbourCrane", "Cranes/TH_Harbor_Crane_01B"), ("smallCrane", "Cranes/TH_Crane_01A"),
+                    ("whYellow", "Metal Structures/TH_Metal_Structure_Kit_Building_12A"), ("whWhite", "Metal Structures/TH_Metal_Structure_Kit_Building_12B"), ("whRed", "Metal Structures/TH_Metal_Structure_Kit_Building_12C"),
+                    ("whBlue", "Metal Structures/TH_Metal_Structure_Kit_Building_16A"), ("whBig", "Metal Structures/TH_Metal_Structure_Kit_Building_02A"), ("whGreen", "Metal Structures/TH_Metal_Structure_Kit_Building_14C"),
+                    ("office", "Concrete Buildings/TH_Concrete_Building_Kit_07A"), ("office2", "Concrete Buildings/TH_Concrete_Building_Kit_03A"), ("cabin", "Concrete Buildings/TH_Concrete_Building_Kit_11A"),
+                    ("truck", "Vehicles/TH_Truck_Cabin_01A"), ("truckB", "Vehicles/TH_Truck_Cabin_02B"), ("trailer", "Vehicles/TH_Truck_Trailer_01A"), ("forklift", "Vehicles/TH_Forklift_01B"),
+                    ("tug", "Ships/Ships/TH_Tugboat_01A"), ("tugB", "Ships/Ships/TH_Tugboat_04A"), ("freighter", "Ships/Ships/TH_Freighter_01A_Loaded"), ("freighterB", "Ships/Ships/TH_Freighter_03A"),
+                    ("tugBow", "Ships/Ship Elements/TH_Tugboat_Bow_01A"), ("tugStern", "Ships/Ship Elements/TH_Tugboat_Stern_01A"), ("tugBridge", "Ships/Ship Elements/TH_Tugboat_Bridge_01A"),
+                    ("woodStack", "Construction Materials/TH_Wood_Stack_02A"), ("cageBarrels", "Cargo/TH_Cage_Barrels_01A"), ("canopy", "Metal Structures/TH_Metal_Structure_Kit_Building_18B"),
+                };
+                for (int c = 0; c < 6; c++) lib.Add(("cont" + c, "Cargo/TH_Shipping_Container_02" + (char)('A' + c)));
+                var names = new System.Collections.Generic.List<string>(); var prefabs = new System.Collections.Generic.List<GameObject>();
+                foreach (var (n, pth) in lib) { var g = P(pth); if (g != null) { names.Add(n); prefabs.Add(g); } }
+                k.LibNames = names.ToArray(); k.Lib = prefabs.ToArray();
+                Debug.Log($"[PBBuild] skin: Toon Harbor ON, map library {names.Count}/{lib.Count}");
             }
             else Debug.Log("[PBBuild] skin: Toon Harbor not in the project, using own art");
             AssetDatabase.CreateAsset(k, path);

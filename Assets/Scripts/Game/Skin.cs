@@ -26,6 +26,16 @@ namespace PortBoss
         public GameObject Shed, Stall, Speedboat;
         public GameObject[] Containers, Cranes, Freighters, Warehouses;
 
+        [Header("Harbour map library (name → prefab)")]
+        public string[] LibNames;
+        public GameObject[] Lib;
+
         public static GameObject Pick(GameObject[] set, int i) => set == null || set.Length == 0 ? null : set[Mathf.Abs(i) % set.Length];
+        public static GameObject Get(string name)
+        {
+            if (I == null || I.LibNames == null) return null;
+            int i = System.Array.IndexOf(I.LibNames, name);
+            return i >= 0 ? I.Lib[i] : null;
+        }
     }
 }
