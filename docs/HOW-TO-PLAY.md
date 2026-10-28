@@ -6,6 +6,15 @@ Double-click **PortBoss.exe**. It opens windowed (drag the edge to resize, or pi
 You run a run-down fishing pier. Boats come in with a horn, dock, and **Captain Mags** shouts a countdown: **two minutes**. Get the fish crates off the boat and walk up to **the buyer** (striped stall on the quay, left of the pier). Press **E** at the buyer: his panel lists the crates you're carrying (and the trolley's load if it's parked next to the stall) with his offer for each. **Fresh $15, okay $12, spoiled $4** (spoiled fish turns green and gets flies).
 When the countdown runs out the boat **leaves with whatever is still aboard**. Three boats a day, about 8 minutes. At night you get the day's card and the **night shop**: the **hand trolley ($120)** holds 6 crates. Don't let go of it on the slipway.
 
+### The harbour fights back
+- **Captains and contracts:** each night the **contract board** lets the host book tomorrow's captain: **Mags** (steady, 2:00 at the pier) or **Bjorn** (+50% crates, +25% pay, only 1:30).
+- **More boats:** from day 2 a second boat docks on the **left** side of the pier while the first is still in.
+- **The old pier end** (past the gangplank) sags and creaks if you pile too much on it; crates slide off. The night shop sells a **pier repair ($80)**: fills the holes, braces the end.
+- **Flying crates** knock people over (they drop their stack). Crates that land hard get **damaged**: each knock costs 25% of the price.
+- **Gulls** go for crates nobody is watching; stand near your crates or lose fish.
+- **Marlowe**, the rival, does doughnuts off your pier in his speedboat. His wake rocks the boat and slides loose crates.
+- **Storms** (day 3, 5, ...): a siren gives you 90 seconds. Get crates into the **shed** or **tie them down (F)** before the wind sweeps them off the pier.
+
 Fell in? You **swim** (you never sink). Paddle to a **ladder** (pier sides, quay front) and press **E** to climb out, or swim up the slipway. While swimming, **E** tows one floating crate and **Q** lets it go.
 
 ## Controls (rebind in Settings > Controls)
@@ -17,7 +26,7 @@ Fell in? You **swim** (you never sink). Paddle to a **ladder** (pier sides, quay
 | E or right click | X | grab a crate, stack more (max 5); sell at the buyer; tow / climb when swimming |
 | Q | B | drop the top crate |
 | R or left click | RT | throw the top crate |
-| F | RB | push / let go of the trolley |
+| F | RB | push / let go of the trolley; tie down / untie a crate |
 | H | | hide the controls panel |
 | Esc | Start | pause (settings, invite friends, quit) |
 
