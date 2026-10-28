@@ -19,7 +19,7 @@ namespace PortBoss
 
         enum Screen { Menu, Join, Settings, Playing }
         Screen screen = Screen.Menu;
-        bool paused, showHelp = Settings.ControlsHint;
+        bool paused, showHelp;
         string lanIp = "127.0.0.1";
         Steamworks.Data.Lobby[] lobbies = new Steamworks.Data.Lobby[0];
         bool searching;
@@ -51,6 +51,7 @@ namespace PortBoss
         void Awake()
         {
             I = this;
+            showHelp = Settings.ControlsHint;
             // Graphics A/B switches for before/after comparisons (test runs only).
             var args = System.Environment.GetCommandLineArgs();
             bool Arg(string a) => System.Array.IndexOf(args, a) >= 0;
@@ -143,6 +144,8 @@ namespace PortBoss
         void Update()
         {
             Session.Tick();
+            // Test bot: sell everything after a moment so captures show the panel (here, not in OnGUI: batchmode has no GUI).
+            if (buyerOpen && AutoRun.Active && Time.unscaledTime - buyerOpenedAt > 1.5f) { buyerOpen = false; Player.Local?.RequestSellAll(); }
             var g = PortGame.I;
             if (g != null) ApplyLight(Mathf.Clamp01(g.DayT.Value / PortGame.DayLength), g.Phase.Value == PortGame.Ph.Night);
             else ApplyLight(0.8f, false); // the title scene sits in golden hour
@@ -481,8 +484,6 @@ namespace PortBoss
             var pl = Player.Local;
             var list = pl != null ? pl.SellableCrates() : new List<Crate>();
             if (pl == null || !pl.NearBuyer || list.Count == 0) { buyerOpen = false; return; }
-            // Test bot: sell everything after a moment so captures show the panel.
-            if (AutoRun.Active && Time.unscaledTime - buyerOpenedAt > 1.5f) { pl.RequestSellAll(); buyerOpen = false; return; }
 
             float pw = 640 * S, rowH = 52 * S, ph = 210 * S + rowH * list.Count;
             var r = new Rect(W - pw - 40 * S, (H - ph) / 2, pw, ph);

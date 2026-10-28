@@ -36,7 +36,8 @@ Reference shots of the look Manan liked: `Desktop/Port Boss/proof/overnight/cp1-
 - **Post (LDR grading, as cp2):** ACES tonemap, bloom 0.45 (threshold 1.05), saturation +8, contrast +8, white balance +12 (warm), vignette 0.22. SSAO subtle (intensity 0.6, radius 0.4), only if the A/B against cp2 says it helps.
 
 ## 4. Proportions
-- **Crate (fish):** 0.55 m cube, bevelled, 2 slat bands per side with dark gaps, a lip at the top, fish + ice visible from above, two rope handles. Reads as a wooden dock crate from 6 m. (The Kenney "survival-kit box" looks like cardboard: not used. Our crates are code-built.)
+- **Crate (fish), built in-engine:** 0.55 m. Four dark corner posts `#5B4330` + a dark top rim frame = the "darker edge frame". Three horizontal slats per side in warm wood `#B88A5A` (±5% per-slat jitter) with 4 cm dark gaps, so it reads as slatted wood, never cardboard. Open top: a bed of ice `#E6F0F2` with 4–5 fish lying across it (silver-blue `#A9C3CF` belly, darker back `#55707F`, little tail fins). Rope handles `#C9B07A` on the two short ends. A small cream stencil label on one side. Spoiling turns the fish olive `#6B7A3A` and the ice grey; damage knocks slats off.
+- **Empty crates (yard dressing):** the same crate with a closed lid of three boards and a stencil band, stacked by the shed.
 - **Pier:** 6 m wide, planks 0.30 × 0.12 m with 4 cm gaps, slight random height (±1 cm) and yaw (±0.6°) jitter for a hand-built feel, missing planks as now. Posts every 3 m with the wet band. Rope coil and bollards on the boat side.
 - **Character (stylised dockworker, OPEN ITEM, see §6):** about 1.8 m. Head ≈ 1/4 of height (chunky). Big mitts and boots, short thick limbs. Jumper in the player colour, navy overalls, **hi-vis vest**, knit beanie with pompom. Readable from the chase cam at 6 m: silhouette plus beanie colour tells players apart.
 - **Boat:** 4.6 × 12 m, chunky wheelhouse, rounded bow (bevelled wedge, not a rotated cube), rust stripe, tyre fenders on the pier side.
@@ -49,7 +50,8 @@ Reference shots of the look Manan liked: `Desktop/Port Boss/proof/overnight/cp1-
 | Buyer stall (table, awning, buyer figure) | primitives | **Keep** table + awning; **redo** buyer figure in the same style as the player character |
 | Shed | boxes | **Keep**; add a door frame, window, corrugated roof as stripes |
 | Warehouses on the quay | boxes | **Keep**; add roof overhang, doors |
-| Fish crate | code-built slatted box | **Redo** per §4 (bevel, lip, handles, ice) |
+| Fish crate | code-built slatted box | **Redo** per §4 (frame posts + rim, gapped slats, rope handles, ice + fish, stencil) |
+| Empty crates by the shed | plain boxes | **Redo** as lidded slatted crates |
 | Boat | boxes + rotated-cube bow | **Redo bow**, add fenders and a net pile; keep the rest |
 | Gangplank | plank + cleats | **Keep** |
 | Trolley | primitive flat-bed | **Keep**; bevel, rubber wheels as cylinders |

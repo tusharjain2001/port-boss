@@ -53,7 +53,7 @@ namespace PortBoss
             g.transform.localPosition = pos;
             g.transform.localRotation = rot;
             g.transform.localScale = size;
-            if (!collider) Object.Destroy(g.GetComponent<Collider>());
+            if (!collider) Object.DestroyImmediate(g.GetComponent<Collider>()); // not deferred: a parent rigidbody would see it for a frame
             g.GetComponent<Renderer>().sharedMaterial = Get(c, smooth);
             return g;
         }

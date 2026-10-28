@@ -26,10 +26,11 @@ namespace PortBoss
         Rigidbody rb;
         Collider col;
         Transform vis;
-        Renderer fishR;
+        Renderer[] spoilers; // [0] = ice, rest = fish
         MaterialPropertyBlock mpb;
         ParticleSystem flies;
         float lastHit, fresh = 1f;
+        bool fastLogged;
         bool countedSea;
 
         void Awake()
@@ -40,27 +41,13 @@ namespace PortBoss
             vis = new GameObject("vis").transform;
             vis.SetParent(transform, false);
             float s = Size;
-            Art.Box(vis, Vector3.zero, new Vector3(s * 0.96f, s * 0.9f, s * 0.96f), Art.Wood, false, "crate_body");
-            for (int i = -1; i <= 1; i += 2)
-            {
-                Art.Box(vis, new Vector3(0, i * s * 0.22f, s * 0.49f), new Vector3(s, s * 0.14f, 0.03f), Art.WoodDark, false, "slat");
-                Art.Box(vis, new Vector3(0, i * s * 0.22f, -s * 0.49f), new Vector3(s, s * 0.14f, 0.03f), Art.WoodDark, false, "slat");
-                Art.Box(vis, new Vector3(s * 0.49f, i * s * 0.22f, 0), new Vector3(0.03f, s * 0.14f, s), Art.WoodDark, false, "slat");
-                Art.Box(vis, new Vector3(-s * 0.49f, i * s * 0.22f, 0), new Vector3(0.03f, s * 0.14f, s), Art.WoodDark, false, "slat");
-            }
-            // Fish on ice poking out of the top: this is what visibly spoils.
+            spoilers = CrateLook.Build(vis, s, true, Random.Range(0, 1 << 20));
             // Rope tie-down (shown when tied).
             ropes = new GameObject("ropes");
             ropes.transform.SetParent(vis, false);
             Art.Box(ropes.transform, Vector3.zero, new Vector3(s * 1.04f, s * 1.04f, 0.05f), Art.Hex("#c9b07a"), false, "rope");
             Art.Box(ropes.transform, Vector3.zero, new Vector3(0.05f, s * 1.04f, s * 1.04f), Art.Hex("#c9b07a"), false, "rope");
             ropes.SetActive(false);
-            fishR = Art.Box(vis, new Vector3(0, s * 0.47f, 0), new Vector3(s * 0.84f, 0.06f, s * 0.84f), Art.Fish, false, "fish", 0.6f).GetComponent<Renderer>();
-            for (int i = 0; i < 3; i++)
-            {
-                var f = Art.Prim(PrimitiveType.Capsule, vis, new Vector3(-0.14f + i * 0.14f, s * 0.52f, 0), Quaternion.Euler(90, 0, 15 - i * 15), new Vector3(0.09f, 0.16f, 0.06f), Art.Fish, false, "fishy", 0.7f);
-                f.GetComponent<Renderer>().sharedMaterial = fishR.sharedMaterial;
-            }
         }
 
         public override void OnNetworkSpawn()
@@ -126,6 +113,7 @@ namespace PortBoss
             if (!IsServer || !IsSpawned || Attached.Value) return;
             var game = PortGame.I;
             var p = rb.position;
+            if (!fastLogged && rb.linearVelocity.sqrMagnitude > 1600f) { fastLogged = true; Debug.Log($"[PB] FAST crate {NetworkObjectId} at {p:F1} v={rb.linearVelocity:F0} kin={rb.isKinematic} parent={(transform.parent ? transform.parent.name : "-")}"); }
 
             // Buoyancy + drift: crates float, bob and slowly drift out to sea.
             float depth = Water.Height(p) - (p.y - Size / 2);
@@ -174,6 +162,7 @@ namespace PortBoss
 
         void OnCollisionEnter(Collision c)
         {
+            if (IsServer && c.relativeVelocity.sqrMagnitude > 1600f) Debug.Log($"[PB] FAST hit crate {NetworkObjectId} by {c.collider.name} ({(c.collider.attachedRigidbody ? c.collider.attachedRigidbody.name : "static")}) rel={c.relativeVelocity:F0}");
             if (!IsServer || c.relativeVelocity.sqrMagnitude < 9f || Time.time - lastHit < 0.15f) return;
             lastHit = Time.time;
             float speed = c.relativeVelocity.magnitude;
@@ -198,15 +187,20 @@ namespace PortBoss
         void LateUpdate()
         {
             float f = Fresh.Value;
-            mpb.SetColor("_BaseColor", Color.Lerp(Art.Rot, Art.Fish, Mathf.SmoothStep(0, 1, (f - 0.1f) / 0.7f)));
-            fishR.SetPropertyBlock(mpb);
-            foreach (Transform c in vis)
-                if (c.name == "fishy") c.GetComponent<Renderer>().SetPropertyBlock(mpb);
+            // Spoiling: fish go olive, the ice goes grey.
+            float fresh01 = Mathf.SmoothStep(0, 1, (f - 0.1f) / 0.7f);
+            for (int i = 0; i < spoilers.Length; i++)
+            {
+                spoilers[i].GetPropertyBlock(mpb);
+                var baseC = spoilers[i].sharedMaterial.GetColor("_BaseColor");
+                mpb.SetColor("_BaseColor", i == 0 ? Color.Lerp(Art.Hex("#9a9a88"), baseC, fresh01) : Color.Lerp(Art.Rot, baseC, fresh01));
+                spoilers[i].SetPropertyBlock(mpb);
+            }
 
             // Broken slats show the damage.
             int broken = 0;
             foreach (Transform ch in vis)
-                if (ch.name == "slat") ch.gameObject.SetActive(broken++ >= Damage.Value * 2);
+                if (ch.name == "slat") ch.gameObject.SetActive(broken++ >= Damage.Value * 3);
 
             bool spoiled = f < Spoiled;
             if (spoiled && flies == null) flies = MakeFlies();

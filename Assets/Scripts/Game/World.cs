@@ -76,7 +76,15 @@ namespace PortBoss
             row.transform.localRotation = Quaternion.Euler(0, 25, 8);
             Art.Box(row.transform, new Vector3(0, 0.45f, 0), new Vector3(1.05f, 0.25f, 0.95f), Art.Hex("#4a6a7a"), false, "rowboat_stripe");
             for (int i = 0; i < 6; i++)
-                Art.Box(t, new Vector3(12.4f + (i % 2) * 0.62f, 0.3f + (i / 2) * 0.6f, -12.8f), new Vector3(0.58f, 0.58f, 0.58f), Color.Lerp(Art.Wood, Art.WoodDark, i * 0.13f), true, "empty_crate");
+            {
+                // Lidded empty crates stacked by the shed (same build as the fish crates).
+                var ec = new GameObject("empty_crate").transform;
+                ec.SetParent(t, false);
+                ec.localPosition = new Vector3(12.4f + (i % 2) * 0.62f, 0.3f + (i / 2) * 0.6f, -12.8f);
+                ec.localRotation = Quaternion.Euler(0, (i * 37) % 9 - 4, 0);
+                ec.gameObject.AddComponent<BoxCollider>().size = Vector3.one * 0.58f;
+                CrateLook.Build(ec, 0.58f, false, i);
+            }
             Lamp(t, new Vector3(-15.5f, 0, -1.5f));
             for (int x = -40; x < 60; x += 3)
                 Art.Box(t, new Vector3(x, 0.55f, -24), new Vector3(2.9f, 1.1f, 0.08f), Art.WoodDark, true, "fence");
