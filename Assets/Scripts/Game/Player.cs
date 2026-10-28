@@ -117,6 +117,18 @@ namespace PortBoss
         void Animate(float speed)
         {
             float dt = Time.deltaTime;
+            if (knockT >= 0)
+            {
+                // Knocked over: tip backwards, lie there a moment, scramble up.
+                knockT += dt / 1.2f;
+                float fall = knockT < 0.25f ? knockT / 0.25f : knockT < 0.7f ? 1f : 1f - (knockT - 0.7f) / 0.3f;
+                torso.localRotation = Quaternion.Euler(-75f * fall, 0, 10f * fall);
+                legL.localRotation = Quaternion.Euler(-40f * fall, 0, 0); legR.localRotation = Quaternion.Euler(-25f * fall, 0, 0);
+                armL.localRotation = Quaternion.Euler(-150f * fall, 0, -30f * fall); armR.localRotation = Quaternion.Euler(-150f * fall, 0, 30f * fall);
+                model.localPosition = new Vector3(0, -0.45f * fall, -0.3f * fall);
+                if (knockT >= 1) knockT = -1;
+                return;
+            }
             if (transform.position.y < Water.Height(transform.position) - SwimDepth + 0.35f)
             {
                 // Swimming: body tipped forward, arms paddling, legs kicking.
@@ -234,7 +246,7 @@ namespace PortBoss
 
             if (!IsOwner || !IsSpawned) return;
             float dt = Time.deltaTime;
-            var input = GameUI.InputBlocked ? new In() : ReadInput();
+            var input = GameUI.InputBlocked || Time.time < stunnedUntil ? new In() : ReadInput();
 
             yaw += input.look.x;
             pitch = Mathf.Clamp(pitch - input.look.y, -25f, 65f);
@@ -301,6 +313,29 @@ namespace PortBoss
 
             // Safety net: fell through the world somehow.
             if (transform.position.y < -12f) { swimming = false; Teleport(World.Spawn, 0); }
+        }
+
+        // ---------- knocked over ----------
+        float stunnedUntil = -1, knockT = -1;
+
+        // Server: a flying crate hit this player.
+        public void Knock(Vector3 crateVel)
+        {
+            var dir = crateVel; dir.y = 0;
+            KnockedRpc(dir.normalized * Mathf.Min(6f, dir.magnitude * 0.5f));
+        }
+
+        [Rpc(SendTo.Everyone)]
+        void KnockedRpc(Vector3 push)
+        {
+            knockT = 0;
+            Sfx.Play("thud", transform.position + Vector3.up, 1f, 0.7f);
+            if (!IsOwner) return;
+            stunnedUntil = Time.time + 1.2f;
+            hv = push; vy = 3.5f;
+            if (Carrying > 0) DropAllRpc();
+            Shake(0.6f);
+            GameUI.Toast(PortGame.Pick("Oof! Right in the crate.", "Ow! Who threw that?!", "Down you go!"));
         }
 
         // ---------- swimming ----------

@@ -17,7 +17,8 @@ namespace PortBoss
 
         public bool InSea { get; private set; }
         public const float FreshAt = 0.75f;
-        public int Value => Fresh.Value >= FreshAt ? 15 : Fresh.Value >= Spoiled ? 12 : 4;
+        public NetworkVariable<byte> Damage = new(0); // hard landings: each level knocks off a slat and 25% of the price
+        public int Value => Mathf.Max(1, Mathf.RoundToInt((Fresh.Value >= FreshAt ? 15 : Fresh.Value >= Spoiled ? 12 : 4) * (1f - 0.25f * Damage.Value)));
         public string Grade => Fresh.Value >= FreshAt ? "fresh" : Fresh.Value >= Spoiled ? "okay" : "spoiled";
         public bool IsSpoiled => Fresh.Value < Spoiled;
 
@@ -157,7 +158,12 @@ namespace PortBoss
         {
             if (!IsServer || c.relativeVelocity.sqrMagnitude < 9f || Time.time - lastHit < 0.15f) return;
             lastHit = Time.time;
-            ThudRpc(transform.position, Mathf.Clamp01(c.relativeVelocity.magnitude / 10f));
+            float speed = c.relativeVelocity.magnitude;
+            ThudRpc(transform.position, Mathf.Clamp01(speed / 10f));
+            // A crate flying into someone knocks them off their feet.
+            var pl = c.collider.GetComponentInParent<Player>();
+            if (pl != null) { if (speed > 6f) pl.Knock(rb.linearVelocity); return; }
+            if (speed > 7.5f && Damage.Value < 3) Damage.Value++;
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -178,6 +184,11 @@ namespace PortBoss
             fishR.SetPropertyBlock(mpb);
             foreach (Transform c in vis)
                 if (c.name == "fishy") c.GetComponent<Renderer>().SetPropertyBlock(mpb);
+
+            // Broken slats show the damage.
+            int broken = 0;
+            foreach (Transform ch in vis)
+                if (ch.name == "slat") ch.gameObject.SetActive(broken++ >= Damage.Value * 2);
 
             bool spoiled = f < Spoiled;
             if (spoiled && flies == null) flies = MakeFlies();

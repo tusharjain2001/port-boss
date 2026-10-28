@@ -475,7 +475,7 @@ namespace PortBoss
                 int v = PortGame.I != null ? PortGame.I.PriceFor(c) : c.Value; total += v;
                 var col = c.Grade == "fresh" ? new Color(0.7f, 1f, 0.75f) : c.Grade == "okay" ? Color.white : new Color(0.8f, 0.85f, 0.45f);
                 string where = c.transform.parent == pl.transform ? "" : "  (trolley)";
-                Label(new Rect(r.x + 26 * S, y, pw, rowH), $"Fish crate · {c.Grade} {Mathf.RoundToInt(c.Fresh.Value * 100)}%{where}", st, col);
+                Label(new Rect(r.x + 26 * S, y, pw, rowH), $"Fish crate · {c.Grade} {Mathf.RoundToInt(c.Fresh.Value * 100)}%{(c.Damage.Value > 0 ? " · damaged" : "")}{where}", st, col);
                 Label(new Rect(r.xMax - 260 * S, y, 100 * S, rowH), $"${v}", new GUIStyle(st) { alignment = TextAnchor.MiddleRight }, new Color(1f, 0.88f, 0.4f));
                 if (Button(new Rect(r.xMax - 140 * S, y + 6 * S, 110 * S, rowH - 12 * S), "Sell")) pl.RequestSell(c);
                 y += rowH;
