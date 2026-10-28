@@ -82,6 +82,8 @@ namespace PortBoss
             if (viaNet && nt != null && nt.CanCommitToTransform) nt.Teleport(pos, transform.rotation, transform.localScale);
         }
 
+        public void DebugTeleport(Vector3 p, float yawDeg) => Teleport(p, yawDeg);
+
         static In ReadInput()
         {
             if (BotInput != null) return BotInput();

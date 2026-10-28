@@ -56,6 +56,41 @@ namespace PortBoss
             var dir = Arg("-pb-shots");
             if (dir != null) StartCoroutine(Shots(dir, float.TryParse(Arg("-pb-shots", 2), out var iv) ? iv : 5f));
             if (float.TryParse(Arg("-pb-night"), out var n)) StartCoroutine(ForceNight(n));
+            if (Has("-pb-trolleytest")) StartCoroutine(TrolleyTest());
+        }
+
+        IEnumerator TrolleyTest()
+        {
+            while (PortGame.I == null || Player.Local == null) yield return null;
+            yield return new WaitForSeconds(1);
+            var g = PortGame.I;
+            var t = Instantiate(ui.TrolleyPrefab, new Vector3(-12, 0.4f, -5), Quaternion.Euler(0, 90, 0)).GetComponent<Trolley>();
+            t.NetworkObject.Spawn(true);
+            yield return new WaitForSeconds(1);
+            for (int k = 0; k < 3; k++) g.SpawnCrate(t.transform.position + new Vector3(0, 1.2f + k * 0.7f, 0), 1f);
+            yield return new WaitForSeconds(2.5f);
+            Debug.Log($"[PB] trolley test: load={t.transform.GetComponentsInChildren<Crate>().Length} at {t.transform.position:F2}");
+            // Push: stand behind it, walk +x for 3 s.
+            Player.Local.DebugTeleport(t.transform.position - t.transform.forward * 1.4f, 90);
+            yield return new WaitForSeconds(0.3f);
+            t.SetPusher(Player.Local);
+            var start = t.transform.position;
+            Player.BotInput = () => new Player.In { hasWorldMove = true, worldMove = Vector3.right };
+            yield return new WaitForSeconds(3f);
+            Player.BotInput = () => new Player.In();
+            Debug.Log($"[PB] trolley test: pushed {Vector3.Distance(start, t.transform.position):F1} m, load={t.transform.GetComponentsInChildren<Crate>().Length}, tilt={Vector3.Angle(t.transform.up, Vector3.up):0}");
+            // Let go at the top of the slipway, facing downhill.
+            t.SetPusher(null);
+            var rb = t.GetComponent<Rigidbody>();
+            rb.position = new Vector3(-10, 0.45f, 0.6f); rb.rotation = Quaternion.identity; rb.linearVelocity = Vector3.zero;
+            Player.Local.DebugTeleport(new Vector3(-10, 0.3f, -3f), 0);
+            for (int k = 0; k < 12; k++)
+            {
+                yield return new WaitForSeconds(0.5f);
+                if (t == null || !t.IsSpawned) break;
+                Debug.Log($"[PB] trolley test: rolling at {t.transform.position:F2} v={rb.linearVelocity.magnitude:F1}");
+            }
+            Debug.Log($"[PB] trolley test end: hasTrolley={g.HasTrolley.Value} inSea={g.InSea.Value}");
         }
 
         IEnumerator ForceNight(float after)
