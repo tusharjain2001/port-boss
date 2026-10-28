@@ -151,13 +151,19 @@ namespace PortBoss
                 if (knockT >= 1) knockT = -1;
             }
             else if (swimming) { slot = speed > 0.3f ? CharAnim.Slot.Swim : CharAnim.Slot.SwimIdle; model.localPosition = new Vector3(0, SwimModelY, 0); }
+            // Falling in: a second of arm-waving panic (every peer sees it) before they start swimming.
+            if (swimming && !wasSwimmingAnim) flailUntil = Time.time + 1.3f;
+            wasSwimmingAnim = swimming;
+            anim.Flail = swimming && Time.time < flailUntil;
+            if (anim.Flail) { slot = CharAnim.Slot.SwimIdle; model.localPosition = new Vector3(0, SwimModelY + 0.25f + Mathf.Abs(Mathf.Sin(Time.time * 9f)) * 0.15f, 0); }
             else slot = !grounded ? CharAnim.Slot.Jump : Pushing ? CharAnim.Slot.Push : speed < 0.3f ? CharAnim.Slot.Idle : speed < 4.6f ? CharAnim.Slot.Walk : CharAnim.Slot.Run;
             if (throwT >= 0 && (throwT += dt / 0.45f) >= 1) throwT = -1;
             anim.Carry = Carrying > 0 && !swimming && Driving == null && knockT < 0;
             anim.Throw01 = throwT;
             anim.Tick(slot, speed);
         }
-        const float SwimModelY = 1.1f; // lifts the swim clip so head and shoulders stay above the surface
+        const float SwimModelY = 1.1f;
+        bool wasSwimmingAnim; float flailUntil; // lifts the swim clip so head and shoulders stay above the surface
 
         void Animate(float speed)
         {
@@ -443,7 +449,8 @@ namespace PortBoss
             Shake(0.25f);
             if (Carrying > 0) DropAllRpc();
             if (Pushing) PushRpc(false);
-            GameUI.Toast("Splash! Swim to a ladder (E) or the slipway.");
+            GameUI.Toast("SPLOSH! Swim to a ladder (E) or the slipway.");
+            GameUI.Punch(transform.position, 0.9f);
         }
 
         void LeaveWater()

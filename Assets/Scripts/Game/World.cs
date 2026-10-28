@@ -44,7 +44,7 @@ namespace PortBoss
             if (Art.Cloud != null) Clouds();
             Speedboat.Create();
             // Sea floor: the transparent toon water needs something below it (else the sky's ground colour shows through).
-            if (Skin.On) Art.Box(Root, new Vector3(0, -9f, 300), new Vector3(1400, 1, 1400), Art.Hex("#1f4f63"), false, "seabed");
+            if (Skin.On) Art.Box(Root, new Vector3(0, -24f, 300), new Vector3(1400, 1, 1400), Art.Hex("#123447"), false, "seabed"); // demo depth
             WaterRenderers.Clear();
             WaterRenderers.Add(Water.Create(new Vector3(0, 0, 80), 280, 112).GetComponent<Renderer>());
             // Far sea to the horizon (flat, slightly below the wave mean).

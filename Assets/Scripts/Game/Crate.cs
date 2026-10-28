@@ -187,7 +187,7 @@ namespace PortBoss
         }
 
         [Rpc(SendTo.ClientsAndHost)]
-        void SplashRpc(Vector3 p) { Sfx.Play("splash", p, 0.9f); Fx.Splash(p, 0.7f); }
+        void SplashRpc(Vector3 p) { Sfx.Play("splash", p, 0.9f); Fx.Splash(p, 0.7f); GameUI.Punch(p, 0.5f); }
 
         // ---- visuals (every peer) ----
         void LateUpdate()

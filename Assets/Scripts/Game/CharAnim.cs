@@ -19,6 +19,7 @@ namespace PortBoss
         public bool Carry;            // set by Player each frame
         public Transform Facing;      // the player (the model itself is turned to face the pack's way)
         public float Throw01 = -1;
+        public bool Flail;            // just fell in the water
 
         void LateUpdate() => Arms(Carry, Throw01);
 
@@ -66,6 +67,15 @@ namespace PortBoss
         {
             if (armLU == null || armRU == null) return;
             var t = Facing != null ? Facing : transform;
+            if (Flail)
+            {
+                float w = Mathf.Sin(Time.time * 14f);
+                Aim(armLU, armLL, t.up - t.right * 0.6f + t.forward * 0.35f * w);
+                Aim(armLL, armLH, t.up - t.right * 0.3f * w);
+                Aim(armRU, armRL, t.up + t.right * 0.6f - t.forward * 0.35f * w);
+                Aim(armRL, armRH, t.up + t.right * 0.3f * w);
+                return;
+            }
             if (carry)
             {
                 Aim(armLU, armLL, t.forward * 0.75f - t.up * 0.55f - t.right * 0.12f);

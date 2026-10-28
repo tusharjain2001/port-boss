@@ -187,6 +187,7 @@ namespace PortBoss
             if (g != null) ApplyLight(Mathf.Clamp01(g.DayT.Value / PortGame.DayLength), g.Phase.Value == PortGame.Ph.Night);
             else ApplyLight(0.8f, false); // the title scene sits in golden hour
             ApplyStormLight();
+            UpdatePunch();
             amb.volume = 0.35f * (1f + Storm.Level * 1.3f) * Settings.Ambience; // the sea gets louder as it gets rougher
             SettingsKeyCapture();
             music.Play(MusicSlot(g));
@@ -297,6 +298,30 @@ namespace PortBoss
         // ---------- static feeds from gameplay ----------
         public static void Shout(string who, string s, float secs) { shoutWho = who; shout = s; shoutUntil = Time.unscaledTime + secs; }
         public static void Toast(string s) { toast = s; toastUntil = Time.unscaledTime + 2.5f; }
+
+        // A beat on a big splash: the camera punches in for ~1.4 s; solo play also slows time a moment (in co-op
+        // that would slow everyone, so it's camera-only). Three splashes inside 2 s = a wipeout, the bigger beat.
+        static float punchT = -1, punchStrength, lastPunch = -99, splashWindow, savedTimeScale = 1;
+        static int splashCount;
+        public static void Punch(Vector3 p, float strength)
+        {
+            if (I == null || I.cam == null || (p - I.cam.transform.position).sqrMagnitude > 35f * 35f) return;
+            if (Time.unscaledTime - splashWindow > 2f) { splashWindow = Time.unscaledTime; splashCount = 0; }
+            if (++splashCount >= 3) strength = 1f;
+            if (punchT >= 0) { punchStrength = Mathf.Max(punchStrength, strength); return; }
+            if (Time.unscaledTime - lastPunch < 5f && strength < 1f) return;
+            lastPunch = Time.unscaledTime; punchT = 0; punchStrength = strength;
+            var nm = NetworkManager.Singleton;
+            if (nm != null && nm.IsServer && nm.ConnectedClientsIds.Count <= 1 && !I.paused) { savedTimeScale = Time.timeScale; Time.timeScale = savedTimeScale * Mathf.Lerp(0.6f, 0.3f, strength); }
+        }
+
+        void UpdatePunch()
+        {
+            if (punchT < 0 || cam == null) return;
+            punchT += Time.unscaledDeltaTime / 1.4f;
+            cam.fieldOfView = Settings.Fov - 10f * punchStrength * Mathf.Sin(Mathf.Clamp01(punchT) * Mathf.PI);
+            if (punchT >= 1) { punchT = -1; cam.fieldOfView = Settings.Fov; if (Time.timeScale < savedTimeScale) Time.timeScale = savedTimeScale; }
+        }
         public static void Popup(Vector3 p, string s, Color c) => pops.Add(new Pop { p = p, s = s, c = c, t0 = Time.unscaledTime });
 
         // ---------- drawing ----------
@@ -457,6 +482,14 @@ namespace PortBoss
             if (g != null && Settings.Hud)
             {
                 Label(new Rect(W - 420 * S, 18 * S, 400 * S, 80 * S), $"${g.Money.Value}", new GUIStyle(big) { alignment = TextAnchor.UpperRight }, new Color(1f, 0.88f, 0.4f));
+                // One shared tin for the whole crew (everyone earns the same), and the goalpost it's saving toward.
+                var tiny = new GUIStyle(small) { alignment = TextAnchor.UpperRight, fontSize = Mathf.RoundToInt(18 * S) };
+                Label(new Rect(W - 420 * S, 92 * S, 400 * S, 26 * S), Player.All.Count > 1 ? $"crew tin · shared by all {Player.All.Count}" : "crew tin", tiny, new Color(1f, 0.92f, 0.7f, 0.8f));
+                float goal = Mathf.Clamp01(g.Money.Value / (float)PortGame.NextStageCost);
+                var bar = new Rect(W - 300 * S, 122 * S, 280 * S, 12 * S);
+                GUI.DrawTexture(bar, Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(0, 0, 0, 0.45f), 0, 4 * S);
+                GUI.DrawTexture(new Rect(bar.x, bar.y, Mathf.Max(8 * S, bar.width * goal), bar.height), Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(0.98f, 0.79f, 0.38f, 0.95f), 0, 4 * S);
+                Label(new Rect(W - 420 * S, 136 * S, 400 * S, 26 * S), $"next: {PortGame.NextStageName}  ${g.Money.Value} / ${PortGame.NextStageCost}", tiny, new Color(1f, 0.92f, 0.7f, 0.85f));
                 float u = g.DayT.Value / PortGame.DayLength;
                 string tod = g.Phase.Value == PortGame.Ph.Night ? "night" : u < 0.33f ? "afternoon" : u < 0.7f ? "late afternoon" : "sunset";
                 Label(new Rect(24 * S, 18 * S, 600 * S, 50 * S), $"DAY {g.DayNum.Value} · {tod}", new GUIStyle(mid) { alignment = TextAnchor.UpperLeft }, new Color(1f, 0.95f, 0.85f));
@@ -578,7 +611,11 @@ namespace PortBoss
             Label(new Rect(x, y, pw, lh), $"Crates sold:  {g.Sold.Value}" + (g.SpoiledSold.Value > 0 ? $"  ({g.SpoiledSold.Value} spoiled)" : ""), st, Color.white); y += lh;
             Label(new Rect(x, y, pw, lh), $"Crates in the sea:  {g.InSea.Value}", st, new Color(0.7f, 0.9f, 1f)); y += lh;
             Label(new Rect(x, y, pw, lh), $"Went back out on the boats:  {g.LeftAboard.Value}", st, Color.white); y += lh;
-            Label(new Rect(x, y, pw, lh), $"Cash in the tin:  ${g.Money.Value}", st, new Color(1f, 0.88f, 0.4f)); y += lh * 1.4f;
+            Label(new Rect(x, y, pw, lh), $"Crew tin:  ${g.Money.Value}" + (Player.All.Count > 1 ? $"  (shared, same for all {Player.All.Count})" : ""), st, new Color(1f, 0.88f, 0.4f)); y += lh;
+            var note = new GUIStyle(small) { alignment = TextAnchor.MiddleLeft, fontSize = Mathf.RoundToInt(20 * S) };
+            var tm = g.Tomorrow;
+            Label(new Rect(x, y, pw - 80 * S, 30 * S), $"Saving for: {PortGame.NextStageName}  ${g.Money.Value} / ${PortGame.NextStageCost}", note, new Color(1f, 0.92f, 0.75f, 0.9f)); y += 30 * S;
+            Label(new Rect(x, y, pw - 80 * S, 30 * S), $"Tomorrow: Captain {g.NextCaptain[0]}{g.NextCaptain.Substring(1).ToLowerInvariant()}, {tm.boats} boats, first one at {Mathf.FloorToInt(tm.first / 60)}:{Mathf.FloorToInt(tm.first % 60):00}", note, new Color(1f, 0.92f, 0.75f, 0.9f)); y += 30 * S * 1.4f;
 
             Label(new Rect(r.x, y, pw, lh), "NIGHT SHOP", mid, new Color(1f, 0.8f, 0.5f)); y += lh * 1.1f;
             // One row per item: label left of the Buy button, never under it.

@@ -19,6 +19,13 @@ namespace PortBoss
             new (float, byte)[] { (5f, 0), (80f, 1), (215f, 0), (300f, 1) },   // day 3+: overlapping all day
         };
         (float t, byte berth)[] Schedule => Schedules[Mathf.Clamp(DayNum.Value - 1, 0, Schedules.Length - 1)];
+        // Tomorrow, for the end-of-shift recap: how many boats, and when the first one comes in.
+        public (int boats, float first) Tomorrow { get { var s = Schedules[Mathf.Clamp(DayNum.Value, 0, Schedules.Length - 1)]; return (s.Length, s[0].t); } }
+        public string NextCaptain => Contracts[Mathf.Clamp(NextContractId.Value, 0, Contracts.Length - 1)].Captain;
+
+        // The goalpost: the crew saves toward the next port stage (docs/PORT-STAGES.md). Not buildable yet in this build.
+        public const int NextStageCost = 1500;
+        public const string NextStageName = "Concrete quay";
 
         public NetworkVariable<Ph> Phase = new(Ph.Day);
         public NetworkVariable<int> DayNum = new(1), Money = new(0), Earned = new(0), Sold = new(0), InSea = new(0), LeftAboard = new(0), SpoiledSold = new(0);

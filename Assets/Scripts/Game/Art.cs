@@ -12,7 +12,7 @@ namespace PortBoss
         static readonly Dictionary<(Color, float), Material> cache = new();
         static readonly Dictionary<Material, Color> colorOf = new();
         static readonly Dictionary<Color, Texture2D> solids = new();
-        const float ToonGain = 0.74f;
+        const float ToonGain = 0.64f;
 
         public static Material Get(Color c, float smooth = 0.15f)
         {

@@ -43,10 +43,20 @@ namespace PortBoss
             rb = GetComponent<Rigidbody>();
             var v = transform;
             // Hull: navy topsides, rust bottom, cream wheelhouse at the stern (-z), mast forward.
-            Art.Box(v, new Vector3(0, 0.6f, 0), new Vector3(HalfW * 2, 2.0f, HalfL * 2), Art.Navy, true, "hull");
+            // Toon Harbor tug palette (teal hull, tan band, tyre fenders) when the skin is on; navy otherwise.
+            Color hullC = Skin.On ? Art.Hex("#2f8f8c") : Art.Navy, bandC = Skin.On ? Art.Hex("#c99a6a") : Art.Cream;
+            Art.Box(v, new Vector3(0, 0.6f, 0), new Vector3(HalfW * 2, 2.0f, HalfL * 2), hullC, true, "hull");
+            if (Skin.On)
+            {
+                Art.Box(v, new Vector3(0, 0.95f, 0), new Vector3(HalfW * 2 + 0.03f, 0.5f, HalfL * 2 + 0.03f), Art.Hex("#8a5a3a"), false, "hull_band");
+                for (int i = -2; i <= 2; i++)
+                    foreach (var sx in new[] { -1f, 1f })
+                        Art.Prim(PrimitiveType.Cylinder, v, new Vector3(sx * (HalfW + 0.12f), 0.9f, i * HalfL * 0.38f), Quaternion.Euler(0, 0, 90), new Vector3(0.6f, 0.12f, 0.6f), Art.Hex("#262626"), false, "fender");
+                Art.Prim(PrimitiveType.Cylinder, v, new Vector3(0, DeckY + 2.9f, -HalfL + 0.9f), Quaternion.identity, new Vector3(0.5f, 0.45f, 0.5f), Art.Hex("#c8342a"), false, "funnel");
+            }
             Art.Box(v, new Vector3(0, -0.45f, 0.2f), new Vector3(HalfW * 2 + 0.04f, 0.5f, HalfL * 2 + 0.04f), Art.Rust, false, "antifoul");
-            Art.Box(v, new Vector3(0, 1.45f, 0), new Vector3(HalfW * 2 + 0.06f, 0.18f, HalfL * 2 + 0.06f), Art.Cream, false, "gunwale_stripe");
-            var bow = Art.Box(v, new Vector3(0, 0.75f, HalfL + 0.9f), new Vector3(HalfW * 1.42f, 1.7f, HalfW * 1.42f), Art.Navy, true, "bow");
+            Art.Box(v, new Vector3(0, 1.45f, 0), new Vector3(HalfW * 2 + 0.06f, 0.18f, HalfL * 2 + 0.06f), bandC, false, "gunwale_stripe");
+            var bow = Art.Box(v, new Vector3(0, 0.75f, HalfL + 0.9f), new Vector3(HalfW * 1.42f, 1.7f, HalfW * 1.42f), hullC, true, "bow");
             bow.transform.localRotation = Quaternion.Euler(0, 45, 0);
             Art.Box(v, new Vector3(0, DeckY - 0.03f, 0), new Vector3(HalfW * 2 - 0.1f, 0.06f, HalfL * 2 - 0.1f), Art.WoodLight, false, "deck");
             // Wheelhouse
