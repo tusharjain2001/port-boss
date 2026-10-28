@@ -60,6 +60,8 @@ namespace PortBoss
             foreach (var r in World.WaterRenderers) if (r != null) r.sharedMaterial = m;
         }
 
+        public void DebugOpenSettings(int t) { tab = t; settingsFromPause = false; screen = Screen.Settings; }
+
         void OnApplicationFocus(bool focus) => AudioListener.pause = !focus && Settings.MuteUnfocused;
 
         void SettingsKeyCapture()

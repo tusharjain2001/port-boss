@@ -135,6 +135,9 @@ namespace PortBoss
             if (!Mathf.Approximately(sag, PierSag.Value)) PierSag.Value = sag;
         }
 
+        // Test hook: jump straight to day n (schedule, contract).
+        public void DebugStartDay(int n) { EndDayNow(); StartDay(n); }
+
         // Test hook: skip to the end of the day.
         public void EndDayNow()
         {

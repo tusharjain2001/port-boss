@@ -59,6 +59,95 @@ namespace PortBoss
             if (Has("-pb-trolleytest")) StartCoroutine(TrolleyTest());
             if (Has("-pb-wobbletest")) StartCoroutine(WobbleTest());
             if (Arg("-pb-charshots") != null) StartCoroutine(CharShots(Arg("-pb-charshots")));
+            if (Has("-pb-swimtest")) StartCoroutine(SwimTest());
+            if (Has("-pb-piertest")) StartCoroutine(PierTest());
+            if (Has("-pb-knocktest")) StartCoroutine(KnockTest());
+            if (Has("-pb-contracttest")) StartCoroutine(ContractTest());
+            if (int.TryParse(Arg("-pb-day"), out var day)) StartCoroutine(StartOnDay(day));
+            if (int.TryParse(Arg("-pb-settings"), out var st)) ui.DebugOpenSettings(st);
+        }
+
+        IEnumerator WaitGame() { while (PortGame.I == null || Player.Local == null) yield return null; yield return new WaitForSeconds(1); }
+
+        // Fall through the pier hole, swim to a floating crate, tow it, then climb the nearest ladder.
+        IEnumerator SwimTest()
+        {
+            yield return WaitGame();
+            var pl = Player.Local;
+            var crate = PortGame.I.SpawnCrate(new Vector3(-5.2f, -1f, 9f), 1f);
+            pl.DebugTeleport(new Vector3(-1.5f, 0.6f, 10.3f), -90);
+            for (int i = 0; i < 40 && !pl.Swimming; i++) yield return new WaitForSeconds(0.1f);
+            Debug.Log($"[PB] swim test: swimming={pl.Swimming} y={pl.transform.position.y:F2} surface={Water.Height(pl.transform.position):F2}");
+            float t0 = Time.time;
+            while (Time.time - t0 < 6 && !pl.Towing)
+            {
+                var to = crate.transform.position - pl.transform.position; to.y = 0;
+                bool near = pl.FloatingCrateNear() != null;
+                Player.BotInput = () => new Player.In { hasWorldMove = true, worldMove = near ? Vector3.zero : to.normalized, grab = near };
+                yield return null;
+            }
+            Debug.Log($"[PB] swim test: towing={pl.Towing} after {Time.time - t0:F1}s");
+            var ladder = World.Ladders[0];
+            t0 = Time.time;
+            while (Time.time - t0 < 10 && pl.Swimming)
+            {
+                var to = ladder.Bottom - pl.transform.position; to.y = 0;
+                bool near = pl.NearLadder() != null;
+                Player.BotInput = () => new Player.In { hasWorldMove = true, worldMove = near ? Vector3.zero : to.normalized, grab = near && Time.frameCount % 20 == 0 };
+                yield return null;
+            }
+            Player.BotInput = () => new Player.In();
+            yield return new WaitForSeconds(1.5f);
+            Debug.Log($"[PB] swim test: out={!pl.Swimming} at {pl.transform.position:F1} crate at {crate.transform.position:F1} inSea={crate.InSea}");
+        }
+
+        // Pile crates on the old pier end and watch it sag.
+        IEnumerator PierTest()
+        {
+            yield return WaitGame();
+            for (int i = 0; i < 16; i++) PortGame.I.SpawnCrate(new Vector3(-2f + (i % 4) * 1.2f, 0.7f + (i / 8) * 0.6f, 22.5f + ((i / 4) % 2) * 2.5f), 1f);
+            for (int s = 0; s < 6; s++) { yield return new WaitForSeconds(1); Debug.Log($"[PB] pier test: sag={PortGame.I.PierSag.Value:F1} endRot={World.PierEnd.eulerAngles.x:F1}"); }
+            Player.CamOverride = true;
+            Camera.main.transform.position = new Vector3(14, 3, 24); Camera.main.transform.LookAt(new Vector3(0, 0, 24));
+        }
+
+        // Throw a crate at the local player.
+        IEnumerator KnockTest()
+        {
+            yield return WaitGame();
+            var pl = Player.Local;
+            pl.DebugGiveCrates(2);
+            yield return new WaitForSeconds(0.5f);
+            var p = pl.transform.position + pl.transform.forward * 4f + Vector3.up * 1.2f;
+            var c = PortGame.I.SpawnCrate(p, 1f);
+            c.GetComponent<Rigidbody>().linearVelocity = (pl.transform.position + Vector3.up - p).normalized * 11f;
+            yield return new WaitForSeconds(1.5f);
+            Debug.Log($"[PB] knock test: carrying after hit={pl.Carrying} (was 2)");
+        }
+
+        // Book Bjorn at night, start day 2, check the countdown.
+        IEnumerator ContractTest()
+        {
+            yield return WaitGame();
+            var g = PortGame.I;
+            g.EndDayNow();
+            yield return new WaitForSeconds(1);
+            g.ChooseContractRpc(1);
+            yield return new WaitForSeconds(1);
+            g.NextDayRpc();
+            yield return new WaitForSeconds(1);
+            Debug.Log($"[PB] contract test: day={g.DayNum.Value} contract={g.Today.Captain} dock={g.Today.DockSeconds}");
+            Boat b = null;
+            for (int i = 0; i < 80 && (b = Boat.DockedAt[0]) == null; i++) yield return new WaitForSeconds(0.5f);
+            yield return new WaitForSeconds(1);
+            Debug.Log($"[PB] contract test: boat docked={b != null} secondsLeft={(b ? b.SecondsLeft.Value : -1)}");
+        }
+
+        IEnumerator StartOnDay(int n)
+        {
+            yield return WaitGame();
+            PortGame.I.DebugStartDay(n);
+            Debug.Log($"[PB] started on day {n}");
         }
 
         // Character close-ups: front, side, walking (side), carrying (front).
@@ -175,7 +264,7 @@ namespace PortBoss
                 nextLog = Time.realtimeSinceStartup + 5;
                 var g = PortGame.I; var nm = NetworkManager.Singleton;
                 var pl = Player.Local;
-                string boats = string.Join(",", Boat.All.ConvertAll(b => b.State.Value.ToString()));
+                string boats = string.Join(",", Boat.All.ConvertAll(b => $"{b.State.Value}@{b.Berth.Value}"));
                 foreach (var c in Crate.All)
                     if (c.transform.position.y > 2.5f && (c.transform.parent == null || c.transform.parent.GetComponent<Player>() == null))
                         Debug.Log($"[PB] high crate {c.NetworkObjectId} at {c.transform.position:F1} parent={(c.transform.parent ? c.transform.parent.name : "-")} attached={c.Attached.Value}");
