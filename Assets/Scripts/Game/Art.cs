@@ -29,8 +29,21 @@ namespace PortBoss
         }
 
         // Primitive with collider kept or removed.
+        // Bevelled boxes (art plan: no hard cubes). Off until the A/B against cp2 is approved: -pb-bevel turns it on.
+        public static bool Bevel = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-pb-bevel") >= 0;
+
         public static GameObject Box(Transform parent, Vector3 pos, Vector3 size, Color c, bool collider = true, string name = "box", float smooth = 0.15f)
-            => Prim(PrimitiveType.Cube, parent, pos, Quaternion.identity, size, c, collider, name, smooth);
+        {
+            // Objects that get rescaled after creation keep the unit cube.
+            if (!Bevel || name == "plank_gp" || name == "cleat") return Prim(PrimitiveType.Cube, parent, pos, Quaternion.identity, size, c, collider, name, smooth);
+            var g = new GameObject(name);
+            g.transform.SetParent(parent, false);
+            g.transform.localPosition = pos;
+            g.AddComponent<MeshFilter>().sharedMesh = PortBoss.Bevel.Box(size, Mathf.Clamp(Mathf.Min(size.x, Mathf.Min(size.y, size.z)) * 0.12f, 0.004f, 0.05f));
+            g.AddComponent<MeshRenderer>().sharedMaterial = Get(c, smooth);
+            if (collider) g.AddComponent<BoxCollider>().size = size;
+            return g;
+        }
 
         public static GameObject Prim(PrimitiveType t, Transform parent, Vector3 pos, Quaternion rot, Vector3 size, Color c, bool collider = true, string name = "prim", float smooth = 0.15f)
         {
