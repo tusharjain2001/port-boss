@@ -471,7 +471,7 @@ namespace PortBoss
             int total = 0;
             foreach (var c in list)
             {
-                int v = c.Value; total += v;
+                int v = PortGame.I != null ? PortGame.I.PriceFor(c) : c.Value; total += v;
                 var col = c.Grade == "fresh" ? new Color(0.7f, 1f, 0.75f) : c.Grade == "okay" ? Color.white : new Color(0.8f, 0.85f, 0.45f);
                 string where = c.transform.parent == pl.transform ? "" : "  (trolley)";
                 Label(new Rect(r.x + 26 * S, y, pw, rowH), $"Fish crate · {c.Grade} {Mathf.RoundToInt(c.Fresh.Value * 100)}%{where}", st, col);
@@ -497,12 +497,14 @@ namespace PortBoss
         void DrawNight(float W, float H)
         {
             var g = PortGame.I;
-            float pw = 720 * S, ph = 680 * S;
-            var r = new Rect((W - pw) / 2, (H - ph) / 2, pw, ph);
+            float pw = 720 * S, ph = 720 * S, bw = 520 * S;
+            var r = new Rect((W - pw - bw - 30 * S) / 2, (H - ph) / 2, pw, ph);
             GUI.Box(r, "", panel);
             Label(new Rect(r.x, r.y + 20 * S, pw, 70 * S), $"End of Day {g.DayNum.Value}", new GUIStyle(big) { fontSize = Mathf.RoundToInt(52 * S) }, new Color(1f, 0.9f, 0.7f));
+            Label(new Rect(r.x + 30 * S, r.y + 84 * S, pw - 60 * S, 34 * S), g.DayVerdict(), new GUIStyle(small) { alignment = TextAnchor.UpperCenter, fontStyle = FontStyle.Italic, fontSize = Mathf.RoundToInt(21 * S) }, new Color(1f, 0.92f, 0.8f, 0.9f));
+            DrawContracts(new Rect(r.xMax + 30 * S, r.y, bw, ph));
             var st = new GUIStyle(mid) { alignment = TextAnchor.MiddleLeft, fontStyle = FontStyle.Normal };
-            float y = r.y + 110 * S, x = r.x + 70 * S, lh = 48 * S;
+            float y = r.y + 136 * S, x = r.x + 70 * S, lh = 46 * S;
             Label(new Rect(x, y, pw, lh), $"Money earned:  ${g.Earned.Value}", st, Color.white); y += lh;
             Label(new Rect(x, y, pw, lh), $"Crates sold:  {g.Sold.Value}" + (g.SpoiledSold.Value > 0 ? $"  ({g.SpoiledSold.Value} spoiled)" : ""), st, Color.white); y += lh;
             Label(new Rect(x, y, pw, lh), $"Crates in the sea:  {g.InSea.Value}", st, new Color(0.7f, 0.9f, 1f)); y += lh;
@@ -519,6 +521,32 @@ namespace PortBoss
                 if (Button(new Rect(r.x + (pw - 360 * S) / 2, r.yMax - 90 * S, 360 * S, 64 * S), $"Start Day {g.DayNum.Value + 1}")) g.NextDayRpc();
             }
             else Label(new Rect(r.x, r.yMax - 90 * S, pw, 60 * S), "Waiting for the host to start the next day…", st, Color.white);
+        }
+
+        // The contract board (it hangs on the shed wall): pick tomorrow's captain. Host decides.
+        void DrawContracts(Rect r)
+        {
+            var g = PortGame.I;
+            GUI.Box(r, "", panel);
+            Label(new Rect(r.x, r.y + 20 * S, r.width, 50 * S), "CONTRACT BOARD", mid, new Color(1f, 0.8f, 0.5f));
+            Label(new Rect(r.x, r.y + 64 * S, r.width, 30 * S), "Who brings the fish tomorrow?", new GUIStyle(small) { alignment = TextAnchor.UpperCenter }, new Color(1, 1, 1, 0.7f));
+            float y = r.y + 110 * S;
+            bool host = NetworkManager.Singleton.IsServer;
+            for (int i = 0; i < PortGame.Contracts.Length; i++)
+            {
+                var c = PortGame.Contracts[i];
+                bool chosen = g.NextContractId.Value == i;
+                var card = new Rect(r.x + 24 * S, y, r.width - 48 * S, 230 * S);
+                GUI.color = chosen ? new Color(1f, 0.85f, 0.5f, 1f) : new Color(1, 1, 1, 0.6f);
+                GUI.Box(card, "", panel);
+                GUI.color = Color.white;
+                Label(new Rect(card.x + 20 * S, card.y + 14 * S, card.width, 44 * S), "Captain " + c.Captain[0] + c.Captain.Substring(1).ToLowerInvariant(), new GUIStyle(mid) { alignment = TextAnchor.UpperLeft }, chosen ? new Color(1f, 0.85f, 0.5f) : Color.white);
+                Label(new Rect(card.x + 20 * S, card.y + 64 * S, card.width - 40 * S, 90 * S), c.Pitch, new GUIStyle(small) { fontSize = Mathf.RoundToInt(21 * S), wordWrap = true }, new Color(1, 1, 1, 0.85f));
+                if (chosen) Label(new Rect(card.x + 20 * S, card.yMax - 58 * S, card.width, 44 * S), "✓ Booked for tomorrow", new GUIStyle(small) { fontSize = Mathf.RoundToInt(21 * S), fontStyle = FontStyle.Bold }, new Color(0.7f, 1f, 0.7f));
+                else if (host && Button(new Rect(card.xMax - 190 * S, card.yMax - 62 * S, 170 * S, 48 * S), "Book")) g.ChooseContractRpc((byte)i);
+                y += 250 * S;
+            }
+            if (!host) Label(new Rect(r.x, r.yMax - 50 * S, r.width, 30 * S), "The host books the boats.", new GUIStyle(small) { alignment = TextAnchor.UpperCenter }, new Color(1, 1, 1, 0.6f));
         }
 
         void DrawPause(float W, float H)

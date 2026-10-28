@@ -103,12 +103,13 @@ namespace PortBoss
                     Pose(Bezier(InPath, u), Tangent(InPath, Mathf.Min(u, 0.995f)));
                     if (t >= SailSeconds)
                     {
-                        State.Value = St.Docked; t = 0; countdown = DockSeconds; shoutIdx = 0;
+                        State.Value = St.Docked; t = 0; countdown = game != null ? game.Today.DockSeconds : DockSeconds; shoutIdx = 0;
+                        while (shoutIdx < Marks.Length && Marks[shoutIdx] >= countdown) shoutIdx++;
                         foreach (var c in cargo)
                             if (c != null && c.IsSpawned && c.transform.parent == transform)
                                 c.Release(c.transform.position, Vector3.zero, Vector3.zero);
                         cargo.Clear();
-                        game?.Shout("CAPTAIN MAGS", PortGame.Pick(CaptainLines), 4.5f);
+                        game?.Shout(game.CaptainName, countdown < 100 ? PortGame.Pick(CaptainLinesFast) : PortGame.Pick(CaptainLines), 4.5f);
                     }
                     break;
                 }
@@ -120,7 +121,7 @@ namespace PortBoss
                     if (secs != SecondsLeft.Value) SecondsLeft.Value = secs;
                     if (shoutIdx < Marks.Length && countdown <= Marks[shoutIdx])
                     {
-                        game?.Shout("CAPTAIN MAGS", PortGame.Pick(MarkLines[shoutIdx]), 3.5f);
+                        game?.Shout(game.CaptainName, PortGame.Pick(MarkLines[shoutIdx]), 3.5f);
                         if (Marks[shoutIdx] <= 10) game?.TootRpc(transform.position);
                         shoutIdx++;
                     }
@@ -153,6 +154,12 @@ namespace PortBoss
             "Fresh catch! Two minutes and I'm gone!",
             "Two minutes! Whatever's still aboard comes back out with me!",
             "Morning, boss! Two minutes. The fish won't carry themselves.",
+        };
+        static readonly string[] CaptainLinesFast =
+        {
+            "Ninety seconds, not one more! Tide's turning!",
+            "Big catch, short tide! Ninety seconds, GO!",
+            "Bjorn doesn't wait. Ninety seconds!",
         };
         static readonly float[] Marks = { 90, 60, 30, 10 };
         static readonly string[][] MarkLines =

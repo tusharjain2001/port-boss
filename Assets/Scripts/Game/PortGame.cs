@@ -17,6 +17,20 @@ namespace PortBoss
         public NetworkVariable<int> DayNum = new(1), Money = new(0), Earned = new(0), Sold = new(0), InSea = new(0), LeftAboard = new(0), SpoiledSold = new(0);
         public NetworkVariable<float> DayT = new(0);
         public NetworkVariable<bool> HasTrolley = new(false);
+        public NetworkVariable<byte> ContractId = new(0), NextContractId = new(0);
+
+        // The contract board on the shed wall: who brings the fish tomorrow.
+        public struct Contract { public string Captain, Pitch; public float Cargo, Price, DockSeconds; }
+        public static readonly Contract[] Contracts =
+        {
+            new() { Captain = "MAGS", Pitch = "Steady boats, relaxed captain.\n2:00 at the pier, normal prices.", Cargo = 1f, Price = 1f, DockSeconds = 120f },
+            new() { Captain = "BJORN", Pitch = "Big catches, tight tides.\n1:30 at the pier, +50% crates, +25% price.", Cargo = 1.5f, Price = 1.25f, DockSeconds = 90f },
+        };
+        public Contract Today => Contracts[Mathf.Clamp(ContractId.Value, 0, Contracts.Length - 1)];
+        public string CaptainName => "CAPTAIN " + Today.Captain;
+
+        // What the buyer pays for this crate under today's contract.
+        public int PriceFor(Crate c) => Mathf.RoundToInt(c.Value * Today.Price);
 
         public GameObject CratePrefab => GameUI.I.CratePrefab;
         int nextBoat, activeBoats;
@@ -38,6 +52,7 @@ namespace PortBoss
         void StartDay(int n)
         {
             DayNum.Value = n; DayT.Value = 0; nextBoat = 0;
+            ContractId.Value = NextContractId.Value;
             Earned.Value = Sold.Value = InSea.Value = LeftAboard.Value = SpoiledSold.Value = 0;
             Phase.Value = Ph.Day;
             if (n == 1)
@@ -65,7 +80,7 @@ namespace PortBoss
             if (nextBoat < BoatTimes.Length && DayT.Value >= BoatTimes[nextBoat])
             {
                 var b = Instantiate(GameUI.I.BoatPrefab).GetComponent<Boat>();
-                b.CargoCount = 8 + nextBoat * 3 + (DayNum.Value - 1) * 2;
+                b.CargoCount = Mathf.RoundToInt((8 + nextBoat * 3 + (DayNum.Value - 1) * 2) * Today.Cargo);
                 b.NetworkObject.Spawn(true);
                 activeBoats++; nextBoat++;
                 Shout("", nextBoat == 1 ? "*HOOOONK*  A boat's coming in!" : nextBoat == 2 ? "*HOOOONK*  Second boat!" : "*HOOOONK*  Last boat of the day!", 3f);
@@ -80,7 +95,7 @@ namespace PortBoss
         public void BoatLeaving(int leftAboard)
         {
             LeftAboard.Value += leftAboard;
-            Shout("CAPTAIN MAGS", leftAboard == 0 ? Pick("Clean deck! Pleasure doing business, boss!", "Not a crate left. You lot are alright!", "Empty! I'll tell the other boats about you.")
+            Shout(CaptainName, leftAboard == 0 ? Pick("Clean deck! Pleasure doing business, boss!", "Not a crate left. You lot are alright!", "Empty! I'll tell the other boats about you.")
                 : leftAboard >= 5 ? Pick($"HA! {leftAboard} crates for my supper!", $"{leftAboard} crates still aboard? Your loss, boss!", $"Casting off with {leftAboard} crates. Better luck next tide!")
                 : Pick($"Casting off! {leftAboard} crate{(leftAboard == 1 ? "" : "s")} coming home with me.", $"Ropes off! You missed {leftAboard}."), 4f);
         }
@@ -98,7 +113,7 @@ namespace PortBoss
 
         public void Sell(Crate c)
         {
-            int v = c.Value;
+            int v = PriceFor(c);
             Debug.Log($"[PB] sold ${v} at {c.transform.position:F2}");
             Money.Value += v; Earned.Value += v; Sold.Value++;
             if (c.IsSpoiled) SpoiledSold.Value++;
@@ -136,6 +151,25 @@ namespace PortBoss
 
         [Rpc(SendTo.ClientsAndHost)]
         void BoughtRpc() => Sfx.Play2D("buy");
+
+        [Rpc(SendTo.Server)]
+        public void ChooseContractRpc(byte id)
+        {
+            if (Phase.Value == Ph.Night && id < Contracts.Length) NextContractId.Value = id;
+        }
+
+        // One line for the end-of-day card, picked from how the day went.
+        public string DayVerdict()
+        {
+            int sold = Sold.Value, sea = InSea.Value, left = LeftAboard.Value, spoiled = SpoiledSold.Value;
+            if (sold == 0) return "The buyer waited all day. He brought sandwiches.";
+            if (sea >= 5 && sea >= sold) return "More fish went in the sea than in the buyer's van. The gulls send their thanks.";
+            if (left >= 10) return $"Captain {Today.Captain} sailed home with {left} crates. Tonight, they eat well.";
+            if (spoiled >= 4) return "The flies have started calling you 'boss' too.";
+            if (sea >= 3) return $"{sea} crates are drifting toward the rival port. Marlowe says thanks.";
+            if (left == 0 && sea == 0) return "Not a crate lost. The harbour is starting to talk about you.";
+            return "Not bad for a pier with holes in it.";
+        }
 
         [Rpc(SendTo.Server)]
         public void NextDayRpc()
