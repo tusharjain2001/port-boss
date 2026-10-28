@@ -5,8 +5,8 @@ Shader "PortBoss/Water"
 {
     Properties
     {
-        _Shallow ("Shallow", Color) = (0.18, 0.45, 0.52, 1)
-        _Deep ("Deep", Color) = (0.07, 0.22, 0.33, 1)
+        _Shallow ("Shallow", Color) = (0.15, 0.42, 0.56, 1)
+        _Deep ("Deep", Color) = (0.06, 0.22, 0.4, 1)
         _FoamColor ("Foam", Color) = (0.95, 0.95, 0.9, 1)
         _DepthFade ("Depth fade (m)", Float) = 5
         _FoamWidth ("Contact foam width (m)", Float) = 0.7

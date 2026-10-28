@@ -62,6 +62,7 @@ namespace PortBoss
             if (clip != null) a.Play();
             fade = 0;
             Current = clip != null ? slot : "";
+            Debug.Log($"[PB] music -> {slot} ({(clip != null ? "playing" : "silent, no file")})");
         }
 
         void Update()

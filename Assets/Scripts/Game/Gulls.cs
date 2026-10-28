@@ -23,6 +23,8 @@ namespace PortBoss
         Transform thiefTarget; // a crate this gull is raiding
         static readonly System.Collections.Generic.List<Gull> all = new();
 
+        public static Transform AnyPerched() => all.Find(g => g.st == St.Perched)?.transform; // test shots
+
         // Host told everyone: send the nearest free gull to raid this crate.
         public static void Raid(Transform crate)
         {

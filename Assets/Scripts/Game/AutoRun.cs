@@ -66,6 +66,7 @@ namespace PortBoss
             if (Has("-pb-contracttest")) StartCoroutine(ContractTest());
             if (int.TryParse(Arg("-pb-day"), out var day)) StartCoroutine(StartOnDay(day));
             if (int.TryParse(Arg("-pb-settings"), out var st)) ui.DebugOpenSettings(st);
+            if (Has("-pb-settingstest")) StartCoroutine(SettingsTest());
             if (Has("-pb-storm")) StartCoroutine(StormTest());
             if (Has("-pb-forklifttest")) StartCoroutine(ForkliftTest());
         }
@@ -90,6 +91,14 @@ namespace PortBoss
                 yield return null;
             }
             Debug.Log($"[PB] swim test: towing={pl.Towing} after {Time.time - t0:F1}s");
+            var shotDir = Arg("-pb-shots");
+            if (shotDir != null)
+            {
+                // Tow towards open water for a moment so there is a clean swimming frame.
+                Player.BotInput = () => new Player.In { hasWorldMove = true, worldMove = new Vector3(-0.6f, 0, 0.8f) };
+                yield return new WaitForSeconds(2.5f);
+                yield return Snap(shotDir, "swim-towing-crate");
+            }
             var ladder = World.Ladders[0];
             t0 = Time.time;
             while (Time.time - t0 < 10 && pl.Swimming)
@@ -102,6 +111,15 @@ namespace PortBoss
             Player.BotInput = () => new Player.In();
             yield return new WaitForSeconds(1.5f);
             Debug.Log($"[PB] swim test: out={!pl.Swimming} at {pl.transform.position:F1} crate at {crate.transform.position:F1} inSea={crate.InSea}");
+            if (shotDir != null)
+            {
+                // Jump back in off the side and swim along the pier.
+                pl.DebugTeleport(new Vector3(-6.5f, 0.6f, 12f), 0);
+                Player.BotInput = () => new Player.In { hasWorldMove = true, worldMove = Vector3.forward };
+                yield return new WaitForSeconds(3f);
+                yield return Snap(shotDir, "swim-open-water");
+                Player.BotInput = () => new Player.In();
+            }
         }
 
         // Pile crates on the old pier end and watch it sag.
@@ -228,6 +246,22 @@ namespace PortBoss
             Player.CamOverride = false;
         }
 
+        // Settings really reach the renderer, camera, audio and input; the player's own values are put back afterwards.
+        IEnumerator SettingsTest()
+        {
+            yield return WaitGame();
+            var urp = (UnityEngine.Rendering.Universal.UniversalRenderPipelineAsset)UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline;
+            float scale = Settings.RenderScale, fov = Settings.Fov, master = Settings.Master; int shadows = Settings.Shadows; var grab = Settings.KeyFor("grab");
+            Settings.RenderScale = 0.5f; Settings.Shadows = 0; Settings.Fov = 80; Settings.Master = 0.3f; Settings.Bind("grab", UnityEngine.InputSystem.Key.G);
+            ui.ApplySettings();
+            yield return null;
+            Debug.Log($"[PB] settings test: renderScale={urp.renderScale:F2} sunShadows={System.Array.Find(FindObjectsByType<Light>(FindObjectsSortMode.None), l => l.type == LightType.Directional)?.shadows} fov={Camera.main.fieldOfView:F0} volume={AudioListener.volume:F2} grabKey={Settings.KeyFor("grab")}");
+            Settings.RenderScale = scale; Settings.Shadows = shadows; Settings.Fov = fov; Settings.Master = master; Settings.Bind("grab", grab);
+            ui.ApplySettings();
+            yield return null;
+            Debug.Log($"[PB] settings test: restored renderScale={urp.renderScale:F2} fov={Camera.main.fieldOfView:F0} volume={AudioListener.volume:F2} grabKey={Settings.KeyFor("grab")}");
+        }
+
         // Close-ups of the dock crates: fresh, spoiled, damaged, and the lidded empties by the shed.
         IEnumerator CrateShots(string dir)
         {
@@ -245,6 +279,10 @@ namespace PortBoss
             Look(fresh.transform.position, new Vector3(0.3f, 1.1f, -1.3f)); yield return Snap(dir, "crate-fresh");
             Look(spoiled.transform.position + Vector3.left * 0.5f, new Vector3(0.2f, 1.6f, -2.4f)); yield return Snap(dir, "crate-row-fresh-spoiled-damaged");
             Look(new Vector3(12.7f, 0.9f, -12.8f), new Vector3(2.2f, 0.9f, 2.4f)); yield return Snap(dir, "crate-empties-by-shed");
+            // A gull sitting on a post (P5).
+            Transform gull = null;
+            for (float t = 0; t < 40 && (gull = Gull.AnyPerched()) == null; t += 0.5f) yield return new WaitForSeconds(0.5f);
+            if (gull != null) { Look(gull.position, new Vector3(1.2f, 0.5f, -1.6f)); yield return Snap(dir, "gull-perched"); }
             Player.CamOverride = false;
         }
 

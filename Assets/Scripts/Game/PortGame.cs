@@ -215,7 +215,7 @@ namespace PortBoss
 
         public static string Pick(params string[] lines) => lines[Random.Range(0, lines.Length)];
 
-        public void Shout(string who, string text, float secs) => ShoutRpc(who, text, secs);
+        public void Shout(string who, string text, float secs) { Debug.Log($"[PB] shout {(who == "" ? "-" : who)}: {text}"); ShoutRpc(who, text, secs); }
 
         [Rpc(SendTo.ClientsAndHost)]
         void ShoutRpc(string who, string text, float secs) => GameUI.Shout(who, text, secs);
