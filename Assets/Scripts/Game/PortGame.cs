@@ -27,7 +27,9 @@ namespace PortBoss
         public NetworkVariable<byte> ContractId = new(0), NextContractId = new(0);
         public NetworkVariable<bool> PierRepaired = new(false);
         public NetworkVariable<float> PierSag = new(0); // degrees the old pier end hangs down (host computes)
-        public const int RepairPrice = 80;
+        public const int RepairPrice = 80, ForkliftPrice = 350;
+        public NetworkVariable<bool> HasForklift = new(false);
+        public bool ForkliftForSale => DayNum.Value >= 2; // unlocks for day 3
         float loadCheck, raidTimer = 30f;
         public NetworkVariable<byte> StormPhase = new(0); // 0 calm, 1 warning (90 s), 2 storm
         public const float StormWarnAt = 230f, StormHitAt = 320f, StormEndAt = 395f;
@@ -241,6 +243,26 @@ namespace PortBoss
 
         [Rpc(SendTo.ClientsAndHost)]
         void BoughtRpc() => Sfx.Play2D("buy");
+
+        [Rpc(SendTo.Server)]
+        public void BuyForkliftRpc()
+        {
+            if (Phase.Value != Ph.Night || HasForklift.Value || !ForkliftForSale || Money.Value < ForkliftPrice) return;
+            Money.Value -= ForkliftPrice;
+            HasForklift.Value = true;
+            Instantiate(GameUI.I.ForkliftPrefab, new Vector3(16f, 0.4f, -5f), Quaternion.Euler(0, -90, 0)).GetComponent<NetworkObject>().Spawn(true);
+            // Two pallets by the pier, if there aren't any about.
+            if (Pallet.All.Count < 2)
+                foreach (var z in new[] { -2.2f, -4.2f })
+                    Instantiate(GameUI.I.PalletPrefab, new Vector3(7f, 0.2f, z), Quaternion.identity).GetComponent<NetworkObject>().Spawn(true);
+            BoughtRpc();
+        }
+
+        public void ForkliftLost()
+        {
+            HasForklift.Value = false;
+            Shout("BUYER", Pick("Your forklift... is a submarine now.", "That is a forklift in the harbour. Expensive fish food."), 3.5f);
+        }
 
         [Rpc(SendTo.Server)]
         public void BuyRepairRpc()

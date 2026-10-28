@@ -117,6 +117,15 @@ namespace PortBoss
         void Animate(float speed)
         {
             float dt = Time.deltaTime;
+            if (Driving != null)
+            {
+                // Seated at the controls.
+                legL.localRotation = legR.localRotation = Quaternion.Euler(-80f, 0, 0);
+                armL.localRotation = armR.localRotation = Quaternion.Euler(-55f, 0, 0);
+                torso.localRotation = Quaternion.identity;
+                model.localPosition = new Vector3(0, -0.15f, 0);
+                return;
+            }
             if (knockT >= 0)
             {
                 // Knocked over: tip backwards, lie there a moment, scramble up.
@@ -246,6 +255,7 @@ namespace PortBoss
 
             if (!IsOwner || !IsSpawned) return;
             float dt = Time.deltaTime;
+            if (Sit()) return;
             var input = GameUI.InputBlocked || Time.time < stunnedUntil ? new In() : ReadInput();
 
             yaw += input.look.x;
@@ -313,6 +323,34 @@ namespace PortBoss
 
             // Safety net: fell through the world somehow.
             if (transform.position.y < -12f) { swimming = false; Teleport(World.Spawn, 0); }
+        }
+
+        // ---------- forklift ----------
+        public Forklift Driving => Forklift.I != null && Forklift.I.DriverId.Value == OwnerClientId ? Forklift.I : null;
+        bool wasDriving;
+
+        // Owner: while driving, ride in the seat (the forklift reads the controls). Returns true while seated.
+        bool Sit()
+        {
+            var f = Driving;
+            if (f != null)
+            {
+                if (!wasDriving) { wasDriving = true; cc.enabled = false; }
+                transform.SetPositionAndRotation(f.Seat + Vector3.down * 0.95f, Quaternion.Euler(0, f.transform.eulerAngles.y, 0));
+                yaw = Mathf.LerpAngle(yaw, f.transform.eulerAngles.y, 1 - Mathf.Exp(-2f * Time.deltaTime));
+                var look = GameUI.InputBlocked || Mouse.current == null ? Vector2.zero : Mouse.current.delta.ReadValue() * (0.1f * Settings.Sensitivity);
+                pitch = Mathf.Clamp(pitch - (Settings.InvertY ? -look.y : look.y), -25f, 65f);
+                return true;
+            }
+            if (wasDriving)
+            {
+                // Hop out beside the forklift.
+                wasDriving = false;
+                var fl = Forklift.I;
+                var p = fl != null ? fl.transform.TransformPoint(new Vector3(-1.4f, 0.2f, -0.3f)) : transform.position;
+                Teleport(p, transform.eulerAngles.y);
+            }
+            return false;
         }
 
         // ---------- knocked over ----------
@@ -494,6 +532,9 @@ namespace PortBoss
             var t = Trolley.I;
             if (t != null && t.NearBuyer)
                 foreach (Transform c in t.transform) if (c.TryGetComponent<Crate>(out var cr)) list.Add(cr);
+            foreach (var pa in Pallet.All)
+                if (pa.NearBuyer)
+                    foreach (Transform c in pa.transform) if (c.TryGetComponent<Crate>(out var cr)) list.Add(cr);
             return list;
         }
 
@@ -507,6 +548,7 @@ namespace PortBoss
             var parent = c.transform.parent;
             if (parent == transform) { stack.Remove(c); PortGame.I.Sell(c); Restack(); }
             else if (parent != null && parent.TryGetComponent<Trolley>(out var t) && t.NearBuyer) { t.Remove(c); PortGame.I.Sell(c); }
+            else if (parent != null && parent.TryGetComponent<Pallet>(out var pa) && pa.NearBuyer) { pa.Remove(c); PortGame.I.Sell(c); }
         }
 
         // Close the gap after a crate from the middle of the stack is sold.
@@ -522,6 +564,12 @@ namespace PortBoss
             {
                 if (SellableCrates().Count > 0) GameUI.OpenBuyer();
                 else GameUI.Toast("\"Bring me some fish, then we'll talk.\"");
+                return;
+            }
+            var fk = Forklift.I;
+            if (input.grab && Carrying == 0 && !Pushing && fk != null && fk.Free && Vector3.Distance(fk.Seat, transform.position + Vector3.up) < 2.4f)
+            {
+                fk.EnterRpc();
                 return;
             }
             if (input.grab && Carrying < MaxStack && !Pushing)
@@ -553,7 +601,7 @@ namespace PortBoss
             var eye = transform.position + Vector3.up * 0.9f + transform.forward * 0.8f;
             foreach (var c in Crate.All)
             {
-                if (c.Attached.Value && !(c.transform.parent != null && c.transform.parent.GetComponent<Trolley>())) continue;
+                if (c.Attached.Value && !(c.transform.parent != null && (c.transform.parent.GetComponent<Trolley>() || c.transform.parent.GetComponent<Pallet>()))) continue;
                 var d = Vector3.Distance(c.transform.position, eye);
                 if (d < bestD) { bestD = d; best = c; }
             }
@@ -583,7 +631,9 @@ namespace PortBoss
         {
             if (!r.TryGet(out var no) || !no.TryGetComponent<Crate>(out var c) || stack.Count >= MaxStack) return;
             var parentTrolley = c.transform.parent != null ? c.transform.parent.GetComponent<Trolley>() : null;
-            if (c.Attached.Value && parentTrolley == null) return;
+            var parentPallet = c.transform.parent != null ? c.transform.parent.GetComponent<Pallet>() : null;
+            if (c.Attached.Value && parentTrolley == null && parentPallet == null) return;
+            if (parentPallet != null) parentPallet.Remove(c);
             if (Vector3.Distance(c.transform.position, transform.position) > 3.6f) return;
             if (parentTrolley != null) parentTrolley.Remove(c);
             c.Attach(NetworkObject, HoldPos(stack.Count), stack.Count);

@@ -12,7 +12,7 @@ namespace PortBoss
     public partial class GameUI : MonoBehaviour
     {
         public static GameUI I;
-        public GameObject CratePrefab, BoatPrefab, TrolleyPrefab, PortGamePrefab;
+        public GameObject CratePrefab, BoatPrefab, TrolleyPrefab, PortGamePrefab, ForkliftPrefab, PalletPrefab;
         public Material LitMat, EmissiveMat, ParticleMat, WaterMat, CloudMat;
         public GameObject[] Models; public int[] ModelKit; public Material[] KitMats;
         public Font TitleFont;
@@ -454,7 +454,10 @@ namespace PortBoss
             if (pl != null && !InputBlocked)
             {
                 string hint = null;
-                if (pl.Swimming) hint = pl.NearLadder() != null ? "E  climb out" : pl.Towing ? "Q  let go of the crate" : pl.FloatingCrateNear() != null ? "E  tow this crate" : "Swim to a ladder or the slipway";
+                var fk = Forklift.I;
+                if (pl.Driving != null) hint = "WASD drive · Shift raise forks · Q lower · E get out";
+                else if (fk != null && fk.Free && pl.Carrying == 0 && Vector3.Distance(fk.Seat, pl.transform.position + Vector3.up) < 2.4f) hint = "E  drive the forklift";
+                else if (pl.Swimming) hint = pl.NearLadder() != null ? "E  climb out" : pl.Towing ? "Q  let go of the crate" : pl.FloatingCrateNear() != null ? "E  tow this crate" : "Swim to a ladder or the slipway";
                 else if (pl.NearBuyer && pl.SellableCrates().Count > 0) hint = "E  sell to the buyer";
                 else if (PortGame.I != null && PortGame.I.StormPhase.Value != 0 && pl.Carrying == 0 && pl.FindCrate() is Crate tc && !tc.Attached.Value) hint = tc.Tied.Value ? "F  untie crate" : "F  tie this crate down";
                 else if (pl.Pushing) hint = "F  let go of trolley";
@@ -538,6 +541,12 @@ namespace PortBoss
             y += lh * 1.15f;
             Label(new Rect(x, y, pw, lh), g.PierRepaired.Value ? "Pier: repaired and braced" : $"Repair the pier  ${PortGame.RepairPrice}  (fill holes, brace the end)", st, Color.white);
             if (!g.PierRepaired.Value && Button(new Rect(r.xMax - 210 * S, y, 160 * S, 46 * S), "Buy", g.Money.Value >= PortGame.RepairPrice)) g.BuyRepairRpc();
+            if (g.ForkliftForSale)
+            {
+                y += lh * 1.15f;
+                Label(new Rect(x, y, pw, lh), g.HasForklift.Value ? "Forklift: in the yard" : $"Forklift  ${PortGame.ForkliftPrice}  (+2 pallets of 6)", st, Color.white);
+                if (!g.HasForklift.Value && Button(new Rect(r.xMax - 210 * S, y, 160 * S, 46 * S), "Buy", g.Money.Value >= PortGame.ForkliftPrice)) g.BuyForkliftRpc();
+            }
             y += lh * 1.6f;
             if (NetworkManager.Singleton.IsServer)
             {

@@ -66,6 +66,7 @@ namespace PortBoss
             if (int.TryParse(Arg("-pb-day"), out var day)) StartCoroutine(StartOnDay(day));
             if (int.TryParse(Arg("-pb-settings"), out var st)) ui.DebugOpenSettings(st);
             if (Has("-pb-storm")) StartCoroutine(StormTest());
+            if (Has("-pb-forklifttest")) StartCoroutine(ForkliftTest());
         }
 
         IEnumerator WaitGame() { while (PortGame.I == null || Player.Local == null) yield return null; yield return new WaitForSeconds(1); }
@@ -155,6 +156,45 @@ namespace PortBoss
                 yield return new WaitForSeconds(3);
                 Debug.Log($"[PB] storm test: phase={PortGame.I.StormPhase.Value} level={Storm.Level:F2} waves={Water.Storm:F2} inSea={PortGame.I.InSea.Value}");
             }
+        }
+
+        // Forklift: get in, lift a loaded pallet, drive, corner hard.
+        IEnumerator ForkliftTest()
+        {
+            yield return WaitGame();
+            var fl = Instantiate(ui.ForkliftPrefab, new Vector3(20f, 0.4f, -10f), Quaternion.Euler(0, -90, 0)).GetComponent<Forklift>();
+            fl.NetworkObject.Spawn(true);
+            yield return new WaitForSeconds(1.5f);
+            var front = fl.transform.TransformPoint(new Vector3(0, 0, 1.45f));
+            var pal = Instantiate(ui.PalletPrefab, new Vector3(front.x, 0.05f, front.z), fl.transform.rotation).GetComponent<Pallet>();
+            pal.NetworkObject.Spawn(true);
+            yield return new WaitForSeconds(0.5f);
+            for (int i = 0; i < 6; i++) PortGame.I.SpawnCrate(pal.transform.TransformPoint(new Vector3(-0.6f + (i % 3) * 0.6f, 0.6f, i < 3 ? -0.3f : 0.3f)), 1f);
+            yield return new WaitForSeconds(1.5f);
+            var pl = Player.Local;
+            pl.DebugTeleport(fl.Seat + fl.transform.right * -1.2f + Vector3.down * 0.9f, 0);
+            yield return new WaitForSeconds(0.3f);
+            fl.EnterRpc();
+            yield return new WaitForSeconds(1f);
+            Debug.Log($"[PB] forklift test: driver={(pl.Driving != null)} owner={fl.IsOwner} palletLoad={pal.transform.childCount}");
+            Forklift.BotDrive = () => new Vector3(0, 0, 1);          // raise forks
+            yield return new WaitForSeconds(0.6f);
+            Forklift.BotDrive = () => Vector3.zero;
+            yield return new WaitForSeconds(0.5f);
+            Debug.Log($"[PB] forklift test: lifted hasPallet={fl.HasPallet.Value} mast={fl.Mast.Value:F2}");
+            Forklift.BotDrive = () => new Vector3(0, 1, 0);          // drive forward
+            yield return new WaitForSeconds(2.5f);
+            Debug.Log($"[PB] forklift test: drove to {fl.transform.position:F1} hasPallet={fl.HasPallet.Value}");
+            Forklift.BotDrive = () => new Vector3(1, 1, 1);          // raise high + hard turn at speed
+            float maxTilt = 0;
+            for (float t = 0; t < 3f; t += Time.deltaTime) { maxTilt = Mathf.Max(maxTilt, Vector3.Angle(fl.transform.up, Vector3.up)); yield return null; }
+            Forklift.BotDrive = () => Vector3.zero;
+            yield return new WaitForSeconds(1.5f);
+            Debug.Log($"[PB] forklift test: hard corner maxTilt={maxTilt:F0} hasPallet={fl.HasPallet.Value} crates loose={Crate.All.FindAll(c => !c.Attached.Value).Count}");
+            fl.ExitRpc();
+            yield return new WaitForSeconds(1f);
+            Debug.Log($"[PB] forklift test: exited driver={(pl.Driving != null)} at {pl.transform.position:F1}");
+            Forklift.BotDrive = null;
         }
 
         IEnumerator StartOnDay(int n)

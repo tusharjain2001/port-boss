@@ -66,6 +66,30 @@ namespace PortBoss.EditorTools
                 g.AddComponent<Trolley>();
             });
             var game = Prefab("PortGame", g => { g.AddComponent<NetworkObject>(); g.AddComponent<PortGame>(); });
+            var slick = new PhysicsMaterial("slick") { dynamicFriction = 0.05f, staticFriction = 0.05f, frictionCombine = PhysicsMaterialCombine.Minimum };
+            AssetDatabase.CreateAsset(slick, Root + "/Materials/Slick.physicMaterial");
+            var forklift = Prefab("Forklift", g =>
+            {
+                Net(g, NetworkTransform.AuthorityModes.Owner, false);
+                var rb = g.AddComponent<Rigidbody>(); rb.mass = 1400f; rb.angularDamping = 1.2f; rb.interpolation = RigidbodyInterpolation.Interpolate;
+                rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+                var nrb = g.AddComponent<NetworkRigidbody>(); nrb.UseRigidBodyForMotion = true;
+                Box(g, new Vector3(0, 0.62f, -0.1f), new Vector3(1.25f, 0.75f, 1.9f)).sharedMaterial = slick;
+                Box(g, new Vector3(0, 0.75f, -1.05f), new Vector3(1.3f, 0.9f, 0.45f));
+                Box(g, new Vector3(0, 1.45f, 0.95f), new Vector3(0.9f, 2.6f, 0.12f));
+                Box(g, new Vector3(0, 2.2f, -0.15f), new Vector3(1.2f, 0.06f, 1.3f));
+                foreach (var x in new[] { -0.6f, 0.6f })
+                    foreach (var z in new[] { -0.7f, 0.55f })
+                    { var s = g.AddComponent<SphereCollider>(); s.center = new Vector3(x, 0.32f, z); s.radius = 0.32f; s.sharedMaterial = slick; }
+                g.AddComponent<Forklift>();
+            });
+            var pallet = Prefab("Pallet", g =>
+            {
+                Net(g, NetworkTransform.AuthorityModes.Server, true);
+                var rb = g.AddComponent<Rigidbody>(); rb.mass = 25f; rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+                Box(g, new Vector3(0, Pallet.H / 2, 0), new Vector3(Pallet.W, Pallet.H, Pallet.D));
+                g.AddComponent<Pallet>();
+            });
             var player = Prefab("Player", g =>
             {
                 Net(g, NetworkTransform.AuthorityModes.Owner, false);
@@ -74,7 +98,7 @@ namespace PortBoss.EditorTools
             });
 
             var list = ScriptableObject.CreateInstance<NetworkPrefabsList>();
-            foreach (var p in new[] { crate, boat, trolley, game }) list.Add(new NetworkPrefab { Prefab = p });
+            foreach (var p in new[] { crate, boat, trolley, game, forklift, pallet }) list.Add(new NetworkPrefab { Prefab = p });
             AssetDatabase.CreateAsset(list, Root + "/NetworkPrefabs.asset");
 
             // Scene: NetworkManager + bootstrap. Everything else is built at runtime.
@@ -113,7 +137,7 @@ namespace PortBoss.EditorTools
 
             ui.TitleFont = AssetDatabase.LoadAssetAtPath<Font>("Assets/Art/Fonts/AlfaSlabOne-Regular.ttf");
             ui.Models = models.ToArray(); ui.ModelKit = kits.ToArray(); ui.KitMats = kitMats.ToArray();
-            ui.CratePrefab = crate; ui.BoatPrefab = boat; ui.TrolleyPrefab = trolley; ui.PortGamePrefab = game;
+            ui.CratePrefab = crate; ui.BoatPrefab = boat; ui.TrolleyPrefab = trolley; ui.PortGamePrefab = game; ui.ForkliftPrefab = forklift; ui.PalletPrefab = pallet;
             ui.LitMat = litMat; ui.EmissiveMat = emis; ui.ParticleMat = part; ui.WaterMat = water; ui.CloudMat = cloud;
             Dir("Assets/Scenes");
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -182,7 +206,7 @@ namespace PortBoss.EditorTools
             nt.Interpolate = true;
         }
 
-        static void Box(GameObject g, Vector3 c, Vector3 s) { var b = g.AddComponent<BoxCollider>(); b.center = c; b.size = s; }
+        static BoxCollider Box(GameObject g, Vector3 c, Vector3 s) { var b = g.AddComponent<BoxCollider>(); b.center = c; b.size = s; return b; }
 
         static GameObject Prefab(string name, Action<GameObject> build)
         {
