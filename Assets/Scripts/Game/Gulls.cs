@@ -20,6 +20,20 @@ namespace PortBoss
         Quaternion baseL, baseR;
         Vector3 axisL, axisR;
         Vector3 center, perch, vel;
+        Transform thiefTarget; // a crate this gull is raiding
+        static readonly System.Collections.Generic.List<Gull> all = new();
+
+        // Host told everyone: send the nearest free gull to raid this crate.
+        public static void Raid(Transform crate)
+        {
+            Gull best = null; float bd = 1e9f;
+            foreach (var g in all)
+                if (g.thiefTarget == null && g.st != St.Perched) { float d = (g.transform.position - crate.position).sqrMagnitude; if (d < bd) { bd = d; best = g; } }
+            if (best == null) return;
+            best.thiefTarget = crate;
+            best.st = St.Land; best.timer = 12f;
+            Sfx.Play("gull", best.transform.position, 0.7f, 1.2f, true);
+        }
         float radius, height, angle, speed, timer, flap;
 
         public static void Spawn(int n)
@@ -44,8 +58,11 @@ namespace PortBoss
             return null;
         }
 
+        void OnDestroy() => all.Remove(this);
+
         void Init(int i)
         {
+            all.Add(this);
             center = new Vector3(Random.Range(-10f, 15f), 0, Random.Range(0f, 30f));
             radius = Random.Range(8f, 22f);
             height = Random.Range(7f, 16f);
@@ -79,14 +96,23 @@ namespace PortBoss
                     }
                     break;
                 case St.Land:
+                    if (thiefTarget != null) perch = thiefTarget.position + Vector3.up * (Crate.Size * 0.5f + 0.05f);
                     target = perch + Vector3.up * 0.05f;
                     flapping = (transform.position - target).sqrMagnitude < 9f;
-                    if ((transform.position - target).sqrMagnitude < 0.02f || timer < 0) { st = St.Perched; timer = Random.Range(6f, 16f); }
+                    if ((transform.position - target).sqrMagnitude < 0.02f || timer < 0) { st = St.Perched; timer = thiefTarget != null ? 16f : Random.Range(6f, 16f); }
                     break;
                 case St.Perched:
+                    if (thiefTarget != null) perch = thiefTarget.position + Vector3.up * (Crate.Size * 0.5f + 0.05f);
                     target = perch + Vector3.up * 0.05f;
                     flapping = false;
-                    if (timer < 0 || PlayerNear()) { st = St.TakeOff; timer = 2.5f; Sfx.Play("gull", transform.position, 0.6f, 1f, true); }
+                    bool raidDone = thiefTarget != null && timer < 16f - 6f;
+                    if (timer < 0 || PlayerNear() || raidDone)
+                    {
+                        // A thief that wasn't shooed off flies away with a fish in its beak.
+                        if (raidDone && !PlayerNear()) Destroy(Art.Prim(PrimitiveType.Capsule, transform, new Vector3(0, -0.12f, 0.25f), Quaternion.Euler(90, 0, 0), new Vector3(0.08f, 0.14f, 0.06f), Art.Fish, false, "stolen_fish"), 8f);
+                        thiefTarget = null;
+                        st = St.TakeOff; timer = 2.5f; Sfx.Play("gull", transform.position, 0.6f, 1f, true);
+                    }
                     break;
                 case St.TakeOff:
                     target = transform.position + Vector3.up * 4f + transform.forward * 3f;

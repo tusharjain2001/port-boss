@@ -28,7 +28,8 @@ namespace PortBoss
         public NetworkVariable<bool> PierRepaired = new(false);
         public NetworkVariable<float> PierSag = new(0); // degrees the old pier end hangs down (host computes)
         public const int RepairPrice = 80;
-        float loadCheck;
+        float loadCheck, raidTimer = 30f;
+        Crate raided; float raidPenaltyAt;
 
         // The contract board on the shed wall: who brings the fish tomorrow.
         public struct Contract { public string Captain, Pitch; public float Cargo, Price, DockSeconds; }
@@ -90,6 +91,7 @@ namespace PortBoss
         {
             if (IsServer && (loadCheck -= Time.deltaTime) <= 0) { loadCheck = 0.4f; WeighPierEnd(); }
             if (!IsServer || Phase.Value != Ph.Day) return;
+            GullRaids();
             DayT.Value += Time.deltaTime;
             var sched = Schedule;
             if (nextBoat < sched.Length && DayT.Value >= sched[nextBoat].t)
@@ -118,6 +120,36 @@ namespace PortBoss
         }
 
         public void BoatGone() => activeBoats--;
+
+        // Host: now and then a gull goes for a crate nobody is watching; unguarded, it loses freshness.
+        void GullRaids()
+        {
+            if (raided != null && Time.time > raidPenaltyAt)
+            {
+                if (raided.IsSpawned && !raided.Attached.Value && !PlayerWithin(raided.transform.position, 3f))
+                {
+                    raided.Fresh.Value = Mathf.Max(0, raided.Fresh.Value - 0.3f);
+                    Shout("BUYER", Pick("Oi! A gull's in your fish!", "That gull just pinched a fish. Guard your crates!", "Shoo! SHOO! ...too late."), 3f);
+                }
+                raided = null;
+            }
+            if ((raidTimer -= Time.deltaTime) > 0 || raided != null) return;
+            raidTimer = Random.Range(25f, 40f);
+            var candidates = Crate.All.FindAll(c => !c.Attached.Value && !c.InSea && c.transform.position.y > Water.Level + 0.6f && !PlayerWithin(c.transform.position, 5f));
+            if (candidates.Count == 0) return;
+            raided = candidates[Random.Range(0, candidates.Count)];
+            raidPenaltyAt = Time.time + 7f;
+            RaidRpc(raided.NetworkObject);
+        }
+
+        static bool PlayerWithin(Vector3 p, float r)
+        {
+            foreach (var pl in Player.All) if ((pl.transform.position - p).sqrMagnitude < r * r) return true;
+            return false;
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        void RaidRpc(NetworkObjectReference r) { if (r.TryGet(out var no)) Gull.Raid(no.transform); }
 
         // Host: how much is standing on the old pier end? Crates count 1, people 3 (+ what they carry).
         void WeighPierEnd()
