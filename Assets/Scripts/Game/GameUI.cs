@@ -187,7 +187,7 @@ namespace PortBoss
             if (g != null) ApplyLight(Mathf.Clamp01(g.DayT.Value / PortGame.DayLength), g.Phase.Value == PortGame.Ph.Night);
             else ApplyLight(0.8f, false); // the title scene sits in golden hour
             ApplyStormLight();
-            amb.volume = 0.35f * Settings.Ambience;
+            amb.volume = 0.35f * (1f + Storm.Level * 1.3f) * Settings.Ambience; // the sea gets louder as it gets rougher
             SettingsKeyCapture();
             music.Play(MusicSlot(g));
 
@@ -198,6 +198,13 @@ namespace PortBoss
                 if (buyerOpen && (k.escapeKey.wasPressedThisFrame || (grabKey != Key.None && k[grabKey].wasPressedThisFrame))) CloseBuyer();
                 else if (k.escapeKey.wasPressedThisFrame || Gamepad.current?.startButton.wasPressedThisFrame == true) SetPaused(!paused);
                 if (k.hKey.wasPressedThisFrame) { showHelp = !showHelp; Settings.ControlsHint = showHelp; }
+                // Debug (host): F9 cycles the weather: random → calm → rain → storm → random.
+                if (k.f9Key.wasPressedThisFrame && NetworkManager.Singleton.IsServer && g != null)
+                {
+                    float f = g.ForcedSeverity, next = f < 0 ? 0f : f < 0.25f ? 0.5f : f < 0.75f ? 1f : -1f;
+                    g.ForceWeather(next);
+                    Shout("", next < 0 ? "[debug] weather: random" : $"[debug] weather forced to {next:0.0}", 2f);
+                }
             }
             var nm = NetworkManager.Singleton;
             bool live = nm.IsListening && !nm.ShutdownInProgress;
@@ -239,7 +246,7 @@ namespace PortBoss
         string MusicSlot(PortGame g)
         {
             if (screen != Screen.Playing || g == null) return "menu";
-            if (g.StormPhase.Value != 0) return "storm";
+            if (Storm.Level > 0.75f) return "storm";
             // Evening (from sunset) and night share the night track.
             if (g.Phase.Value == PortGame.Ph.Night || g.DayT.Value / PortGame.DayLength > 0.72f) return "night";
             foreach (var b in Boat.All)
@@ -500,7 +507,7 @@ namespace PortBoss
                 else if (fk != null && fk.Free && pl.Carrying == 0 && Vector3.Distance(fk.Seat, pl.transform.position + Vector3.up) < 2.4f) hint = "E  drive the forklift";
                 else if (pl.Swimming) hint = pl.NearLadder() != null ? "E  climb out" : pl.Towing ? "Q  let go of the crate" : pl.FloatingCrateNear() != null ? "E  tow this crate" : "Swim to a ladder or the slipway";
                 else if (pl.NearBuyer && pl.SellableCrates().Count > 0) hint = "E  sell to the buyer";
-                else if (PortGame.I != null && PortGame.I.StormPhase.Value != 0 && pl.Carrying == 0 && pl.FindCrate() is Crate tc && !tc.Attached.Value) hint = tc.Tied.Value ? "F  untie crate" : "F  tie this crate down";
+                else if (PortGame.I != null && Storm.Gust > 0.15f && pl.Carrying == 0 && pl.FindCrate() is Crate tc && !tc.Attached.Value) hint = tc.Tied.Value ? "F  untie crate" : "F  tie this crate down";
                 else if (pl.Pushing) hint = "F  let go of trolley";
                 else if (pl.Carrying < Player.MaxStack && pl.FindCrate() != null) hint = pl.Carrying == 0 ? "E  grab crate" : "E  stack another";
                 else if (pl.Carrying == 0 && Trolley.I != null && Vector3.Distance(Trolley.I.Handle, pl.transform.position + Vector3.up) < 2.2f) hint = "F  push trolley";

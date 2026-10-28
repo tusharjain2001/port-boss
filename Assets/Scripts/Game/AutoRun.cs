@@ -68,6 +68,7 @@ namespace PortBoss
             if (int.TryParse(Arg("-pb-settings"), out var st)) ui.DebugOpenSettings(st);
             if (Has("-pb-settingstest")) StartCoroutine(SettingsTest());
             if (Has("-pb-storm")) StartCoroutine(StormTest());
+            if (float.TryParse(Arg("-pb-weather"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var wsev)) StartCoroutine(ForceWeatherSoon(wsev));
             if (Has("-pb-forklifttest")) StartCoroutine(ForkliftTest());
         }
 
@@ -165,16 +166,27 @@ namespace PortBoss
         }
 
         // Storm warning now, storm 90 s later (use -pb-timescale to speed it up); crates on the pier get blown.
+        IEnumerator ForceWeatherSoon(float s) { yield return WaitGame(); PortGame.I.ForceWeather(s); }
+
         IEnumerator StormTest()
         {
             yield return WaitGame();
             for (int i = 0; i < 6; i++) PortGame.I.SpawnCrate(new Vector3(-1.5f + i * 0.7f, 0.6f, 14f), 1f);
-            PortGame.I.DebugStorm();
-            for (int s = 0; s < 40; s++)
+            // Same camera at severity 0, 0.5 and 1 (boat docked, crates loose on the pier).
+            while (!Boat.All.Exists(b => b.State.Value == Boat.St.Docked)) yield return null;
+            var dir = Arg("-pb-shots");
+            foreach (var sev in new[] { 0f, 0.5f, 1f })
             {
-                yield return new WaitForSeconds(3);
-                Debug.Log($"[PB] storm test: phase={PortGame.I.StormPhase.Value} level={Storm.Level:F2} waves={Water.Storm:F2} inSea={PortGame.I.InSea.Value}");
+                PortGame.I.ForceWeather(sev);
+                while (Mathf.Abs(Storm.Level - sev) > 0.02f) yield return null;
+                yield return new WaitForSeconds(4f);
+                Player.CamOverride = true;
+                Camera.main.transform.position = new Vector3(-9f, 4.5f, 6f); Camera.main.transform.LookAt(new Vector3(4f, 0.5f, 17f));
+                Debug.Log($"[PB] weather test: severity={PortGame.I.Severity.Value:F2} level={Storm.Level:F2} waves={Water.Storm:F2} rain={Storm.Rain:F2} gust={Storm.Gust:F2} inSea={PortGame.I.InSea.Value}");
+                if (dir != null) yield return Snap(dir, $"weather-{sev:0.0}");
+                Player.CamOverride = false;
             }
+            PortGame.I.ForceWeather(-1);
         }
 
         // Forklift: get in, lift a loaded pallet, drive, corner hard.

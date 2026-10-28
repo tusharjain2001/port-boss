@@ -69,6 +69,35 @@ namespace PortBoss.EditorTools
             Debug.Log("[TH] sheet written to " + outDir);
         }
 
+        // Layout of the demo harbour: root objects, bounds, renderer counts, a top-down render.
+        public static void DemoLayout()
+        {
+            var outDir = Arg("-thOut") ?? "th_layout";
+            Directory.CreateDirectory(outDir);
+            EditorSceneManager.OpenScene(Root + "/Scenes/DemoScene_1.unity", OpenSceneMode.Single);
+            var log = new StringBuilder();
+            var all = new Bounds(); bool first = true; int total = 0;
+            foreach (var go in UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects())
+            {
+                var rs = go.GetComponentsInChildren<Renderer>();
+                total += rs.Length;
+                if (rs.Length == 0) { log.AppendLine($"{go.name}: no renderers"); continue; }
+                var b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds);
+                log.AppendLine($"{go.name}: renderers={rs.Length} center={b.center:F0} size={b.size:F0} water={rs.Count(r => r.sharedMaterial && r.sharedMaterial.shader.name.Contains("Water"))}");
+                if (first) { all = b; first = false; } else all.Encapsulate(b);
+            }
+            log.AppendLine($"ALL renderers={total} center={all.center:F0} size={all.size:F0}");
+            foreach (var r in Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None).Where(r => r.sharedMaterial && r.sharedMaterial.shader.name.Contains("Water")).Take(5))
+                log.AppendLine($"water {r.name} pos={r.transform.position:F1} bounds={r.bounds.size:F0}");
+            var cam = new GameObject("top").AddComponent<Camera>();
+            cam.orthographic = true; cam.orthographicSize = Mathf.Max(all.size.x, all.size.z) * 0.55f;
+            cam.transform.position = all.center + Vector3.up * 500; cam.transform.rotation = Quaternion.Euler(90, 0, 0);
+            cam.farClipPlane = 2000; cam.clearFlags = CameraClearFlags.SolidColor; cam.backgroundColor = Color.black;
+            Render(cam, Path.Combine(outDir, "demo1_top.png"), 1600, 1600);
+            File.WriteAllText(Path.Combine(outDir, "layout.txt"), log.ToString());
+            Debug.Log("[TH] layout written");
+        }
+
         public static void Survey()
         {
             var outDir = Arg("-thOut") ?? "th_survey";

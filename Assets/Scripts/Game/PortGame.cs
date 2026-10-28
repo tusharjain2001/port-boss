@@ -31,10 +31,12 @@ namespace PortBoss
         public NetworkVariable<bool> HasForklift = new(false);
         public bool ForkliftForSale => DayNum.Value >= 2; // unlocks for day 3
         float loadCheck, raidTimer = 30f;
-        public NetworkVariable<byte> StormPhase = new(0); // 0 calm, 1 warning (90 s), 2 storm
-        public const float StormWarnAt = 230f, StormHitAt = 320f, StormEndAt = 395f;
-        bool forcedStorm; float forcedT;
-        bool StormDay => DayNum.Value >= 3 && DayNum.Value % 2 == 1;
+        // Weather: one 0..1 severity (calm → breezy → overcast → rain → storm), host-driven by a random process
+        // seeded per session. Nothing announces it; you read it from the sky and the sea.
+        public NetworkVariable<float> Severity = new(0f);
+        System.Random wx;
+        float wxTarget, wxRate, wxNextPick, forcedSeverity = -1f, worstToday;
+        public float ForcedSeverity => forcedSeverity;
         Crate raided; float raidPenaltyAt;
 
         // The contract board on the shed wall: who brings the fish tomorrow.
@@ -58,7 +60,12 @@ namespace PortBoss
             I = this;
             PierRepaired.OnValueChanged += (_, on) => World.SetRepaired(on);
             World.SetRepaired(PierRepaired.Value);
-            if (IsServer) { StartDay(1); Speedboat.Arrived += RivalTaunt; }
+            if (IsServer)
+            {
+                wx = new System.Random(System.Environment.TickCount ^ System.Guid.NewGuid().GetHashCode());
+                Severity.Value = PickSeverity() * 0.6f; wxTarget = Severity.Value; wxNextPick = Time.time + 30f;
+                StartDay(1); Speedboat.Arrived += RivalTaunt;
+            }
         }
 
         public override void OnNetworkDespawn() { if (I == this) I = null; Speedboat.Arrived -= RivalTaunt; }
@@ -71,6 +78,7 @@ namespace PortBoss
 
         void StartDay(int n)
         {
+            worstToday = 0;
             DayNum.Value = n; DayT.Value = 0; nextBoat = 0;
             ContractId.Value = NextContractId.Value;
             Earned.Value = Sold.Value = InSea.Value = LeftAboard.Value = SpoiledSold.Value = 0;
@@ -96,9 +104,9 @@ namespace PortBoss
         void Update()
         {
             if (IsServer && (loadCheck -= Time.deltaTime) <= 0) { loadCheck = 0.4f; WeighPierEnd(); }
+            if (IsServer) UpdateWeather();
             if (!IsServer || Phase.Value != Ph.Day) return;
-            GullRaids();
-            UpdateStorm();
+            if (Severity.Value < 0.55f) GullRaids(); // gulls hide in rough weather
             DayT.Value += Time.deltaTime;
             var sched = Schedule;
             if (nextBoat < sched.Length && DayT.Value >= sched[nextBoat].t)
@@ -128,19 +136,34 @@ namespace PortBoss
 
         public void BoatGone() => activeBoats--;
 
-        void UpdateStorm()
+        // Mostly calm or breezy, sometimes rain, now and then a storm. Any time, any day; calm can break through a storm.
+        float PickSeverity()
         {
-            float t = forcedStorm ? Time.time - forcedT + StormWarnAt : DayT.Value;
-            byte want = (StormDay || forcedStorm) ? (byte)(t < StormWarnAt ? 0 : t < StormHitAt ? 1 : t < StormEndAt ? 2 : 0) : (byte)0;
-            if (want == StormPhase.Value) return;
-            if (want == 1) Shout("HARBOUR MASTER", "STORM WARNING! Ninety seconds! Get your crates in the shed or tie them down (F)!", 5f);
-            else if (want == 2) Shout("HARBOUR MASTER", "Here it comes! Hold on to something!", 3.5f);
-            else if (StormPhase.Value == 2) { Shout("HARBOUR MASTER", "Storm's passing. Count your crates.", 3.5f); forcedStorm = false; }
-            StormPhase.Value = want;
+            double r = wx.NextDouble(), u = wx.NextDouble();
+            return (float)(r < 0.5 ? u * 0.18 : r < 0.78 ? 0.2 + u * 0.25 : r < 0.93 ? 0.5 + u * 0.25 : 0.8 + u * 0.2);
         }
 
-        // Test hook: start the storm warning now.
-        public void DebugStorm() { forcedStorm = true; forcedT = Time.time; }
+        void UpdateWeather()
+        {
+            float s = Severity.Value;
+            if (forcedSeverity >= 0) s = Mathf.MoveTowards(s, forcedSeverity, Time.deltaTime / 3f);
+            else
+            {
+                if (Time.time >= wxNextPick)
+                {
+                    wxTarget = PickSeverity();
+                    float ease = 20f + (float)wx.NextDouble() * 70f;               // drift there over 20-90 s
+                    wxRate = Mathf.Max(0.002f, Mathf.Abs(wxTarget - s) / ease);
+                    wxNextPick = Time.time + ease + 25f + (float)wx.NextDouble() * 120f; // then hold a while
+                }
+                s = Mathf.MoveTowards(s, wxTarget, wxRate * Time.deltaTime);
+            }
+            if (Mathf.Abs(s - Severity.Value) > 0.004f) Severity.Value = s; // don't sync every tick
+            if (Phase.Value == Ph.Day) worstToday = Mathf.Max(worstToday, s);
+        }
+
+        // Debug (host): force a severity, or < 0 to hand it back to the random weather.
+        public void ForceWeather(float s) { forcedSeverity = s; if (s < 0) wxNextPick = Time.time; }
 
         public static bool InShed(Vector3 p) => p.x > 6.1f && p.x < 11.9f && p.z > -11.4f && p.z < -6.6f;
 
@@ -196,7 +219,6 @@ namespace PortBoss
         // Test hook: skip to the end of the day.
         public void EndDayNow()
         {
-            forcedStorm = false; StormPhase.Value = 0;
             foreach (var b in Boat.All.ToArray()) b.NetworkObject.Despawn();
             activeBoats = 0; nextBoat = Schedule.Length; DayT.Value = DayLength;
         }
@@ -284,7 +306,7 @@ namespace PortBoss
         {
             int sold = Sold.Value, sea = InSea.Value, left = LeftAboard.Value, spoiled = SpoiledSold.Value;
             if (sold == 0) return "The buyer waited all day. He brought sandwiches.";
-            if (StormDay && sea >= 4) return $"The storm took {sea} crates. The shed was RIGHT THERE.";
+            if (worstToday > 0.75f && sea >= 4) return $"The storm took {sea} crates. The shed was RIGHT THERE.";
             if (sea >= 5 && sea >= sold) return "More fish went in the sea than in the buyer's van. The gulls send their thanks.";
             if (left >= 10) return $"Captain {Today.Captain} sailed home with {left} crates. Tonight, they eat well.";
             if (spoiled >= 4) return "The flies have started calling you 'boss' too.";

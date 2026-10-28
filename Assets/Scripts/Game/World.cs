@@ -43,6 +43,8 @@ namespace PortBoss
             OpenSea();
             if (Art.Cloud != null) Clouds();
             Speedboat.Create();
+            // Sea floor: the transparent toon water needs something below it (else the sky's ground colour shows through).
+            if (Skin.On) Art.Box(Root, new Vector3(0, -9f, 300), new Vector3(1400, 1, 1400), Art.Hex("#1f4f63"), false, "seabed");
             WaterRenderers.Clear();
             WaterRenderers.Add(Water.Create(new Vector3(0, 0, 80), 280, 112).GetComponent<Renderer>());
             // Far sea to the horizon (flat, slightly below the wave mean).
@@ -209,7 +211,7 @@ namespace PortBoss
             }
             // The buyer: a stout figure behind the table.
             var n = new Vector3(c.x, 0, c.z - 1.3f);
-            if (Skin.On && Skin.I.Buyer != null) { Art.Place(Skin.I.Buyer, b, n, 0, 1f); return; } // a Toon Harbor worker minds the stall
+            if (Skin.On && Skin.I.Buyer != null) { Art.Place(Skin.I.Buyer, b, n, 180, 1f); return; } // a Toon Harbor worker minds the stall
             Art.Prim(PrimitiveType.Capsule, b, n + Vector3.up * 0.95f, Quaternion.identity, new Vector3(0.75f, 0.95f, 0.75f), Art.Hex("#4f5d3a"), true, "buyer_body");
             Art.Prim(PrimitiveType.Sphere, b, n + Vector3.up * 2.05f, Quaternion.identity, Vector3.one * 0.42f, Art.Hex("#c99b7a"), false, "buyer_head");
             Art.Box(b, n + new Vector3(0, 2.3f, 0), new Vector3(0.5f, 0.12f, 0.5f), Art.Hex("#2c2c2c"), false, "buyer_hat");

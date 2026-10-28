@@ -2,19 +2,21 @@ using UnityEngine;
 
 namespace PortBoss
 {
-    // Local storm presentation on every peer, driven by the host's PortGame.StormPhase/StormLevel:
-    // rain around the camera, wind + siren + thunder, lightning flashes, bigger waves (Water.Storm).
+    // Local weather presentation on every peer, driven by the host's PortGame.Severity (0 calm .. 1 storm):
+    // bigger, choppier waves (Water.Storm), wind, rain around the camera, thunder + lightning at the top end.
+    // No sirens or warnings: the weather is something you read from the sky and the sea.
     public class Storm : MonoBehaviour
     {
         public static Storm I;
-        public static float Level;     // 0 calm .. 1 full storm (smoothed, every peer)
+        public static float Level;     // weather severity 0 calm .. 1 full storm (smoothed, every peer)
+        public static float Rain => Mathf.Clamp01((Level - 0.45f) / 0.4f);   // rain from "overcast" up
+        public static float Gust { get { float g = Mathf.Clamp01((Level - 0.45f) / 0.55f); return g * g; } } // wind strong enough to shove things (from rain up)
         public static float Flash;     // lightning flash 0..1
         public static readonly Vector3 WindDir = new Vector3(1f, 0, 0.25f).normalized; // across the pier: loose crates go over the side
 
         ParticleSystem rain;
         AudioSource wind;
         float nextThunder;
-        int lastPhase;
 
         public static void Create()
         {
@@ -43,23 +45,16 @@ namespace PortBoss
         void Update()
         {
             var g = PortGame.I;
-            int phase = g != null ? g.StormPhase.Value : 0;
-            if (phase != lastPhase)
-            {
-                if (phase == 1) { Sfx.Play2D("siren", 1f); }
-                if (phase == 2) { Sfx.Play2D("thunder", 1f); Flash = 1; }
-                lastPhase = phase;
-            }
-            float target = phase == 2 ? 1f : phase == 1 ? 0.25f : 0f;
-            Level = Mathf.MoveTowards(Level, target, Time.deltaTime / 8f);
-            Water.Storm = 1f + Level * 1.4f;
+            float target = g != null ? g.Severity.Value : 0f;
+            Level = Mathf.MoveTowards(Level, target, Time.deltaTime / 4f);
+            Water.Storm = 1f + Level * Level * 1.8f; // calm stays glassy, a storm really heaves
 
             var cam = Camera.main;
             if (cam != null) transform.position = cam.transform.position + Vector3.up * 14f + WindDir * -6f;
-            var e = rain.emission; e.rateOverTime = Level * 2600f;
-            if (wind != null) wind.volume = Level * 0.6f * Settings.Ambience;
+            var e = rain.emission; e.rateOverTime = Rain * 2600f;
+            if (wind != null) wind.volume = Mathf.Clamp01(Level * 1.2f - 0.1f) * 0.6f * Settings.Ambience;
 
-            if (Level > 0.7f && Time.time > nextThunder)
+            if (Level > 0.8f && Time.time > nextThunder)
             {
                 nextThunder = Time.time + Random.Range(6f, 14f);
                 Flash = 1;

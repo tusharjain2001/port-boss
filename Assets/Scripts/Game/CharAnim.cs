@@ -17,6 +17,7 @@ namespace PortBoss
         Animator animator;
         Transform armLU, armLL, armLH, armRU, armRL, armRH;
         public bool Carry;            // set by Player each frame
+        public Transform Facing;      // the player (the model itself is turned to face the pack's way)
         public float Throw01 = -1;
 
         void LateUpdate() => Arms(Carry, Throw01);
@@ -64,7 +65,7 @@ namespace PortBoss
         public void Arms(bool carry, float throw01)
         {
             if (armLU == null || armRU == null) return;
-            var t = transform;
+            var t = Facing != null ? Facing : transform;
             if (carry)
             {
                 Aim(armLU, armLL, t.forward * 0.75f - t.up * 0.55f - t.right * 0.12f);

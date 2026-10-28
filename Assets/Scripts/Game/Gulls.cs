@@ -74,7 +74,9 @@ namespace PortBoss
             transform.position = Orbit();
         }
 
-        Vector3 Orbit() => center + new Vector3(Mathf.Cos(angle * Mathf.Deg2Rad) * radius, height + Mathf.Sin(Time.time * 0.4f + radius) * 1.5f, Mathf.Sin(angle * Mathf.Deg2Rad) * radius);
+        // In rough weather the gulls clear off: up and away, gone from the harbour.
+        Vector3 Orbit() => center + new Vector3(Mathf.Cos(angle * Mathf.Deg2Rad) * radius, height + Mathf.Sin(Time.time * 0.4f + radius) * 1.5f + Hide * 140f, Mathf.Sin(angle * Mathf.Deg2Rad) * radius + Hide * 260f);
+        static float Hide => Mathf.Clamp01((Storm.Level - 0.5f) / 0.25f);
 
         void Update()
         {
@@ -93,7 +95,7 @@ namespace PortBoss
                     {
                         // Mostly keep circling; sometimes glide; sometimes go and sit on something.
                         float r = Random.value;
-                        if (r < 0.35f) { st = St.Land; perch = Perches[Random.Range(0, Perches.Length)]; timer = 12f; }
+                        if (r < 0.35f && Hide <= 0) { st = St.Land; perch = Perches[Random.Range(0, Perches.Length)]; timer = 12f; }
                         else { st = r < 0.7f ? St.Glide : St.Circle; timer = Random.Range(5f, 12f); }
                     }
                     break;

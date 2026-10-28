@@ -146,10 +146,10 @@ namespace PortBoss
             }
 
             // Storm wind: loose crates outside the shed get shoved across the pier (and over the side).
-            if (game != null && game.StormPhase.Value == 2 && !Tied.Value && depth <= 0 && !PortGame.InShed(p))
+            if (Storm.Gust > 0 && !Tied.Value && depth <= 0 && !PortGame.InShed(p))
             {
                 float gust = 0.6f + 0.4f * Mathf.Sin(Time.time * 1.3f + p.x * 0.7f + p.z * 0.3f);
-                rb.AddForce(Storm.WindDir * (13f * gust * Storm.Level), ForceMode.Acceleration);
+                rb.AddForce(Storm.WindDir * (13f * gust * Storm.Gust), ForceMode.Acceleration);
             }
 
             // Towed or washed back onto land: no longer "in the sea".

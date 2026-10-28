@@ -120,6 +120,7 @@ namespace PortBoss
         void BuildWorker(Transform m, int id)
         {
             var g = Instantiate(Skin.Pick(Skin.I.Players, id), m, false);
+            g.transform.localRotation = Quaternion.Euler(0, 180, 0); // the pack's people face -Z
             foreach (var col in g.GetComponentsInChildren<Collider>()) Destroy(col);
             float h = Art.Bounds(g).size.y;
             if (h > 0.5f) g.transform.localScale = Vector3.one * Mathf.Clamp(1.8f / h, 0.8f, 1.25f);
@@ -127,6 +128,7 @@ namespace PortBoss
             if (a == null) a = g.AddComponent<Animator>();
             anim = a.gameObject.AddComponent<CharAnim>();
             anim.Init(a, Skin.I);
+            anim.Facing = transform;
         }
 
         void AnimateWorker(float speed)
@@ -155,7 +157,7 @@ namespace PortBoss
             anim.Throw01 = throwT;
             anim.Tick(slot, speed);
         }
-        const float SwimModelY = 0.55f; // lifts the swim clip so head and shoulders stay above the surface
+        const float SwimModelY = 1.1f; // lifts the swim clip so head and shoulders stay above the surface
 
         void Animate(float speed)
         {
@@ -339,7 +341,7 @@ namespace PortBoss
                 hv = Vector3.MoveTowards(hv, wish * speed, (cc.isGrounded ? 30f : 10f) * dt);
                 if (cc.isGrounded) { vy = -2f; if (input.jump) { vy = 5.6f; Sfx.Play("whoosh", transform.position, 0.3f); } }
                 vy -= 19f * dt;
-                cc.Move((hv + Vector3.up * vy + Storm.WindDir * (1.6f * Storm.Level)) * dt);
+                cc.Move((hv + Vector3.up * vy + Storm.WindDir * (1.1f * Storm.Gust)) * dt);
             }
 
             if (wish.sqrMagnitude > 0.01f)
