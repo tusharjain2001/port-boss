@@ -498,7 +498,7 @@ namespace PortBoss
         void DrawNight(float W, float H)
         {
             var g = PortGame.I;
-            float pw = 720 * S, ph = 720 * S, bw = 520 * S;
+            float pw = 720 * S, ph = 780 * S, bw = 520 * S;
             var r = new Rect((W - pw - bw - 30 * S) / 2, (H - ph) / 2, pw, ph);
             GUI.Box(r, "", panel);
             Label(new Rect(r.x, r.y + 20 * S, pw, 70 * S), $"End of Day {g.DayNum.Value}", new GUIStyle(big) { fontSize = Mathf.RoundToInt(52 * S) }, new Color(1f, 0.9f, 0.7f));
@@ -516,6 +516,9 @@ namespace PortBoss
             string tl = g.HasTrolley.Value ? "Hand trolley: owned" : $"Hand trolley  ${PortGame.TrolleyPrice}  (holds 6 crates)";
             Label(new Rect(x, y, pw, lh), tl, st, Color.white);
             if (!g.HasTrolley.Value && Button(new Rect(r.xMax - 210 * S, y, 160 * S, 46 * S), "Buy", g.Money.Value >= PortGame.TrolleyPrice)) g.BuyTrolleyRpc();
+            y += lh * 1.15f;
+            Label(new Rect(x, y, pw, lh), g.PierRepaired.Value ? "Pier: repaired and braced" : $"Repair the pier  ${PortGame.RepairPrice}  (fill holes, brace the end)", st, Color.white);
+            if (!g.PierRepaired.Value && Button(new Rect(r.xMax - 210 * S, y, 160 * S, 46 * S), "Buy", g.Money.Value >= PortGame.RepairPrice)) g.BuyRepairRpc();
             y += lh * 1.6f;
             if (NetworkManager.Singleton.IsServer)
             {

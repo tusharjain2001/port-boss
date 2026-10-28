@@ -109,33 +109,61 @@ namespace PortBoss
             Art.Box(t, p + new Vector3(0, 4.45f, 0), new Vector3(0.4f, 0.3f, 0.4f), Art.Cream, false, "lamp_head").GetComponent<Renderer>().sharedMaterial = Art.Glow(Art.Hex("#ffd9a0"), 1.5f);
         }
 
+        // The pier: a solid base and an old end section (z >= 20) on a hinge that sags when overloaded.
+        public static Transform PierEnd;
+        public const float PierEndZ = 20f;
+        static readonly List<GameObject> holePlanks = new();
+
         static void Pier()
         {
             var p = new GameObject("Pier").transform;
             p.SetParent(Root, false);
+            PierEnd = new GameObject("PierEnd").transform;
+            PierEnd.SetParent(Root, false);
+            PierEnd.position = new Vector3(0, PierTop, PierEndZ);
+            var rb = PierEnd.gameObject.AddComponent<Rigidbody>();
+            rb.isKinematic = true; rb.interpolation = RigidbodyInterpolation.Interpolate;
+            PierEnd.gameObject.AddComponent<PierSag>();
+            // Children are placed in world coordinates on whichever section they sit on.
+            Transform Sec(float z) => z >= PierEndZ ? PierEnd : p;
+            Vector3 L(Transform sec, Vector3 w) => sec == p ? w : w - PierEnd.position;
+
             float y = PierTop - 0.06f;
             int i = 0;
+            holePlanks.Clear();
             for (float z = 0.16f; z < 30f; z += 0.34f, i++)
             {
                 // Missing planks: a hole on the left at z≈10 and on the right at z≈24 (away from the gangplank).
                 bool holeL = z > 9.6f && z < 11.0f, holeR = z > 23.5f && z < 24.8f;
                 var tint = Color.Lerp(Art.Wood, Art.WoodLight, Mathf.PerlinNoise(i * 0.37f, 0.5f));
-                if (!holeL) Art.Box(p, new Vector3(-1.5f, y, z), new Vector3(2.98f, 0.12f, 0.3f), tint, true, "plank");
-                if (!holeR) Art.Box(p, new Vector3(1.5f, y, z), new Vector3(2.98f, 0.12f, 0.3f), Color.Lerp(tint, Art.WoodDark, 0.15f), true, "plank");
+                var sec = Sec(z);
+                var l = Art.Box(sec, L(sec, new Vector3(-1.5f, y, z)), new Vector3(2.98f, 0.12f, 0.3f), holeL ? Color.Lerp(Art.WoodLight, Color.white, 0.25f) : tint, true, "plank");
+                var r = Art.Box(sec, L(sec, new Vector3(1.5f, y, z)), new Vector3(2.98f, 0.12f, 0.3f), holeR ? Color.Lerp(Art.WoodLight, Color.white, 0.25f) : Color.Lerp(tint, Art.WoodDark, 0.15f), true, "plank");
+                // Hole planks exist from the start (new, paler wood) but only appear once the pier is repaired.
+                if (holeL) { l.SetActive(false); holePlanks.Add(l); }
+                if (holeR) { r.SetActive(false); holePlanks.Add(r); }
             }
-            // Stringers under the planks + posts into the water.
-            Art.Box(p, new Vector3(-2.7f, y - 0.2f, 15), new Vector3(0.25f, 0.25f, 30), Art.WoodDark, false, "stringer");
-            Art.Box(p, new Vector3(2.7f, y - 0.2f, 15), new Vector3(0.25f, 0.25f, 30), Art.WoodDark, false, "stringer");
-            Art.Box(p, new Vector3(0, y - 0.2f, 15), new Vector3(0.25f, 0.25f, 30), Art.WoodDark, false, "stringer");
+            // Stringers + kerb, split at the hinge; posts into the water (the base keeps its posts, the end hangs off the hinge).
+            foreach (var (sec, z0, z1) in new[] { (p, 0f, PierEndZ), (PierEnd, PierEndZ, 30f) })
+            {
+                float zc = (z0 + z1) / 2, len = z1 - z0;
+                foreach (var x in new[] { -2.7f, 0f, 2.7f })
+                    Art.Box(sec, L(sec, new Vector3(x, y - 0.2f, zc)), new Vector3(0.25f, 0.25f, len), Art.WoodDark, false, "stringer");
+                Art.Box(sec, L(sec, new Vector3(-2.85f, PierTop + 0.1f, zc)), new Vector3(0.18f, 0.2f, len), Art.WoodDark, true, "kerb");
+            }
             for (float z = 1.5f; z < 30.5f; z += 3f)
                 foreach (var x in new[] { -2.9f, 2.9f })
                     Art.Prim(PrimitiveType.Cylinder, p, new Vector3(x, -2.0f, z), Quaternion.identity, new Vector3(0.32f, 2.5f, 0.32f), Art.WoodDark, true, "post");
-            // Low edge beam on the left side, rope bollards on the right (boat side).
+            // Rope bollards on the right (boat side).
             for (float z = 4f; z < 30f; z += 6f)
-                Art.Prim(PrimitiveType.Cylinder, p, new Vector3(2.75f, PierTop + 0.2f, z), Quaternion.identity, new Vector3(0.3f, 0.2f, 0.3f), Art.Hex("#3b3b3b"), true, "bollard");
-            Art.Box(p, new Vector3(-2.85f, PierTop + 0.1f, 15), new Vector3(0.18f, 0.2f, 30), Art.WoodDark, true, "kerb");
-            Lamp(p, new Vector3(-2.6f, PierTop, 29.5f));
+            {
+                var sec = Sec(z);
+                Art.Prim(PrimitiveType.Cylinder, sec, L(sec, new Vector3(2.75f, PierTop + 0.2f, z)), Quaternion.identity, new Vector3(0.3f, 0.2f, 0.3f), Art.Hex("#3b3b3b"), true, "bollard");
+            }
+            Lamp(PierEnd, L(PierEnd, new Vector3(-2.6f, PierTop, 29.5f)));
         }
+
+        public static void SetRepaired(bool on) { foreach (var g in holePlanks) if (g != null) g.SetActive(on); }
 
         static void BuyerTable()
         {

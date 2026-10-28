@@ -25,6 +25,10 @@ namespace PortBoss
         public NetworkVariable<float> DayT = new(0);
         public NetworkVariable<bool> HasTrolley = new(false);
         public NetworkVariable<byte> ContractId = new(0), NextContractId = new(0);
+        public NetworkVariable<bool> PierRepaired = new(false);
+        public NetworkVariable<float> PierSag = new(0); // degrees the old pier end hangs down (host computes)
+        public const int RepairPrice = 80;
+        float loadCheck;
 
         // The contract board on the shed wall: who brings the fish tomorrow.
         public struct Contract { public string Captain, Pitch; public float Cargo, Price, DockSeconds; }
@@ -45,6 +49,8 @@ namespace PortBoss
         public override void OnNetworkSpawn()
         {
             I = this;
+            PierRepaired.OnValueChanged += (_, on) => World.SetRepaired(on);
+            World.SetRepaired(PierRepaired.Value);
             if (IsServer) { StartDay(1); Speedboat.Arrived += RivalTaunt; }
         }
 
@@ -82,6 +88,7 @@ namespace PortBoss
 
         void Update()
         {
+            if (IsServer && (loadCheck -= Time.deltaTime) <= 0) { loadCheck = 0.4f; WeighPierEnd(); }
             if (!IsServer || Phase.Value != Ph.Day) return;
             DayT.Value += Time.deltaTime;
             var sched = Schedule;
@@ -111,6 +118,22 @@ namespace PortBoss
         }
 
         public void BoatGone() => activeBoats--;
+
+        // Host: how much is standing on the old pier end? Crates count 1, people 3 (+ what they carry).
+        void WeighPierEnd()
+        {
+            var end = World.PierEnd;
+            if (end == null) return;
+            int load = 0;
+            bool On(Vector3 w) { var l = end.InverseTransformPoint(w); return Mathf.Abs(l.x) < 3.1f && l.z > 0 && l.z < 10.5f && l.y > -0.5f && l.y < 3f; }
+            foreach (var c in Crate.All) if (!c.Attached.Value && On(c.transform.position)) load++;
+            foreach (var p in Player.All) if (On(p.transform.position)) load += 3 + p.Carrying;
+            int cap = PierRepaired.Value ? 20 : 10;
+            float sag = Mathf.Min(9f, Mathf.Max(0, load - cap) * 0.9f);
+            sag = Mathf.Round(sag * 2) / 2;
+            if (sag > PierSag.Value + 0.1f && PierSag.Value == 0) Shout("BUYER", PortGame.Pick("That old pier end won't take much more!", "Mind the far end, boss, it's groaning!"), 3f);
+            if (!Mathf.Approximately(sag, PierSag.Value)) PierSag.Value = sag;
+        }
 
         // Test hook: skip to the end of the day.
         public void EndDayNow()
@@ -161,6 +184,15 @@ namespace PortBoss
 
         [Rpc(SendTo.ClientsAndHost)]
         void BoughtRpc() => Sfx.Play2D("buy");
+
+        [Rpc(SendTo.Server)]
+        public void BuyRepairRpc()
+        {
+            if (Phase.Value != Ph.Night || PierRepaired.Value || Money.Value < RepairPrice) return;
+            Money.Value -= RepairPrice;
+            PierRepaired.Value = true;
+            BoughtRpc();
+        }
 
         [Rpc(SendTo.Server)]
         public void ChooseContractRpc(byte id)
