@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace PortBoss
@@ -15,6 +16,7 @@ namespace PortBoss
         public const float PierTop = 0.2f;
 
         public static Transform Root;
+        public static readonly List<Renderer> WaterRenderers = new();
         // Floating labels drawn by GameUI (hidden when something is in the way).
         public static readonly (Vector3 pos, string text)[] Labels =
         {
@@ -33,10 +35,12 @@ namespace PortBoss
             RivalPort();
             OpenSea();
             if (Art.Cloud != null) Clouds();
-            Water.Create(new Vector3(0, 0, 80), 280, 112);
+            WaterRenderers.Clear();
+            WaterRenderers.Add(Water.Create(new Vector3(0, 0, 80), 280, 112).GetComponent<Renderer>());
             // Far sea to the horizon (flat, slightly below the wave mean).
             var far = Art.Box(Root, new Vector3(0, Water.Level - 0.35f, 600), new Vector3(3000, 0.1f, 1600), Art.Hex("#2f5562"), false, "far_sea", 0.8f);
             far.GetComponent<Renderer>().sharedMaterial = Art.WaterMat;
+            WaterRenderers.Add(far.GetComponent<Renderer>());
         }
 
         static void Shore()

@@ -86,7 +86,7 @@ namespace PortBoss
                 case St.Perched:
                     target = perch + Vector3.up * 0.05f;
                     flapping = false;
-                    if (timer < 0 || PlayerNear()) { st = St.TakeOff; timer = 2.5f; Sfx.Play("gull", transform.position, 0.6f); }
+                    if (timer < 0 || PlayerNear()) { st = St.TakeOff; timer = 2.5f; Sfx.Play("gull", transform.position, 0.6f, 1f, true); }
                     break;
                 case St.TakeOff:
                     target = transform.position + Vector3.up * 4f + transform.forward * 3f;
@@ -110,7 +110,7 @@ namespace PortBoss
             if (wingL != null) wingL.localRotation = Quaternion.AngleAxis(-a, axisL) * baseL;
             if (wingR != null) wingR.localRotation = Quaternion.AngleAxis(a, axisR) * baseR;
 
-            if (st != St.Perched && Random.value < dt / 25f) Sfx.Play("gull", transform.position, 0.45f, Random.Range(0.9f, 1.15f));
+            if (st != St.Perched && Random.value < dt / 25f) Sfx.Play("gull", transform.position, 0.45f, Random.Range(0.9f, 1.15f), true);
         }
 
         bool PlayerNear()

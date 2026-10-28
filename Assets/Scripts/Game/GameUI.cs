@@ -9,7 +9,7 @@ using UnityEngine.Rendering.Universal;
 namespace PortBoss
 {
     // Bootstrap + all UI (IMGUI): main menu, pause, HUD, shouts, money popups, end-of-day card, night shop.
-    public class GameUI : MonoBehaviour
+    public partial class GameUI : MonoBehaviour
     {
         public static GameUI I;
         public GameObject CratePrefab, BoatPrefab, TrolleyPrefab, PortGamePrefab;
@@ -19,7 +19,7 @@ namespace PortBoss
 
         enum Screen { Menu, Join, Settings, Playing }
         Screen screen = Screen.Menu;
-        bool paused, showHelp = true;
+        bool paused, showHelp = Settings.ControlsHint;
         string lanIp = "127.0.0.1";
         Steamworks.Data.Lobby[] lobbies = new Steamworks.Data.Lobby[0];
         bool searching;
@@ -73,6 +73,7 @@ namespace PortBoss
 
         void Start()
         {
+            ApplySettings();
             var nm = NetworkManager.Singleton;
             nm.OnServerStarted += () => { if (nm.IsServer) Instantiate(PortGamePrefab).GetComponent<NetworkObject>().Spawn(); };
             nm.OnClientDisconnectCallback += id =>
@@ -109,7 +110,7 @@ namespace PortBoss
             var prof = ScriptableObject.CreateInstance<VolumeProfile>();
             var tm = prof.Add<Tonemapping>(); tm.mode.Override(TonemappingMode.ACES);
             var bl = prof.Add<Bloom>(); bl.intensity.Override(0.45f); bl.threshold.Override(1.05f);
-            var ca = prof.Add<ColorAdjustments>(); ca.saturation.Override(8f); ca.postExposure.Override(0.25f); ca.contrast.Override(8f);
+            var ca = prof.Add<ColorAdjustments>(); ca.saturation.Override(8f); ca.postExposure.Override(0.25f); ca.contrast.Override(8f); colorAdj = ca;
             var vg = prof.Add<Vignette>(); vg.intensity.Override(0.22f);
             var wb = prof.Add<WhiteBalance>(); wb.temperature.Override(12f);
             vol.profile = prof;
@@ -143,15 +144,17 @@ namespace PortBoss
             var g = PortGame.I;
             if (g != null) ApplyLight(Mathf.Clamp01(g.DayT.Value / PortGame.DayLength), g.Phase.Value == PortGame.Ph.Night);
             else ApplyLight(0.8f, false); // the title scene sits in golden hour
-            amb.volume = 0.35f * Settings.Sfx;
+            amb.volume = 0.35f * Settings.Ambience;
+            SettingsKeyCapture();
             music.Play(MusicSlot(g));
 
             var k = Keyboard.current;
             if (screen == Screen.Playing && k != null)
             {
-                if (buyerOpen && (k.escapeKey.wasPressedThisFrame || k.eKey.wasPressedThisFrame)) CloseBuyer();
-                else if (k.escapeKey.wasPressedThisFrame) SetPaused(!paused);
-                if (k.hKey.wasPressedThisFrame) showHelp = !showHelp;
+                var grabKey = Settings.KeyFor("grab");
+                if (buyerOpen && (k.escapeKey.wasPressedThisFrame || (grabKey != Key.None && k[grabKey].wasPressedThisFrame))) CloseBuyer();
+                else if (k.escapeKey.wasPressedThisFrame || Gamepad.current?.startButton.wasPressedThisFrame == true) SetPaused(!paused);
+                if (k.hKey.wasPressedThisFrame) { showHelp = !showHelp; Settings.ControlsHint = showHelp; }
             }
             var nm = NetworkManager.Singleton;
             bool live = nm.IsListening && !nm.ShutdownInProgress;
@@ -260,7 +263,7 @@ namespace PortBoss
             menuItem = new GUIStyle(big) { fontSize = Mathf.RoundToInt(40 * S), fontStyle = FontStyle.Normal, font = TitleFont, alignment = TextAnchor.MiddleLeft };
             if (TitleFont != null) { big.font = TitleFont; big.fontStyle = FontStyle.Normal; mid.font = TitleFont; mid.fontStyle = FontStyle.Normal; }
             fadeTex ??= Gradient();
-            shoutS = new GUIStyle(big) { fontSize = Mathf.RoundToInt(38 * S) };
+            shoutS = new GUIStyle(big) { fontSize = Mathf.RoundToInt(38 * S * Settings.ShoutSize) };
             panel = new GUIStyle(GUI.skin.box) { normal = { background = panelTex } };
             btn = new GUIStyle(GUI.skin.button) { fontSize = Mathf.RoundToInt(28 * S), fontStyle = FontStyle.Bold };
             btn.normal.background = btnTex; btn.hover.background = btnHot; btn.active.background = btnHot;
@@ -349,55 +352,6 @@ namespace PortBoss
             Label(new Rect(W - 520 * S, H - 52 * S, 500 * S, 30 * S), $"v{Application.version}  ·  overnight build", new GUIStyle(small) { alignment = TextAnchor.UpperRight }, new Color(1, 1, 1, 0.5f));
         }
 
-        void DrawSettings(float W, float H)
-        {
-            float pw = 720 * S, ph = 560 * S;
-            var r = new Rect((W - pw) / 2, (H - ph) / 2, pw, ph);
-            GUI.Box(r, "", panel);
-            Label(new Rect(r.x, r.y + 18 * S, pw, 60 * S), "Settings", mid, new Color(1f, 0.85f, 0.55f));
-            var st = new GUIStyle(small) { fontSize = Mathf.RoundToInt(24 * S), alignment = TextAnchor.MiddleLeft };
-            float y = r.y + 100 * S, lx = r.x + 40 * S, sx = r.x + 300 * S, sw = 340 * S, lh = 62 * S;
-            Settings.Music = Slider(new Rect(lx, y, 240 * S, 40 * S), new Rect(sx, y + 14 * S, sw, 20 * S), "Music", Settings.Music, 0, 1, st); y += lh;
-            Settings.Sfx = Slider(new Rect(lx, y, 240 * S, 40 * S), new Rect(sx, y + 14 * S, sw, 20 * S), "Sound", Settings.Sfx, 0, 1, st); y += lh;
-            Settings.Sensitivity = Slider(new Rect(lx, y, 240 * S, 40 * S), new Rect(sx, y + 14 * S, sw, 20 * S), "Mouse", Settings.Sensitivity, 0.2f, 3f, st); y += lh;
-            Label(new Rect(lx, y, 240 * S, 40 * S), "Invert mouse Y", st, Color.white);
-            if (Button(new Rect(sx, y, 160 * S, 44 * S), Settings.InvertY ? "On" : "Off")) Settings.InvertY = !Settings.InvertY; y += lh;
-            Label(new Rect(lx, y, 240 * S, 40 * S), "Window", st, Color.white);
-            if (Button(new Rect(sx, y, 340 * S, 44 * S), UnityEngine.Screen.fullScreen ? "Fullscreen" : "Windowed"))
-                UnityEngine.Screen.fullScreenMode = UnityEngine.Screen.fullScreen ? FullScreenMode.Windowed : FullScreenMode.FullScreenWindow;
-            y += lh;
-            Label(new Rect(lx, y, 240 * S, 40 * S), "Resolution", st, Color.white);
-            var cur = $"{UnityEngine.Screen.width} x {UnityEngine.Screen.height}";
-            if (Button(new Rect(sx, y, 340 * S, 44 * S), cur)) NextResolution();
-            if (Music.Current == "" && Settings.Music > 0)
-                Label(new Rect(r.x, r.yMax - 130 * S, pw, 30 * S), "(No music files yet: they're being made.)", new GUIStyle(small) { alignment = TextAnchor.UpperCenter }, new Color(1, 1, 1, 0.45f));
-            if (Button(new Rect(r.x + (pw - 240 * S) / 2, r.yMax - 84 * S, 240 * S, 58 * S), "Back"))
-            {
-                PlayerPrefs.Save();
-                if (settingsFromPause) settingsFromPause = false; else screen = Screen.Menu;
-            }
-        }
-
-        float Slider(Rect labelR, Rect sliderR, string name, float v, float min, float max, GUIStyle st)
-        {
-            Label(labelR, $"{name}  {Mathf.RoundToInt((v - min) / (max - min) * 100)}%", st, Color.white);
-            return GUI.HorizontalSlider(sliderR, v, min, max);
-        }
-
-        static void NextResolution()
-        {
-            var list = UnityEngine.Screen.resolutions;
-            if (list.Length == 0) return;
-            int cur = System.Array.FindIndex(list, r => r.width == UnityEngine.Screen.width && r.height == UnityEngine.Screen.height);
-            // Step through distinct sizes (resolutions repeat per refresh rate).
-            for (int i = 1; i <= list.Length; i++)
-            {
-                var n = list[(cur + i + list.Length) % list.Length];
-                if (n.width != UnityEngine.Screen.width || n.height != UnityEngine.Screen.height)
-                { UnityEngine.Screen.SetResolution(n.width, n.height, UnityEngine.Screen.fullScreenMode); return; }
-            }
-        }
-
         async void Refresh()
         {
             if (searching) return;
@@ -434,7 +388,7 @@ namespace PortBoss
         void DrawHud(float W, float H)
         {
             var g = PortGame.I;
-            if (g != null)
+            if (g != null && Settings.Hud)
             {
                 Label(new Rect(W - 420 * S, 18 * S, 400 * S, 80 * S), $"${g.Money.Value}", new GUIStyle(big) { alignment = TextAnchor.UpperRight }, new Color(1f, 0.88f, 0.4f));
                 float u = g.DayT.Value / PortGame.DayLength;

@@ -18,14 +18,14 @@ namespace PortBoss
             return c;
         }
 
-        public static void Play(string name, Vector3 pos, float vol = 1f, float pitch = 1f)
+        public static void Play(string name, Vector3 pos, float vol = 1f, float pitch = 1f, bool ambience = false)
         {
             var clip = Clip(name);
             if (clip == null) return;
             var g = new GameObject("sfx_" + name);
             g.transform.position = pos;
             var s = g.AddComponent<AudioSource>();
-            s.clip = clip; s.volume = vol * Settings.Sfx; s.pitch = pitch * Random.Range(0.94f, 1.06f);
+            s.clip = clip; s.volume = vol * (ambience ? Settings.Ambience : Settings.Sfx); s.pitch = pitch * Random.Range(0.94f, 1.06f);
             s.spatialBlend = 0.85f; s.minDistance = 4f; s.maxDistance = 120f; s.rolloffMode = AudioRolloffMode.Linear;
             s.Play();
             Object.Destroy(g, clip.length / Mathf.Max(0.1f, s.pitch) + 0.1f);

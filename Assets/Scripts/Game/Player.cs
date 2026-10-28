@@ -176,22 +176,32 @@ namespace PortBoss
         static In ReadInput()
         {
             if (BotInput != null) return BotInput();
-            var k = Keyboard.current; var m = Mouse.current;
+            var k = Keyboard.current; var m = Mouse.current; var pad = Gamepad.current;
             var i = new In();
-            if (k == null) return i;
-            i.move = new Vector2((k.dKey.isPressed ? 1 : 0) - (k.aKey.isPressed ? 1 : 0), (k.wKey.isPressed ? 1 : 0) - (k.sKey.isPressed ? 1 : 0));
-            i.sprint = k.leftShiftKey.isPressed;
-            i.jump = k.spaceKey.wasPressedThisFrame;
-            i.grab = k.eKey.wasPressedThisFrame;
-            i.drop = k.qKey.wasPressedThisFrame;
-            i.push = k.fKey.wasPressedThisFrame;
+            if (k != null)
+            {
+                bool Down(string id) { var key = Settings.KeyFor(id); return key != Key.None && k[key].wasPressedThisFrame; }
+                i.move = new Vector2((k.dKey.isPressed ? 1 : 0) - (k.aKey.isPressed ? 1 : 0), (k.wKey.isPressed ? 1 : 0) - (k.sKey.isPressed ? 1 : 0));
+                var sprintKey = Settings.KeyFor("sprint");
+                i.sprint = sprintKey != Key.None && k[sprintKey].isPressed;
+                i.jump = Down("jump"); i.grab = Down("grab"); i.drop = Down("drop"); i.push = Down("push"); i.throwP = Down("throw");
+            }
             if (m != null)
             {
                 i.look = m.delta.ReadValue() * (0.1f * Settings.Sensitivity);
-                if (Settings.InvertY) i.look.y = -i.look.y;
-                i.throwP = m.leftButton.wasPressedThisFrame;
+                i.throwP |= m.leftButton.wasPressedThisFrame;
                 i.grab |= m.rightButton.wasPressedThisFrame;
             }
+            if (pad != null)
+            {
+                var ls = pad.leftStick.ReadValue();
+                if (ls.sqrMagnitude > 0.04f) i.move = ls;
+                i.look += pad.rightStick.ReadValue() * (220f * Settings.PadSensitivity * Time.deltaTime);
+                i.jump |= pad.buttonSouth.wasPressedThisFrame; i.grab |= pad.buttonWest.wasPressedThisFrame;
+                i.drop |= pad.buttonEast.wasPressedThisFrame; i.throwP |= pad.rightTrigger.wasPressedThisFrame;
+                i.sprint |= pad.leftShoulder.isPressed || pad.leftStickButton.isPressed; i.push |= pad.rightShoulder.wasPressedThisFrame;
+            }
+            if (Settings.InvertY) i.look.y = -i.look.y;
             return i;
         }
 
@@ -302,6 +312,7 @@ namespace PortBoss
                 var dir = transform.TransformDirection(new Vector3(sway.x, 0, sway.y)).normalized;
                 ToppleRpc(dir);
                 GameUI.Toast("Whoa! The stack toppled.");
+                Shake(0.5f);
                 sway *= 0.3f; swayVel *= 0.2f;
             }
             SyncSway();
@@ -477,6 +488,8 @@ namespace PortBoss
 
         // ---- camera (owner) ----
         public static bool CamOverride; // test shots drive the camera themselves
+        static float trauma;
+        public static void Shake(float amount) { if (Settings.CameraShake) trauma = Mathf.Min(1f, trauma + amount); }
 
         void LateUpdate()
         {
@@ -491,7 +504,10 @@ namespace PortBoss
                 && h.collider.GetComponentInParent<Player>() == null)
                 want = target + (want - target).normalized * Mathf.Max(0.8f, h.distance - 0.1f);
             camPos = Vector3.Lerp(camPos, want, 1f - Mathf.Exp(-18f * Time.deltaTime));
-            cam.transform.SetPositionAndRotation(camPos, Quaternion.LookRotation(target - camPos));
+            trauma = Mathf.Max(0, trauma - Time.deltaTime * 1.5f);
+            float sh = trauma * trauma * 0.35f, tt = Time.time * 25f;
+            var shake = new Vector3(Mathf.PerlinNoise(tt, 0) - 0.5f, Mathf.PerlinNoise(0, tt) - 0.5f, 0) * sh;
+            cam.transform.SetPositionAndRotation(camPos + cam.transform.rotation * shake, Quaternion.LookRotation(target - camPos));
         }
     }
 }

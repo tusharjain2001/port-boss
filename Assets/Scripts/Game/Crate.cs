@@ -141,7 +141,11 @@ namespace PortBoss
         }
 
         [Rpc(SendTo.ClientsAndHost)]
-        void ThudRpc(Vector3 p, float v) => Sfx.Play("thud", p, 0.3f + 0.7f * v);
+        void ThudRpc(Vector3 p, float v)
+        {
+            Sfx.Play("thud", p, 0.3f + 0.7f * v);
+            if (Player.Local != null && (Player.Local.transform.position - p).sqrMagnitude < 16f) Player.Shake(0.25f * v);
+        }
 
         [Rpc(SendTo.ClientsAndHost)]
         void SplashRpc(Vector3 p) => Sfx.Play("splash", p, 0.9f);
