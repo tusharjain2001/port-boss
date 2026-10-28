@@ -113,6 +113,17 @@ namespace PortBoss
             if (viaNet && nt != null && nt.CanCommitToTransform) nt.Teleport(pos, transform.rotation, transform.localScale);
         }
 
+        // Test hook (host only): put n fresh crates straight into this player's hands.
+        public void DebugGiveCrates(int n)
+        {
+            for (int i = 0; i < n && stack.Count < MaxStack; i++)
+            {
+                var c = PortGame.I.SpawnCrate(transform.position + Vector3.up * 3, 1f);
+                c.Attach(NetworkObject, HoldPos(stack.Count), stack.Count);
+                stack.Add(c);
+            }
+        }
+
         public void DebugTeleport(Vector3 p, float yawDeg) => Teleport(p, yawDeg);
 
         static In ReadInput()

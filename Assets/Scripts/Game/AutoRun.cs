@@ -57,6 +57,35 @@ namespace PortBoss
             if (dir != null) StartCoroutine(Shots(dir, float.TryParse(Arg("-pb-shots", 2), out var iv) ? iv : 5f));
             if (float.TryParse(Arg("-pb-night"), out var n)) StartCoroutine(ForceNight(n));
             if (Has("-pb-trolleytest")) StartCoroutine(TrolleyTest());
+            if (Has("-pb-wobbletest")) StartCoroutine(WobbleTest());
+        }
+
+        IEnumerator WobbleTest()
+        {
+            while (PortGame.I == null || Player.Local == null) yield return null;
+            var pl = Player.Local;
+            pl.DebugTeleport(new Vector3(-20, 0.2f, -8), 90);
+            pl.DebugGiveCrates(5);
+            yield return new WaitForSeconds(1);
+            string[] phase = { "walk +x", "stop", "sprint +x", "sprint reverse -x", "sprint zigzag", "stop" };
+            for (int p = 0; p < phase.Length; p++)
+            {
+                float peak = 0, t0 = Time.time;
+                while (Time.time - t0 < 1.6f)
+                {
+                    int ph = p;
+                    Player.BotInput = () => new Player.In
+                    {
+                        hasWorldMove = ph != 1 && ph != 5,
+                        worldMove = ph == 3 ? Vector3.left : ph == 4 ? (Mathf.Sin(Time.time * 4) > 0 ? new Vector3(1, 0, 1).normalized : new Vector3(1, 0, -1).normalized) : Vector3.right,
+                        sprint = ph >= 2,
+                    };
+                    peak = Mathf.Max(peak, pl.Teeter);
+                    yield return null;
+                }
+                Debug.Log($"[PB] wobble {phase[p]}: carrying={pl.Carrying} peak lean={peak:F2}");
+            }
+            Player.BotInput = () => new Player.In();
         }
 
         IEnumerator TrolleyTest()

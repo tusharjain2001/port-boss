@@ -330,7 +330,7 @@ namespace PortBoss
                 if (pl.Carrying >= 2 && pl.Teeter > Player.TeeterAt)
                 {
                     float a = 0.6f + 0.4f * Mathf.Sin(Time.unscaledTime * 18f);
-                    Label(new Rect(0, H * 0.36f, W, 70 * S), "Steady...!", new GUIStyle(big) { fontSize = Mathf.RoundToInt(56 * S) }, new Color(1f, 0.55f, 0.3f, a));
+                    Label(new Rect(0, H * 0.24f, W, 70 * S), "Steady...!", new GUIStyle(big) { fontSize = Mathf.RoundToInt(56 * S) }, new Color(1f, 0.55f, 0.3f, a));
                 }
                 if (pl.Carrying > 0) Label(new Rect(0, H - 150 * S, W, 40 * S), $"Carrying {pl.Carrying}/{Player.MaxStack}   ·   Q drop   ·   Left click throw", mid, new Color(1, 1, 1, 0.85f));
                 if (hint != null) Label(new Rect(0, H * 0.56f, W, 40 * S), hint, mid, new Color(1f, 0.92f, 0.7f));
