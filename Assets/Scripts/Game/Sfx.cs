@@ -45,7 +45,7 @@ namespace PortBoss
             float Noise() => (float)rng.NextDouble() * 2 - 1;
             switch (name)
             {
-                case "horn": len = 1.8f; f = t => Env(t, 0.08f, 1.8f, 0.4f) * 0.5f * (Saw(t * 98) * 0.6f + Saw(t * 147) * 0.4f); break;
+                case "horn": len = 2.2f; f = t => Env(t, 0.35f, 2.2f, 0.5f) * 0.45f * (Saw(t * 70f) * 0.35f + Saw(t * 70.9f) * 0.35f + Saw(t * 140f) * 0.2f + Saw(t * 141.3f) * 0.1f); break;
                 case "kaching": len = 0.7f; f = t => Mathf.Exp(-t * 6) * 0.4f * (Mathf.Sin(t * 2 * Mathf.PI * 2093) + (t > 0.08f ? Mathf.Sin(t * 2 * Mathf.PI * 2637) : 0) + 0.5f * Mathf.Sin(t * 2 * Mathf.PI * 3136)); break;
                 case "thud": len = 0.25f; f = t => Mathf.Exp(-t * 25) * (Mathf.Sin(t * 2 * Mathf.PI * (90 - t * 120)) * 0.8f + Noise() * 0.2f); break;
                 case "splash": len = 0.9f; f = t => Env(t, 0.01f, 0.9f, 0.7f) * Noise() * 0.5f * (1 - t); break;

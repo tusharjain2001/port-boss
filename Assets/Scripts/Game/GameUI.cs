@@ -43,7 +43,12 @@ namespace PortBoss
             Gangplank.Create();
             SetupCameraAndLight();
             Session.InitSteam();
+            var amb = gameObject.AddComponent<AudioSource>();
+            amb.clip = Sfx.Clip("waves"); amb.loop = true; amb.volume = 0.35f; amb.spatialBlend = 0;
+            if (amb.clip != null) amb.Play();
         }
+
+        float nextGull = 6f;
 
         void Start()
         {
@@ -90,15 +95,18 @@ namespace PortBoss
         // u = 0..1 through the day: early afternoon → golden → sunset; night = blue dusk.
         void ApplyLight(float u, bool night)
         {
-            float elev = night ? 4f : Mathf.Lerp(42f, 9f, u);
+            // Night: sun below the horizon (dark sky), moonlight comes from the blue ambient.
+            float elev = night ? -14f : Mathf.Lerp(42f, 9f, u);
             sun.transform.rotation = Quaternion.Euler(elev, Mathf.Lerp(20f, 35f, u), 0);
             var day = Color.Lerp(new Color(1f, 0.9f, 0.76f), new Color(1f, 0.62f, 0.38f), u * u);
-            sun.color = night ? new Color(0.45f, 0.5f, 0.75f) : day;
-            sun.intensity = night ? 0.35f : Mathf.Lerp(1.7f, 1.2f, u);
-            RenderSettings.ambientSkyColor = night ? new Color(0.18f, 0.22f, 0.35f) : Color.Lerp(new Color(0.62f, 0.68f, 0.78f), new Color(0.6f, 0.5f, 0.5f), u);
-            RenderSettings.ambientEquatorColor = night ? new Color(0.15f, 0.16f, 0.22f) : Color.Lerp(new Color(0.62f, 0.56f, 0.48f), new Color(0.7f, 0.5f, 0.38f), u);
-            RenderSettings.ambientGroundColor = night ? new Color(0.06f, 0.06f, 0.08f) : new Color(0.28f, 0.24f, 0.2f);
-            RenderSettings.fogColor = night ? new Color(0.12f, 0.14f, 0.2f) : Color.Lerp(new Color(0.78f, 0.74f, 0.66f), new Color(0.85f, 0.62f, 0.45f), u);
+            sun.color = day;
+            sun.intensity = night ? 0f : Mathf.Lerp(1.7f, 1.2f, u);
+            if (RenderSettings.skybox != null && RenderSettings.skybox.HasProperty("_Exposure"))
+                RenderSettings.skybox.SetFloat("_Exposure", night ? 0.25f : 1.3f);
+            RenderSettings.ambientSkyColor = night ? new Color(0.22f, 0.28f, 0.45f) : Color.Lerp(new Color(0.62f, 0.68f, 0.78f), new Color(0.6f, 0.5f, 0.5f), u);
+            RenderSettings.ambientEquatorColor = night ? new Color(0.14f, 0.16f, 0.24f) : Color.Lerp(new Color(0.62f, 0.56f, 0.48f), new Color(0.7f, 0.5f, 0.38f), u);
+            RenderSettings.ambientGroundColor = night ? new Color(0.05f, 0.05f, 0.08f) : new Color(0.28f, 0.24f, 0.2f);
+            RenderSettings.fogColor = night ? new Color(0.08f, 0.1f, 0.16f) : Color.Lerp(new Color(0.78f, 0.74f, 0.66f), new Color(0.85f, 0.62f, 0.45f), u);
         }
 
         void Update()
@@ -121,6 +129,13 @@ namespace PortBoss
             bool wantCursor = InputBlocked;
             Cursor.lockState = wantCursor || AutoRun.Active ? CursorLockMode.None : CursorLockMode.Locked;
             Cursor.visible = wantCursor;
+
+            if (Time.time > nextGull)
+            {
+                nextGull = Time.time + Random.Range(10f, 24f);
+                var c0 = cam.transform.position;
+                Sfx.Play("gull", c0 + new Vector3(Random.Range(-25f, 25f), 12f, Random.Range(5f, 30f)), 0.5f);
+            }
 
             // Menu backdrop: slow orbit over the pier.
             if (Player.Local == null)
@@ -192,6 +207,7 @@ namespace PortBoss
             GUI.enabled = enabled;
             bool b = GUI.Button(r, s, btn);
             GUI.enabled = true;
+            if (b) Sfx.Play2D("click", 0.6f);
             return b;
         }
 
@@ -285,6 +301,14 @@ namespace PortBoss
                 if (sp.z < 0) continue;
                 var c = p.c; c.a = Mathf.Clamp01((1.6f - t) * 2);
                 Label(new Rect(sp.x - 200 * S, H - sp.y - 30 * S, 400 * S, 60 * S), p.s, new GUIStyle(mid) { fontSize = Mathf.RoundToInt(40 * S) }, c);
+            }
+
+            foreach (var (lp, lt) in World.Labels)
+            {
+                var sp = cam.WorldToScreenPoint(lp);
+                float d = Vector3.Distance(cam.transform.position, lp);
+                if (sp.z < 0 || d > 45f || Physics.Linecast(cam.transform.position, lp, ~0, QueryTriggerInteraction.Ignore)) continue;
+                Label(new Rect(sp.x - 200 * S, H - sp.y - 20 * S, 400 * S, 40 * S), lt, mid, new Color(1f, 0.93f, 0.75f, Mathf.Clamp01((45f - d) / 10f)));
             }
 
             var pl = Player.Local;

@@ -30,6 +30,7 @@ namespace PortBoss.Net
             {
                 SteamClient.Init(480, false);
                 SteamOk = true;
+                SteamNetworkingUtils.InitRelayNetworkAccess();
                 SteamFriends.OnGameLobbyJoinRequested += (l, friend) => _ = JoinLobby(l);
                 Debug.Log($"[PB] Steam ok: {SteamClient.Name} {SteamClient.SteamId}");
             }
@@ -104,7 +105,8 @@ namespace PortBoss.Net
             var owner = l.Owner.Id;
             bool lan = l.GetData("mode") == "lan";
             Debug.Log($"[PB] joined lobby {l.Id} members {l.MemberCount} owner {owner} mode {(lan ? "lan" : "steam")}");
-            if (lan || owner == SteamClient.SteamId)
+            bool forceSteam = Array.IndexOf(Environment.GetCommandLineArgs(), "-pb-force-steam") >= 0; // test hook
+            if (!forceSteam && (lan || owner == SteamClient.SteamId))
             {
                 // Same Steam account on this PC (testing) or a LAN-mode host: connect locally.
                 JoinLan("127.0.0.1");

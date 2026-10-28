@@ -13,6 +13,12 @@ namespace PortBoss
         public const float PierTop = 0.2f;
 
         public static Transform Root;
+        // Floating labels drawn by GameUI (hidden when something is in the way).
+        public static readonly (Vector3 pos, string text)[] Labels =
+        {
+            (new Vector3(-4f, 2.9f, -5.3f), "FISH BUYER"),
+            (new Vector3(9f, 4.4f, -6.5f), "SHED"),
+        };
 
         public static void Build()
         {
@@ -48,6 +54,13 @@ namespace PortBoss
             for (int i = 0; i < 4; i++)
                 Art.Prim(PrimitiveType.Cylinder, t, new Vector3(14 + i * 0.75f, 0.5f, -3.5f + (i % 2) * 0.7f), Quaternion.identity, new Vector3(0.6f, 0.5f, 0.6f), i % 2 == 0 ? Art.Navy : Art.Rust, true, "barrel");
             Lamp(t, new Vector3(3.5f, 0, -1.5f));
+            // Net pile, a beached rowboat, empty crate stacks by the shed.
+            Art.Prim(PrimitiveType.Sphere, t, new Vector3(5.5f, 0.1f, -3.4f), Quaternion.identity, new Vector3(2.2f, 0.5f, 1.6f), Art.Hex("#4c5a43"), true, "net_pile");
+            var row = Art.Box(t, new Vector3(-20, 0.35f, -5), new Vector3(1.5f, 0.6f, 4f), Art.Hex("#c9b48a"), true, "rowboat");
+            row.transform.localRotation = Quaternion.Euler(0, 25, 8);
+            Art.Box(row.transform, new Vector3(0, 0.45f, 0), new Vector3(1.05f, 0.25f, 0.95f), Art.Hex("#4a6a7a"), false, "rowboat_stripe");
+            for (int i = 0; i < 6; i++)
+                Art.Box(t, new Vector3(12.4f + (i % 2) * 0.62f, 0.3f + (i / 2) * 0.6f, -12.8f), new Vector3(0.58f, 0.58f, 0.58f), Color.Lerp(Art.Wood, Art.WoodDark, i * 0.13f), true, "empty_crate");
             Lamp(t, new Vector3(-15.5f, 0, -1.5f));
             for (int x = -40; x < 60; x += 3)
                 Art.Box(t, new Vector3(x, 0.55f, -24), new Vector3(2.9f, 1.1f, 0.08f), Art.WoodDark, true, "fence");
@@ -116,8 +129,8 @@ namespace PortBoss
             Art.Prim(PrimitiveType.Sphere, b, n + Vector3.up * 2.05f, Quaternion.identity, Vector3.one * 0.42f, Art.Hex("#c99b7a"), false, "buyer_head");
             Art.Box(b, n + new Vector3(0, 2.3f, 0), new Vector3(0.5f, 0.12f, 0.5f), Art.Hex("#2c2c2c"), false, "buyer_hat");
             // Sign board.
-            Art.Box(b, new Vector3(c.x + 1.8f, 1.6f, c.z - 0.2f), new Vector3(0.06f, 0.7f, 1.0f), Art.Cream, false, "sign");
-            Art.Box(b, new Vector3(c.x + 1.8f, 0.6f, c.z - 0.2f), new Vector3(0.08f, 1.3f, 0.08f), Art.WoodDark, true, "sign_post");
+            Art.Box(b, new Vector3(c.x + 2.1f, 2.1f, c.z + 0.2f), new Vector3(1.9f, 0.9f, 0.06f), Art.Cream, false, "sign");
+            Art.Box(b, new Vector3(c.x + 2.1f, 0.9f, c.z + 0.15f), new Vector3(0.09f, 1.9f, 0.09f), Art.WoodDark, true, "sign_post");
         }
 
         static void Shed()
@@ -139,17 +152,39 @@ namespace PortBoss
 
         static void Bay()
         {
-            // Headlands either side so the bay reads as a bay, and the rival is "across" it.
-            Art.Box(Root, new Vector3(-150, 1, 110), new Vector3(180, 10, 240), Art.Grass, true, "headland_left");
-            Art.Box(Root, new Vector3(-62, -1, 40), new Vector3(16, 6, 80), Art.Rock, true, "rocks_left");
-            Art.Box(Root, new Vector3(150, 2, 140), new Vector3(170, 12, 220), Art.Grass, true, "headland_right");
-            Art.Box(Root, new Vector3(68, -1, 70), new Vector3(14, 6, 120), Art.Rock, true, "rocks_right");
-            var hill = Art.Prim(PrimitiveType.Sphere, Root, new Vector3(-120, -10, 160), Quaternion.identity, new Vector3(120, 60, 120), Art.Hex("#5f6b3f"), false, "hill");
-            hill.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            Art.Prim(PrimitiveType.Sphere, Root, new Vector3(130, -15, 200), Quaternion.identity, new Vector3(140, 70, 120), Art.Hex("#66703f"), false, "hill");
+            // Low land either side of the bay, rolling hills on top, rocks at the waterline.
+            Art.Box(Root, new Vector3(-150, -2, 110), new Vector3(190, 4, 240), Art.Grass, true, "land_left");
+            Art.Box(Root, new Vector3(155, -2, 140), new Vector3(180, 4, 220), Art.Grass, true, "land_right");
+            Hills(new Vector2(-62, 15), new Vector2(-75, 210), 9, 30, 7);
+            Hills(new Vector2(-110, 40), new Vector2(-120, 220), 6, 55, 11);
+            Hills(new Vector2(72, 45), new Vector2(82, 215), 8, 30, 3);
+            Hills(new Vector2(125, 60), new Vector2(130, 230), 5, 60, 5);
+            var rng = new System.Random(42);
+            for (int i = 0; i < 46; i++)
+            {
+                bool left = i % 2 == 0;
+                float z = 4 + (i / 2) * 9f + (float)rng.NextDouble() * 4;
+                float x = left ? -55 - (float)rng.NextDouble() * 3 : 64 + (float)rng.NextDouble() * 3;
+                var sz = 2.5f + (float)rng.NextDouble() * 3.5f;
+                Art.Box(Root, new Vector3(x, Water.Level + 0.2f, z), new Vector3(sz, sz * 0.6f, sz * 1.2f), Color.Lerp(Art.Rock, Art.Hex("#8a8278"), (float)rng.NextDouble()), false, "rock")
+                    .transform.localRotation = Quaternion.Euler((float)rng.NextDouble() * 30, (float)rng.NextDouble() * 360, (float)rng.NextDouble() * 30);
+            }
             // Buoys marking the channel.
             for (int i = 0; i < 4; i++)
                 Art.Prim(PrimitiveType.Cylinder, Root, new Vector3(i % 2 == 0 ? 18 : 34, Water.Level + 0.3f, 50 + i * 30), Quaternion.identity, new Vector3(0.7f, 0.6f, 0.7f), i % 2 == 0 ? Art.Red : Art.Hex("#3f7a3f"), false, "buoy");
+        }
+
+        static void Hills(Vector2 from, Vector2 to, int n, float r, int seed)
+        {
+            var rng = new System.Random(seed);
+            for (int i = 0; i < n; i++)
+            {
+                var p = Vector2.Lerp(from, to, i / (float)(n - 1)) + new Vector2((float)rng.NextDouble() * 10 - 5, (float)rng.NextDouble() * 10 - 5);
+                float k = 0.8f + (float)rng.NextDouble() * 0.6f;
+                var c = Color.Lerp(Art.Grass, Art.Hex("#7d7a4c"), (float)rng.NextDouble());
+                var h = Art.Prim(PrimitiveType.Sphere, Root, new Vector3(p.x, -r * 0.12f, p.y), Quaternion.Euler(0, (float)rng.NextDouble() * 360, 0), new Vector3(r * 1.6f * k, r * (0.35f + 0.25f * (float)rng.NextDouble()), r * 1.3f * k), c, false, "hill");
+                h.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
         }
 
         static void RivalPort()

@@ -93,6 +93,12 @@ namespace PortBoss.EditorTools
             EditorSceneManager.SaveScene(scene, ScenePath);
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
 
+            // Long ambience loop streams instead of sitting decompressed in memory.
+            if (AssetImporter.GetAtPath("Assets/Resources/Audio/waves.mp3") is AudioImporter ai)
+            {
+                var ss = ai.defaultSampleSettings; ss.loadType = AudioClipLoadType.Streaming; ai.defaultSampleSettings = ss; ai.SaveAndReimport();
+            }
+
             PlayerSettings.productName = "Port Boss";
             PlayerSettings.companyName = "Port Boss";
             PlayerSettings.fullScreenMode = FullScreenMode.Windowed;

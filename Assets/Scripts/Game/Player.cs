@@ -38,7 +38,8 @@ namespace PortBoss
         Vector2 sway, swayVel;
         Transform platform; Vector3 platLocal; float platYaw;
         Vector3 camPos;
-        float respawnAt = -1;
+        float respawnAt = -1, stepDist;
+        Vector3 lastStepPos;
 
         void Awake()
         {
@@ -50,13 +51,18 @@ namespace PortBoss
         {
             All.Add(this);
             var c = Colors[(int)(OwnerClientId % (ulong)Colors.Length)];
-            Art.Prim(PrimitiveType.Capsule, transform, new Vector3(0, 0.9f, 0), Quaternion.identity, new Vector3(0.7f, 0.9f, 0.7f), c, false, "body");
-            Art.Box(transform, new Vector3(0, 0.95f, 0.05f), new Vector3(0.74f, 0.5f, 0.66f), Art.Hex("#3b4a5a"), false, "overalls");
-            Art.Prim(PrimitiveType.Sphere, transform, new Vector3(0, 1.62f, 0), Quaternion.identity, Vector3.one * 0.42f, Art.Hex("#c99b7a"), false, "head");
-            Art.Box(transform, new Vector3(0, 1.84f, 0.05f), new Vector3(0.46f, 0.12f, 0.5f), c * 0.8f, false, "cap");
-            Art.Box(transform, new Vector3(0, 1.79f, 0.32f), new Vector3(0.4f, 0.04f, 0.2f), c * 0.8f, false, "visor");
-            Art.Box(transform, new Vector3(-0.42f, 1.05f, 0.25f), new Vector3(0.14f, 0.14f, 0.5f), c, false, "arm");
-            Art.Box(transform, new Vector3(0.42f, 1.05f, 0.25f), new Vector3(0.14f, 0.14f, 0.5f), c, false, "arm");
+            model = new GameObject("model").transform;
+            model.SetParent(transform, false);
+            var m = model;
+            Art.Prim(PrimitiveType.Capsule, m, new Vector3(0, 1.08f, 0), Quaternion.identity, new Vector3(0.66f, 0.6f, 0.6f), c, false, "body");
+            Art.Box(m, new Vector3(0, 0.98f, 0.04f), new Vector3(0.7f, 0.45f, 0.62f), Art.Hex("#3b4a5a"), false, "overalls");
+            Art.Prim(PrimitiveType.Sphere, m, new Vector3(0, 1.66f, 0), Quaternion.identity, Vector3.one * 0.4f, Art.Hex("#c99b7a"), false, "head");
+            Art.Box(m, new Vector3(0, 1.86f, 0.03f), new Vector3(0.44f, 0.12f, 0.46f), c * 0.8f, false, "cap");
+            Art.Box(m, new Vector3(0, 1.82f, 0.3f), new Vector3(0.38f, 0.04f, 0.2f), c * 0.8f, false, "visor");
+            legL = Limb(m, new Vector3(-0.15f, 0.64f, 0), new Vector3(0.2f, 0.64f, 0.22f), Art.Hex("#3b4a5a"));
+            legR = Limb(m, new Vector3(0.15f, 0.64f, 0), new Vector3(0.2f, 0.64f, 0.22f), Art.Hex("#3b4a5a"));
+            armL = Limb(m, new Vector3(-0.42f, 1.38f, 0), new Vector3(0.14f, 0.6f, 0.14f), c);
+            armR = Limb(m, new Vector3(0.42f, 1.38f, 0), new Vector3(0.14f, 0.6f, 0.14f), c);
             if (IsOwner)
             {
                 Local = this;
@@ -71,6 +77,31 @@ namespace PortBoss
             All.Remove(this);
             if (Local == this) Local = null;
             if (IsServer) ReleaseAll(Vector3.up);
+        }
+
+        Transform model, legL, legR, armL, armR;
+        float walkPhase;
+
+        // A limb pivots at its top (hip/shoulder).
+        static Transform Limb(Transform parent, Vector3 pivot, Vector3 size, Color c)
+        {
+            var p = new GameObject("limb").transform;
+            p.SetParent(parent, false);
+            p.localPosition = pivot;
+            Art.Box(p, new Vector3(0, -size.y / 2, 0), size, c, false, "limb_mesh");
+            return p;
+        }
+
+        void Animate(float speed)
+        {
+            float k = Mathf.Clamp01(speed / 4f);
+            walkPhase += speed * Time.deltaTime * 2.2f;
+            float sw = Mathf.Sin(walkPhase) * k * 38f;
+            legL.localRotation = Quaternion.Euler(sw, 0, 0);
+            legR.localRotation = Quaternion.Euler(-sw, 0, 0);
+            if (Carrying > 0 || Pushing) armL.localRotation = armR.localRotation = Quaternion.Euler(-80, 0, 0);
+            else { armL.localRotation = Quaternion.Euler(-sw * 0.8f, 0, 0); armR.localRotation = Quaternion.Euler(sw * 0.8f, 0, 0); }
+            model.localPosition = new Vector3(0, Mathf.Abs(Mathf.Sin(walkPhase)) * 0.05f * k, 0);
         }
 
         void Teleport(Vector3 pos, float newYaw, bool viaNet = true)
@@ -98,7 +129,7 @@ namespace PortBoss
             i.push = k.fKey.wasPressedThisFrame;
             if (m != null)
             {
-                i.look = m.delta.ReadValue() * 0.08f;
+                i.look = m.delta.ReadValue() * 0.1f;
                 i.throwP = m.leftButton.wasPressedThisFrame;
                 i.grab |= m.rightButton.wasPressedThisFrame;
             }
@@ -111,6 +142,13 @@ namespace PortBoss
             int n = 0;
             foreach (Transform c in transform) if (c.TryGetComponent<Crate>(out _)) n++;
             Carrying = n;
+
+            // Footsteps on every peer, from how far the body moved on the ground.
+            var flat = transform.position - lastStepPos; flat.y = 0;
+            stepDist += Mathf.Min(flat.magnitude, 1f);
+            if (model != null) Animate(Mathf.Min(flat.magnitude, 1f) / Mathf.Max(Time.deltaTime, 1e-4f));
+            lastStepPos = transform.position;
+            if (stepDist > 1.7f && Mathf.Abs(transform.position.y - World.PierTop) < 1.2f) { stepDist = 0; Sfx.Play("step" + Random.Range(0, 5), transform.position, IsOwner ? 0.35f : 0.25f); }
 
             if (!IsOwner || !IsSpawned) return;
             float dt = Time.deltaTime;

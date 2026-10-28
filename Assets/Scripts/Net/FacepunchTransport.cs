@@ -72,7 +72,8 @@ namespace PortBoss.Net
                 return false;
             }
 
-            m_Client = SteamNetworkingSockets.ConnectRelay(TargetSteamId, 0, this);
+            try { m_Client = SteamNetworkingSockets.ConnectRelay(TargetSteamId, 0, this); }
+            catch (ArgumentException e) { m_Client = null; Debug.LogError($"{Tag} ConnectRelay threw: {e.Message} (same Steam account as the host?)"); }
             if (m_Client == null)
             {
                 Debug.LogError($"{Tag} ConnectRelay to {TargetSteamId} failed.");
