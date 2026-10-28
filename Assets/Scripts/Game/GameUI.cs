@@ -345,7 +345,7 @@ namespace PortBoss
                 else if (buyerOpen) DrawBuyer(W, H);
                 if (paused) { if (settingsFromPause) DrawSettings(W, H); else DrawPause(W, H); }
             }
-            if (!string.IsNullOrEmpty(Session.Status) && screen != Screen.Playing)
+            if (!string.IsNullOrEmpty(Session.Status) && screen != Screen.Playing && screen != Screen.Menu) // the menu has its own Steam note
                 Label(new Rect(0, H - 80 * S, W, 50 * S), Session.Status, mid, new Color(1f, 0.8f, 0.6f));
         }
 
