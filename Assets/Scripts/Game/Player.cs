@@ -53,16 +53,7 @@ namespace PortBoss
             var c = Colors[(int)(OwnerClientId % (ulong)Colors.Length)];
             model = new GameObject("model").transform;
             model.SetParent(transform, false);
-            var m = model;
-            Art.Prim(PrimitiveType.Capsule, m, new Vector3(0, 1.08f, 0), Quaternion.identity, new Vector3(0.66f, 0.6f, 0.6f), c, false, "body");
-            Art.Box(m, new Vector3(0, 0.98f, 0.04f), new Vector3(0.7f, 0.45f, 0.62f), Art.Hex("#3b4a5a"), false, "overalls");
-            Art.Prim(PrimitiveType.Sphere, m, new Vector3(0, 1.66f, 0), Quaternion.identity, Vector3.one * 0.4f, Art.Hex("#c99b7a"), false, "head");
-            Art.Box(m, new Vector3(0, 1.86f, 0.03f), new Vector3(0.44f, 0.12f, 0.46f), c * 0.8f, false, "cap");
-            Art.Box(m, new Vector3(0, 1.82f, 0.3f), new Vector3(0.38f, 0.04f, 0.2f), c * 0.8f, false, "visor");
-            legL = Limb(m, new Vector3(-0.15f, 0.64f, 0), new Vector3(0.2f, 0.64f, 0.22f), Art.Hex("#3b4a5a"));
-            legR = Limb(m, new Vector3(0.15f, 0.64f, 0), new Vector3(0.2f, 0.64f, 0.22f), Art.Hex("#3b4a5a"));
-            armL = Limb(m, new Vector3(-0.42f, 1.38f, 0), new Vector3(0.14f, 0.6f, 0.14f), c);
-            armR = Limb(m, new Vector3(0.42f, 1.38f, 0), new Vector3(0.14f, 0.6f, 0.14f), c);
+            BuildDockhand(model, c, (int)OwnerClientId);
             if (IsOwner)
             {
                 Local = this;
@@ -82,27 +73,83 @@ namespace PortBoss
         Transform model, legL, legR, armL, armR;
         float walkPhase;
 
-        // A limb pivots at its top (hip/shoulder).
-        static Transform Limb(Transform parent, Vector3 pivot, Vector3 size, Color c)
+        // Chunky stylised dockhand built from primitives: big head, knit beanie in the player's colour,
+        // jumper + navy overalls, thick limbs, rubber boots, mitts. Faces +Z.
+        Transform torso, head;
+        float throwT = -1, jumpBlend;
+
+        void BuildDockhand(Transform m, Color c, int id)
+        {
+            var skin = Art.Hex(id % 2 == 0 ? "#d6a27f" : "#b07a55");
+            var navy = Art.Hex("#34465a");
+            var boots = Art.Hex(id % 3 == 1 ? "#2b2b2b" : "#e0b23a");
+            torso = new GameObject("torso").transform; torso.SetParent(m, false); torso.localPosition = new Vector3(0, 0.78f, 0);
+            Art.Prim(PrimitiveType.Capsule, torso, new Vector3(0, 0.36f, 0), Quaternion.identity, new Vector3(0.72f, 0.42f, 0.56f), c, false, "jumper");
+            Art.Box(torso, new Vector3(0, 0.18f, 0.02f), new Vector3(0.7f, 0.36f, 0.56f), navy, false, "overalls");
+            Art.Box(torso, new Vector3(0, 0.42f, 0.26f), new Vector3(0.36f, 0.3f, 0.06f), navy, false, "bib");
+            foreach (var x in new[] { -0.13f, 0.13f }) Art.Box(torso, new Vector3(x, 0.62f, 0.24f), new Vector3(0.06f, 0.28f, 0.05f), navy, false, "strap");
+            head = new GameObject("head").transform; head.SetParent(torso, false); head.localPosition = new Vector3(0, 0.86f, 0.02f);
+            Art.Prim(PrimitiveType.Sphere, head, Vector3.zero, Quaternion.identity, new Vector3(0.5f, 0.48f, 0.48f), skin, false, "face");
+            Art.Prim(PrimitiveType.Sphere, head, new Vector3(0, -0.02f, 0.24f), Quaternion.identity, new Vector3(0.12f, 0.11f, 0.12f), skin * 0.93f, false, "nose");
+            foreach (var x in new[] { -0.1f, 0.1f }) Art.Prim(PrimitiveType.Sphere, head, new Vector3(x, 0.06f, 0.21f), Quaternion.identity, new Vector3(0.06f, 0.07f, 0.04f), Art.Hex("#1c1c1c"), false, "eye");
+            if (id % 2 == 0) Art.Prim(PrimitiveType.Sphere, head, new Vector3(0, -0.15f, 0.12f), Quaternion.identity, new Vector3(0.38f, 0.24f, 0.3f), Art.Hex("#6b4a2e"), false, "beard");
+            Art.Prim(PrimitiveType.Sphere, head, new Vector3(0, 0.13f, -0.01f), Quaternion.identity, new Vector3(0.54f, 0.36f, 0.52f), c * 0.85f, false, "beanie");
+            Art.Prim(PrimitiveType.Cylinder, head, new Vector3(0, 0.1f, -0.01f), Quaternion.identity, new Vector3(0.55f, 0.05f, 0.53f), c * 0.7f, false, "cuff");
+            Art.Prim(PrimitiveType.Sphere, head, new Vector3(0, 0.33f, -0.02f), Quaternion.identity, Vector3.one * 0.13f, c * 0.7f, false, "pompom");
+            legL = Limb(m, new Vector3(-0.15f, 0.8f, 0), 0.24f, 0.6f, navy, boots, new Vector3(0.28f, 0.22f, 0.38f));
+            legR = Limb(m, new Vector3(0.15f, 0.8f, 0), 0.24f, 0.6f, navy, boots, new Vector3(0.28f, 0.22f, 0.38f));
+            armL = Limb(torso, new Vector3(-0.42f, 0.58f, 0), 0.17f, 0.56f, c, skin, new Vector3(0.18f, 0.18f, 0.18f));
+            armR = Limb(torso, new Vector3(0.42f, 0.58f, 0), 0.17f, 0.56f, c, skin, new Vector3(0.18f, 0.18f, 0.18f));
+        }
+
+        // A limb pivots at its top (hip/shoulder) and ends in a boot or a mitt.
+        static Transform Limb(Transform parent, Vector3 pivot, float thick, float len, Color c, Color endColor, Vector3 endSize)
         {
             var p = new GameObject("limb").transform;
             p.SetParent(parent, false);
             p.localPosition = pivot;
-            Art.Box(p, new Vector3(0, -size.y / 2, 0), size, c, false, "limb_mesh");
+            Art.Prim(PrimitiveType.Capsule, p, new Vector3(0, -len / 2, 0), Quaternion.identity, new Vector3(thick, len / 2, thick), c, false, "limb_mesh");
+            bool boot = endSize.z > endSize.x;
+            Art.Prim(boot ? PrimitiveType.Cube : PrimitiveType.Sphere, p, new Vector3(0, -len + (boot ? -0.05f : 0.02f), boot ? 0.06f : 0), Quaternion.identity, endSize, endColor, false, boot ? "boot" : "mitt");
             return p;
         }
 
         void Animate(float speed)
         {
-            float k = Mathf.Clamp01(speed / 4f);
-            walkPhase += speed * Time.deltaTime * 2.2f;
-            float sw = Mathf.Sin(walkPhase) * k * 38f;
-            legL.localRotation = Quaternion.Euler(sw, 0, 0);
-            legR.localRotation = Quaternion.Euler(-sw, 0, 0);
-            if (Carrying > 0 || Pushing) armL.localRotation = armR.localRotation = Quaternion.Euler(-80, 0, 0);
-            else { armL.localRotation = Quaternion.Euler(-sw * 0.8f, 0, 0); armR.localRotation = Quaternion.Euler(sw * 0.8f, 0, 0); }
-            model.localPosition = new Vector3(0, Mathf.Abs(Mathf.Sin(walkPhase)) * 0.05f * k, 0);
+            float dt = Time.deltaTime;
+            float k = Mathf.Clamp01(speed / 4.5f), run = Mathf.Clamp01((speed - 4.8f) / 2.5f);
+            walkPhase += speed * dt * 2.1f;
+            float sw = Mathf.Sin(walkPhase) * k * (36f + 14f * run);
+            bool grounded = Mathf.Abs(transform.position.y - lastAnimY) < 0.05f * Mathf.Max(1f, dt * 60f);
+            lastAnimY = transform.position.y;
+            jumpBlend = Mathf.MoveTowards(jumpBlend, grounded ? 0 : 1, dt * 6f);
+            legL.localRotation = Quaternion.Euler(Mathf.Lerp(sw, -35f, jumpBlend), 0, 0);
+            legR.localRotation = Quaternion.Euler(Mathf.Lerp(-sw, 15f, jumpBlend), 0, 0);
+            bool laden = Carrying > 0 || Pushing;
+            if (throwT >= 0)
+            {
+                // Overhand throw: right arm winds back, whips forward.
+                throwT += dt / 0.45f;
+                float a = throwT < 0.35f ? Mathf.Lerp(-80f, -170f, throwT / 0.35f) : Mathf.Lerp(-170f, -20f, (throwT - 0.35f) / 0.65f);
+                armR.localRotation = Quaternion.Euler(a, 0, 0);
+                armL.localRotation = Quaternion.Euler(laden ? -80f : 10f, 0, 0);
+                if (throwT >= 1) throwT = -1;
+            }
+            else if (laden) armL.localRotation = armR.localRotation = Quaternion.Euler(-85f + Mathf.Sin(walkPhase) * 4f * k, 0, 0);
+            else
+            {
+                float flail = jumpBlend * 70f;
+                armL.localRotation = Quaternion.Euler(-sw * 0.9f - flail, 0, -flail * 0.3f);
+                armR.localRotation = Quaternion.Euler(sw * 0.9f - flail, 0, flail * 0.3f);
+            }
+            // Body: bounce on each step, lean into speed, breathe when idle; the head lags a touch.
+            float breathe = (1 - k) * Mathf.Sin(Time.time * 2.2f) * 0.012f;
+            model.localPosition = new Vector3(0, Mathf.Abs(Mathf.Sin(walkPhase)) * 0.06f * k, 0);
+            torso.localRotation = Quaternion.Euler(4f * k + 8f * run + (laden ? -4f : 0f), 0, Mathf.Sin(walkPhase) * 3f * k);
+            torso.localScale = new Vector3(1, 1 + breathe, 1);
+            head.localRotation = Quaternion.Euler(-3f * k + Mathf.Sin(Time.time * 0.7f) * 3f * (1 - k), Mathf.Sin(Time.time * 0.45f) * 12f * (1 - k), 0);
         }
+        float lastAnimY;
 
         void Teleport(Vector3 pos, float newYaw, bool viaNet = true)
         {
@@ -318,6 +365,7 @@ namespace PortBoss
                 var dir = Quaternion.Euler(0, yaw, 0) * Vector3.forward;
                 if (Vector3.Dot(dir, transform.forward) < 0.3f) dir = transform.forward;
                 ThrowRpc(dir);
+                throwT = 0;
                 Sfx.Play("whoosh", transform.position, 0.6f);
             }
             if (input.push)

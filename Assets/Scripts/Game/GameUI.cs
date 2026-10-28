@@ -178,7 +178,8 @@ namespace PortBoss
         string MusicSlot(PortGame g)
         {
             if (screen != Screen.Playing || g == null) return "menu";
-            if (g.Phase.Value == PortGame.Ph.Night) return "night";
+            // Evening (from sunset) and night share the night track.
+            if (g.Phase.Value == PortGame.Ph.Night || g.DayT.Value / PortGame.DayLength > 0.72f) return "night";
             foreach (var b in Boat.All)
                 if (b.State.Value == Boat.St.Docked && b.SecondsLeft.Value >= 0 && b.SecondsLeft.Value <= 30) return "rush";
             return "day";
