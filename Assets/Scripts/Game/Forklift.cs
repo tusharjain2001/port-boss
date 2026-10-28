@@ -51,6 +51,23 @@ namespace PortBoss
             Art.Box(forks, new Vector3(0, 0.25f, 1.02f), new Vector3(1.0f, 0.55f, 0.06f), Art.Hex("#4a4a4a"), false, "fl_carriage");
             foreach (var x in new[] { -0.32f, 0.32f })
                 Art.Box(forks, new Vector3(x, 0, ForkZ), new Vector3(0.14f, 0.05f, 1.0f), Art.Hex("#555555"), false, "fl_fork");
+            if (Skin.On && Skin.Get("forklift") != null) PackLook();
+        }
+
+        // The pack forklift over our (hidden) blockout: wheels on our ground line, fork tips at ours, its fork rides our mast.
+        void PackLook()
+        {
+            var t = transform;
+            foreach (var r in GetComponentsInChildren<Renderer>()) r.enabled = false;
+            var rot = t.rotation; t.rotation = Quaternion.identity;
+            var m = Art.Place(Skin.Get("forklift"), t, Vector3.zero, 0, 0.88f);
+            Transform fork = null;
+            foreach (var c in m.GetComponentsInChildren<Transform>()) if (c.name.EndsWith("_Fork")) fork = c;
+            if (fork != null && Art.Bounds(fork.gameObject).center.z < t.position.z) m.transform.localRotation = Quaternion.Euler(0, 180, 0);
+            var b = Art.Bounds(m);
+            m.transform.position += new Vector3(t.position.x - b.center.x, t.position.y - b.min.y, t.position.z + ForkZ + 0.5f - b.max.z);
+            if (fork != null) fork.SetParent(forks, true);
+            t.rotation = rot;
         }
 
         public override void OnNetworkSpawn() => I = this;

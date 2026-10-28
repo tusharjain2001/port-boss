@@ -313,7 +313,8 @@ namespace PortBoss
                 ("map-demo-angle", new Vector3(40, 17, 40), new Vector3(5, 0, 5)),
                 ("map-back", new Vector3(-10, 10, -35), new Vector3(-10, 2, -75)),
                 ("map-quay", new Vector3(-12, 3, 14), new Vector3(10, -0.5f, -2)),
-                ("map-kit", new Vector3(2, 5, 6), new Vector3(14, 0, -8)) })
+                ("map-kit", new Vector3(2, 5, 6), new Vector3(14, 0, -8)),
+                ("map-forklift", new Vector3(14.5f, 2.6f, -7.5f), new Vector3(19, 0.8f, -12)) })
             {
                 cam.transform.position = pos; cam.transform.LookAt(look);
                 float t0 = Time.realtimeSinceStartup; int f0 = Time.frameCount;
