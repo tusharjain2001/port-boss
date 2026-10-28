@@ -1,0 +1,21 @@
+# Port Boss: the five port stages (planned against real Toon Harbor assets)
+
+The player's own port grows from a scrappy wooden fishing pier (stage 1, tonight's build) into the Toon Harbor
+demo harbour (stage 5, `DemoScene_1`). The rival's port across the bay stays a modest, clearly-better pack-style
+port: a reminder of the next step, not the end-game. Prefab names below are under
+`Assets/ThirdParty/ToonHarbor/Prefabs/` (paid pack, gitignored; never committed). Sizes are metres (x × y × z).
+
+| Stage | The port | Unlocks (gameplay) | Pack prefabs it brings in |
+|---|---|---|---|
+| **1. Fishing pier** (built) | Our own wooden pier and quay (toon-shaded), one fishing boat at a time, a fish buyer's stall, a tin shed | Carry/stack/throw crates, hand trolley, pier repair, contract board, forklift + pallets from day 3 | `Cargo/TH_Shipping_Wooden_Crate_02*` (crates, scaled 0.275), `Cargo/TH_Wooden_Pallet_01A/02A`, `Props/TH_Barrel_0*`, `Ships/Boats/TH_Boat_Small_0*` (dinghies), `Characters Variants/TH_Male_Character_01A/01B`, `TH_Female_Character_02C/03B` (players), `TH_Male_Character_02A` (buyer) |
+| **2. Concrete quay** | The wooden pier is rebuilt as a concrete quay with a proper shed and a forklift yard; two berths | Bigger catches (medium boats), pallets everywhere, a second boat berth, hire 1–2 dumb workers | `Concrete Structure Elements/` quay blocks + kerbs, `Metal Structures/TH_Metal_Structure_Kit_Building_07A/07B` (10.6 × 10.7 × 11 shed) or `_19A` (12.6 × 10.7 × 8.6), `Vehicles/TH_Forklift_01A–C` (2.1 × 2.5 × 3.7, replaces our code-built forklift model), `Ships/Boats/TH_Boat_Medium_01A–E` (4.6 × 6.9 × 15.3), `Ships/Ships/TH_Tugboat_0*` |
+| **3. Small crane + warehouse** | A jib crane on the quay and a warehouse for cold storage; trucks take goods away | Crane loading (joint-spring hook), cold storage stops spoilage, truck deliveries as a second buyer, cargo beyond fish (barrels, wood) | `Cranes/TH_Crane_01A/01B` (3.2 × 14.5 × 23.1), `Metal Structures/TH_Metal_Structure_Kit_Building_12A–C / 14A–C / 16A–C` (warehouses ~9–12 × 8.6–10.7 × 25), `Vehicles/TH_Truck_Cabin_01*/02*` + `TH_Truck_Trailer_01A`, `Cargo/TH_Shipping_Container_01*` (3 × 3 × 3), `Cargo/TH_Cage_Barrels_01A/B`, `Construction Materials/TH_Wood_Stack_0*` |
+| **4. Container berth** | A harbour crane over a deep-water berth, container stacks, a small freighter calling | Containers as cargo (crane-only), freighter schedules, an automated cargo line (one at a time), roads for trucks | `Cranes/TH_Harbor_Crane_01A–E` (19 × 35 × 46.8), `Cargo/TH_Shipping_Container_02*` (3 × 3 × 6) and `_03*` (3 × 3 × 12), `Ships/Ships/TH_Freighter_0*` (+ `_Loaded`), `Road System/`, `Concrete Buildings/TH_Concrete_Building_Kit_02A–09A` (offices) |
+| **5. Mega port** (the end-game) | The Toon Harbor demo harbour: gantry cranes, container terraces, freighters and tugs, pipes, warehouses, roads, tetrapod breakwater | Full automation ("watch it run"), giant-ship finale, rival buy-out, then endless | Everything in `Scenes/DemoScene_1.unity`: `Cranes/TH_Gantry_Crane_01A–E` (19 × 85 × 112), loaded freighters, `Pipe System/`, `Ventilation/`, `Metal Structure Elements 1/2`, `Concrete Building Elements/`, tetrapods, `Characters` as hired crews |
+
+## Notes for building stages 2–5 later
+- **Performance:** the demo harbour is ~47,000 renderers (Buildings 18.5k, Ships 8.6k, Props 6.2k). Stage 5 needs static batching, LODs (the pack ships `_Mobile` variants for containers and crates) and culling; budget it before building it.
+- **Scale:** the demo's sea is at y = −6.1 on a 3 km plane; our sea level is −1.2. Offset the layout on import, don't move our water.
+- **Rival port:** keep it one stage ahead of the player (stage 1 → the rival shows stage 2–3 pieces), so the next upgrade is always visible across the bay.
+- **Upgrades are physical:** each stage is built over the previous one (the wooden pier stays as a fishing jetty at stage 2, etc.), so the port's history shows.
+- Only stage 1 exists tonight; nothing here is built beyond what the code already has.

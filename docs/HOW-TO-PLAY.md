@@ -13,7 +13,7 @@ When the countdown runs out the boat **leaves with whatever is still aboard**. T
 - **Flying crates** knock people over (they drop their stack). Crates that land hard get **damaged**: each knock costs 25% of the price.
 - **Gulls** go for crates nobody is watching; stand near your crates or lose fish.
 - **Marlowe**, the rival, does doughnuts off your pier in his speedboat. His wake rocks the boat and slides loose crates.
-- **Storms** (day 3, 5, ...): a siren gives you 90 seconds. Get crates into the **shed** or **tie them down (F)** before the wind sweeps them off the pier.
+- **Weather** changes on its own, any time, any day: calm, breezy, overcast, rain, storm and back. Nothing warns you: read the sky and the sea. In rough weather the waves grow, the boat heaves, gulls clear off, and gusts shove loose crates across the pier. Get crates into the **shed** or **tie them down (F)**.
 
 Fell in? You **swim** (you never sink). Paddle to a **ladder** (pier sides, quay front) and press **E** to climb out, or swim up the slipway. While swimming, **E** tows one floating crate and **Q** lets it go.
 
