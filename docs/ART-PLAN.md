@@ -50,16 +50,16 @@ Reference shots of the look Manan liked: `Desktop/Port Boss/proof/overnight/cp1-
 | Buyer stall (table, awning, buyer figure) | primitives | **Keep** table + awning; **redo** buyer figure in the same style as the player character |
 | Shed | boxes | **Keep**; add a door frame, window, corrugated roof as stripes |
 | Warehouses on the quay | boxes | **Keep**; add roof overhang, doors |
-| Fish crate | code-built slatted box | **Redo** per §4 (frame posts + rim, gapped slats, rope handles, ice + fish, stencil) |
-| Empty crates by the shed | plain boxes | **Redo** as lidded slatted crates |
+| Fish crate | code-built slatted box | **Done (29 Oct)** per §4: `CrateLook.cs` (frame posts + rim, gapped slats, rope handles, ice + fish, stencil) |
+| Empty crates by the shed | plain boxes | **Done (29 Oct)**: lidded slatted crates from the same builder |
 | Boat | boxes + rotated-cube bow | **Redo bow**, add fenders and a net pile; keep the rest |
 | Gangplank | plank + cleats | **Keep** |
 | Trolley | primitive flat-bed | **Keep**; bevel, rubber wheels as cylinders |
-| Water | stylised shader (gradient, foam, ripples) | **Keep, A/B vs cp2**; foam slightly stronger at posts/hull |
+| Water | stylised shader (gradient, foam, ripples) | **Keep, calmed after the A/B (29 Oct):** ripples 0.28 → 0.10, crest foam only on storm waves, bluer tones, so it reads like cp2's smooth sea; contact foam at posts/hull stays |
 | Sky + clouds | procedural + puffy spheres | **Keep, A/B vs cp2** |
 | Headland hills, rocks | squashed spheres / boxes | **Keep**; a few trees as cone+sphere for life |
 | Lighthouse | cylinders | **Keep** |
-| Rival port (cranes, containers, ships) | boxes + Kenney ships | **Keep** the boxes; **A/B** the Kenney ships (they may read too toy-like next to the boxes) |
+| Rival port (cranes, containers, ships) | boxes + Kenney ships | **Keep** the boxes and the modern Kenney cargo ships; **removed** the orange pirate-style galleon (A/B 29 Oct: toy-like next to the cranes) |
 | Distant islands + passing ships | spheres + Kenney ships | **Keep, A/B** |
 | Gulls (own-made model v1) | flapping, landing | **Keep**; check v2 model once rendered |
 | Player character | chunky primitive dockhand (beanie, overalls, boots, mitts) | **Interim**: add hi-vis vest; final source = open item |

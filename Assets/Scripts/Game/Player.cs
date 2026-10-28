@@ -719,7 +719,11 @@ namespace PortBoss
             var want = target - rot * Vector3.forward * dist;
             if (Physics.SphereCast(target, 0.25f, (want - target).normalized, out var h, dist, ~0, QueryTriggerInteraction.Ignore)
                 && h.collider.GetComponentInParent<Player>() == null)
-                want = target + (want - target).normalized * Mathf.Max(0.8f, h.distance - 0.1f);
+            {
+                // Blocked (quay wall, boat): come in closer but rise, so we look over the head instead of into the back.
+                float d = Mathf.Max(0.8f, h.distance - 0.1f);
+                want = target + (want - target).normalized * d + Vector3.up * Mathf.Min(2.2f, (dist - d) * 0.5f);
+            }
             want.y = Mathf.Max(want.y, Water.Height(want) + 0.5f);
             camPos = Vector3.Lerp(camPos, want, 1f - Mathf.Exp(-18f * Time.deltaTime));
             trauma = Mathf.Max(0, trauma - Time.deltaTime * 1.5f);

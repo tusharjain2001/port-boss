@@ -280,7 +280,7 @@ namespace PortBoss
                     h.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 }
             // Ships crawling along the horizon (Kenney CC0 models, scaled up).
-            foreach (var (name, x, z, sc, sp) in new[] { ("ship-large", -200f, 430f, 5f, 2.2f), ("ship-cargo-a", 260f, 620f, 6f, 1.6f), ("ship-cargo-c", 60f, 900f, 7f, 1.2f) })
+            foreach (var (name, x, z, sc, sp) in new[] { ("ship-cargo-a", 260f, 620f, 6f, 1.6f), ("ship-cargo-c", 60f, 900f, 7f, 1.2f) })
             {
                 var s = Art.Model(name, Root, new Vector3(x, Water.Level - 0.4f, z), 90, sc);
                 if (s != null) s.AddComponent<Drifter>().Speed = sp;
@@ -344,7 +344,6 @@ namespace PortBoss
                 for (int k = 0; k < 2; k++)
                     Art.Box(r, new Vector3(x, 6.8f + k * 2.6f, -22), new Vector3(6.1f, 2.6f, 14), cols[(x / 7 + k + 20) % cols.Length], false, "deck_container");
             // Kenney CC0 vessels moored along the rival quay.
-            Art.Model("ship-large", r, new Vector3(52, Water.Level - 0.3f, -24), 90, 4f);
             Art.Model("ship-cargo-b", r, new Vector3(-62, Water.Level - 0.3f, -38), 85, 3.2f);
             Art.Model("boat-speed-a", r, new Vector3(22, Water.Level - 0.1f, -40), 200, 2.2f);
             // Lit windows on the warehouses behind.

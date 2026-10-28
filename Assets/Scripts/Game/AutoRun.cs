@@ -59,6 +59,7 @@ namespace PortBoss
             if (Has("-pb-trolleytest")) StartCoroutine(TrolleyTest());
             if (Has("-pb-wobbletest")) StartCoroutine(WobbleTest());
             if (Arg("-pb-charshots") != null) StartCoroutine(CharShots(Arg("-pb-charshots")));
+            if (Arg("-pb-crateshots") != null) StartCoroutine(CrateShots(Arg("-pb-crateshots")));
             if (Has("-pb-swimtest")) StartCoroutine(SwimTest());
             if (Has("-pb-piertest")) StartCoroutine(PierTest());
             if (Has("-pb-knocktest")) StartCoroutine(KnockTest());
@@ -227,10 +228,30 @@ namespace PortBoss
             Player.CamOverride = false;
         }
 
+        // Close-ups of the dock crates: fresh, spoiled, damaged, and the lidded empties by the shed.
+        IEnumerator CrateShots(string dir)
+        {
+            Directory.CreateDirectory(dir);
+            yield return WaitGame();
+            Player.Local.DebugTeleport(new Vector3(-20, 0.2f, -8), 90);
+            var fresh = PortGame.I.SpawnCrate(new Vector3(-2.2f, 0.6f, -1f), 1f);
+            var spoiled = PortGame.I.SpawnCrate(new Vector3(-1.2f, 0.6f, -1.4f), 0.15f);
+            var damaged = PortGame.I.SpawnCrate(new Vector3(-0.2f, 0.6f, -1f), 1f);
+            damaged.Damage.Value = 2;
+            yield return new WaitForSeconds(2f);
+            Player.CamOverride = true;
+            var cam = Camera.main;
+            void Look(Vector3 at, Vector3 offset) { cam.transform.position = at + offset; cam.transform.LookAt(at); }
+            Look(fresh.transform.position, new Vector3(0.3f, 1.1f, -1.3f)); yield return Snap(dir, "crate-fresh");
+            Look(spoiled.transform.position + Vector3.left * 0.5f, new Vector3(0.2f, 1.6f, -2.4f)); yield return Snap(dir, "crate-row-fresh-spoiled-damaged");
+            Look(new Vector3(12.7f, 0.9f, -12.8f), new Vector3(-1.2f, 0.9f, 2.6f)); yield return Snap(dir, "crate-empties-by-shed");
+            Player.CamOverride = false;
+        }
+
         IEnumerator Snap(string dir, string name)
         {
             yield return new WaitForEndOfFrame();
-            ScreenCapture.CaptureScreenshot(Path.Combine(dir, name + ".png"));
+            Capture(Path.Combine(dir, name + ".png"));
             yield return null;
             Debug.Log("[PB] snap " + name);
         }
@@ -328,6 +349,24 @@ namespace PortBoss
             }
         }
 
+        // Batchmode has no screen: render the main camera into a texture instead.
+        static void Capture(string path)
+        {
+            if (!Application.isBatchMode) { ScreenCapture.CaptureScreenshot(path); return; }
+            var cam = Camera.main;
+            var rt = new RenderTexture(1600, 900, 24);
+            cam.targetTexture = rt;
+            cam.Render();
+            cam.targetTexture = null;
+            RenderTexture.active = rt;
+            var tex = new Texture2D(1600, 900, TextureFormat.RGB24, false);
+            tex.ReadPixels(new Rect(0, 0, 1600, 900), 0, 0);
+            tex.Apply();
+            RenderTexture.active = null;
+            File.WriteAllBytes(path, tex.EncodeToPNG());
+            Destroy(tex); rt.Release();
+        }
+
         IEnumerator Shots(string dir, float every)
         {
             Directory.CreateDirectory(dir);
@@ -337,22 +376,7 @@ namespace PortBoss
                 yield return new WaitForSecondsRealtime(every);
                 yield return new WaitForEndOfFrame();
                 var path = Path.Combine(dir, $"shot_{i++:000}.png");
-                if (Application.isBatchMode)
-                {
-                    var cam = Camera.main;
-                    var rt = new RenderTexture(1600, 900, 24);
-                    cam.targetTexture = rt;
-                    cam.Render();
-                    cam.targetTexture = null;
-                    RenderTexture.active = rt;
-                    var tex = new Texture2D(1600, 900, TextureFormat.RGB24, false);
-                    tex.ReadPixels(new Rect(0, 0, 1600, 900), 0, 0);
-                    tex.Apply();
-                    RenderTexture.active = null;
-                    File.WriteAllBytes(path, tex.EncodeToPNG());
-                    Destroy(tex); rt.Release();
-                }
-                else ScreenCapture.CaptureScreenshot(path);
+                Capture(path);
                 Debug.Log("[PB] shot " + path);
             }
         }

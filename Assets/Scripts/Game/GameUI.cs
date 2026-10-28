@@ -419,7 +419,7 @@ namespace PortBoss
             }
             else Label(new Rect(0, H * 0.45f, W, 60 * S), "Connecting…", mid, Color.white);
 
-            if (Time.unscaledTime < shoutUntil)
+            if (Time.unscaledTime < shoutUntil && g?.Phase.Value != PortGame.Ph.Night) // the night card has the floor
             {
                 float a = Mathf.Clamp01((shoutUntil - Time.unscaledTime) * 2);
                 var band = new Rect(W * 0.14f, H * 0.11f, W * 0.72f, 150 * S);
@@ -536,18 +536,17 @@ namespace PortBoss
             Label(new Rect(x, y, pw, lh), $"Cash in the tin:  ${g.Money.Value}", st, new Color(1f, 0.88f, 0.4f)); y += lh * 1.4f;
 
             Label(new Rect(r.x, y, pw, lh), "NIGHT SHOP", mid, new Color(1f, 0.8f, 0.5f)); y += lh * 1.1f;
-            string tl = g.HasTrolley.Value ? "Hand trolley: owned" : $"Hand trolley  ${PortGame.TrolleyPrice}  (holds 6 crates)";
-            Label(new Rect(x, y, pw, lh), tl, st, Color.white);
-            if (!g.HasTrolley.Value && Button(new Rect(r.xMax - 210 * S, y, 160 * S, 46 * S), "Buy", g.Money.Value >= PortGame.TrolleyPrice)) g.BuyTrolleyRpc();
-            y += lh * 1.15f;
-            Label(new Rect(x, y, pw, lh), g.PierRepaired.Value ? "Pier: repaired and braced" : $"Repair the pier  ${PortGame.RepairPrice}  (fill holes, brace the end)", st, Color.white);
-            if (!g.PierRepaired.Value && Button(new Rect(r.xMax - 210 * S, y, 160 * S, 46 * S), "Buy", g.Money.Value >= PortGame.RepairPrice)) g.BuyRepairRpc();
-            if (g.ForkliftForSale)
+            // One row per item: label left of the Buy button, never under it.
+            float lw = r.xMax - 230 * S - x;
+            void Row(bool owned, string ownedText, string forSale, int price, System.Action buy)
             {
-                y += lh * 1.15f;
-                Label(new Rect(x, y, pw, lh), g.HasForklift.Value ? "Forklift: in the yard" : $"Forklift  ${PortGame.ForkliftPrice}  (+2 pallets of 6)", st, Color.white);
-                if (!g.HasForklift.Value && Button(new Rect(r.xMax - 210 * S, y, 160 * S, 46 * S), "Buy", g.Money.Value >= PortGame.ForkliftPrice)) g.BuyForkliftRpc();
+                Label(new Rect(x, y, lw, lh), owned ? ownedText : forSale, st, owned ? new Color(0.7f, 1f, 0.7f) : Color.white);
+                if (!owned && Button(new Rect(r.xMax - 210 * S, y + (lh - 46 * S) / 2, 160 * S, 46 * S), $"Buy ${price}", g.Money.Value >= price)) buy();
+                y += lh * 1.25f;
             }
+            Row(g.HasTrolley.Value, "Hand trolley: owned", "Hand trolley (6 crates)", PortGame.TrolleyPrice, g.BuyTrolleyRpc);
+            Row(g.PierRepaired.Value, "Pier: repaired", "Repair the pier", PortGame.RepairPrice, g.BuyRepairRpc);
+            if (g.ForkliftForSale) Row(g.HasForklift.Value, "Forklift: in the yard", "Forklift + 2 pallets", PortGame.ForkliftPrice, g.BuyForkliftRpc);
             y += lh * 1.6f;
             if (NetworkManager.Singleton.IsServer)
             {

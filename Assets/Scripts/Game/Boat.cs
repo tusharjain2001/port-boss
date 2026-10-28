@@ -78,14 +78,18 @@ namespace PortBoss
             State.OnValueChanged += (_, s) => OnState(s);
             OnState(State.Value);
             if (!IsServer) return;
+            // Teleport first: MovePosition from the spawn point (the origin, on the quay) would sweep the hull through the crates there.
+            transform.position = rb.position = Bezier(InPath, 0);
+            Physics.SyncTransforms();
             Pose(Bezier(InPath, 0), Tangent(InPath, 0));
             // Cargo rides in stacked on deck, parented (not simulated) until we dock.
             for (int i = 0; i < CargoCount; i++)
             {
-                var c = Instantiate(PortGame.I.CratePrefab).GetComponent<Crate>();
-                c.NetworkObject.Spawn(true);
                 int col = i % 3, row = (i / 3) % 4, layer = i / 12;
-                c.Attach(NetworkObject, new Vector3(-1.2f + col * 1.2f, DeckY + Crate.Size / 2 + 0.02f + layer * (Crate.Size + 0.02f), -1.6f + row * 1.3f), -1);
+                var at = new Vector3(-1.2f + col * 1.2f, DeckY + Crate.Size / 2 + 0.02f + layer * (Crate.Size + 0.02f), -1.6f + row * 1.3f);
+                var c = Instantiate(PortGame.I.CratePrefab, transform.TransformPoint(at), transform.rotation).GetComponent<Crate>();
+                c.NetworkObject.Spawn(true);
+                c.Attach(NetworkObject, at, -1);
                 cargo.Add(c);
             }
         }
