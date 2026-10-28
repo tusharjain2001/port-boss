@@ -164,9 +164,14 @@ namespace PortBoss
             {
                 var s = pl.Sway;
                 int i = Slot.Value;
-                // The stack bends: higher crates swing further and tilt more.
-                vis.localPosition = new Vector3(s.x, 0, s.y) * (0.07f * i * (i + 1));
-                vis.localRotation = Quaternion.Euler(s.y * 12f * i, 0, -s.x * 12f * i);
+                // The stack bends: higher crates swing further and tilt more. A forward/back lean is hard to see
+                // from behind, so the closer it is to toppling the more it also swings side to side.
+                float mag = s.magnitude;
+                var v = new Vector2(s.x + Mathf.Sin(Time.time * 6.5f + pl.OwnerClientId) * mag * 0.7f, s.y);
+                // Slightly messy stack: a fixed per-crate stagger.
+                float jx = ((NetworkObjectId * 37) % 9 - 4) * 0.01f, jyaw = ((NetworkObjectId * 53) % 13 - 6) * 1.2f;
+                vis.localPosition = new Vector3(v.x * 0.075f * i * i + jx * i, 0, v.y * 0.075f * i * i);
+                vis.localRotation = Quaternion.Euler(v.y * 14f * i, jyaw * Mathf.Min(i, 1), -v.x * 14f * i);
             }
         }
 
