@@ -31,6 +31,8 @@ namespace PortBoss
             Shed();
             Bay();
             RivalPort();
+            OpenSea();
+            Clouds();
             Water.Create(new Vector3(0, 0, 80), 280, 112);
             // Far sea to the horizon (flat, slightly below the wave mean).
             var far = Art.Box(Root, new Vector3(0, Water.Level - 0.35f, 600), new Vector3(3000, 0.1f, 1600), Art.Hex("#2f5562"), false, "far_sea", 0.8f);
@@ -98,7 +100,7 @@ namespace PortBoss
             Art.Box(p, new Vector3(0, y - 0.2f, 15), new Vector3(0.25f, 0.25f, 30), Art.WoodDark, false, "stringer");
             for (float z = 1.5f; z < 30.5f; z += 3f)
                 foreach (var x in new[] { -2.9f, 2.9f })
-                    Art.Prim(PrimitiveType.Cylinder, p, new Vector3(x, -2.0f, z), Quaternion.identity, new Vector3(0.32f, 2.5f, 0.32f), Art.WoodDark, true, "post");
+                    Art.Prim(PrimitiveType.Cylinder, p, new Vector3(x, -2.0f, z), Quaternion.identity, new Vector3(0.32f, 2.5f, 0.32f), Art.WoodDark * 0.7f, true, "post", 0.55f);
             // Low edge beam on the left side, rope bollards on the right (boat side).
             for (float z = 4f; z < 30f; z += 6f)
                 Art.Prim(PrimitiveType.Cylinder, p, new Vector3(2.75f, PierTop + 0.2f, z), Quaternion.identity, new Vector3(0.3f, 0.2f, 0.3f), Art.Hex("#3b3b3b"), true, "bollard");
@@ -154,17 +156,18 @@ namespace PortBoss
         {
             // Low land either side of the bay, rolling hills on top, rocks at the waterline.
             Art.Box(Root, new Vector3(-150, -2, 110), new Vector3(190, 4, 240), Art.Grass, true, "land_left");
-            Art.Box(Root, new Vector3(155, -2, 140), new Vector3(180, 4, 220), Art.Grass, true, "land_right");
+            Art.Box(Root, new Vector3(155, -2, 75), new Vector3(180, 4, 90), Art.Grass, true, "land_right");
             Hills(new Vector2(-62, 15), new Vector2(-75, 210), 9, 30, 7);
             Hills(new Vector2(-110, 40), new Vector2(-120, 220), 6, 55, 11);
-            Hills(new Vector2(72, 45), new Vector2(82, 215), 8, 30, 3);
-            Hills(new Vector2(125, 60), new Vector2(130, 230), 5, 60, 5);
+            Hills(new Vector2(72, 40), new Vector2(84, 112), 5, 28, 3);
+            Hills(new Vector2(125, 50), new Vector2(140, 105), 3, 55, 5);
             var rng = new System.Random(42);
             for (int i = 0; i < 46; i++)
             {
                 bool left = i % 2 == 0;
                 float z = 4 + (i / 2) * 9f + (float)rng.NextDouble() * 4;
                 float x = left ? -55 - (float)rng.NextDouble() * 3 : 64 + (float)rng.NextDouble() * 3;
+                if (!left && z > 116) continue;
                 var sz = 2.5f + (float)rng.NextDouble() * 3.5f;
                 Art.Box(Root, new Vector3(x, Water.Level + 0.2f, z), new Vector3(sz, sz * 0.6f, sz * 1.2f), Color.Lerp(Art.Rock, Art.Hex("#8a8278"), (float)rng.NextDouble()), false, "rock")
                     .transform.localRotation = Quaternion.Euler((float)rng.NextDouble() * 30, (float)rng.NextDouble() * 360, (float)rng.NextDouble() * 30);
@@ -184,6 +187,54 @@ namespace PortBoss
                 var c = Color.Lerp(Art.Grass, Art.Hex("#7d7a4c"), (float)rng.NextDouble());
                 var h = Art.Prim(PrimitiveType.Sphere, Root, new Vector3(p.x, -r * 0.12f, p.y), Quaternion.Euler(0, (float)rng.NextDouble() * 360, 0), new Vector3(r * 1.6f * k, r * (0.35f + 0.25f * (float)rng.NextDouble()), r * 1.3f * k), c, false, "hill");
                 h.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
+        }
+
+        static void OpenSea()
+        {
+            // Lighthouse on the tip of the right headland.
+            var lh = new GameObject("Lighthouse").transform;
+            lh.SetParent(Root, false);
+            lh.position = new Vector3(84, 0, 116);
+            Art.Box(lh, new Vector3(0, -0.5f, 0), new Vector3(9, 3, 9), Art.Rock, false, "lh_rock");
+            for (int i = 0; i < 6; i++)
+                Art.Prim(PrimitiveType.Cylinder, lh, new Vector3(0, 2 + i * 2.6f, 0), Quaternion.identity, new Vector3(3.2f - i * 0.18f, 1.3f, 3.2f - i * 0.18f), i % 2 == 0 ? Art.Cream : Art.Red, false, "lh_band");
+            Art.Prim(PrimitiveType.Cylinder, lh, new Vector3(0, 17.6f, 0), Quaternion.identity, new Vector3(2.2f, 0.9f, 2.2f), Art.Cream, false, "lh_lamp").GetComponent<Renderer>().sharedMaterial = Art.Glow(Art.Hex("#ffe2a8"), 2.5f);
+            Art.Prim(PrimitiveType.Sphere, lh, new Vector3(0, 19f, 0), Quaternion.identity, new Vector3(2.4f, 1.4f, 2.4f), Art.Red, false, "lh_cap");
+            // Distant islands on the horizon.
+            var rng = new System.Random(9);
+            foreach (var (x, z, r) in new[] { (320f, 520f, 70f), (520f, 380f, 45f), (230f, 760f, 110f), (-260f, 820f, 90f) })
+                for (int k = 0; k < 3; k++)
+                {
+                    var h = Art.Prim(PrimitiveType.Sphere, Root, new Vector3(x + k * r * 0.5f, -r * 0.25f, z + (float)rng.NextDouble() * r * 0.3f), Quaternion.identity,
+                        new Vector3(r * (1.4f - k * 0.3f), r * (0.45f - k * 0.08f), r * 0.9f), Color.Lerp(Art.Hex("#5d6a55"), Art.Hex("#7d8877"), k * 0.4f), false, "island");
+                    h.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                }
+            // Ships crawling along the horizon (Kenney CC0 models, scaled up).
+            foreach (var (name, x, z, sc, sp) in new[] { ("ship-large", -200f, 430f, 5f, 2.2f), ("ship-cargo-a", 260f, 620f, 6f, 1.6f), ("ship-cargo-c", 60f, 900f, 7f, 1.2f) })
+            {
+                var s = Art.Model(name, Root, new Vector3(x, Water.Level - 0.4f, z), 90, sc);
+                if (s != null) s.AddComponent<Drifter>().Speed = sp;
+            }
+        }
+
+        static void Clouds()
+        {
+            var rng = new System.Random(5);
+            for (int i = 0; i < 26; i++)
+            {
+                float ang = (float)rng.NextDouble() * Mathf.PI * 2, dist = 260 + (float)rng.NextDouble() * 260;
+                var c = new GameObject("cloud").transform;
+                c.SetParent(Root, false);
+                c.position = new Vector3(Mathf.Cos(ang) * dist, 90 + (float)rng.NextDouble() * 70, 120 + Mathf.Sin(ang) * dist);
+                int puffs = 3 + rng.Next(3);
+                for (int k = 0; k < puffs; k++)
+                {
+                    float w = 22 + (float)rng.NextDouble() * 26;
+                    var puff = Art.Prim(PrimitiveType.Sphere, c, new Vector3(k * w * 0.55f - puffs * w * 0.25f, (float)rng.NextDouble() * 5, (float)rng.NextDouble() * 10), Quaternion.identity, new Vector3(w, w * 0.38f, w * 0.7f), Color.white, false, "puff");
+                    var r = puff.GetComponent<Renderer>();
+                    r.sharedMaterial = Art.Cloud; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                }
             }
         }
 
@@ -223,6 +274,10 @@ namespace PortBoss
             for (int x = -40; x < 40; x += 7)
                 for (int k = 0; k < 2; k++)
                     Art.Box(r, new Vector3(x, 6.8f + k * 2.6f, -22), new Vector3(6.1f, 2.6f, 14), cols[(x / 7 + k + 20) % cols.Length], false, "deck_container");
+            // Kenney CC0 vessels moored along the rival quay.
+            Art.Model("ship-large", r, new Vector3(52, Water.Level - 0.3f, -24), 90, 4f);
+            Art.Model("ship-cargo-b", r, new Vector3(-62, Water.Level - 0.3f, -38), 85, 3.2f);
+            Art.Model("boat-speed-a", r, new Vector3(22, Water.Level - 0.1f, -40), 200, 2.2f);
             // Lit windows on the warehouses behind.
             Art.Box(r, new Vector3(30, 8, 26), new Vector3(60, 16, 14), Art.Hex("#8a8f94"), false, "rival_warehouse");
             for (int x = 6; x < 58; x += 4)

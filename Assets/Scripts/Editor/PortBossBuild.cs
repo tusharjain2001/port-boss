@@ -27,7 +27,11 @@ namespace PortBoss.EditorTools
             var litMat = Mat("Lit", lit, m => { m.SetColor("_BaseColor", Color.white); m.SetFloat("_Smoothness", 0.15f); });
             var emis = Mat("Emissive", lit, m => { m.EnableKeyword("_EMISSION"); m.SetColor("_EmissionColor", Color.white); m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive; });
             var part = Mat("Particle", Shader.Find("Universal Render Pipeline/Particles/Unlit"), m => m.SetColor("_BaseColor", Color.black));
-            var water = Mat("Water", lit, m => { m.SetColor("_BaseColor", new Color(0.13f, 0.3f, 0.36f)); m.SetFloat("_Smoothness", 0.88f); });
+            var waterShader = Shader.Find("PortBoss/Water");
+            if (waterShader == null) Debug.LogError("[PBBuild] PortBoss/Water shader missing, falling back to Lit");
+            var water = waterShader != null ? Mat("Water", waterShader, m => { })
+                : Mat("Water", lit, m => { m.SetColor("_BaseColor", new Color(0.13f, 0.3f, 0.36f)); m.SetFloat("_Smoothness", 0.88f); });
+            var cloud = Mat("Cloud", Shader.Find("Universal Render Pipeline/Unlit"), m => m.SetColor("_BaseColor", Color.white));
 
             var crate = Prefab("Crate", g =>
             {
@@ -108,7 +112,7 @@ namespace PortBoss.EditorTools
             var ui = new GameObject("Game").AddComponent<GameUI>();
             ui.Models = models.ToArray(); ui.ModelKit = kits.ToArray(); ui.KitMats = kitMats.ToArray();
             ui.CratePrefab = crate; ui.BoatPrefab = boat; ui.TrolleyPrefab = trolley; ui.PortGamePrefab = game;
-            ui.LitMat = litMat; ui.EmissiveMat = emis; ui.ParticleMat = part; ui.WaterMat = water;
+            ui.LitMat = litMat; ui.EmissiveMat = emis; ui.ParticleMat = part; ui.WaterMat = water; ui.CloudMat = cloud;
             Dir("Assets/Scenes");
             EditorSceneManager.SaveScene(scene, ScenePath);
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };

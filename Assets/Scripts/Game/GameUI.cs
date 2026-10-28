@@ -13,7 +13,7 @@ namespace PortBoss
     {
         public static GameUI I;
         public GameObject CratePrefab, BoatPrefab, TrolleyPrefab, PortGamePrefab;
-        public Material LitMat, EmissiveMat, ParticleMat, WaterMat;
+        public Material LitMat, EmissiveMat, ParticleMat, WaterMat, CloudMat;
         public GameObject[] Models; public int[] ModelKit; public Material[] KitMats;
 
         enum Screen { Menu, Join, Playing }
@@ -23,7 +23,7 @@ namespace PortBoss
         Steamworks.Data.Lobby[] lobbies = new Steamworks.Data.Lobby[0];
         bool searching;
 
-        static string shout; static float shoutUntil;
+        static string shout, shoutWho; static float shoutUntil;
         static string toast; static float toastUntil;
         struct Pop { public Vector3 p; public string s; public Color c; public float t0; }
         static readonly List<Pop> pops = new();
@@ -43,10 +43,11 @@ namespace PortBoss
         void Awake()
         {
             I = this;
-            Art.Lit = LitMat; Art.Emissive = EmissiveMat; Art.Particle = ParticleMat; Art.WaterMat = WaterMat;
+            Art.Lit = LitMat; Art.Emissive = EmissiveMat; Art.Particle = ParticleMat; Art.WaterMat = WaterMat; Art.Cloud = CloudMat;
             Application.targetFrameRate = 144;
             World.Build();
             Gangplank.Create();
+            Gull.Spawn(7);
             SetupCameraAndLight();
             Session.InitSteam();
             var amb = gameObject.AddComponent<AudioSource>();
@@ -54,7 +55,6 @@ namespace PortBoss
             if (amb.clip != null) amb.Play();
         }
 
-        float nextGull = 6f;
 
         void Start()
         {
@@ -83,8 +83,10 @@ namespace PortBoss
             sun.type = LightType.Directional; sun.shadows = LightShadows.Soft; sun.shadowStrength = 0.85f;
             RenderSettings.sun = sun;
             RenderSettings.ambientMode = AmbientMode.Trilight;
-            RenderSettings.fog = true; RenderSettings.fogMode = FogMode.Linear;
-            RenderSettings.fogStartDistance = 70; RenderSettings.fogEndDistance = 650;
+            RenderSettings.fog = true; RenderSettings.fogMode = FogMode.ExponentialSquared;
+            RenderSettings.fogDensity = 0.0021f;
+            var sky = RenderSettings.skybox;
+            if (sky != null && sky.HasProperty("_SunSize")) { sky.SetFloat("_SunSize", 0.035f); sky.SetFloat("_AtmosphereThickness", 1.15f); sky.SetColor("_SkyTint", new Color(0.55f, 0.6f, 0.7f)); }
 
             var vol = new GameObject("PostFX").AddComponent<Volume>();
             vol.isGlobal = true;
@@ -112,7 +114,11 @@ namespace PortBoss
             RenderSettings.ambientSkyColor = night ? new Color(0.22f, 0.28f, 0.45f) : Color.Lerp(new Color(0.62f, 0.68f, 0.78f), new Color(0.6f, 0.5f, 0.5f), u);
             RenderSettings.ambientEquatorColor = night ? new Color(0.14f, 0.16f, 0.24f) : Color.Lerp(new Color(0.62f, 0.56f, 0.48f), new Color(0.7f, 0.5f, 0.38f), u);
             RenderSettings.ambientGroundColor = night ? new Color(0.05f, 0.05f, 0.08f) : new Color(0.28f, 0.24f, 0.2f);
-            RenderSettings.fogColor = night ? new Color(0.08f, 0.1f, 0.16f) : Color.Lerp(new Color(0.78f, 0.74f, 0.66f), new Color(0.85f, 0.62f, 0.45f), u);
+            RenderSettings.fogColor = night ? new Color(0.08f, 0.1f, 0.16f) : Color.Lerp(new Color(0.76f, 0.76f, 0.74f), new Color(0.86f, 0.64f, 0.48f), u);
+            // Sky colours for the water reflection, and cloud tint (white → golden → dusk).
+            Shader.SetGlobalColor("_PB_SkyZenith", night ? new Color(0.03f, 0.05f, 0.1f) : Color.Lerp(new Color(0.32f, 0.5f, 0.75f), new Color(0.35f, 0.38f, 0.6f), u));
+            Shader.SetGlobalColor("_PB_SkyHorizon", night ? new Color(0.1f, 0.12f, 0.2f) : Color.Lerp(new Color(0.82f, 0.82f, 0.8f), new Color(0.98f, 0.66f, 0.42f), u));
+            if (Art.Cloud != null) Art.Cloud.SetColor("_BaseColor", night ? new Color(0.16f, 0.18f, 0.26f) : Color.Lerp(new Color(0.98f, 0.96f, 0.93f), new Color(1f, 0.74f, 0.55f), u * u));
         }
 
         void Update()
@@ -136,13 +142,6 @@ namespace PortBoss
             bool wantCursor = InputBlocked;
             Cursor.lockState = wantCursor || AutoRun.Active ? CursorLockMode.None : CursorLockMode.Locked;
             Cursor.visible = wantCursor;
-
-            if (Time.time > nextGull)
-            {
-                nextGull = Time.time + Random.Range(10f, 24f);
-                var c0 = cam.transform.position;
-                Sfx.Play("gull", c0 + new Vector3(Random.Range(-25f, 25f), 12f, Random.Range(5f, 30f)), 0.5f);
-            }
 
             // Menu backdrop: slow orbit over the pier.
             if (Player.Local == null)
@@ -172,7 +171,7 @@ namespace PortBoss
         public void JoinIp(string ip) => Session.JoinLan(ip);
 
         // ---------- static feeds from gameplay ----------
-        public static void Shout(string s, float secs) { shout = s; shoutUntil = Time.unscaledTime + secs; }
+        public static void Shout(string who, string s, float secs) { shoutWho = who; shout = s; shoutUntil = Time.unscaledTime + secs; }
         public static void Toast(string s) { toast = s; toastUntil = Time.unscaledTime + 2.5f; }
         public static void Popup(Vector3 p, string s, Color c) => pops.Add(new Pop { p = p, s = s, c = c, t0 = Time.unscaledTime });
 
@@ -295,7 +294,14 @@ namespace PortBoss
             if (Time.unscaledTime < shoutUntil)
             {
                 float a = Mathf.Clamp01((shoutUntil - Time.unscaledTime) * 2);
-                Label(new Rect(W * 0.1f, H * 0.13f, W * 0.8f, 140 * S), shout, shoutS, new Color(1f, 0.96f, 0.86f, a));
+                var band = new Rect(W * 0.14f, H * 0.11f, W * 0.72f, 150 * S);
+                var old = GUI.color; GUI.color = new Color(1, 1, 1, a * 0.85f);
+                GUI.Box(band, "", panel);
+                GUI.color = old;
+                if (!string.IsNullOrEmpty(shoutWho))
+                    Label(new Rect(band.x, band.y + 8 * S, band.width, 34 * S), shoutWho, new GUIStyle(small) { alignment = TextAnchor.UpperCenter, fontStyle = FontStyle.Bold, fontSize = Mathf.RoundToInt(22 * S) },
+                        shoutWho == "BUYER" ? new Color(0.6f, 0.9f, 0.6f, a) : new Color(1f, 0.75f, 0.35f, a));
+                Label(new Rect(band.x + 20 * S, band.y + 36 * S, band.width - 40 * S, band.height - 40 * S), shout, shoutS, new Color(1f, 0.97f, 0.9f, a));
             }
             if (Time.unscaledTime < toastUntil)
                 Label(new Rect(0, H * 0.62f, W, 50 * S), toast, mid, new Color(0.85f, 0.95f, 1f, Mathf.Clamp01((toastUntil - Time.unscaledTime) * 2)));

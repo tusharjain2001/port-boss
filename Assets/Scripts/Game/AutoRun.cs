@@ -144,6 +144,9 @@ namespace PortBoss
                 var g = PortGame.I; var nm = NetworkManager.Singleton;
                 var pl = Player.Local;
                 string boats = string.Join(",", Boat.All.ConvertAll(b => b.State.Value.ToString()));
+                foreach (var c in Crate.All)
+                    if (c.transform.position.y > 2.5f && (c.transform.parent == null || c.transform.parent.GetComponent<Player>() == null))
+                        Debug.Log($"[PB] high crate {c.NetworkObjectId} at {c.transform.position:F1} parent={(c.transform.parent ? c.transform.parent.name : "-")} attached={c.Attached.Value}");
                 Debug.Log($"[PB] t={Time.realtimeSinceStartup:0} fps={1f / Mathf.Max(Time.smoothDeltaTime, 1e-4f):0} listening={nm.IsListening} server={nm.IsServer} clients={(nm.IsServer ? nm.ConnectedClientsIds.Count : -1)} " +
                           $"players={Player.All.Count} phase={g?.Phase.Value} day={g?.DayNum.Value} dayT={g?.DayT.Value:0} money={g?.Money.Value} sold={g?.Sold.Value} sea={g?.InSea.Value} left={g?.LeftAboard.Value} " +
                           $"crates={Crate.All.Count} boats=[{boats}] me={(pl ? pl.transform.position.ToString("F1") : "-")} carrying={(pl ? pl.Carrying : 0)} bot={bot?.State}");

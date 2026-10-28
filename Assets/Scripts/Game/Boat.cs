@@ -13,10 +13,11 @@ namespace PortBoss
         public static readonly List<Boat> All = new();
 
         public NetworkVariable<St> State = new(St.Arriving);
-        public const float DeckY = 1.6f, HalfW = 2.3f, HalfL = 6f, DockSeconds = 120f, SailSeconds = 24f;
+        public const float DeckY = 1.6f, HalfW = 2.3f, HalfL = 6f, DockSeconds = 120f, SailSeconds = 34f;
         public static readonly Vector3 DockPos = new(7.6f, 0, 16f);
-        static readonly Vector3[] InPath = { new(40, 0, 210), new(30, 0, 95), new(7.6f, 0, 62), DockPos };
-        static readonly Vector3[] OutPath = { DockPos, new(7.6f, 0, 4), new(38, 0, 2), new(42, 0, 215) };
+        // In from the open sea to the north-east, round the lighthouse, alongside the pier; out the same way.
+        static readonly Vector3[] InPath = { new(200, 0, 330), new(70, 0, 170), new(7.6f, 0, 78), DockPos };
+        static readonly Vector3[] OutPath = { DockPos, new(7.6f, 0, 2), new(70, 0, 40), new(210, 0, 340) };
 
         [HideInInspector] public int CargoCount = 8; // set by spawner before Spawn
         Rigidbody rb;
@@ -106,7 +107,7 @@ namespace PortBoss
                             if (c != null && c.IsSpawned && c.transform.parent == transform)
                                 c.Release(c.transform.position, Vector3.zero, Vector3.zero);
                         cargo.Clear();
-                        game?.Shout(CaptainLines[Random.Range(0, CaptainLines.Length)], 4f);
+                        game?.Shout("CAPTAIN MAGS", PortGame.Pick(CaptainLines), 4.5f);
                     }
                     break;
                 }
@@ -114,9 +115,12 @@ namespace PortBoss
                 {
                     Pose(DockPos, Vector3.back);
                     countdown -= dt;
-                    float[] marks = { 60, 30, 10 };
-                    string[] lines = { "One minute! Then I'm off, crates or no crates!", "Thirty seconds! Move it!", "Ten seconds! Casting off!" };
-                    if (shoutIdx < marks.Length && countdown <= marks[shoutIdx]) { game?.Shout(lines[shoutIdx], 3.5f); shoutIdx++; }
+                    if (shoutIdx < Marks.Length && countdown <= Marks[shoutIdx])
+                    {
+                        game?.Shout("CAPTAIN MAGS", PortGame.Pick(MarkLines[shoutIdx]), 3.5f);
+                        if (Marks[shoutIdx] <= 10) game?.TootRpc(transform.position);
+                        shoutIdx++;
+                    }
                     if (countdown <= 0)
                     {
                         int left = TakeAboard();
@@ -145,6 +149,15 @@ namespace PortBoss
             "Two minutes, I've got a tide to catch!",
             "Fresh catch! Two minutes and I'm gone!",
             "Two minutes! Whatever's still aboard comes back out with me!",
+            "Morning, boss! Two minutes. The fish won't carry themselves.",
+        };
+        static readonly float[] Marks = { 90, 60, 30, 10 };
+        static readonly string[][] MarkLines =
+        {
+            new[] { "Ninety seconds! Chop chop!", "A minute and a half, boss. I'm timing you." },
+            new[] { "One minute! My nets won't mend themselves!", "Sixty seconds! The tide waits for no one!", "A minute left! Then this fish goes back to sea!" },
+            new[] { "Thirty seconds! I can feel the tide turning!", "Half a minute! Move those legs!", "Thirty! Why is nobody running?!" },
+            new[] { "Ten! Untying the ropes!", "Ten seconds! Mind the gangplank!", "TEN! Off my boat or come fishing!" },
         };
 
         // Crates still on deck get lashed down and sail away with us.

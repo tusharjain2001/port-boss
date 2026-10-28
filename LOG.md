@@ -19,3 +19,4 @@ One line per step: time | step | result
 - 2026-10-29 00:14 | P2 buyer panel: E at buyer opens panel (carried + parked trolley crates, grade/freshness/offer, Sell, Sell all, Close); table selling removed; offers 15/12/4 | bot sold 3x$15 via panel, screenshot p2-buyer-panel.png
 - 2026-10-29 00:15 | P1 wobble test in build (5 crates): walk 0.32, sprint start 0.69 (Steady!, saved), sprint reverse 1.00 -> top 2 topple | proof p1-wobble-test.log, p1-steady-teeter.png
 - 2026-10-29 00:18 | P1 visual: stack bends/tilts strongly + side swing scaled by lean, per-crate stagger; Steady text moved low | p1-visible-lean.png
+- 2026-10-29 00:25 | Unity paused (Manan gaming): code-only. P3/P4/P5/P6 written; dotnet compile check of all scripts passes; URP asset tuned (shadows, MSAA, HDR grading, SSAO). Not yet run in Unity (queue in HANDOFF.md) | compile ok

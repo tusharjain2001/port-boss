@@ -7,7 +7,7 @@ namespace PortBoss
     // everything else is a tinted copy.
     public static class Art
     {
-        public static Material Lit, Emissive, Particle, WaterMat;
+        public static Material Lit, Emissive, Particle, WaterMat, Cloud;
         static readonly Dictionary<(Color, float), Material> cache = new();
 
         public static Material Get(Color c, float smooth = 0.15f)
@@ -55,7 +55,10 @@ namespace PortBoss
             g.transform.localPosition = pos;
             g.transform.localRotation = Quaternion.Euler(0, yaw, 0);
             g.transform.localScale = Vector3.one * scale;
-            foreach (var r in g.GetComponentsInChildren<Renderer>()) r.sharedMaterial = ui.KitMats[ui.ModelKit[i]];
+            // Kits that share a colormap get the muted kit material; own-made models keep their own colours.
+            var km = ui.KitMats[ui.ModelKit[i]];
+            if (km.GetTexture("_BaseMap") != null)
+                foreach (var r in g.GetComponentsInChildren<Renderer>()) r.sharedMaterial = km;
             foreach (var c in g.GetComponentsInChildren<Collider>()) Object.Destroy(c);
             return g;
         }

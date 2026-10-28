@@ -38,9 +38,9 @@ namespace PortBoss
             {
                 // A few crates already on the quay so there's something to do before the first boat.
                 for (int i = 0; i < 3; i++) SpawnCrate(new Vector3(-0.8f + i * 0.8f, 0.6f, 3.5f), 1f);
-                Shout("Morning, boss. Boat's due any minute. Buyer pays cash at the table!", 4.5f);
+                Shout("BUYER", "Morning, boss! Bring me fish, I pay cash. Fresh pays best.", 5f);
             }
-            else Shout($"Day {n}. Boats are coming. Keep that fish moving!", 3.5f);
+            else Shout("BUYER", Pick($"Day {n}. Same deal: fresh fish, fresh cash.", $"Day {n}! My customers are hungry, boss.", $"Day {n}. Let's see if the pier holds up."), 4f);
         }
 
         public Crate SpawnCrate(Vector3 p, float fresh)
@@ -59,22 +59,24 @@ namespace PortBoss
             if (nextBoat < BoatTimes.Length && DayT.Value >= BoatTimes[nextBoat])
             {
                 var b = Instantiate(GameUI.I.BoatPrefab).GetComponent<Boat>();
-                b.CargoCount = 7 + nextBoat * 2 + (DayNum.Value - 1) * 2;
+                b.CargoCount = 8 + nextBoat * 3 + (DayNum.Value - 1) * 2;
                 b.NetworkObject.Spawn(true);
                 activeBoats++; nextBoat++;
-                Shout(nextBoat == 1 ? "*HOOONK* Boat coming in!" : "*HOOONK* Another boat!", 2.5f);
+                Shout("", nextBoat == 1 ? "*HOOOONK*  A boat's coming in!" : nextBoat == 2 ? "*HOOOONK*  Second boat!" : "*HOOOONK*  Last boat of the day!", 3f);
             }
             if (DayT.Value >= DayLength && nextBoat >= BoatTimes.Length && activeBoats <= 0)
             {
                 Phase.Value = Ph.Night;
-                Shout("That's the day. The buyer's packing up.", 3f);
+                Shout("BUYER", "That's me done for today. Same time tomorrow!", 3.5f);
             }
         }
 
         public void BoatLeaving(int leftAboard)
         {
             LeftAboard.Value += leftAboard;
-            Shout(leftAboard > 0 ? $"Casting off! {leftAboard} crate{(leftAboard == 1 ? "" : "s")} going back out to sea with me!" : "Casting off! Pleasure doing business.", 3.5f);
+            Shout("CAPTAIN MAGS", leftAboard == 0 ? Pick("Clean deck! Pleasure doing business, boss!", "Not a crate left. You lot are alright!", "Empty! I'll tell the other boats about you.")
+                : leftAboard >= 5 ? Pick($"HA! {leftAboard} crates for my supper!", $"{leftAboard} crates still aboard? Your loss, boss!", $"Casting off with {leftAboard} crates. Better luck next tide!")
+                : Pick($"Casting off! {leftAboard} crate{(leftAboard == 1 ? "" : "s")} coming home with me.", $"Ropes off! You missed {leftAboard}."), 4f);
         }
 
         public void BoatGone() => activeBoats--;
@@ -98,10 +100,15 @@ namespace PortBoss
             c.NetworkObject.Despawn();
         }
 
-        public void Shout(string text, float secs) => ShoutRpc(text, secs);
+        public static string Pick(params string[] lines) => lines[Random.Range(0, lines.Length)];
+
+        public void Shout(string who, string text, float secs) => ShoutRpc(who, text, secs);
 
         [Rpc(SendTo.ClientsAndHost)]
-        void ShoutRpc(string text, float secs) => GameUI.Shout(text, secs);
+        void ShoutRpc(string who, string text, float secs) => GameUI.Shout(who, text, secs);
+
+        [Rpc(SendTo.ClientsAndHost)]
+        public void TootRpc(Vector3 p) => Sfx.Play("horn", p, 0.7f, 1.35f);
 
         [Rpc(SendTo.ClientsAndHost)]
         void SoldRpc(Vector3 p, int v, bool spoiled)
@@ -133,7 +140,7 @@ namespace PortBoss
         public void TrolleyLost()
         {
             HasTrolley.Value = false;
-            Shout("There goes the trolley... into the sea.", 3.5f);
+            Shout("BUYER", "Was that... your trolley? In the sea?", 3.5f);
         }
     }
 }
