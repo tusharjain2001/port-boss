@@ -99,6 +99,16 @@ namespace PortBoss
             Debug.Log($"[PB] release {name} at {pos:F2} v={vel:F1}");
         }
 
+        // Server: pull towards a point on the water (towed by a swimmer); buoyancy still handles height.
+        public void TowTo(Vector3 target)
+        {
+            var d = target - rb.position; d.y = 0;
+            var v = rb.linearVelocity; v.y = 0;
+            rb.AddForce(d * 25f - v * 6f, ForceMode.Acceleration);
+        }
+
+        float dryT;
+
         void FixedUpdate()
         {
             if (!IsServer || !IsSpawned || Attached.Value) return;
@@ -121,6 +131,8 @@ namespace PortBoss
                     game?.CrateInSea();
                 }
             }
+            // Towed or washed back onto land: no longer "in the sea".
+            if (depth > 0) dryT = 0; else if (InSea && (dryT += Time.fixedDeltaTime) > 1.5f) InSea = false;
             if ((InSea && new Vector2(p.x, p.z).magnitude > 160f) || p.y < -25f) { NetworkObject.Despawn(); return; }
 
             if (game != null && game.Phase.Value == PortGame.Ph.Day)
@@ -148,7 +160,7 @@ namespace PortBoss
         }
 
         [Rpc(SendTo.ClientsAndHost)]
-        void SplashRpc(Vector3 p) => Sfx.Play("splash", p, 0.9f);
+        void SplashRpc(Vector3 p) { Sfx.Play("splash", p, 0.9f); Fx.Splash(p, 0.7f); }
 
         // ---- visuals (every peer) ----
         void LateUpdate()

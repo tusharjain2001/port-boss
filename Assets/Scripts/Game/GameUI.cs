@@ -435,7 +435,8 @@ namespace PortBoss
             if (pl != null && !InputBlocked)
             {
                 string hint = null;
-                if (pl.NearBuyer && pl.SellableCrates().Count > 0) hint = "E  sell to the buyer";
+                if (pl.Swimming) hint = pl.NearLadder() != null ? "E  climb out" : pl.Towing ? "Q  let go of the crate" : pl.FloatingCrateNear() != null ? "E  tow this crate" : "Swim to a ladder or the slipway";
+                else if (pl.NearBuyer && pl.SellableCrates().Count > 0) hint = "E  sell to the buyer";
                 else if (pl.Pushing) hint = "F  let go of trolley";
                 else if (pl.Carrying < Player.MaxStack && pl.FindCrate() != null) hint = pl.Carrying == 0 ? "E  grab crate" : "E  stack another";
                 else if (pl.Carrying == 0 && Trolley.I != null && Vector3.Distance(Trolley.I.Handle, pl.transform.position + Vector3.up) < 2.2f) hint = "F  push trolley";

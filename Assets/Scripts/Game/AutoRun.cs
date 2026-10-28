@@ -262,6 +262,16 @@ namespace PortBoss
             if (pl == null || PortGame.I == null || PortGame.I.Phase.Value != PortGame.Ph.Day) return i;
             var me = pl.transform.position;
             pulse -= Time.deltaTime;
+            if (pl.Swimming)
+            {
+                // Overboard: paddle to the nearest ladder and climb out.
+                World.Ladder best = default; float bd = 1e9f;
+                foreach (var l in World.Ladders) { float d = (l.Bottom - me).sqrMagnitude; if (d < bd) { bd = d; best = l; } }
+                var to = best.Bottom - me; to.y = 0;
+                i.hasWorldMove = true; i.worldMove = to.normalized;
+                if (pl.NearLadder() != null && pulse <= 0) { i.grab = true; pulse = 1f; path.Clear(); target = null; }
+                return i;
+            }
 
             // Unstick: if we haven't moved for a while, re-route.
             if ((me - lastPos).sqrMagnitude > 0.04f) { lastPos = me; lastProgress = Time.time; }

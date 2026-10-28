@@ -16,6 +16,8 @@ namespace PortBoss
         public const float PierTop = 0.2f;
 
         public static Transform Root;
+        public struct Ladder { public Vector3 Bottom, Top; }
+        public static readonly List<Ladder> Ladders = new();
         public static readonly List<Renderer> WaterRenderers = new();
         // Floating labels drawn by GameUI (hidden when something is in the way).
         public static readonly (Vector3 pos, string text)[] Labels =
@@ -32,6 +34,12 @@ namespace PortBoss
             BuyerTable();
             Shed();
             Bay();
+            Ladders.Clear();
+            AddLadder(new Vector3(-3.15f, 0, 6f), Vector3.right);     // pier, left side
+            AddLadder(new Vector3(-3.15f, 0, 21f), Vector3.right);
+            AddLadder(new Vector3(3.15f, 0, 27f), Vector3.left);      // pier, right side near the end
+            AddLadder(new Vector3(20f, 0, 0.15f), Vector3.back);      // quay front
+            AddLadder(new Vector3(-26f, 0, 0.15f), Vector3.back);
             RivalPort();
             OpenSea();
             if (Art.Cloud != null) Clouds();
@@ -76,6 +84,23 @@ namespace PortBoss
             Art.Box(t, new Vector3(-26, 2.5f, -16), new Vector3(14, 5, 8), Art.Hex("#a1856b"), true, "warehouse");
             Art.Box(t, new Vector3(-26, 5.3f, -16), new Vector3(14.4f, 0.6f, 8.4f), Art.Hex("#5e3b30"), true, "warehouse_roof");
             Art.Box(t, new Vector3(26, 3, -17), new Vector3(16, 6, 9), Art.Hex("#8f9a9a"), true, "warehouse2");
+        }
+
+        // Steel ladder down the side; "inward" points onto the deck.
+        static void AddLadder(Vector3 edge, Vector3 inward)
+        {
+            float top = inward == Vector3.back ? 0f : PierTop;
+            var l = new GameObject("Ladder").transform;
+            l.SetParent(Root, false);
+            l.position = new Vector3(edge.x, 0, edge.z);
+            l.rotation = Quaternion.LookRotation(-inward);
+            var steel = Art.Hex("#8a9298");
+            float bottom = Water.Level - 1.6f, h = top + 0.9f - bottom;
+            foreach (var x in new[] { -0.28f, 0.28f })
+                Art.Box(l, new Vector3(x, bottom + h / 2, 0), new Vector3(0.06f, h, 0.06f), steel, false, "rail", 0.5f);
+            for (float y = bottom + 0.2f; y < top; y += 0.32f)
+                Art.Box(l, new Vector3(0, y, 0), new Vector3(0.56f, 0.05f, 0.05f), steel, false, "rung", 0.5f);
+            Ladders.Add(new Ladder { Bottom = edge - inward * 0.5f + Vector3.up * (Water.Level - 1.3f), Top = edge + inward * 0.9f + Vector3.up * (top + 0.05f) });
         }
 
         static void Lamp(Transform t, Vector3 p)

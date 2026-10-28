@@ -38,7 +38,7 @@ namespace PortBoss
         Vector2 sway, swayVel;
         Transform platform; Vector3 platLocal; float platYaw;
         Vector3 camPos;
-        float respawnAt = -1, stepDist;
+        float stepDist;
         Vector3 lastStepPos;
 
         void Awake()
@@ -117,6 +117,19 @@ namespace PortBoss
         void Animate(float speed)
         {
             float dt = Time.deltaTime;
+            if (transform.position.y < Water.Height(transform.position) - SwimDepth + 0.35f)
+            {
+                // Swimming: body tipped forward, arms paddling, legs kicking.
+                swimPhase += dt * (3f + speed * 1.5f);
+                torso.localRotation = Quaternion.Euler(50f, 0, Mathf.Sin(swimPhase) * 6f);
+                armL.localRotation = Quaternion.Euler(-120f + Mathf.Sin(swimPhase) * 60f, 0, -25f);
+                armR.localRotation = Quaternion.Euler(-120f - Mathf.Sin(swimPhase) * 60f, 0, 25f);
+                legL.localRotation = Quaternion.Euler(30f + Mathf.Sin(swimPhase * 2.2f) * 20f, 0, 0);
+                legR.localRotation = Quaternion.Euler(30f - Mathf.Sin(swimPhase * 2.2f) * 20f, 0, 0);
+                model.localPosition = new Vector3(0, 0.25f, 0);
+                head.localRotation = Quaternion.Euler(-40f, 0, 0);
+                return;
+            }
             float k = Mathf.Clamp01(speed / 4.5f), run = Mathf.Clamp01((speed - 4.8f) / 2.5f);
             walkPhase += speed * dt * 2.1f;
             float sw = Mathf.Sin(walkPhase) * k * (36f + 14f * run);
@@ -149,7 +162,7 @@ namespace PortBoss
             torso.localScale = new Vector3(1, 1 + breathe, 1);
             head.localRotation = Quaternion.Euler(-3f * k + Mathf.Sin(Time.time * 0.7f) * 3f * (1 - k), Mathf.Sin(Time.time * 0.45f) * 12f * (1 - k), 0);
         }
-        float lastAnimY;
+        float lastAnimY, swimPhase;
 
         void Teleport(Vector3 pos, float newYaw, bool viaNet = true)
         {
@@ -241,13 +254,27 @@ namespace PortBoss
             wish.y = 0;
             wish = Vector3.ClampMagnitude(wish, 1f);
             bool sprint = input.sprint && wish.sqrMagnitude > 0.1f;
-            float speed = (sprint ? 7.4f : 4.6f) * (1f - 0.07f * Carrying) * (Pushing ? 0.85f : 1f);
-            hv = Vector3.MoveTowards(hv, wish * speed, (cc.isGrounded ? 30f : 10f) * dt);
 
-            if (cc.isGrounded) { vy = -2f; if (input.jump) { vy = 5.6f; Sfx.Play("whoosh", transform.position, 0.3f); } }
-            vy -= 19f * dt;
-            var prevHv = hv;
-            cc.Move((hv + Vector3.up * vy) * dt);
+            if (climbT >= 0) { Climb(dt); return; }
+            float surface = Water.Height(transform.position);
+            if (!swimming && transform.position.y < surface - SwimDepth + 0.3f && vy <= 0 && !Shallow()) EnterWater();
+            if (swimming)
+            {
+                // Swimming: stay at the surface (head and shoulders out), bob with the waves, never sink.
+                hv = Vector3.MoveTowards(hv, wish * (sprint ? 3.1f : 2.2f), 6f * dt);
+                float dy = (surface - SwimDepth - transform.position.y) * Mathf.Min(1f, 5f * dt);
+                cc.Move(hv * dt + Vector3.up * dy);
+                vy = 0;
+                if (Shallow()) LeaveWater(); // slipway / shore: walk out
+            }
+            else
+            {
+                float speed = (sprint ? 7.4f : 4.6f) * (1f - 0.07f * Carrying) * (Pushing ? 0.85f : 1f);
+                hv = Vector3.MoveTowards(hv, wish * speed, (cc.isGrounded ? 30f : 10f) * dt);
+                if (cc.isGrounded) { vy = -2f; if (input.jump) { vy = 5.6f; Sfx.Play("whoosh", transform.position, 0.3f); } }
+                vy -= 19f * dt;
+                cc.Move((hv + Vector3.up * vy) * dt);
+            }
 
             if (wish.sqrMagnitude > 0.01f)
             {
@@ -270,20 +297,107 @@ namespace PortBoss
             }
 
             UpdateSway(dt, sprint);
-            Interact(input);
+            if (swimming) SwimInteract(input); else Interact(input);
 
-            // Fell in the sea: drop everything, climb back out on the quay.
-            if (transform.position.y < Water.Level - 0.6f)
+            // Safety net: fell through the world somehow.
+            if (transform.position.y < -12f) { swimming = false; Teleport(World.Spawn, 0); }
+        }
+
+        // ---------- swimming ----------
+        public const float SwimDepth = 1.3f; // feet this far below the surface: head + shoulders out
+        public bool Swimming => swimming;
+        public bool Towing => TowedId.Value != 0;
+        public NetworkVariable<ulong> TowedId = new(0); // server writes: the floating crate being towed
+        bool swimming;
+        float climbT = -1;
+        Vector3 climbFrom, climbTo;
+
+        // Ground close enough to stand on? Measured against the mean sea level so waves don't flip it back and forth.
+        bool Shallow() => Physics.Raycast(transform.position + Vector3.up, Vector3.down, out var gh, 2.8f, ~0, QueryTriggerInteraction.Ignore)
+            && gh.point.y > Water.Level - 1.1f && gh.collider.GetComponentInParent<Crate>() == null;
+
+        void EnterWater()
+        {
+            swimming = true;
+            Sfx.Play("splash", transform.position + Vector3.up, 1f);
+            Fx.Splash(new Vector3(transform.position.x, Water.Height(transform.position), transform.position.z), 1.2f);
+            Shake(0.25f);
+            if (Carrying > 0) DropAllRpc();
+            if (Pushing) PushRpc(false);
+            GameUI.Toast("Splash! Swim to a ladder (E) or the slipway.");
+        }
+
+        void LeaveWater()
+        {
+            swimming = false;
+            if (Towing) TowRpc(default, false);
+        }
+
+        public World.Ladder? NearLadder()
+        {
+            foreach (var l in World.Ladders)
             {
-                if (respawnAt < 0)
-                {
-                    respawnAt = Time.time + 1.2f;
-                    Sfx.Play("splash", transform.position, 1f);
-                    if (Carrying > 0) DropAllRpc();
-                    GameUI.Toast("Splash! You fell in.");
-                }
-                else if (Time.time > respawnAt) { respawnAt = -1; Teleport(World.Spawn, 0); }
+                var d = l.Bottom - transform.position; d.y = 0;
+                if (d.sqrMagnitude < 1.7f * 1.7f) return l;
             }
+            return null;
+        }
+
+        public Crate FloatingCrateNear()
+        {
+            Crate best = null; float bd = 2.2f;
+            foreach (var c in Crate.All)
+            {
+                if (c.Attached.Value) continue;
+                var p = c.transform.position;
+                if (p.y > Water.Height(p) + 0.5f) continue;
+                float d = Vector3.Distance(p, transform.position + Vector3.up * SwimDepth);
+                if (d < bd) { bd = d; best = c; }
+            }
+            return best;
+        }
+
+        void SwimInteract(In input)
+        {
+            if (input.grab)
+            {
+                var l = NearLadder();
+                if (l != null)
+                {
+                    // Climb out: up the ladder and onto the deck.
+                    if (Towing) TowRpc(default, false);
+                    climbT = 0; climbFrom = transform.position; climbTo = l.Value.Top;
+                    cc.enabled = false;
+                    Sfx.Play("splash", transform.position, 0.5f, 1.4f);
+                }
+                else if (Towing) TowRpc(default, false);
+                else { var c = FloatingCrateNear(); if (c != null) TowRpc(c.NetworkObject, true); }
+            }
+            if (input.drop && Towing) TowRpc(default, false);
+        }
+
+        void Climb(float dt)
+        {
+            climbT += dt / 0.9f;
+            float u = Mathf.Clamp01(climbT);
+            // Up the ladder first, then step over onto the deck.
+            var up = new Vector3(climbFrom.x, Mathf.Lerp(climbFrom.y, climbTo.y + 0.3f, Mathf.SmoothStep(0, 1, Mathf.Min(1, u / 0.75f))), climbFrom.z);
+            var p = u < 0.75f ? up : Vector3.Lerp(up, climbTo, (u - 0.75f) / 0.25f);
+            transform.position = p;
+            if (climbT >= 1)
+            {
+                climbT = -1; swimming = false; vy = 0; hv = Vector3.zero;
+                cc.enabled = true;
+            }
+        }
+
+        [Rpc(SendTo.Server)]
+        void TowRpc(NetworkObjectReference r, bool on)
+        {
+            if (!on) { TowedId.Value = 0; return; }
+            if (!r.TryGet(out var no) || !no.TryGetComponent<Crate>(out var c) || c.Attached.Value) return;
+            if (Vector3.Distance(c.transform.position, transform.position) > 3.5f) return;
+            TowedId.Value = no.NetworkObjectId;
         }
 
         public const float TeeterAt = 0.55f;
@@ -409,6 +523,13 @@ namespace PortBoss
             var p = transform.position;
             serverVel = Vector3.Lerp(serverVel, (p - lastServerPos) / Time.fixedDeltaTime, 0.3f);
             lastServerPos = p;
+            if (TowedId.Value != 0)
+            {
+                // Towed crate is pulled to a point just ahead of the swimmer (it stays a floating physics body).
+                if (!NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(TowedId.Value, out var no) || !no.TryGetComponent<Crate>(out var c) || c.Attached.Value
+                    || Vector3.Distance(c.transform.position, p) > 5f) TowedId.Value = 0;
+                else c.TowTo(p + transform.forward * 1.1f + Vector3.up * SwimDepth);
+            }
         }
 
         [Rpc(SendTo.Server)]
@@ -503,6 +624,7 @@ namespace PortBoss
             if (Physics.SphereCast(target, 0.25f, (want - target).normalized, out var h, dist, ~0, QueryTriggerInteraction.Ignore)
                 && h.collider.GetComponentInParent<Player>() == null)
                 want = target + (want - target).normalized * Mathf.Max(0.8f, h.distance - 0.1f);
+            want.y = Mathf.Max(want.y, Water.Height(want) + 0.5f);
             camPos = Vector3.Lerp(camPos, want, 1f - Mathf.Exp(-18f * Time.deltaTime));
             trauma = Mathf.Max(0, trauma - Time.deltaTime * 1.5f);
             float sh = trauma * trauma * 0.35f, tt = Time.time * 25f;
