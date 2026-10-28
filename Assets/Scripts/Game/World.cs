@@ -211,7 +211,14 @@ namespace PortBoss
             }
             // The buyer: a stout figure behind the table.
             var n = new Vector3(c.x, 0, c.z - 1.3f);
-            if (Skin.On && Skin.I.Buyer != null) { Art.Place(Skin.I.Buyer, b, n, 180, 1f); return; } // a Toon Harbor worker minds the stall
+            if (Skin.On && Skin.I.Buyer != null)
+            {
+                // A Toon Harbor worker minds the stall, idling (the prefab's own pose is arms-up).
+                var who = Art.Place(Skin.I.Buyer, b, n, 180, 1f);
+                var an = who.GetComponentInChildren<Animator>();
+                if (an != null) an.gameObject.AddComponent<CharAnim>().Init(an, Skin.I);
+                return;
+            }
             Art.Prim(PrimitiveType.Capsule, b, n + Vector3.up * 0.95f, Quaternion.identity, new Vector3(0.75f, 0.95f, 0.75f), Art.Hex("#4f5d3a"), true, "buyer_body");
             Art.Prim(PrimitiveType.Sphere, b, n + Vector3.up * 2.05f, Quaternion.identity, Vector3.one * 0.42f, Art.Hex("#c99b7a"), false, "buyer_head");
             Art.Box(b, n + new Vector3(0, 2.3f, 0), new Vector3(0.5f, 0.12f, 0.5f), Art.Hex("#2c2c2c"), false, "buyer_hat");

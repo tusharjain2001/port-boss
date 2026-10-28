@@ -118,6 +118,7 @@ namespace PortBoss
             {
                 // Toon Harbor's own sky, fog and grading (its demo scene), minus depth of field + chromatic aberration (gameplay).
                 RenderSettings.skybox = new Material(Skin.I.Sky);
+                DynamicGI.UpdateEnvironment(); // reflections (the toon water) follow the new sky, not the one baked into the scene
                 RenderSettings.fogMode = FogMode.Linear; RenderSettings.fogStartDistance = 300; RenderSettings.fogEndDistance = 1200;
                 var tp = Instantiate(Skin.I.Post);
                 if (tp.TryGet(out DepthOfField dof)) dof.active = false;
