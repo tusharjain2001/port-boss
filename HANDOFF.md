@@ -29,17 +29,15 @@ Feature freeze **09:00**. 09:00–09:45 fixes + release into `Desktop/Port Boss/
 - `docs/PORT-STAGES.md` (5 stages → pack prefabs). Proof: `Desktop/Port Boss/proof/overnight/toon-harbor/`.
 
 ## Next
-1. (in progress) Milestone B: first-10-minutes playthrough pass (tutorial hints for the first boat, readable UI in the new look, sounds on every action,
-   no floating/clipping, no placeholder labels). One message to Kufu with shots.
-2. Milestone C: day 1→3 progression tuning (trolley, forklift day 3, contracts, rival wake, overlapping boats; weather is random now).
-3. #7 player shove only if time remains.
-4. 09:00 freeze → MORNING release + capture + report_done.
+Done tonight after the map: menu (t-6f6de594), milestone B (JOB line, jetty-hole fix, HUD pills, sounds), milestone C (spawns,
+camera, day-3 kit), #7 shove (LAN-tested). Latest release `builds/20261029-0512`.
+1. (in progress) Pack art for our leftovers: forklift model (`TH_Forklift_01*`, mast code-driven), the shelter, the buyer stall.
+2. 09:00 freeze → MORNING release (`builds/<stamp>-MORNING/` + HOW-TO-PLAY + 5 shots + 60–90 s capture from batchmode frames) → report_done all.
 
 ## Later (not tonight)
 - Ideas rejected for tonight: #1 hazard-modifier vote, #2 special crates (live/fragile), #4 storm warning tell (no warnings by design), #5 tipping plank.
 - Shortlist "later" list: rope rescue, hired NPC workers, new harbour biomes, clip/upload system.
 - Stages 2–5 (PORT-STAGES.md); stage 5 needs LOD/batching for the ~47k-renderer demo layout.
-- Swap our forklift model for `TH_Forklift_01*` (mast must stay code-driven).
 - Steam lobby co-op across two accounts still untested (needs a friend); LAN co-op passes.
 
 ## Known issues
