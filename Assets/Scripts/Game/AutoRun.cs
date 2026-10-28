@@ -23,9 +23,11 @@ namespace PortBoss
         public static void Begin(GameUI ui)
         {
             if (!System.Array.Exists(System.Environment.GetCommandLineArgs(), x => x.StartsWith("-pb-"))) return;
+            Active = true;
             new GameObject("AutoRun").AddComponent<AutoRun>().ui = ui;
         }
 
+        public static bool Active;
         GameUI ui;
         float quitAt = -1, nextLog;
         Bot bot;
@@ -60,7 +62,13 @@ namespace PortBoss
         {
             yield return new WaitForSeconds(after);
             var g = PortGame.I;
-            if (g != null && g.IsServer) { g.DayT.Value = PortGame.DayLength + 1; foreach (var b in Boat.All.ToArray()) { g.BoatGone(); b.NetworkObject.Despawn(); } }
+            if (g != null && g.IsServer) g.EndDayNow();
+            if (!Has("-pb-shop")) yield break;
+            yield return new WaitForSeconds(3);
+            g.Money.Value = Mathf.Max(g.Money.Value, PortGame.TrolleyPrice);
+            g.BuyTrolleyRpc();
+            yield return new WaitForSeconds(3);
+            g.NextDayRpc();
         }
 
         void Update()
@@ -118,7 +126,7 @@ namespace PortBoss
         Vector3 lastPos;
         int trips;
 
-        static readonly Vector3 QuayMid = new(1.2f, 0, -1.2f), PierB = new(1.2f, 0, 16f), Gang = new(3.4f, 0, 16f), Deck = new(6.2f, 0, 16f), TableApproach = new(-4f, 0, -2.25f);
+        static readonly Vector3 QuayMid = new(1.2f, 0, -1.2f), PierB = new(1.2f, 0, 16f), Gang = new(3.4f, 0, 16f), Deck = new(6.2f, 0, 16f), TableApproach = new(-4f, 0, -2.9f);
 
         static bool OnBoat(Vector3 p) => p.x > 4.3f;
         static bool OnPier(Vector3 p) => p.z > 0.3f && !OnBoat(p);
@@ -141,7 +149,7 @@ namespace PortBoss
             {
                 var p = c.transform.position;
                 if (c.Attached.Value || c.InSea || p.y < Water.Level + 0.6f || World.SellZone.Contains(p)) continue;
-                if (OnBoat(p) && Boat.Docked == null) continue;
+                if (OnBoat(p) && (Boat.Docked == null || Mathf.Abs(Boat.Docked.transform.InverseTransformPoint(p).x) > Boat.HalfW - 0.4f)) continue;
                 float d = Vector3.Distance(me, p) + (OnBoat(p) ? 4f : 0f);
                 if (d < bd) { bd = d; best = c; }
             }
@@ -197,10 +205,10 @@ namespace PortBoss
             if (pl.Carrying == 0) { State = "seek"; path.Clear(); trips++; return i; }
             if (path.Count == 0) Route(me, TableApproach);
             var flat = new Vector3(TableApproach.x - me.x, 0, TableApproach.z - me.z);
-            if (path.Count <= 1 && flat.magnitude < 0.5f)
+            if (path.Count <= 1 && flat.magnitude < 0.45f)
             {
-                i.hasWorldMove = true; i.worldMove = new Vector3(0, 0, -0.3f);
-                if (pulse <= 0)
+                i.hasWorldMove = true; i.worldMove = new Vector3(0, 0, -0.5f);
+                if (pulse <= 0 && Vector3.Angle(pl.transform.forward, Vector3.back) < 15f)
                 {
                     // Every third trip, show off: throw the top crate onto the table from here.
                     if (trips % 3 == 2 && pl.Carrying == 1) i.throwP = false;

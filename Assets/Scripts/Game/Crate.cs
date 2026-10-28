@@ -95,6 +95,7 @@ namespace PortBoss
             rb.rotation = rot;
             rb.linearVelocity = vel;
             rb.angularVelocity = spin;
+            Debug.Log($"[PB] release {name} at {pos:F2} v={vel:F1}");
         }
 
         void FixedUpdate()
@@ -115,6 +116,7 @@ namespace PortBoss
                 {
                     countedSea = true; InSea = true;
                     SplashRpc(p);
+                    Debug.Log($"[PB] crate in sea at {p:F1}");
                     game?.CrateInSea();
                 }
             }

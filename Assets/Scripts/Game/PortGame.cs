@@ -79,11 +79,19 @@ namespace PortBoss
 
         public void BoatGone() => activeBoats--;
 
+        // Test hook: skip to the end of the day.
+        public void EndDayNow()
+        {
+            foreach (var b in Boat.All.ToArray()) b.NetworkObject.Despawn();
+            activeBoats = 0; nextBoat = BoatTimes.Length; DayT.Value = DayLength;
+        }
+
         public void CrateInSea() => InSea.Value++;
 
         public void Sell(Crate c)
         {
             int v = c.Value;
+            Debug.Log($"[PB] sold ${v} at {c.transform.position:F2}");
             Money.Value += v; Earned.Value += v; Sold.Value++;
             if (c.IsSpoiled) SpoiledSold.Value++;
             SoldRpc(c.transform.position, v, c.IsSpoiled);

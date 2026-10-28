@@ -99,7 +99,6 @@ namespace PortBoss
             Art.Box(b, new Vector3(c.x, 0.85f, c.z), new Vector3(2.6f, 0.1f, 1.4f), Art.WoodLight, true, "table_top");
             // Lip so crates don't slide off.
             Art.Box(b, new Vector3(c.x, 0.97f, c.z - 0.67f), new Vector3(2.6f, 0.14f, 0.06f), Art.WoodDark, true, "lip");
-            Art.Box(b, new Vector3(c.x, 0.97f, c.z + 0.67f), new Vector3(2.6f, 0.14f, 0.06f), Art.WoodDark, true, "lip");
             foreach (var dx in new[] { -1.2f, 1.2f })
                 foreach (var dz in new[] { -0.6f, 0.6f })
                     Art.Box(b, new Vector3(c.x + dx, 0.4f, c.z + dz), new Vector3(0.1f, 0.8f, 0.1f), Art.WoodDark, true, "leg");

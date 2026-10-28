@@ -34,7 +34,7 @@ namespace PortBoss
         NetworkTransform nt;
         readonly List<Crate> stack = new(); // server
         Vector3 hv, serverVel, lastServerPos;
-        float vy, yaw, pitch = 18f, lastYaw;
+        float vy, yaw, pitch = 18f;
         Vector2 sway, swayVel;
         Transform platform; Vector3 platLocal; float platYaw;
         Vector3 camPos;
@@ -133,7 +133,7 @@ namespace PortBoss
             wish = Vector3.ClampMagnitude(wish, 1f);
             bool sprint = input.sprint && wish.sqrMagnitude > 0.1f;
             float speed = (sprint ? 7.4f : 4.6f) * (1f - 0.07f * Carrying) * (Pushing ? 0.85f : 1f);
-            hv = Vector3.MoveTowards(hv, wish * speed, (cc.isGrounded ? 45f : 12f) * dt);
+            hv = Vector3.MoveTowards(hv, wish * speed, (cc.isGrounded ? 30f : 10f) * dt);
 
             if (cc.isGrounded) { vy = -2f; if (input.jump) { vy = 5.6f; Sfx.Play("whoosh", transform.position, 0.3f); } }
             vy -= 19f * dt;
@@ -183,12 +183,11 @@ namespace PortBoss
             // Local acceleration and turn rate push the stack; it springs back.
             var accLocal = transform.InverseTransformDirection((hv - lastHv) / Mathf.Max(dt, 1e-4f));
             lastHv = hv;
-            float turn = Mathf.DeltaAngle(lastYaw, transform.eulerAngles.y) / Mathf.Max(dt, 1e-4f);
-            lastYaw = transform.eulerAngles.y;
             float looseness = 1f + 0.45f * (Carrying - 2) + (sprint ? 0.9f : 0f);
-            var force = new Vector2(-accLocal.x * 0.012f - turn * 0.0009f * hv.magnitude, -accLocal.z * 0.012f) * looseness;
-            if (sprint) force += new Vector2(Mathf.PerlinNoise(Time.time * 2.3f, 0) - 0.5f, Mathf.PerlinNoise(0, Time.time * 2.1f) - 0.5f) * (0.9f * looseness);
-            swayVel += (force * 30f - sway * 26f - swayVel * (3.2f / looseness)) * dt;
+            // Velocity changes (starts, stops, turns) shove the stack; sprinting adds a jiggle.
+            var force = new Vector2(-accLocal.x, -accLocal.z) * (0.003f * looseness);
+            if (sprint) force += new Vector2(Mathf.PerlinNoise(Time.time * 2.3f, 0) - 0.5f, Mathf.PerlinNoise(0, Time.time * 2.1f) - 0.5f) * (0.15f * looseness);
+            swayVel += (force * 30f - sway * 26f - swayVel * (7f / Mathf.Sqrt(looseness))) * dt;
             sway += swayVel * dt;
             float limit = Carrying >= 4 ? 0.42f : Carrying == 3 ? 0.55f : 0.75f;
             if (sway.magnitude > limit)
@@ -243,7 +242,7 @@ namespace PortBoss
             return best;
         }
 
-        public static Vector3 HoldPos(int slot) => new(0, 1.05f + slot * (Crate.Size + 0.04f), 0.72f);
+        public static Vector3 HoldPos(int slot) => new(0, 1.22f + slot * (Crate.Size + 0.04f), 0.72f);
 
         // ---- server ----
         void FixedUpdate()
@@ -281,8 +280,8 @@ namespace PortBoss
         {
             var c = PopTop();
             if (c == null) return;
-            var p = transform.TransformPoint(new Vector3(0, 1.05f + 0.3f, 0.78f));
-            c.Release(new Vector3(p.x, c.transform.position.y, p.z), serverVel * 0.6f + transform.forward * 0.4f, Vector3.zero);
+            var p = transform.TransformPoint(new Vector3(0, 1.35f, 0.95f));
+            c.Release(new Vector3(p.x, Mathf.Max(c.transform.position.y, transform.position.y + 1.25f), p.z), serverVel * 0.6f + transform.forward * 0.4f, Vector3.zero);
         }
 
         [Rpc(SendTo.Server)]

@@ -119,7 +119,7 @@ namespace PortBoss
             else if (screen == Screen.Playing && !live) BackToMenu();
 
             bool wantCursor = InputBlocked;
-            Cursor.lockState = wantCursor ? CursorLockMode.None : CursorLockMode.Locked;
+            Cursor.lockState = wantCursor || AutoRun.Active ? CursorLockMode.None : CursorLockMode.Locked;
             Cursor.visible = wantCursor;
 
             // Menu backdrop: slow orbit over the pier.
