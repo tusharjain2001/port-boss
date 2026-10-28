@@ -248,7 +248,9 @@ namespace PortBoss
             {
                 var p = c.transform.position;
                 if (c.Attached.Value || c.InSea || p.y < Water.Level + 0.6f ) continue;
-                if (OnBoat(p) && (Boat.Docked == null || Mathf.Abs(Boat.Docked.transform.InverseTransformPoint(p).x) > Boat.HalfW - 0.4f)) continue;
+                var dock0 = Boat.DockedAt[0];
+                if (p.x < -4.3f) continue; // the bot only works the right-hand berth
+                if (OnBoat(p) && (dock0 == null || Mathf.Abs(dock0.transform.InverseTransformPoint(p).x) > Boat.HalfW - 0.4f)) continue;
                 float d = Vector3.Distance(me, p) + (OnBoat(p) ? 4f : 0f);
                 if (d < bd) { bd = d; best = c; }
             }

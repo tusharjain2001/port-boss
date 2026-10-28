@@ -11,7 +11,14 @@ namespace PortBoss
 
         public const float DayLength = 480f;
         public const int TrolleyPrice = 120;
-        static readonly float[] BoatTimes = { 5f, 165f, 325f };
+        // Boat schedule per day (arrival time, berth): the difficulty dial. Berths are never double-booked.
+        static readonly (float t, byte berth)[][] Schedules =
+        {
+            new (float, byte)[] { (5f, 0), (165f, 0), (325f, 0) },             // day 1: one at a time
+            new (float, byte)[] { (5f, 0), (110f, 1), (250f, 0), (330f, 1) },  // day 2: a second boat while the first is in
+            new (float, byte)[] { (5f, 0), (80f, 1), (215f, 0), (300f, 1) },   // day 3+: overlapping all day
+        };
+        (float t, byte berth)[] Schedule => Schedules[Mathf.Clamp(DayNum.Value - 1, 0, Schedules.Length - 1)];
 
         public NetworkVariable<Ph> Phase = new(Ph.Day);
         public NetworkVariable<int> DayNum = new(1), Money = new(0), Earned = new(0), Sold = new(0), InSea = new(0), LeftAboard = new(0), SpoiledSold = new(0);
@@ -77,15 +84,18 @@ namespace PortBoss
         {
             if (!IsServer || Phase.Value != Ph.Day) return;
             DayT.Value += Time.deltaTime;
-            if (nextBoat < BoatTimes.Length && DayT.Value >= BoatTimes[nextBoat])
+            var sched = Schedule;
+            if (nextBoat < sched.Length && DayT.Value >= sched[nextBoat].t)
             {
                 var b = Instantiate(GameUI.I.BoatPrefab).GetComponent<Boat>();
+                b.Berth.Value = sched[nextBoat].berth;
                 b.CargoCount = Mathf.RoundToInt((8 + nextBoat * 3 + (DayNum.Value - 1) * 2) * Today.Cargo);
                 b.NetworkObject.Spawn(true);
                 activeBoats++; nextBoat++;
-                Shout("", nextBoat == 1 ? "*HOOOONK*  A boat's coming in!" : nextBoat == 2 ? "*HOOOONK*  Second boat!" : "*HOOOONK*  Last boat of the day!", 3f);
+                bool last = nextBoat == sched.Length, left = sched[nextBoat - 1].berth == 1;
+                Shout("", last ? "*HOOOONK*  Last boat of the day!" : left ? "*HOOOONK*  A boat for the LEFT side of the pier!" : nextBoat == 1 ? "*HOOOONK*  A boat's coming in!" : "*HOOOONK*  Another boat!", 3f);
             }
-            if (DayT.Value >= DayLength && nextBoat >= BoatTimes.Length && activeBoats <= 0)
+            if (DayT.Value >= DayLength && nextBoat >= sched.Length && activeBoats <= 0)
             {
                 Phase.Value = Ph.Night;
                 Shout("BUYER", "That's me done for today. Same time tomorrow!", 3.5f);
@@ -106,7 +116,7 @@ namespace PortBoss
         public void EndDayNow()
         {
             foreach (var b in Boat.All.ToArray()) b.NetworkObject.Despawn();
-            activeBoats = 0; nextBoat = BoatTimes.Length; DayT.Value = DayLength;
+            activeBoats = 0; nextBoat = Schedule.Length; DayT.Value = DayLength;
         }
 
         public void CrateInSea() => InSea.Value++;

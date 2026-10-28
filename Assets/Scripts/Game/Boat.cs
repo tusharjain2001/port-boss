@@ -9,16 +9,28 @@ namespace PortBoss
     public class Boat : NetworkBehaviour
     {
         public enum St : byte { Arriving, Docked, Leaving }
-        public static Boat Docked; // the boat at the pier right now (every peer)
+        public static readonly Boat[] DockedAt = new Boat[2]; // berth 0 = right of the pier, 1 = left (every peer)
         public static readonly List<Boat> All = new();
 
         public NetworkVariable<St> State = new(St.Arriving);
         public NetworkVariable<short> SecondsLeft = new(-1); // while docked
+        public NetworkVariable<byte> Berth = new(0);          // set by the spawner before Spawn
         public const float DeckY = 1.6f, HalfW = 2.3f, HalfL = 6f, DockSeconds = 120f, SailSeconds = 34f;
-        public static readonly Vector3 DockPos = new(7.6f, 0, 16f);
+        public static readonly Vector3 DockPos = new(7.6f, 0, 16f), DockPosLeft = new(-7.6f, 0, 16f);
+        public Vector3 BerthPos => Berth.Value == 0 ? DockPos : DockPosLeft;
         // In from the open sea to the north-east, round the lighthouse, alongside the pier; out the same way.
-        static readonly Vector3[] InPath = { new(200, 0, 330), new(70, 0, 170), new(7.6f, 0, 78), DockPos };
-        static readonly Vector3[] OutPath = { DockPos, new(7.6f, 0, 2), new(70, 0, 40), new(210, 0, 340) };
+        static readonly Vector3[][] InPaths =
+        {
+            new[] { new Vector3(200, 0, 330), new Vector3(70, 0, 170), new Vector3(7.6f, 0, 78), DockPos },
+            new[] { new Vector3(200, 0, 330), new Vector3(60, 0, 160), new Vector3(-7.6f, 0, 80), DockPosLeft },
+        };
+        static readonly Vector3[][] OutPaths =
+        {
+            new[] { DockPos, new Vector3(7.6f, 0, 2), new Vector3(70, 0, 40), new Vector3(210, 0, 340) },
+            new[] { DockPosLeft, new Vector3(-9, 0, 40), new Vector3(40, 0, 120), new Vector3(210, 0, 340) },
+        };
+        Vector3[] InPath => InPaths[Berth.Value];
+        Vector3[] OutPath => OutPaths[Berth.Value];
 
         [HideInInspector] public int CargoCount = 8; // set by spawner before Spawn
         Rigidbody rb;
@@ -48,10 +60,12 @@ namespace PortBoss
             Art.Prim(PrimitiveType.Capsule, v, new Vector3(-1.0f, DeckY + 0.85f, -HalfL + 2.8f), Quaternion.identity, new Vector3(0.6f, 0.85f, 0.6f), Art.Hex("#f2c230"), true, "captain");
             Art.Prim(PrimitiveType.Sphere, v, new Vector3(-1.0f, DeckY + 1.85f, -HalfL + 2.8f), Quaternion.identity, Vector3.one * 0.38f, Art.Hex("#b98668"), false, "captain_head");
             Art.Box(v, new Vector3(-1.0f, DeckY + 2.08f, -HalfL + 2.8f), new Vector3(0.44f, 0.14f, 0.44f), Art.Navy, false, "captain_cap");
-            // Rails with an opening on the +x side (that side faces the pier when docked) for the gangplank.
-            Rail(new Vector3(-HalfW + 0.06f, 0, 0), new Vector3(0.1f, 0.45f, HalfL * 2));
-            Rail(new Vector3(HalfW - 0.06f, 0, -HalfL / 2 - 0.6f), new Vector3(0.1f, 0.45f, HalfL - 1.2f));
-            Rail(new Vector3(HalfW - 0.06f, 0, HalfL / 2 + 0.6f), new Vector3(0.1f, 0.45f, HalfL - 1.2f));
+            // Rails with a gangplank opening amidships on both sides (either side can face the pier).
+            foreach (var x in new[] { -HalfW + 0.06f, HalfW - 0.06f })
+            {
+                Rail(new Vector3(x, 0, -HalfL / 2 - 0.6f), new Vector3(0.1f, 0.45f, HalfL - 1.2f));
+                Rail(new Vector3(x, 0, HalfL / 2 + 0.6f), new Vector3(0.1f, 0.45f, HalfL - 1.2f));
+            }
             Rail(new Vector3(0, 0, HalfL - 0.06f), new Vector3(HalfW * 2, 0.45f, 0.1f));
             Rail(new Vector3(0, 0, -HalfL + 0.06f), new Vector3(HalfW * 2, 0.45f, 0.1f));
         }
@@ -79,13 +93,13 @@ namespace PortBoss
         public override void OnNetworkDespawn()
         {
             All.Remove(this);
-            if (Docked == this) Docked = null;
+            for (int i = 0; i < DockedAt.Length; i++) if (DockedAt[i] == this) DockedAt[i] = null;
         }
 
         void OnState(St s)
         {
-            if (s == St.Docked) Docked = this;
-            else if (Docked == this) Docked = null;
+            if (s == St.Docked) DockedAt[Berth.Value] = this;
+            else if (DockedAt[Berth.Value] == this) DockedAt[Berth.Value] = null;
             Sfx.Play("horn", transform.position, 1f);
         }
 
@@ -115,7 +129,7 @@ namespace PortBoss
                 }
                 case St.Docked:
                 {
-                    Pose(DockPos, Vector3.back);
+                    Pose(BerthPos, Vector3.back);
                     countdown -= dt;
                     short secs = (short)Mathf.CeilToInt(Mathf.Max(0, countdown));
                     if (secs != SecondsLeft.Value) SecondsLeft.Value = secs;
@@ -136,7 +150,8 @@ namespace PortBoss
                 case St.Leaving:
                 {
                     float u = Mathf.SmoothStep(0, 1, Mathf.Clamp01(t / SailSeconds));
-                    Pose(Bezier(OutPath, u), Tangent(OutPath, Mathf.Max(u, 0.005f)));
+                    var heading = Vector3.Slerp(Vector3.back, Tangent(OutPath, Mathf.Max(u, 0.005f)).normalized, Mathf.Clamp01(u / 0.3f));
+                    Pose(Bezier(OutPath, u), heading);
                     if (t >= SailSeconds)
                     {
                         foreach (var c in cargo) if (c != null && c.IsSpawned) c.NetworkObject.Despawn();
@@ -220,11 +235,13 @@ namespace PortBoss
     public class Gangplank : MonoBehaviour
     {
         Transform plank;
+        int berth;
 
-        public static void Create()
+        public static void Create(int berth)
         {
-            var g = new GameObject("Gangplank");
+            var g = new GameObject("Gangplank" + berth);
             var gp = g.AddComponent<Gangplank>();
+            gp.berth = berth;
             gp.plank = Art.Box(g.transform, Vector3.zero, new Vector3(1.1f, 0.1f, 1f), Art.WoodLight, true, "plank_gp").transform;
             for (int i = 0; i < 5; i++)
                 Art.Box(gp.plank, new Vector3(0, 0.6f, -0.4f + i * 0.2f), new Vector3(1f, 0.6f, 0.04f), Art.WoodDark, false, "cleat");
@@ -232,11 +249,12 @@ namespace PortBoss
 
         void LateUpdate()
         {
-            var b = Boat.Docked;
+            var b = Boat.DockedAt[berth];
             plank.gameObject.SetActive(b != null);
             if (b == null) return;
-            var a = b.transform.TransformPoint(new Vector3(Boat.HalfW - 0.05f, Boat.DeckY + 0.05f, 0));
-            var p = World.PierGangPoint + Vector3.up * 0.05f;
+            // Boats face -z at both berths, so the pier is on their +x side at berth 0 and -x side at berth 1.
+            var a = b.transform.TransformPoint(new Vector3((berth == 0 ? 1 : -1) * (Boat.HalfW - 0.05f), Boat.DeckY + 0.05f, 0));
+            var p = new Vector3(berth == 0 ? 3.0f : -3.0f, World.PierTop + 0.05f, 16f);
             var mid = (a + p) / 2;
             transform.SetPositionAndRotation(mid, Quaternion.LookRotation(a - p));
             plank.localScale = new Vector3(1.1f, 0.1f, (a - p).magnitude + 0.3f);

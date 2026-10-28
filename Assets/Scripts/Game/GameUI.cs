@@ -60,7 +60,8 @@ namespace PortBoss
             Art.Lit = LitMat; Art.Emissive = EmissiveMat; Art.Particle = ParticleMat; Art.WaterMat = WaterMat; Art.Cloud = CloudMat;
             Application.targetFrameRate = 144;
             World.Build();
-            Gangplank.Create();
+            Gangplank.Create(0);
+            Gangplank.Create(1);
             Gull.Spawn(7);
             SetupCameraAndLight();
             Session.InitSteam();
