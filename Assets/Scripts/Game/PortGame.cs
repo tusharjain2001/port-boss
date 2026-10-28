@@ -94,7 +94,7 @@ namespace PortBoss
             Debug.Log($"[PB] sold ${v} at {c.transform.position:F2}");
             Money.Value += v; Earned.Value += v; Sold.Value++;
             if (c.IsSpoiled) SpoiledSold.Value++;
-            SoldRpc(c.transform.position, v, c.IsSpoiled);
+            SoldRpc(World.SellZone.center, v, c.IsSpoiled);
             c.NetworkObject.Despawn();
         }
 

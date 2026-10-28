@@ -183,7 +183,7 @@ namespace PortBoss
             foreach (var c in Crate.All)
             {
                 var p = c.transform.position;
-                if (c.Attached.Value || c.InSea || p.y < Water.Level + 0.6f || World.SellZone.Contains(p)) continue;
+                if (c.Attached.Value || c.InSea || p.y < Water.Level + 0.6f ) continue;
                 if (OnBoat(p) && (Boat.Docked == null || Mathf.Abs(Boat.Docked.transform.InverseTransformPoint(p).x) > Boat.HalfW - 0.4f)) continue;
                 float d = Vector3.Distance(me, p) + (OnBoat(p) ? 4f : 0f);
                 if (d < bd) { bd = d; best = c; }
@@ -243,12 +243,7 @@ namespace PortBoss
             if (path.Count <= 1 && flat.magnitude < 0.45f)
             {
                 i.hasWorldMove = true; i.worldMove = new Vector3(0, 0, -0.5f);
-                if (pulse <= 0 && Vector3.Angle(pl.transform.forward, Vector3.back) < 15f)
-                {
-                    // Every third trip, show off: throw the top crate onto the table from here.
-                    if (trips % 3 == 2 && pl.Carrying == 1) i.throwP = false;
-                    i.drop = true; pulse = 0.5f;
-                }
+                if (pulse <= 0 && !GameUI.BuyerOpen) { i.grab = true; pulse = 1f; }
                 return i;
             }
             Follow(ref i, me, TableApproach);

@@ -7,6 +7,8 @@ namespace PortBoss
     public static class World
     {
         public static readonly Vector3 Spawn = new(0, 0.4f, -3f);
+        public static readonly Vector3 BuyerPos = new(-4f, 0, -5.3f);
+        public const float BuyerReach = 3.2f;
         public static readonly Bounds SellZone = new(new Vector3(-4f, 1.25f, -4f), new Vector3(2.6f, 0.9f, 1.4f));
         public static readonly Vector3 PierGangPoint = new(3.0f, 0.2f, 16f);
         public static readonly Vector3 TrolleySpawn = new(5.5f, 0.6f, -7.5f);
@@ -129,8 +131,6 @@ namespace PortBoss
             Art.Prim(PrimitiveType.Sphere, b, n + Vector3.up * 2.05f, Quaternion.identity, Vector3.one * 0.42f, Art.Hex("#c99b7a"), false, "buyer_head");
             Art.Box(b, n + new Vector3(0, 2.3f, 0), new Vector3(0.5f, 0.12f, 0.5f), Art.Hex("#2c2c2c"), false, "buyer_hat");
             // Sign board.
-            Art.Box(b, new Vector3(c.x + 2.1f, 2.1f, c.z + 0.2f), new Vector3(1.9f, 0.9f, 0.06f), Art.Cream, false, "sign");
-            Art.Box(b, new Vector3(c.x + 2.1f, 0.9f, c.z + 0.15f), new Vector3(0.09f, 1.9f, 0.09f), Art.WoodDark, true, "sign_post");
         }
 
         static void Shed()

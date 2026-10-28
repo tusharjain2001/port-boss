@@ -217,20 +217,28 @@ namespace PortBoss
             }
         }
 
+        public const float TeeterAt = 0.55f;
+        public float Teeter => Sway.magnitude;
+        bool creaked;
+
+        // Balance model (tuned offline, see docs/wobble.md): starts/stops/turns shove the stack (more the taller it is),
+        // height makes it unstable, your balance springs it back. Lean 1.0 = topple. Counter-steer or stop to save it.
         void UpdateSway(float dt, bool sprint)
         {
-            if (Carrying < 2) { sway = Vector2.MoveTowards(sway, Vector2.zero, dt * 2); swayVel = Vector2.zero; SyncSway(); return; }
-            // Local acceleration and turn rate push the stack; it springs back.
             var accLocal = transform.InverseTransformDirection((hv - lastHv) / Mathf.Max(dt, 1e-4f));
             lastHv = hv;
-            float looseness = 1f + 0.45f * (Carrying - 2) + (sprint ? 0.9f : 0f);
-            // Velocity changes (starts, stops, turns) shove the stack; sprinting adds a jiggle.
-            var force = new Vector2(-accLocal.x, -accLocal.z) * (0.003f * looseness);
-            if (sprint) force += new Vector2(Mathf.PerlinNoise(Time.time * 2.3f, 0) - 0.5f, Mathf.PerlinNoise(0, Time.time * 2.1f) - 0.5f) * (0.15f * looseness);
-            swayVel += (force * 30f - sway * 26f - swayVel * (7f / Mathf.Sqrt(looseness))) * dt;
+            int n = Carrying;
+            if (n < 2) { sway = Vector2.MoveTowards(sway, Vector2.zero, dt * 2); swayVel = Vector2.zero; creaked = false; SyncSway(); return; }
+            float inertia = 0.1f * Mathf.Pow(n - 1, 1.2f);
+            float k = 16f - (n - 1) * 2.9f - (sprint ? 3.5f : 0f);
+            float bob = 0.05f * n * Mathf.Sin(walkPhase) * Mathf.Clamp01(hv.magnitude / 7.4f) * 6f;
+            var acc = new Vector2(-accLocal.x * inertia + bob, -accLocal.z * inertia) - sway * k - swayVel * 3.2f;
+            swayVel += acc * dt;
             sway += swayVel * dt;
-            float limit = Carrying >= 4 ? 0.42f : Carrying == 3 ? 0.55f : 0.75f;
-            if (sway.magnitude > limit)
+
+            if (sway.magnitude > TeeterAt && !creaked) { creaked = true; Sfx.Play("creak", transform.position + Vector3.up * 2.5f, 0.8f); }
+            if (sway.magnitude < TeeterAt * 0.7f) creaked = false;
+            if (sway.magnitude > 1f)
             {
                 var dir = transform.TransformDirection(new Vector3(sway.x, 0, sway.y)).normalized;
                 ToppleRpc(dir);
@@ -243,11 +251,50 @@ namespace PortBoss
 
         void SyncSway()
         {
-            if ((SwayNet.Value - sway).sqrMagnitude > 0.0004f) SwayNet.Value = sway;
+            if ((SwayNet.Value - sway).sqrMagnitude > 0.0009f) SwayNet.Value = sway;
+        }
+
+        public bool NearBuyer => Vector3.Distance(transform.position, World.BuyerPos) < World.BuyerReach;
+
+        // Crates the buyer can see: what I carry (top first) and the trolley's load if it's parked by the stall.
+        public List<Crate> SellableCrates()
+        {
+            var list = new List<Crate>();
+            foreach (Transform c in transform) if (c.TryGetComponent<Crate>(out var cr)) list.Add(cr);
+            list.Sort((a, b) => b.Slot.Value.CompareTo(a.Slot.Value));
+            var t = Trolley.I;
+            if (t != null && t.NearBuyer)
+                foreach (Transform c in t.transform) if (c.TryGetComponent<Crate>(out var cr)) list.Add(cr);
+            return list;
+        }
+
+        public void RequestSell(Crate c) => SellRpc(c.NetworkObject);
+        public void RequestSellAll() { foreach (var c in SellableCrates()) SellRpc(c.NetworkObject); }
+
+        [Rpc(SendTo.Server)]
+        void SellRpc(NetworkObjectReference r)
+        {
+            if (!r.TryGet(out var no) || !no.TryGetComponent<Crate>(out var c) || !NearBuyer || PortGame.I == null) return;
+            var parent = c.transform.parent;
+            if (parent == transform) { stack.Remove(c); PortGame.I.Sell(c); Restack(); }
+            else if (parent != null && parent.TryGetComponent<Trolley>(out var t) && t.NearBuyer) { t.Remove(c); PortGame.I.Sell(c); }
+        }
+
+        // Close the gap after a crate from the middle of the stack is sold.
+        void Restack()
+        {
+            stack.RemoveAll(x => x == null || !x.IsSpawned || x.transform.parent != transform);
+            for (int i = 0; i < stack.Count; i++) { stack[i].transform.localPosition = HoldPos(i); stack[i].Slot.Value = (sbyte)i; }
         }
 
         void Interact(In input)
         {
+            if (input.grab && NearBuyer && !Pushing)
+            {
+                if (SellableCrates().Count > 0) GameUI.OpenBuyer();
+                else GameUI.Toast("\"Bring me some fish, then we'll talk.\"");
+                return;
+            }
             if (input.grab && Carrying < MaxStack && !Pushing)
             {
                 var c = FindCrate();

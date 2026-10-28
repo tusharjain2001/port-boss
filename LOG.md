@@ -15,3 +15,5 @@ One line per step: time | step | result
 - 2026-10-29 00:04 | release build -> Desktop/Port Boss/builds/20261029-0003 + HOW-TO-PLAY.md | smoke test 0 errors, menu + play screenshots
 - 2026-10-29 00:10 | (note) times above corrected to the real clock; from here every line uses `date` | -
 - 2026-10-29 00:10 | Kenney + own-made gull FBX imported to Assets/Art (muted kit materials) | build ok, sizes logged
+- 2026-10-29 00:14 | P1 wobble: balance model (inertia x height, instability, counter-steer saves), Steady! + creak, bending stack visual; tuning table docs/wobble.md | build ok
+- 2026-10-29 00:14 | P2 buyer panel: E at buyer opens panel (carried + parked trolley crates, grade/freshness/offer, Sell, Sell all, Close); table selling removed; offers 15/12/4 | bot sold 3x$15 via panel, screenshot p2-buyer-panel.png

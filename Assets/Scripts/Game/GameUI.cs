@@ -32,7 +32,12 @@ namespace PortBoss
         Camera cam;
         float lastEarned;
 
-        public static bool InputBlocked => I == null || I.screen != Screen.Playing || I.paused
+        public static bool BuyerOpen => I != null && I.buyerOpen;
+        bool buyerOpen; float buyerOpenedAt;
+        public static void OpenBuyer() { if (I == null) return; I.buyerOpen = true; I.buyerOpenedAt = Time.unscaledTime; Sfx.Play2D("click", 0.5f); }
+        public static void CloseBuyer() { if (I != null) I.buyerOpen = false; }
+
+        public static bool InputBlocked => I == null || I.screen != Screen.Playing || I.paused || I.buyerOpen
             || (PortGame.I != null && PortGame.I.Phase.Value == PortGame.Ph.Night);
 
         void Awake()
@@ -119,7 +124,8 @@ namespace PortBoss
             var k = Keyboard.current;
             if (screen == Screen.Playing && k != null)
             {
-                if (k.escapeKey.wasPressedThisFrame) SetPaused(!paused);
+                if (buyerOpen && (k.escapeKey.wasPressedThisFrame || k.eKey.wasPressedThisFrame)) CloseBuyer();
+                else if (k.escapeKey.wasPressedThisFrame) SetPaused(!paused);
                 if (k.hKey.wasPressedThisFrame) showHelp = !showHelp;
             }
             var nm = NetworkManager.Singleton;
@@ -222,6 +228,7 @@ namespace PortBoss
             {
                 DrawHud(W, H);
                 if (PortGame.I != null && PortGame.I.Phase.Value == PortGame.Ph.Night) DrawNight(W, H);
+                else if (buyerOpen) DrawBuyer(W, H);
                 if (paused) DrawPause(W, H);
             }
             if (!string.IsNullOrEmpty(Session.Status) && screen != Screen.Playing)
@@ -316,15 +323,62 @@ namespace PortBoss
             if (pl != null && !InputBlocked)
             {
                 string hint = null;
-                if (pl.Pushing) hint = "F  let go of trolley";
+                if (pl.NearBuyer && pl.SellableCrates().Count > 0) hint = "E  sell to the buyer";
+                else if (pl.Pushing) hint = "F  let go of trolley";
                 else if (pl.Carrying < Player.MaxStack && pl.FindCrate() != null) hint = pl.Carrying == 0 ? "E  grab crate" : "E  stack another";
                 else if (pl.Carrying == 0 && Trolley.I != null && Vector3.Distance(Trolley.I.Handle, pl.transform.position + Vector3.up) < 2.2f) hint = "F  push trolley";
+                if (pl.Carrying >= 2 && pl.Teeter > Player.TeeterAt)
+                {
+                    float a = 0.6f + 0.4f * Mathf.Sin(Time.unscaledTime * 18f);
+                    Label(new Rect(0, H * 0.36f, W, 70 * S), "Steady...!", new GUIStyle(big) { fontSize = Mathf.RoundToInt(56 * S) }, new Color(1f, 0.55f, 0.3f, a));
+                }
                 if (pl.Carrying > 0) Label(new Rect(0, H - 150 * S, W, 40 * S), $"Carrying {pl.Carrying}/{Player.MaxStack}   ·   Q drop   ·   Left click throw", mid, new Color(1, 1, 1, 0.85f));
                 if (hint != null) Label(new Rect(0, H * 0.56f, W, 40 * S), hint, mid, new Color(1f, 0.92f, 0.7f));
             }
             if (showHelp)
                 Label(new Rect(24 * S, H - 190 * S, 640 * S, 180 * S),
-                    "WASD move · Shift sprint · Space jump · Mouse look\nE / Right click: grab, stack (max 5)\nQ: drop one · Left click: throw · F: push trolley\nDrop crates on the buyer's table to sell · H hide · Esc menu", small, new Color(1, 1, 1, 0.75f));
+                    "WASD move · Shift sprint · Space jump · Mouse look\nE / Right click: grab, stack (max 5) · E at the buyer: sell\nQ: drop one · Left click: throw · F: push trolley\nH hide · Esc menu", small, new Color(1, 1, 1, 0.75f));
+        }
+
+        void DrawBuyer(float W, float H)
+        {
+            var pl = Player.Local;
+            var list = pl != null ? pl.SellableCrates() : new List<Crate>();
+            if (pl == null || !pl.NearBuyer || list.Count == 0) { buyerOpen = false; return; }
+            // Test bot: sell everything after a moment so captures show the panel.
+            if (AutoRun.Active && Time.unscaledTime - buyerOpenedAt > 1.5f) { pl.RequestSellAll(); buyerOpen = false; return; }
+
+            float pw = 640 * S, rowH = 52 * S, ph = 210 * S + rowH * list.Count;
+            var r = new Rect(W - pw - 40 * S, (H - ph) / 2, pw, ph);
+            GUI.Box(r, "", panel);
+            Label(new Rect(r.x, r.y + 14 * S, pw, 50 * S), "THE BUYER", mid, new Color(1f, 0.85f, 0.55f));
+            Label(new Rect(r.x, r.y + 56 * S, pw, 30 * S), BuyerLine(list), new GUIStyle(small) { alignment = TextAnchor.UpperCenter, fontStyle = FontStyle.Italic }, new Color(1, 1, 1, 0.85f));
+            var st = new GUIStyle(mid) { alignment = TextAnchor.MiddleLeft, fontStyle = FontStyle.Normal, fontSize = Mathf.RoundToInt(24 * S) };
+            float y = r.y + 100 * S;
+            int total = 0;
+            foreach (var c in list)
+            {
+                int v = c.Value; total += v;
+                var col = c.Grade == "fresh" ? new Color(0.7f, 1f, 0.75f) : c.Grade == "okay" ? Color.white : new Color(0.8f, 0.85f, 0.45f);
+                string where = c.transform.parent == pl.transform ? "" : "  (trolley)";
+                Label(new Rect(r.x + 26 * S, y, pw, rowH), $"Fish crate · {c.Grade} {Mathf.RoundToInt(c.Fresh.Value * 100)}%{where}", st, col);
+                Label(new Rect(r.xMax - 260 * S, y, 100 * S, rowH), $"${v}", new GUIStyle(st) { alignment = TextAnchor.MiddleRight }, new Color(1f, 0.88f, 0.4f));
+                if (Button(new Rect(r.xMax - 140 * S, y + 6 * S, 110 * S, rowH - 12 * S), "Sell")) pl.RequestSell(c);
+                y += rowH;
+            }
+            y += 14 * S;
+            if (Button(new Rect(r.x + 26 * S, y, 300 * S, 58 * S), $"Sell all  ${total}")) pl.RequestSellAll();
+            if (Button(new Rect(r.xMax - 210 * S, y, 180 * S, 58 * S), "Close")) buyerOpen = false;
+            Label(new Rect(r.x, r.yMax - 34 * S, pw, 30 * S), "E / Esc to close", new GUIStyle(small) { alignment = TextAnchor.UpperCenter }, new Color(1, 1, 1, 0.5f));
+        }
+
+        static string BuyerLine(List<Crate> list)
+        {
+            int spoiled = list.FindAll(c => c.Grade == "spoiled").Count, fresh = list.FindAll(c => c.Grade == "fresh").Count;
+            if (spoiled == list.Count) return "\"That smell... I'll give you scrap money.\"";
+            if (spoiled > 0) return "\"Some of this has turned. I'm not paying full for those.\"";
+            if (fresh == list.Count) return "\"Now THAT is fresh. Top price.\"";
+            return "\"Decent. Standard rate.\"";
         }
 
         void DrawNight(float W, float H)

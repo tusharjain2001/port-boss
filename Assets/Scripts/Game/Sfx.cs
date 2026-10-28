@@ -53,6 +53,7 @@ namespace PortBoss
                 case "grab": len = 0.12f; f = t => Mathf.Exp(-t * 30) * Mathf.Sin(t * 2 * Mathf.PI * 220) * 0.6f; break;
                 case "buy": len = 0.5f; f = t => Mathf.Exp(-t * 5) * 0.4f * Mathf.Sin(t * 2 * Mathf.PI * (t < 0.12f ? 784 : 1175)); break;
                 case "flies": len = 2f; f = t => 0.15f * Mathf.Sin(t * 2 * Mathf.PI * (210 + 25 * Mathf.Sin(t * 7))) * (0.6f + 0.4f * Mathf.Sin(t * 3.3f)); break;
+                case "creak": len = 0.7f; f = t => Env(t, 0.05f, 0.7f, 0.3f) * 0.35f * Saw(t * (180 + 40 * Mathf.Sin(t * 13))) * (0.6f + 0.4f * Noise()); break;
                 case "gull": len = 0.6f; f = t => Env(t, 0.05f, 0.6f, 0.3f) * 0.25f * Mathf.Sin(t * 2 * Mathf.PI * (1400 - 900 * t)); break;
                 default: return null;
             }

@@ -16,7 +16,9 @@ namespace PortBoss
         public NetworkVariable<sbyte> Slot = new(-1); // index in a player's stack, -1 otherwise
 
         public bool InSea { get; private set; }
-        public int Value => Fresh.Value >= Spoiled ? 12 : 4;
+        public const float FreshAt = 0.75f;
+        public int Value => Fresh.Value >= FreshAt ? 15 : Fresh.Value >= Spoiled ? 12 : 4;
+        public string Grade => Fresh.Value >= FreshAt ? "fresh" : Fresh.Value >= Spoiled ? "okay" : "spoiled";
         public bool IsSpoiled => Fresh.Value < Spoiled;
 
         Rigidbody rb;
@@ -25,7 +27,7 @@ namespace PortBoss
         Renderer fishR;
         MaterialPropertyBlock mpb;
         ParticleSystem flies;
-        float onTable, lastHit, fresh = 1f;
+        float lastHit, fresh = 1f;
         bool countedSea;
 
         void Awake()
@@ -80,7 +82,6 @@ namespace PortBoss
             transform.localPosition = localPos;
             transform.localRotation = Quaternion.identity;
             Slot.Value = (sbyte)slot;
-            onTable = 0;
         }
 
         public void Release(Vector3 pos, Vector3 vel, Vector3 spin)
@@ -130,13 +131,6 @@ namespace PortBoss
                 if (q < Fresh.Value) Fresh.Value = q;
             }
 
-            // Selling: rests on the buyer's table for a moment.
-            if (World.SellZone.Contains(p) && rb.linearVelocity.sqrMagnitude < 2f)
-            {
-                onTable += Time.fixedDeltaTime;
-                if (onTable > 0.35f && game != null) game.Sell(this);
-            }
-            else onTable = 0;
         }
 
         void OnCollisionEnter(Collision c)
@@ -170,9 +164,9 @@ namespace PortBoss
             {
                 var s = pl.Sway;
                 int i = Slot.Value;
-                float k = (i + 1) * (i + 1) * 0.5f;
-                vis.localPosition = new Vector3(s.x, 0, s.y) * (k * 0.12f);
-                vis.localRotation = Quaternion.Euler(s.y * 14f * (i + 1), 0, -s.x * 14f * (i + 1));
+                // The stack bends: higher crates swing further and tilt more.
+                vis.localPosition = new Vector3(s.x, 0, s.y) * (0.07f * i * (i + 1));
+                vis.localRotation = Quaternion.Euler(s.y * 12f * i, 0, -s.x * 12f * i);
             }
         }
 

@@ -54,6 +54,7 @@ namespace PortBoss
         }
 
         public void Remove(Crate c) => load.Remove(c);
+        public bool NearBuyer => Vector3.Distance(transform.position, World.BuyerPos) < World.BuyerReach + 2.5f;
 
         void FixedUpdate()
         {
