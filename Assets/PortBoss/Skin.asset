@@ -133,6 +133,13 @@ MonoBehaviour:
   - cableWasteB
   - planks
   - bag
+  - wallY
+  - wallY2
+  - extinguisher
+  - lamp
+  - powerbox2
+  - box
+  - boxB
   - rope
   - bollard
   - powerbox
@@ -207,6 +214,13 @@ MonoBehaviour:
   - {fileID: 8778575304307150692, guid: 25d076981dc8561478bde33db8b57e27, type: 3}
   - {fileID: 1134948531770059408, guid: 490e4aaa25e2ae04a8085aec66217a15, type: 3}
   - {fileID: 6659217654719951842, guid: ab67f17b7155f0c4185635f7cc55a03b, type: 3}
+  - {fileID: 414166245539075928, guid: 48f972f8ca219a241b212c7a0a862d58, type: 3}
+  - {fileID: 7991091776529434264, guid: e779a8a71104eae4c8aafc5ffb8e018e, type: 3}
+  - {fileID: 5035440936605837148, guid: f62964192f627764b9b40cb678db3272, type: 3}
+  - {fileID: 5550099288398667008, guid: 5015fa97c7868c249a366e27ddd5fba7, type: 3}
+  - {fileID: 6800436551014737904, guid: 04d3d4626aecb8244962d3fc6d6f26f6, type: 3}
+  - {fileID: 3408761877969422493, guid: e7f5987d1c10b8b44bcec3124d825d82, type: 3}
+  - {fileID: 4532067704828208883, guid: 93ead3ddc089980408b997af2b33f7f7, type: 3}
   - {fileID: 8222634439492688630, guid: fabc0786a3cdd2947ab0fbfa924cfd77, type: 3}
   - {fileID: 71421370532990275, guid: dc7d0b184fa5a2c4ab6e7a1198beeabc, type: 3}
   - {fileID: 5956287373182540937, guid: 54ffbab36570fa84ea33bcf9bc8384d1, type: 3}

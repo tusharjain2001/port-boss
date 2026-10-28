@@ -312,7 +312,7 @@ namespace PortBoss.EditorTools
                     ("pipe", "Pipe System/TH_Giant_Pipe_Straight_Long_01A"), ("pipeSup", "Pipe System/TH_Giant_Pipe_Straight_Support_01A"),
                     ("fence", "Props/TH_Metal_Fence_01A_Module"), ("cfence", "Props/TH_Concrete_Fence_01A"), ("advertBroken", "Props/TH_Advertising_Panel_01A_Damaged"),
                     ("cableWaste", "Props/TH_Metal_Cable_Waste_01A"), ("cableWasteB", "Props/TH_Metal_Cable_Waste_01C"), ("planks", "Props/TH_Plank_Pile_01A"),
-                    ("bag", "Props/TH_Plastic_Bag_01A"), ("rope", "Props/TH_Rope_Pile_1A"), ("bollard", "Props/TH_Rope_Pole_01A"), ("powerbox", "Props/TH_Powerbox_01A"),
+                    ("bag", "Props/TH_Plastic_Bag_01A"), ("wallY", "Metal Structure Elements 1/TH_Metal_Wall_01E"), ("wallY2", "Metal Structure Elements 1/TH_Metal_Wall_01F"), ("extinguisher", "Props/TH_Fire_Extinguisher_01A_Fixed"), ("lamp", "Props/TH_Ceiling_Fixture_01A"), ("powerbox2", "Props/TH_Powerbox_02A"), ("box", "Props/TH_Box_02A"), ("boxB", "Props/TH_Box_03A"), ("rope", "Props/TH_Rope_Pile_1A"), ("bollard", "Props/TH_Rope_Pole_01A"), ("powerbox", "Props/TH_Powerbox_01A"),
                     ("sand", "Props/TH_Sand_Patch_01A"), ("epole", "Props/TH_Electric_Pole_01A"), ("wreck", "Ships/Boats/TH_Boat_Small_01B"),
                     ("pallet", "Cargo/TH_Wooden_Pallet_02B"), ("crateBig", "Cargo/TH_Shipping_Wooden_Crate_03A"), ("metalCrate", "Cargo/TH_Shipping_Metal_Crate_01A") });
                 var names = new System.Collections.Generic.List<string>(); var prefabs = new System.Collections.Generic.List<GameObject>();

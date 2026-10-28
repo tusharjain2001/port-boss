@@ -23,6 +23,7 @@ namespace PortBoss
             EastTerminal();
             WestTerminal();
             Breakwater();
+            Shelter(root.Find("Shed"));
             Roads();
             Industry();
             Hinterland();
@@ -268,6 +269,39 @@ namespace PortBoss
             }
             var tr = On("truck", new Vector3(-80, 0, 10), 0, 1f);
             if (tr != null) { var m = tr.AddComponent<Mover>(); m.Pts = new[] { new Vector3(-80, 0, 10), new Vector3(-80, 0, 205), new Vector3(-180, 0, 205), new Vector3(-180, 0, 10) }; m.Speed = 7f; }
+        }
+
+        // Our shelter's walls (World keeps them as colliders) wear the pack's weathered yellow metal panels, both faces.
+        static void Shelter(Transform shed)
+        {
+            if (shed == null || Skin.Get("wallY") == null) return;
+            int i = 0;
+            foreach (Transform w in shed)
+            {
+                if (!(w.name.StartsWith("wall") || w.name == "lintel")) continue;
+                var r = w.GetComponent<Renderer>(); var b = r.bounds;
+                bool alongX = b.size.x > b.size.z;
+                float len = alongX ? b.size.x : b.size.z;
+                // (The panel is one-sided and we don't know which way it faces: both facings on both sides; the back faces cull.)
+                var n = alongX ? Vector3.forward : Vector3.right;
+                float ext = alongX ? b.extents.z : b.extents.x;
+                string piece = i++ % 3 == 0 ? "wallY2" : "wallY";
+                foreach (var side in new[] { 1f, -1f })
+                    foreach (var flip in new[] { 0f, 180f })
+                    {
+                        var g = Art.Place(Skin.Get(piece), R, b.center, (alongX ? 0 : 90) + flip, 1f);
+                        if (g == null) return;
+                        g.transform.localScale = new Vector3(len / 8f, b.size.y / 3.5f, 1f);
+                        g.transform.position += b.center - Art.Bounds(g).center + n * side * (ext + (flip == 0 ? 0.01f : 0.03f));
+                    }
+                r.enabled = false;
+            }
+            var o = shed.position + new Vector3(9, 0, -9) - shed.position; // the shelter's centre (World.Shed's origin)
+            Top("extinguisher", new Vector3(o.x + 2.3f, 1.7f, o.z + 2.65f), 0, Vector3.one);
+            Top("powerbox2", new Vector3(o.x + 3.15f, 2.0f, o.z - 0.8f), 90, Vector3.one);
+            Top("lamp", new Vector3(o.x, 3.45f, o.z), 0, Vector3.one);
+            On("box", new Vector3(o.x + 2.2f, 0, o.z - 1.9f), 15, 1f);
+            On("boxB", new Vector3(o.x + 2.3f, 0, o.z - 0.9f), -10, 1f);
         }
 
         // Road tiles (12 m, lane markings and kerbs) along a polyline, top flush with the slabs.
