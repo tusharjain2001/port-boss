@@ -228,6 +228,9 @@ namespace PortBoss
             float roll = (Water.Height(p.x + right.x, p.z + right.z, tw) - Water.Height(p.x - right.x, p.z - right.z, tw)) * 9f + Mathf.Sin(tw * 0.9f) * 2.5f
                 + Speedboat.WakeAt(p) * 7f * Mathf.Sin(tw * 2.4f); // rival's wake rocks the boat
             float pitch = (Water.Height(p.x - ahead.x, p.z - ahead.z, tw) - Water.Height(p.x + ahead.x, p.z + ahead.z, tw)) * 5f + Mathf.Sin(tw * 0.63f + 1f) * 1.2f;
+            // Rough weather rocks her harder, but a grey day shouldn't tip the catch off the deck: cap by severity.
+            float L2 = Storm.Level * Storm.Level, maxRoll = 3f + 9f * L2, maxPitch = 1.5f + 5f * L2;
+            roll = Mathf.Clamp(roll, -maxRoll, maxRoll); pitch = Mathf.Clamp(pitch, -maxPitch, maxPitch);
             rb.MovePosition(new Vector3(p.x, y, p.z));
             rb.MoveRotation(rot * Quaternion.Euler(pitch, 0, roll));
         }
