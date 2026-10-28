@@ -285,7 +285,7 @@ namespace PortBoss
                 hv = Vector3.MoveTowards(hv, wish * speed, (cc.isGrounded ? 30f : 10f) * dt);
                 if (cc.isGrounded) { vy = -2f; if (input.jump) { vy = 5.6f; Sfx.Play("whoosh", transform.position, 0.3f); } }
                 vy -= 19f * dt;
-                cc.Move((hv + Vector3.up * vy) * dt);
+                cc.Move((hv + Vector3.up * vy + Storm.WindDir * (1.6f * Storm.Level)) * dt);
             }
 
             if (wish.sqrMagnitude > 0.01f)
@@ -427,6 +427,15 @@ namespace PortBoss
         }
 
         [Rpc(SendTo.Server)]
+        void TieRpc(NetworkObjectReference r)
+        {
+            if (!r.TryGet(out var no) || !no.TryGetComponent<Crate>(out var c) || c.Attached.Value || c.InSea) return;
+            if (Vector3.Distance(c.transform.position, transform.position) > 3f) return;
+            c.Tied.Value = !c.Tied.Value;
+            FxRpc("grab", c.transform.position);
+        }
+
+        [Rpc(SendTo.Server)]
         void TowRpc(NetworkObjectReference r, bool on)
         {
             if (!on) { TowedId.Value = 0; return; }
@@ -449,7 +458,8 @@ namespace PortBoss
             if (n < 2) { sway = Vector2.MoveTowards(sway, Vector2.zero, dt * 2); swayVel = Vector2.zero; creaked = false; SyncSway(); return; }
             float inertia = 0.1f * Mathf.Pow(n - 1, 1.2f);
             float k = 16f - (n - 1) * 2.9f - (sprint ? 3.5f : 0f);
-            float bob = 0.05f * n * Mathf.Sin(walkPhase) * Mathf.Clamp01(hv.magnitude / 7.4f) * 6f;
+            float bob = 0.05f * n * Mathf.Sin(walkPhase) * Mathf.Clamp01(hv.magnitude / 7.4f) * 6f
+                + Storm.Level * n * 0.5f * Mathf.Sin(Time.time * 2.3f); // storm gusts rock the stack
             var acc = new Vector2(-accLocal.x * inertia + bob, -accLocal.z * inertia) - sway * k - swayVel * 3.2f;
             swayVel += acc * dt;
             sway += swayVel * dt;
@@ -533,6 +543,7 @@ namespace PortBoss
                 var t = Trolley.I;
                 if (Pushing) PushRpc(false);
                 else if (t != null && Carrying == 0 && Vector3.Distance(t.Handle, transform.position + Vector3.up) < 2.2f) PushRpc(true);
+                else if (Carrying == 0) { var c = FindCrate(); if (c != null && !c.Attached.Value) TieRpc(c.NetworkObject); }
             }
         }
 

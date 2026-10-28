@@ -29,6 +29,10 @@ namespace PortBoss
         public NetworkVariable<float> PierSag = new(0); // degrees the old pier end hangs down (host computes)
         public const int RepairPrice = 80;
         float loadCheck, raidTimer = 30f;
+        public NetworkVariable<byte> StormPhase = new(0); // 0 calm, 1 warning (90 s), 2 storm
+        public const float StormWarnAt = 230f, StormHitAt = 320f, StormEndAt = 395f;
+        bool forcedStorm; float forcedT;
+        bool StormDay => DayNum.Value >= 3 && DayNum.Value % 2 == 1;
         Crate raided; float raidPenaltyAt;
 
         // The contract board on the shed wall: who brings the fish tomorrow.
@@ -92,6 +96,7 @@ namespace PortBoss
             if (IsServer && (loadCheck -= Time.deltaTime) <= 0) { loadCheck = 0.4f; WeighPierEnd(); }
             if (!IsServer || Phase.Value != Ph.Day) return;
             GullRaids();
+            UpdateStorm();
             DayT.Value += Time.deltaTime;
             var sched = Schedule;
             if (nextBoat < sched.Length && DayT.Value >= sched[nextBoat].t)
@@ -120,6 +125,22 @@ namespace PortBoss
         }
 
         public void BoatGone() => activeBoats--;
+
+        void UpdateStorm()
+        {
+            float t = forcedStorm ? Time.time - forcedT + StormWarnAt : DayT.Value;
+            byte want = (StormDay || forcedStorm) ? (byte)(t < StormWarnAt ? 0 : t < StormHitAt ? 1 : t < StormEndAt ? 2 : 0) : (byte)0;
+            if (want == StormPhase.Value) return;
+            if (want == 1) Shout("HARBOUR MASTER", "STORM WARNING! Ninety seconds! Get your crates in the shed or tie them down (F)!", 5f);
+            else if (want == 2) Shout("HARBOUR MASTER", "Here it comes! Hold on to something!", 3.5f);
+            else if (StormPhase.Value == 2) { Shout("HARBOUR MASTER", "Storm's passing. Count your crates.", 3.5f); forcedStorm = false; }
+            StormPhase.Value = want;
+        }
+
+        // Test hook: start the storm warning now.
+        public void DebugStorm() { forcedStorm = true; forcedT = Time.time; }
+
+        public static bool InShed(Vector3 p) => p.x > 6.1f && p.x < 11.9f && p.z > -11.4f && p.z < -6.6f;
 
         // Host: now and then a gull goes for a crate nobody is watching; unguarded, it loses freshness.
         void GullRaids()
@@ -173,6 +194,7 @@ namespace PortBoss
         // Test hook: skip to the end of the day.
         public void EndDayNow()
         {
+            forcedStorm = false; StormPhase.Value = 0;
             foreach (var b in Boat.All.ToArray()) b.NetworkObject.Despawn();
             activeBoats = 0; nextBoat = Schedule.Length; DayT.Value = DayLength;
         }
@@ -240,6 +262,7 @@ namespace PortBoss
         {
             int sold = Sold.Value, sea = InSea.Value, left = LeftAboard.Value, spoiled = SpoiledSold.Value;
             if (sold == 0) return "The buyer waited all day. He brought sandwiches.";
+            if (StormDay && sea >= 4) return $"The storm took {sea} crates. The shed was RIGHT THERE.";
             if (sea >= 5 && sea >= sold) return "More fish went in the sea than in the buyer's van. The gulls send their thanks.";
             if (left >= 10) return $"Captain {Today.Captain} sailed home with {left} crates. Tonight, they eat well.";
             if (spoiled >= 4) return "The flies have started calling you 'boss' too.";

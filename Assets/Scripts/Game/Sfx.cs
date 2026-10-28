@@ -55,6 +55,9 @@ namespace PortBoss
                 case "flies": len = 2f; f = t => 0.15f * Mathf.Sin(t * 2 * Mathf.PI * (210 + 25 * Mathf.Sin(t * 7))) * (0.6f + 0.4f * Mathf.Sin(t * 3.3f)); break;
                 case "creak": len = 0.7f; f = t => Env(t, 0.05f, 0.7f, 0.3f) * 0.35f * Saw(t * (180 + 40 * Mathf.Sin(t * 13))) * (0.6f + 0.4f * Noise()); break;
                 case "engine": len = 1f; f = t => 0.3f * (Saw(t * 96f) * 0.6f + Saw(t * 192.5f) * 0.25f + Noise() * 0.15f) * (0.85f + 0.15f * Mathf.Sin(t * 2 * Mathf.PI * 8)); break;
+                case "siren": len = 3.5f; f = t => Env(t, 0.2f, 3.5f, 0.5f) * 0.35f * Mathf.Sin(2 * Mathf.PI * (520f * t + 90f * Mathf.Sin(t * 2.2f) / 2.2f)); break;
+                case "wind": len = 4f; f = t => 0.35f * Noise() * (0.55f + 0.45f * Mathf.Sin(t * 1.6f) * Mathf.Sin(t * 0.7f + 1f)); break;
+                case "thunder": len = 3f; f = t => Mathf.Exp(-t * 1.4f) * Mathf.Clamp01(t * 20f) * 0.8f * Noise() * (0.6f + 0.4f * Mathf.Sin(t * 37f)); break;
                 case "gull": len = 0.6f; f = t => Env(t, 0.05f, 0.6f, 0.3f) * 0.25f * Mathf.Sin(t * 2 * Mathf.PI * (1400 - 900 * t)); break;
                 default: return null;
             }

@@ -17,6 +17,7 @@ namespace PortBoss
 
         public bool InSea { get; private set; }
         public const float FreshAt = 0.75f;
+        public NetworkVariable<bool> Tied = new(false); // roped down against the storm
         public NetworkVariable<byte> Damage = new(0); // hard landings: each level knocks off a slat and 25% of the price
         public int Value => Mathf.Max(1, Mathf.RoundToInt((Fresh.Value >= FreshAt ? 15 : Fresh.Value >= Spoiled ? 12 : 4) * (1f - 0.25f * Damage.Value)));
         public string Grade => Fresh.Value >= FreshAt ? "fresh" : Fresh.Value >= Spoiled ? "okay" : "spoiled";
@@ -48,6 +49,12 @@ namespace PortBoss
                 Art.Box(vis, new Vector3(-s * 0.49f, i * s * 0.22f, 0), new Vector3(0.03f, s * 0.14f, s), Art.WoodDark, false, "slat");
             }
             // Fish on ice poking out of the top: this is what visibly spoils.
+            // Rope tie-down (shown when tied).
+            ropes = new GameObject("ropes");
+            ropes.transform.SetParent(vis, false);
+            Art.Box(ropes.transform, Vector3.zero, new Vector3(s * 1.04f, s * 1.04f, 0.05f), Art.Hex("#c9b07a"), false, "rope");
+            Art.Box(ropes.transform, Vector3.zero, new Vector3(0.05f, s * 1.04f, s * 1.04f), Art.Hex("#c9b07a"), false, "rope");
+            ropes.SetActive(false);
             fishR = Art.Box(vis, new Vector3(0, s * 0.47f, 0), new Vector3(s * 0.84f, 0.06f, s * 0.84f), Art.Fish, false, "fish", 0.6f).GetComponent<Renderer>();
             for (int i = 0; i < 3; i++)
             {
@@ -60,6 +67,7 @@ namespace PortBoss
         {
             All.Add(this);
             Attached.OnValueChanged += (_, _) => ApplyState();
+            Tied.OnValueChanged += (_, _) => ApplyState();
             ApplyState();
         }
 
@@ -69,7 +77,8 @@ namespace PortBoss
         {
             bool att = Attached.Value;
             col.enabled = !att;
-            rb.isKinematic = att || !IsServer;
+            rb.isKinematic = att || !IsServer || Tied.Value;
+            if (ropes != null) ropes.SetActive(Tied.Value && !att);
             rb.interpolation = !att && IsServer ? RigidbodyInterpolation.Interpolate : RigidbodyInterpolation.None;
             if (!att) { vis.localPosition = Vector3.zero; vis.localRotation = Quaternion.identity; }
         }
@@ -77,6 +86,7 @@ namespace PortBoss
         // ---- server API ----
         public void Attach(NetworkObject parent, Vector3 localPos, int slot)
         {
+            Tied.Value = false;
             Attached.Value = true;
             ApplyState();
             NetworkObject.TrySetParent(parent, true);
@@ -109,6 +119,7 @@ namespace PortBoss
         }
 
         float dryT;
+        GameObject ropes;
 
         void FixedUpdate()
         {
@@ -138,6 +149,13 @@ namespace PortBoss
             {
                 if (depth > 0) rb.AddForce(Vector3.up * (Mathf.Sin(Time.time * 3.1f + p.x) * 7f * wake), ForceMode.Acceleration);
                 else rb.AddForce(new Vector3(Mathf.Sin(Time.time * 1.7f + p.z), 0, Mathf.Cos(Time.time * 1.3f + p.x)) * (14f * wake), ForceMode.Acceleration);
+            }
+
+            // Storm wind: loose crates outside the shed get shoved across the pier (and over the side).
+            if (game != null && game.StormPhase.Value == 2 && !Tied.Value && depth <= 0 && !PortGame.InShed(p))
+            {
+                float gust = 0.6f + 0.4f * Mathf.Sin(Time.time * 1.3f + p.x * 0.7f + p.z * 0.3f);
+                rb.AddForce(Storm.WindDir * (13f * gust * Storm.Level), ForceMode.Acceleration);
             }
 
             // Towed or washed back onto land: no longer "in the sea".

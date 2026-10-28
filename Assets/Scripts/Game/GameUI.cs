@@ -60,6 +60,7 @@ namespace PortBoss
             Art.Lit = LitMat; Art.Emissive = EmissiveMat; Art.Particle = ParticleMat; Art.WaterMat = WaterMat; Art.Cloud = CloudMat;
             Application.targetFrameRate = 144;
             World.Build();
+            Storm.Create();
             Gangplank.Create(0);
             Gangplank.Create(1);
             Gull.Spawn(7);
@@ -145,6 +146,7 @@ namespace PortBoss
             var g = PortGame.I;
             if (g != null) ApplyLight(Mathf.Clamp01(g.DayT.Value / PortGame.DayLength), g.Phase.Value == PortGame.Ph.Night);
             else ApplyLight(0.8f, false); // the title scene sits in golden hour
+            ApplyStormLight();
             amb.volume = 0.35f * Settings.Ambience;
             SettingsKeyCapture();
             music.Play(MusicSlot(g));
@@ -179,9 +181,25 @@ namespace PortBoss
             if (menuBoat != null && nm.IsListening) Destroy(menuBoat);
         }
 
+        // Darken and grey the scene with the storm; lightning flashes on top.
+        void ApplyStormLight()
+        {
+            float L = Storm.Level;
+            sun.intensity = sun.intensity * (1 - 0.65f * L) + Storm.Flash * 2.5f;
+            sun.color = Color.Lerp(sun.color, new Color(0.75f, 0.8f, 0.9f), L);
+            RenderSettings.ambientSkyColor *= 1 - 0.35f * L;
+            RenderSettings.ambientEquatorColor *= 1 - 0.35f * L;
+            RenderSettings.fogColor = Color.Lerp(RenderSettings.fogColor, new Color(0.42f, 0.45f, 0.5f), L);
+            if (!oldFog) RenderSettings.fogDensity = 0.0021f * fogScale * (1 + 2.5f * L);
+            if (Art.Cloud != null) Art.Cloud.SetColor("_BaseColor", Color.Lerp(Art.Cloud.GetColor("_BaseColor"), new Color(0.45f, 0.47f, 0.52f), L));
+            Shader.SetGlobalColor("_PB_SkyHorizon", Color.Lerp(Shader.GetGlobalColor("_PB_SkyHorizon"), new Color(0.45f, 0.48f, 0.52f), L));
+            Shader.SetGlobalColor("_PB_SkyZenith", Color.Lerp(Shader.GetGlobalColor("_PB_SkyZenith"), new Color(0.25f, 0.28f, 0.33f), L));
+        }
+
         string MusicSlot(PortGame g)
         {
             if (screen != Screen.Playing || g == null) return "menu";
+            if (g.StormPhase.Value != 0) return "storm";
             // Evening (from sunset) and night share the night track.
             if (g.Phase.Value == PortGame.Ph.Night || g.DayT.Value / PortGame.DayLength > 0.72f) return "night";
             foreach (var b in Boat.All)
@@ -438,6 +456,7 @@ namespace PortBoss
                 string hint = null;
                 if (pl.Swimming) hint = pl.NearLadder() != null ? "E  climb out" : pl.Towing ? "Q  let go of the crate" : pl.FloatingCrateNear() != null ? "E  tow this crate" : "Swim to a ladder or the slipway";
                 else if (pl.NearBuyer && pl.SellableCrates().Count > 0) hint = "E  sell to the buyer";
+                else if (PortGame.I != null && PortGame.I.StormPhase.Value != 0 && pl.Carrying == 0 && pl.FindCrate() is Crate tc && !tc.Attached.Value) hint = tc.Tied.Value ? "F  untie crate" : "F  tie this crate down";
                 else if (pl.Pushing) hint = "F  let go of trolley";
                 else if (pl.Carrying < Player.MaxStack && pl.FindCrate() != null) hint = pl.Carrying == 0 ? "E  grab crate" : "E  stack another";
                 else if (pl.Carrying == 0 && Trolley.I != null && Vector3.Distance(Trolley.I.Handle, pl.transform.position + Vector3.up) < 2.2f) hint = "F  push trolley";

@@ -65,6 +65,7 @@ namespace PortBoss
             if (Has("-pb-contracttest")) StartCoroutine(ContractTest());
             if (int.TryParse(Arg("-pb-day"), out var day)) StartCoroutine(StartOnDay(day));
             if (int.TryParse(Arg("-pb-settings"), out var st)) ui.DebugOpenSettings(st);
+            if (Has("-pb-storm")) StartCoroutine(StormTest());
         }
 
         IEnumerator WaitGame() { while (PortGame.I == null || Player.Local == null) yield return null; yield return new WaitForSeconds(1); }
@@ -141,6 +142,19 @@ namespace PortBoss
             for (int i = 0; i < 80 && (b = Boat.DockedAt[0]) == null; i++) yield return new WaitForSeconds(0.5f);
             yield return new WaitForSeconds(1);
             Debug.Log($"[PB] contract test: boat docked={b != null} secondsLeft={(b ? b.SecondsLeft.Value : -1)}");
+        }
+
+        // Storm warning now, storm 90 s later (use -pb-timescale to speed it up); crates on the pier get blown.
+        IEnumerator StormTest()
+        {
+            yield return WaitGame();
+            for (int i = 0; i < 6; i++) PortGame.I.SpawnCrate(new Vector3(-1.5f + i * 0.7f, 0.6f, 14f), 1f);
+            PortGame.I.DebugStorm();
+            for (int s = 0; s < 40; s++)
+            {
+                yield return new WaitForSeconds(3);
+                Debug.Log($"[PB] storm test: phase={PortGame.I.StormPhase.Value} level={Storm.Level:F2} waves={Water.Storm:F2} inSea={PortGame.I.InSea.Value}");
+            }
         }
 
         IEnumerator StartOnDay(int n)
