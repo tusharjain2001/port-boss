@@ -150,7 +150,8 @@ namespace PortBoss
                 slot = CharAnim.Slot.Idle;
                 if (knockT >= 1) knockT = -1;
             }
-            else if (swimming) { slot = speed > 0.3f ? CharAnim.Slot.Swim : CharAnim.Slot.SwimIdle; model.localPosition = new Vector3(0, SwimModelY, 0); }
+            else if (swimming) { slot = CharAnim.Slot.SwimIdle; model.localPosition = new Vector3(0, SwimModelY, 0); } // treading water, chest-deep
+            Ripples(swimming);
             // Falling in: a second of arm-waving panic (every peer sees it) before they start swimming.
             if (swimming && !wasSwimmingAnim) flailUntil = Time.time + 1.3f;
             wasSwimmingAnim = swimming;
@@ -162,7 +163,46 @@ namespace PortBoss
             anim.Throw01 = throwT;
             anim.Tick(slot, speed);
         }
-        const float SwimModelY = 1.1f;
+        const float SwimModelY = -0.05f; // with the treading clip: shoulders at the surface
+
+        static Material ringMat;
+        static Material RingMat()
+        {
+            if (ringMat != null) return ringMat;
+            var t = new Texture2D(64, 64, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
+            for (int y = 0; y < 64; y++)
+                for (int x = 0; x < 64; x++)
+                {
+                    float d = Vector2.Distance(new Vector2(x + 0.5f, y + 0.5f), new Vector2(32, 32)) / 32f;
+                    t.SetPixel(x, y, new Color(1, 1, 1, Mathf.Clamp01(1f - Mathf.Abs(d - 0.8f) / 0.12f)));
+                }
+            t.Apply();
+            ringMat = new Material(Art.Particle); ringMat.SetTexture("_BaseMap", t);
+            return ringMat;
+        }
+
+        // Rings spreading out round a swimmer.
+        ParticleSystem ripples;
+        void Ripples(bool on)
+        {
+            if (ripples == null)
+            {
+                if (!on) return;
+                var g = new GameObject("ripples"); g.transform.SetParent(transform, false);
+                ripples = g.AddComponent<ParticleSystem>(); ripples.Stop();
+                var m = ripples.main; m.startLifetime = 1.8f; m.startSpeed = 0; m.startSize = 0.9f; m.maxParticles = 12;
+                m.startColor = new Color(0.92f, 0.96f, 1f, 0.45f); m.simulationSpace = ParticleSystemSimulationSpace.World;
+                var e = ripples.emission; e.rateOverTime = 2.2f;
+                var sh = ripples.shape; sh.enabled = false;
+                var sz = ripples.sizeOverLifetime; sz.enabled = true; sz.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0, 0.5f, 1, 3.2f));
+                var col = ripples.colorOverLifetime; col.enabled = true;
+                var gr = new Gradient(); gr.SetKeys(new[] { new GradientColorKey(Color.white, 0), new GradientColorKey(Color.white, 1) }, new[] { new GradientAlphaKey(0.55f, 0), new GradientAlphaKey(0, 1) });
+                col.color = gr;
+                var r = g.GetComponent<ParticleSystemRenderer>(); r.renderMode = ParticleSystemRenderMode.HorizontalBillboard; r.sharedMaterial = RingMat();
+            }
+            ripples.transform.position = new Vector3(transform.position.x, Water.Height(transform.position) + 0.04f, transform.position.z);
+            if (on && !ripples.isPlaying) ripples.Play(); else if (!on && ripples.isPlaying) ripples.Stop();
+        }
         bool wasSwimmingAnim; float flailUntil; // lifts the swim clip so head and shoulders stay above the surface
 
         void Animate(float speed)

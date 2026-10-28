@@ -57,11 +57,17 @@ namespace PortBoss
             if (Art.Cloud != null) Clouds();
             Speedboat.Create();
             // Sea floor: the transparent toon water needs something below it (else the sky's ground colour shows through).
-            if (Skin.On) Art.Box(Root, new Vector3(0, -24f, 300), new Vector3(1400, 1, 1400), Art.Hex("#123447"), false, "seabed"); // demo depth
+            if (Skin.On)
+            {
+                // Unlit deep blue (lighting must not brighten what the water shows through), at the demo's depth.
+                var bed = Art.Box(Root, new Vector3(0, -24f, 300), new Vector3(3000, 1, 3000), Art.Hex("#123447"), false, "seabed");
+                if (Art.Cloud != null) { var bm = new Material(Art.Cloud); bm.SetColor("_BaseColor", Art.Hex("#0f3550")); bed.GetComponent<Renderer>().sharedMaterial = bm; }
+            }
             WaterRenderers.Clear();
             WaterRenderers.Add(Water.Create(new Vector3(0, 0, 80), 280, 112).GetComponent<Renderer>());
             // Far sea to the horizon (flat, slightly below the wave mean).
-            var far = Art.Box(Root, new Vector3(0, Water.Level - 0.35f, 600), new Vector3(3000, 0.1f, 1600), Art.Hex("#2f5562"), false, "far_sea", 0.8f);
+            var far = Skin.On ? Art.Box(Root, new Vector3(0, Water.Level - 0.35f, 700), new Vector3(5000, 0.1f, 4400), Art.Hex("#2f5562"), false, "far_sea", 0.8f) // to the horizon all round
+                : Art.Box(Root, new Vector3(0, Water.Level - 0.35f, 600), new Vector3(3000, 0.1f, 1600), Art.Hex("#2f5562"), false, "far_sea", 0.8f);
             far.GetComponent<Renderer>().sharedMaterial = Art.WaterMat;
             WaterRenderers.Add(far.GetComponent<Renderer>());
         }

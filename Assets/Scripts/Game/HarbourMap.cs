@@ -56,6 +56,9 @@ namespace PortBoss
             Tile(60, 250, 0, 30, 2);      // East Terminal, south strip
             Tile(60, 245, 30, 120, 3);    // East Terminal yard
             Tile(-245, -55, -10, 230, 4); // West Terminal
+            // Hinterland to the horizon behind the port (flat concrete-coloured land, no seams).
+            Art.Box(R, new Vector3(0, -0.6f, -700), new Vector3(3000, 1, 1270), Art.Hex("#9a9184"), false, "hinterland");
+            Art.Box(R, new Vector3(-900, -0.6f, 300), new Vector3(1300, 1, 900), Art.Hex("#9a9184"), false, "hinterland_w");
         }
 
         // 12 m quay-wall blocks along every edge that meets the water (top flush with the slabs).
@@ -104,6 +107,15 @@ namespace PortBoss
             On("woodStack", new Vector3(-22, 0, -14), 30, 0.7f, true);
             On("cageBarrels", new Vector3(24, 0, -10), 15, 0.7f, true);
             On("forklift", new Vector3(-26, 0, -20), 140, 1f, true);
+            // The back of our plot: old sheds, a broken-down truck, a rusty container pile, junk.
+            int w = 0;
+            foreach (var n in new[] { "whRed", "whWhite", "whGreen" }) On(n, new Vector3(-48 + w++ * 34, 0, -70), 0, 0.9f, true);
+            On("trailer", new Vector3(-34, 0, -30), 70, 1f, true);
+            On("truckB", new Vector3(-27, 0, -42), 200, 1f, true);
+            for (int i = 0; i < 7; i++) On("cont" + (i * 3 % 6), new Vector3(-38 + (i % 3) * 3.4f, (i / 3) * 3f, -52), 0, 1f, i < 3);
+            for (int i = 0; i < 5; i++) On("woodStack", new Vector3(-16 + i * 4.5f, 0, -46), i * 37, 0.6f, true);
+            On("cageBarrels", new Vector3(-8, 0, -32), 60, 0.6f, true);
+            On("cageBarrels", new Vector3(-5.5f, 0, -31), 20, 0.6f, true);
             // Our plot ends at a chain-link line of containers; the neighbours' yard starts behind it.
             for (int i = 0; i < 6; i++) On("cont" + (i % 6), new Vector3(46 + (i % 2) * 0.4f, 0, -50 + i * 6.4f), 0, 1f, true);
         }

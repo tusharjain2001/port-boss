@@ -61,7 +61,17 @@ namespace PortBoss
             if (Arg("-pb-noclouds")) CloudMat = null;
             Art.Lit = LitMat; Art.Emissive = EmissiveMat; Art.Particle = ParticleMat; Art.WaterMat = WaterMat; Art.Cloud = CloudMat;
             Skin.I = Skin;
-            if (Skin.On && !Arg("-pb-ownart")) { Art.Toon = Skin.Toon; if (Skin.ToonWater != null) Art.WaterMat = Skin.ToonWater; }
+            if (Skin.On && !Arg("-pb-ownart"))
+            {
+                Art.Toon = Skin.Toon;
+                if (Skin.ToonWater != null)
+                {
+                    // The pack water, a touch calmer in pattern and more opaque near the surface (swimmers sit chest-deep in it).
+                    var wm = new Material(Skin.ToonWater);
+                    wm.SetFloat("_DistortionAmount1", 0.5f); wm.SetFloat("_DistortionAmount2", 0.3f); wm.SetFloat("_DepthFadeDistance", 1.6f);
+                    Art.WaterMat = wm;
+                }
+            }
             else Skin.I = null; // -pb-ownart: the pre-pack look, for A/B shots
             Application.targetFrameRate = 144;
             World.Build();
@@ -119,6 +129,7 @@ namespace PortBoss
                 // Toon Harbor's own sky, fog and grading (its demo scene), minus depth of field + chromatic aberration (gameplay).
                 RenderSettings.skybox = new Material(Skin.I.Sky);
                 DynamicGI.UpdateEnvironment(); // reflections (the toon water) follow the new sky, not the one baked into the scene
+                RenderSettings.reflectionIntensity = 0.55f; // less pale sky in the water: the demo's deep blue
                 RenderSettings.fogMode = FogMode.Linear; RenderSettings.fogStartDistance = 300; RenderSettings.fogEndDistance = 1200;
                 var tp = Instantiate(Skin.I.Post);
                 if (tp.TryGet(out DepthOfField dof)) dof.active = false;

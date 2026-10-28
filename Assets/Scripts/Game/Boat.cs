@@ -78,6 +78,44 @@ namespace PortBoss
             }
             Rail(new Vector3(0, 0, HalfL - 0.06f), new Vector3(HalfW * 2, 0.45f, 0.1f));
             Rail(new Vector3(0, 0, -HalfL + 0.06f), new Vector3(HalfW * 2, 0.45f, 0.1f));
+            if (Skin.On && Skin.Get("tugStern") != null) TugLook(v);
+        }
+
+        // Toon Harbor look: a small tug built from the pack's modular parts around our own colliders and deck.
+        // Our boxes stay as the physics (hidden); the pack deck is lined up with DeckY by a raycast onto its collider.
+        void TugLook(Transform v)
+        {
+            foreach (var r in GetComponentsInChildren<Renderer>()) r.enabled = false;
+            const float k = 0.44f;
+            var stern = Art.Place(Skin.Get("tugStern"), v, Vector3.zero, 0, k, true);
+            var bow = Art.Place(Skin.Get("tugBow"), v, Vector3.zero, 0, k, true);
+            if (stern == null || bow == null) return;
+            // End to end along +z: the stern's back at the transom (-HalfL), the bow straight after it.
+            var bs = Art.Bounds(stern);
+            stern.transform.position += new Vector3(transform.position.x - bs.center.x, 0, (transform.position.z - HalfL) - bs.min.z);
+            bs = Art.Bounds(stern);
+            var bb = Art.Bounds(bow);
+            bow.transform.position += new Vector3(bs.center.x - bb.center.x, 0, bs.max.z - bb.min.z - 0.05f);
+            // Deck height: cast down onto the stern piece's deck.
+            Physics.SyncTransforms();
+            float deck = float.NaN;
+            var top = new Vector3(bs.center.x, bs.max.y + 5, transform.position.z - 1f);
+            foreach (var h in Physics.RaycastAll(top, Vector3.down, 60f))
+                if (h.collider.transform.IsChildOf(stern.transform) && (float.IsNaN(deck) || h.point.y > deck - 2f) && h.normal.y > 0.8f) deck = float.IsNaN(deck) ? h.point.y : Mathf.Min(deck, h.point.y);
+            if (float.IsNaN(deck)) deck = bs.min.y + bs.size.y * 0.55f;
+            float dy = (transform.position.y + DeckY) - deck;
+            stern.transform.position += Vector3.up * dy; bow.transform.position += Vector3.up * dy;
+            foreach (var c in stern.GetComponentsInChildren<Collider>()) DestroyImmediate(c); // now: we are still at the origin, on the quay crates
+            foreach (var c in bow.GetComponentsInChildren<Collider>()) DestroyImmediate(c);
+            // Bridge on the stern deck, a pack worker as the captain.
+            var br = Art.Place(Skin.Get("tugBridge"), v, Vector3.zero, 0, k);
+            if (br != null) { var b2 = Art.Bounds(br); br.transform.position += new Vector3(transform.position.x - b2.center.x, transform.position.y + DeckY - b2.min.y, (transform.position.z - HalfL + 2.0f) - b2.center.z); }
+            if (Skin.I.Buyer != null)
+            {
+                var cap = Art.Place(Skin.I.Buyer, v, new Vector3(-1.2f, DeckY, -1.6f), 90, 1f);
+                var an = cap.GetComponentInChildren<Animator>();
+                if (an != null) an.gameObject.AddComponent<CharAnim>().Init(an, Skin.I);
+            }
         }
 
         void Rail(Vector3 p, Vector3 s) => Art.Box(transform, p + Vector3.up * (DeckY + s.y / 2), s, Art.Cream, true, "rail");
@@ -226,10 +264,11 @@ namespace PortBoss
             var ahead = rot * Vector3.forward * 4f;
             float y = Water.Height(p.x, p.z, tw) + 0.1f;
             float roll = (Water.Height(p.x + right.x, p.z + right.z, tw) - Water.Height(p.x - right.x, p.z - right.z, tw)) * 9f + Mathf.Sin(tw * 0.9f) * 2.5f
+                + Mathf.Pow(Mathf.Clamp01((Storm.Level - 0.6f) / 0.4f), 2) * 7f // heeling away from the wind in a storm
                 + Speedboat.WakeAt(p) * 7f * Mathf.Sin(tw * 2.4f); // rival's wake rocks the boat
             float pitch = (Water.Height(p.x - ahead.x, p.z - ahead.z, tw) - Water.Height(p.x + ahead.x, p.z + ahead.z, tw)) * 5f + Mathf.Sin(tw * 0.63f + 1f) * 1.2f;
             // Rough weather rocks her harder, but a grey day shouldn't tip the catch off the deck: cap by severity.
-            float L2 = Storm.Level * Storm.Level, maxRoll = 3f + 9f * L2, maxPitch = 1.5f + 5f * L2;
+            float L2 = Storm.Level * Storm.Level, L4 = L2 * L2, maxRoll = 3f + 6f * L2 + 8f * L4, maxPitch = 1.5f + 6f * L2;
             roll = Mathf.Clamp(roll, -maxRoll, maxRoll); pitch = Mathf.Clamp(pitch, -maxPitch, maxPitch);
             rb.MovePosition(new Vector3(p.x, y, p.z));
             rb.MoveRotation(rot * Quaternion.Euler(pitch, 0, roll));
