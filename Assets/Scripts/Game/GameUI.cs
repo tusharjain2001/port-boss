@@ -15,8 +15,10 @@ namespace PortBoss
         public GameObject CratePrefab, BoatPrefab, TrolleyPrefab, PortGamePrefab;
         public Material LitMat, EmissiveMat, ParticleMat, WaterMat, CloudMat;
         public GameObject[] Models; public int[] ModelKit; public Material[] KitMats;
+        public Font TitleFont;
+        public GameObject[] Characters; public AnimationClip[] CharacterClips; // by CharAnim.Slot
 
-        enum Screen { Menu, Join, Playing }
+        enum Screen { Menu, Join, Settings, Playing }
         Screen screen = Screen.Menu;
         bool paused, showHelp = true;
         string lanIp = "127.0.0.1";
@@ -29,6 +31,12 @@ namespace PortBoss
         static readonly List<Pop> pops = new();
 
         Light sun;
+        AudioSource amb;
+        Music music;
+        GameObject menuBoat;
+        Screen settingsReturn = Screen.Menu;
+        bool settingsFromPause;
+        string hovered;
         Camera cam;
         float lastEarned;
 
@@ -50,9 +58,10 @@ namespace PortBoss
             Gull.Spawn(7);
             SetupCameraAndLight();
             Session.InitSteam();
-            var amb = gameObject.AddComponent<AudioSource>();
+            amb = gameObject.AddComponent<AudioSource>();
             amb.clip = Sfx.Clip("waves"); amb.loop = true; amb.volume = 0.35f; amb.spatialBlend = 0;
             if (amb.clip != null) amb.Play();
+            music = Music.Create();
         }
 
 
@@ -126,6 +135,9 @@ namespace PortBoss
             Session.Tick();
             var g = PortGame.I;
             if (g != null) ApplyLight(Mathf.Clamp01(g.DayT.Value / PortGame.DayLength), g.Phase.Value == PortGame.Ph.Night);
+            else ApplyLight(0.8f, false); // the title scene sits in golden hour
+            amb.volume = 0.35f * Settings.Sfx;
+            music.Play(MusicSlot(g));
 
             var k = Keyboard.current;
             if (screen == Screen.Playing && k != null)
@@ -146,10 +158,42 @@ namespace PortBoss
             // Menu backdrop: slow orbit over the pier.
             if (Player.Local == null)
             {
-                float a = Time.unscaledTime * 0.04f;
-                var c = new Vector3(2, 0, 14);
-                cam.transform.position = c + new Vector3(Mathf.Sin(a) * 26, 9, -Mathf.Cos(a) * 26);
-                cam.transform.LookAt(c + Vector3.up * 1.5f);
+                // Title scene: a slow drifting camera over the pier and a boat bobbing alongside.
+                if (menuBoat == null && !nm.IsListening) menuBoat = MenuBoat();
+                float a = Time.unscaledTime * 0.035f;
+                var focus = new Vector3(3, 1.2f, 15 + Mathf.Sin(a * 0.7f) * 4);
+                cam.transform.position = new Vector3(-16 + Mathf.Sin(a) * 9, 5.5f + Mathf.Sin(a * 1.3f) * 1.2f, -6 + Mathf.Cos(a) * 5);
+                cam.transform.rotation = Quaternion.Slerp(cam.transform.rotation, Quaternion.LookRotation(focus - cam.transform.position), 1 - Mathf.Exp(-2f * Time.unscaledDeltaTime));
+            }
+            if (menuBoat != null && nm.IsListening) Destroy(menuBoat);
+        }
+
+        string MusicSlot(PortGame g)
+        {
+            if (screen != Screen.Playing || g == null) return "menu";
+            if (g.Phase.Value == PortGame.Ph.Night) return "night";
+            foreach (var b in Boat.All)
+                if (b.State.Value == Boat.St.Docked && b.SecondsLeft.Value >= 0 && b.SecondsLeft.Value <= 30) return "rush";
+            return "day";
+        }
+
+        // Decorative, unspawned boat for the title scene (its scripts stay idle without a session).
+        GameObject MenuBoat()
+        {
+            var b = Instantiate(BoatPrefab);
+            b.GetComponent<Boat>().enabled = false;
+            b.AddComponent<Bob>();
+            return b;
+        }
+
+        class Bob : MonoBehaviour
+        {
+            void Update()
+            {
+                float t = Time.time;
+                var p = Boat.DockPos;
+                transform.SetPositionAndRotation(new Vector3(p.x, Water.Height(p.x, p.z, t) + 0.1f, p.z),
+                    Quaternion.LookRotation(Vector3.back) * Quaternion.Euler(Mathf.Sin(t * 0.63f) * 1.5f, 0, Mathf.Sin(t * 0.9f) * 3f));
             }
         }
 
@@ -176,7 +220,17 @@ namespace PortBoss
         public static void Popup(Vector3 p, string s, Color c) => pops.Add(new Pop { p = p, s = s, c = c, t0 = Time.unscaledTime });
 
         // ---------- drawing ----------
-        GUIStyle big, mid, small, btn, panel, shoutS;
+        GUIStyle big, mid, small, btn, panel, shoutS, title, menuItem;
+        Texture2D fadeTex;
+
+        // Left-to-right dark fade behind the menu column.
+        static Texture2D Gradient()
+        {
+            var t = new Texture2D(256, 1) { wrapMode = TextureWrapMode.Clamp };
+            for (int x = 0; x < 256; x++) t.SetPixel(x, 0, new Color(0.03f, 0.05f, 0.08f, 0.78f * Mathf.Pow(1 - x / 255f, 1.4f)));
+            t.Apply();
+            return t;
+        }
         Texture2D panelTex, btnTex, btnHot;
         float S => UnityEngine.Screen.height / 1080f;
 
@@ -191,6 +245,10 @@ namespace PortBoss
             big = new GUIStyle(GUI.skin.label) { fontSize = Mathf.RoundToInt(64 * S), fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, wordWrap = true };
             mid = new GUIStyle(big) { fontSize = Mathf.RoundToInt(30 * S) };
             small = new GUIStyle(big) { fontSize = Mathf.RoundToInt(20 * S), fontStyle = FontStyle.Normal, alignment = TextAnchor.UpperLeft };
+            title = new GUIStyle(big) { fontSize = Mathf.RoundToInt(132 * S), fontStyle = FontStyle.Normal, font = TitleFont, alignment = TextAnchor.MiddleLeft, wordWrap = false };
+            menuItem = new GUIStyle(big) { fontSize = Mathf.RoundToInt(40 * S), fontStyle = FontStyle.Normal, font = TitleFont, alignment = TextAnchor.MiddleLeft };
+            if (TitleFont != null) { big.font = TitleFont; big.fontStyle = FontStyle.Normal; mid.font = TitleFont; mid.fontStyle = FontStyle.Normal; }
+            fadeTex ??= Gradient();
             shoutS = new GUIStyle(big) { fontSize = Mathf.RoundToInt(38 * S) };
             panel = new GUIStyle(GUI.skin.box) { normal = { background = panelTex } };
             btn = new GUIStyle(GUI.skin.button) { fontSize = Mathf.RoundToInt(28 * S), fontStyle = FontStyle.Bold };
@@ -213,7 +271,27 @@ namespace PortBoss
             GUI.enabled = enabled;
             bool b = GUI.Button(r, s, btn);
             GUI.enabled = true;
+            Hover(r, s, enabled);
             if (b) Sfx.Play2D("click", 0.6f);
+            return b;
+        }
+
+        void Hover(Rect r, string id, bool enabled)
+        {
+            if (Event.current.type != EventType.Repaint) return;
+            if (enabled && r.Contains(Event.current.mousePosition)) { if (hovered != id) { hovered = id; Sfx.Play2D("hover", 0.35f); } }
+            else if (hovered == id) hovered = null;
+        }
+
+        // Text menu entry for the front door: hover slides it right and lights it up.
+        bool MenuItem(Rect r, string s, bool enabled = true)
+        {
+            bool hot = enabled && r.Contains(Event.current.mousePosition);
+            var rr = new Rect(r.x + (hot ? 18 * S : 0), r.y, r.width, r.height);
+            Label(rr, (hot ? "› " : "") + s, menuItem, !enabled ? new Color(1, 1, 1, 0.3f) : hot ? new Color(1f, 0.8f, 0.4f) : new Color(1f, 0.96f, 0.88f));
+            Hover(r, s, enabled);
+            bool b = enabled && GUI.Button(r, GUIContent.none, GUIStyle.none);
+            if (b) Sfx.Play2D("click", 0.7f);
             return b;
         }
 
@@ -223,12 +301,13 @@ namespace PortBoss
             float W = UnityEngine.Screen.width, H = UnityEngine.Screen.height;
             if (screen == Screen.Menu) DrawMenu(W, H);
             else if (screen == Screen.Join) DrawJoin(W, H);
+            else if (screen == Screen.Settings) DrawSettings(W, H);
             else
             {
                 DrawHud(W, H);
                 if (PortGame.I != null && PortGame.I.Phase.Value == PortGame.Ph.Night) DrawNight(W, H);
                 else if (buyerOpen) DrawBuyer(W, H);
-                if (paused) DrawPause(W, H);
+                if (paused) { if (settingsFromPause) DrawSettings(W, H); else DrawPause(W, H); }
             }
             if (!string.IsNullOrEmpty(Session.Status) && screen != Screen.Playing)
                 Label(new Rect(0, H - 80 * S, W, 50 * S), Session.Status, mid, new Color(1f, 0.8f, 0.6f));
@@ -236,14 +315,76 @@ namespace PortBoss
 
         void DrawMenu(float W, float H)
         {
-            Label(new Rect(0, H * 0.12f, W, 120 * S), "PORT BOSS", new GUIStyle(big) { fontSize = Mathf.RoundToInt(110 * S) }, new Color(1f, 0.93f, 0.8f));
-            Label(new Rect(0, H * 0.12f + 115 * S, W, 50 * S), "A fishing pier. A boat. Two minutes.", mid, new Color(1f, 0.85f, 0.65f));
-            float bw = 380 * S, bh = 64 * S, x = (W - bw) / 2, y = H * 0.42f, gap = 80 * S;
-            if (Button(new Rect(x, y, bw, bh), "Play")) Play();
-            if (Button(new Rect(x, y + gap, bw, bh), "Host co-op (Steam)", Session.SteamOk)) Host(false);
-            if (Button(new Rect(x, y + gap * 2, bw, bh), "Join")) { screen = Screen.Join; Refresh(); }
-            if (Button(new Rect(x, y + gap * 3, bw, bh), "Quit")) Application.Quit();
-            Label(new Rect(20 * S, H - 40 * S, W, 30 * S), Session.SteamOk ? $"Steam: {Steamworks.SteamClient.Name} · app 480 (test)" : "Steam: offline", small, new Color(1, 1, 1, 0.6f));
+            GUI.DrawTexture(new Rect(0, 0, W * 0.55f, H), fadeTex);
+            float x = 90 * S;
+            // Title: gold slab type with a deep shadow + outline, a rope rule, a tagline.
+            var tr = new Rect(x, H * 0.12f, W, 150 * S);
+            var ink = new Color(0.05f, 0.08f, 0.13f, 0.95f);
+            for (int dx = -1; dx <= 1; dx++) for (int dy = -1; dy <= 1; dy++)
+                Label(new Rect(tr.x + dx * 3 * S, tr.y + dy * 3 * S + 4 * S, tr.width, tr.height), "PORT BOSS", title, ink);
+            Label(tr, "PORT BOSS", title, new Color(0.98f, 0.79f, 0.38f));
+            for (int i = 0; i < 26; i++)
+                GUI.DrawTexture(new Rect(x + 6 * S + i * 25 * S, tr.yMax + 4 * S + (i % 2) * 3 * S, 18 * S, 6 * S), Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(0.82f, 0.68f, 0.45f, 0.9f), 0, 3 * S);
+            Label(new Rect(x + 4 * S, tr.yMax + 22 * S, W, 40 * S), "A FISHING PIER  ·  A BOAT  ·  TWO MINUTES", new GUIStyle(small) { fontSize = Mathf.RoundToInt(22 * S), fontStyle = FontStyle.Bold }, new Color(1f, 0.9f, 0.75f, 0.9f));
+
+            float y = H * 0.46f, gap = 66 * S, w = 520 * S, h = 58 * S;
+            if (MenuItem(new Rect(x, y, w, h), "Play")) Play();
+            if (MenuItem(new Rect(x, y + gap, w, h), "Host co-op", Session.SteamOk)) Host(false);
+            if (MenuItem(new Rect(x, y + gap * 2, w, h), "Join a friend")) { screen = Screen.Join; Refresh(); }
+            if (MenuItem(new Rect(x, y + gap * 3, w, h), "Settings")) { settingsFromPause = false; screen = Screen.Settings; }
+            if (MenuItem(new Rect(x, y + gap * 4, w, h), "Quit")) Application.Quit();
+
+            Label(new Rect(x, H - 52 * S, W, 30 * S), Session.SteamOk ? $"Steam: {Steamworks.SteamClient.Name}  ·  co-op via test app 480" : "Steam offline: solo works, co-op needs Steam", small, new Color(1, 1, 1, 0.6f));
+            Label(new Rect(W - 520 * S, H - 52 * S, 500 * S, 30 * S), $"v{Application.version}  ·  overnight build", new GUIStyle(small) { alignment = TextAnchor.UpperRight }, new Color(1, 1, 1, 0.5f));
+        }
+
+        void DrawSettings(float W, float H)
+        {
+            float pw = 720 * S, ph = 560 * S;
+            var r = new Rect((W - pw) / 2, (H - ph) / 2, pw, ph);
+            GUI.Box(r, "", panel);
+            Label(new Rect(r.x, r.y + 18 * S, pw, 60 * S), "Settings", mid, new Color(1f, 0.85f, 0.55f));
+            var st = new GUIStyle(small) { fontSize = Mathf.RoundToInt(24 * S), alignment = TextAnchor.MiddleLeft };
+            float y = r.y + 100 * S, lx = r.x + 40 * S, sx = r.x + 300 * S, sw = 340 * S, lh = 62 * S;
+            Settings.Music = Slider(new Rect(lx, y, 240 * S, 40 * S), new Rect(sx, y + 14 * S, sw, 20 * S), "Music", Settings.Music, 0, 1, st); y += lh;
+            Settings.Sfx = Slider(new Rect(lx, y, 240 * S, 40 * S), new Rect(sx, y + 14 * S, sw, 20 * S), "Sound", Settings.Sfx, 0, 1, st); y += lh;
+            Settings.Sensitivity = Slider(new Rect(lx, y, 240 * S, 40 * S), new Rect(sx, y + 14 * S, sw, 20 * S), "Mouse", Settings.Sensitivity, 0.2f, 3f, st); y += lh;
+            Label(new Rect(lx, y, 240 * S, 40 * S), "Invert mouse Y", st, Color.white);
+            if (Button(new Rect(sx, y, 160 * S, 44 * S), Settings.InvertY ? "On" : "Off")) Settings.InvertY = !Settings.InvertY; y += lh;
+            Label(new Rect(lx, y, 240 * S, 40 * S), "Window", st, Color.white);
+            if (Button(new Rect(sx, y, 340 * S, 44 * S), UnityEngine.Screen.fullScreen ? "Fullscreen" : "Windowed"))
+                UnityEngine.Screen.fullScreenMode = UnityEngine.Screen.fullScreen ? FullScreenMode.Windowed : FullScreenMode.FullScreenWindow;
+            y += lh;
+            Label(new Rect(lx, y, 240 * S, 40 * S), "Resolution", st, Color.white);
+            var cur = $"{UnityEngine.Screen.width} x {UnityEngine.Screen.height}";
+            if (Button(new Rect(sx, y, 340 * S, 44 * S), cur)) NextResolution();
+            if (Music.Current == "" && Settings.Music > 0)
+                Label(new Rect(r.x, r.yMax - 130 * S, pw, 30 * S), "(No music files yet: they're being made.)", new GUIStyle(small) { alignment = TextAnchor.UpperCenter }, new Color(1, 1, 1, 0.45f));
+            if (Button(new Rect(r.x + (pw - 240 * S) / 2, r.yMax - 84 * S, 240 * S, 58 * S), "Back"))
+            {
+                PlayerPrefs.Save();
+                if (settingsFromPause) settingsFromPause = false; else screen = Screen.Menu;
+            }
+        }
+
+        float Slider(Rect labelR, Rect sliderR, string name, float v, float min, float max, GUIStyle st)
+        {
+            Label(labelR, $"{name}  {Mathf.RoundToInt((v - min) / (max - min) * 100)}%", st, Color.white);
+            return GUI.HorizontalSlider(sliderR, v, min, max);
+        }
+
+        static void NextResolution()
+        {
+            var list = UnityEngine.Screen.resolutions;
+            if (list.Length == 0) return;
+            int cur = System.Array.FindIndex(list, r => r.width == UnityEngine.Screen.width && r.height == UnityEngine.Screen.height);
+            // Step through distinct sizes (resolutions repeat per refresh rate).
+            for (int i = 1; i <= list.Length; i++)
+            {
+                var n = list[(cur + i + list.Length) % list.Length];
+                if (n.width != UnityEngine.Screen.width || n.height != UnityEngine.Screen.height)
+                { UnityEngine.Screen.SetResolution(n.width, n.height, UnityEngine.Screen.fullScreenMode); return; }
+            }
         }
 
         async void Refresh()
@@ -421,8 +562,9 @@ namespace PortBoss
             float bw = 380 * S, bh = 64 * S, x = (W - bw) / 2, y = H * 0.38f, gap = 80 * S;
             if (Button(new Rect(x, y, bw, bh), "Resume")) SetPaused(false);
             if (Session.Lobby != null && Button(new Rect(x, y + gap, bw, bh), "Invite Steam friends")) Session.Invite();
-            if (Button(new Rect(x, y + gap * 2, bw, bh), "Quit to menu")) BackToMenu();
-            if (Button(new Rect(x, y + gap * 3, bw, bh), "Quit game")) Application.Quit();
+            if (Button(new Rect(x, y + gap * 2, bw, bh), "Settings")) settingsFromPause = true;
+            if (Button(new Rect(x, y + gap * 3, bw, bh), "Quit to menu")) BackToMenu();
+            if (Button(new Rect(x, y + gap * 4, bw, bh), "Quit game")) Application.Quit();
         }
     }
 }

@@ -13,6 +13,7 @@ namespace PortBoss
         public static readonly List<Boat> All = new();
 
         public NetworkVariable<St> State = new(St.Arriving);
+        public NetworkVariable<short> SecondsLeft = new(-1); // while docked
         public const float DeckY = 1.6f, HalfW = 2.3f, HalfL = 6f, DockSeconds = 120f, SailSeconds = 34f;
         public static readonly Vector3 DockPos = new(7.6f, 0, 16f);
         // In from the open sea to the north-east, round the lighthouse, alongside the pier; out the same way.
@@ -115,6 +116,8 @@ namespace PortBoss
                 {
                     Pose(DockPos, Vector3.back);
                     countdown -= dt;
+                    short secs = (short)Mathf.CeilToInt(Mathf.Max(0, countdown));
+                    if (secs != SecondsLeft.Value) SecondsLeft.Value = secs;
                     if (shoutIdx < Marks.Length && countdown <= Marks[shoutIdx])
                     {
                         game?.Shout("CAPTAIN MAGS", PortGame.Pick(MarkLines[shoutIdx]), 3.5f);

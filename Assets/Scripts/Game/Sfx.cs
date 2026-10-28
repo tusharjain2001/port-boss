@@ -25,7 +25,7 @@ namespace PortBoss
             var g = new GameObject("sfx_" + name);
             g.transform.position = pos;
             var s = g.AddComponent<AudioSource>();
-            s.clip = clip; s.volume = vol; s.pitch = pitch * Random.Range(0.94f, 1.06f);
+            s.clip = clip; s.volume = vol * Settings.Sfx; s.pitch = pitch * Random.Range(0.94f, 1.06f);
             s.spatialBlend = 0.85f; s.minDistance = 4f; s.maxDistance = 120f; s.rolloffMode = AudioRolloffMode.Linear;
             s.Play();
             Object.Destroy(g, clip.length / Mathf.Max(0.1f, s.pitch) + 0.1f);
@@ -35,7 +35,7 @@ namespace PortBoss
         {
             var clip = Clip(name);
             if (clip == null || Camera.main == null) return;
-            AudioSource.PlayClipAtPoint(clip, Camera.main.transform.position, vol);
+            AudioSource.PlayClipAtPoint(clip, Camera.main.transform.position, vol * Settings.Sfx);
         }
 
         static AudioClip Synth(string name)

@@ -110,6 +110,7 @@ namespace PortBoss.EditorTools
                 }
             }
             var ui = new GameObject("Game").AddComponent<GameUI>();
+            ui.TitleFont = AssetDatabase.LoadAssetAtPath<Font>("Assets/Art/Fonts/AlfaSlabOne-Regular.ttf");
             ui.Models = models.ToArray(); ui.ModelKit = kits.ToArray(); ui.KitMats = kitMats.ToArray();
             ui.CratePrefab = crate; ui.BoatPrefab = boat; ui.TrolleyPrefab = trolley; ui.PortGamePrefab = game;
             ui.LitMat = litMat; ui.EmissiveMat = emis; ui.ParticleMat = part; ui.WaterMat = water; ui.CloudMat = cloud;
@@ -124,6 +125,7 @@ namespace PortBoss.EditorTools
             }
 
             PlayerSettings.productName = "Port Boss";
+            PlayerSettings.bundleVersion = "0.3.0";
             PlayerSettings.companyName = "Port Boss";
             PlayerSettings.fullScreenMode = FullScreenMode.Windowed;
             PlayerSettings.defaultScreenWidth = 1920;
