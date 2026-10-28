@@ -23,6 +23,10 @@ namespace PortBoss
             EastTerminal();
             WestTerminal();
             Breakwater();
+            Roads();
+            Industry();
+            Hinterland();
+            Check();
         }
 
         // A pack prefab standing on y = pos.y (its lowest point there), or with its top at y (Top).
@@ -31,8 +35,50 @@ namespace PortBoss
             var g = Art.Place(Skin.Get(n), R, pos, yaw, scale, colliders);
             if (g == null) return null;
             g.transform.position += Vector3.up * (pos.y - Art.Bounds(g).min.y);
+            placed.Add((g, pos.y));
             return g;
         }
+
+        // Automated check: everything stood on the ground must be upright and flush (tilt <= 2 deg, |gap| <= 0.2 m).
+        static readonly System.Collections.Generic.List<(GameObject g, float y)> placed = new();
+        static void Check()
+        {
+            int bad = 0;
+            Physics.SyncTransforms();
+            foreach (var (g, y) in placed)
+            {
+                if (g == null) continue;
+                float tilt = Vector3.Angle(g.transform.up, Vector3.up), gap = Art.Bounds(g).min.y - y;
+                if (tilt > 2f || Mathf.Abs(gap) > 0.2f) { bad++; Debug.Log($"[PB] map check: {g.name} at {g.transform.position:F1} tilt={tilt:F1} gap={gap:F2}"); }
+                if (y < -0.5f) continue;
+                foreach (var hit in Physics.RaycastAll(g.transform.position + Vector3.up * 0.5f, Vector3.down, 3f))
+                    if (!hit.transform.IsChildOf(g.transform) && hit.point.y < y + 0.3f)
+                    {
+                        if (Mathf.Abs(hit.point.y - y) > 0.2f) { bad++; Debug.Log($"[PB] map check: {g.name} at {g.transform.position:F1} floats/sinks vs ground {hit.point.y:F2}"); }
+                        break;
+                    }
+            }
+            Debug.Log($"[PB] map check: {placed.Count} placed, {bad} flagged");
+            placed.Clear();
+        }
+
+        // A line of a modular prefab (fences) from a to b, each piece butted to the last; skip = every n-th piece missing.
+        static void Run(string n, Vector3 a, Vector3 b, int skip = 0, float lean = 0)
+        {
+            var d = b - a; float yaw = Mathf.Atan2(d.x, d.z) * Mathf.Rad2Deg - 90, len = d.magnitude, at = 0; int i = 0;
+            while (at < len)
+            {
+                var g = On(n, a + d / len * at, yaw);
+                if (g == null) return;
+                var sz = Art.Bounds(g).size; float step = Mathf.Max(1f, Mathf.Abs(d.x) > Mathf.Abs(d.z) ? sz.x : sz.z);
+                g.transform.position += d / len * step / 2;
+                i++;
+                if (skip > 0 && i % skip == 0) { Object.Destroy(g); placed.RemoveAt(placed.Count - 1); }
+                else if (lean != 0 && i % 4 == 2) { g.transform.rotation = Quaternion.AngleAxis(lean, d / len) * g.transform.rotation; placed.RemoveAt(placed.Count - 1); }
+                at += step;
+            }
+        }
+
         static GameObject Top(string n, Vector3 pos, float yaw, Vector3 scale)
         {
             var g = Art.Place(Skin.Get(n), R, pos, yaw, 1f);
@@ -107,9 +153,39 @@ namespace PortBoss
             On("woodStack", new Vector3(-22, 0, -14), 30, 0.7f, true);
             On("cageBarrels", new Vector3(24, 0, -10), 15, 0.7f, true);
             On("forklift", new Vector3(-26, 0, -20), 140, 1f, true);
+            // Shabby but charming: old tyres hung on the quay wall and the jetty as fenders, bollards with rope, junk.
+            foreach (var p in new[] { new Vector3(-30, -0.55f, 0.1f), new Vector3(-21, -0.55f, 0.1f), new Vector3(13, -0.55f, 0.1f), new Vector3(25, -0.55f, 0.1f), new Vector3(38, -0.55f, 0.1f),
+                                      new Vector3(2.75f, World.PierTop - 0.7f, 10), new Vector3(2.75f, World.PierTop - 0.7f, 22), new Vector3(-2.75f, World.PierTop - 0.7f, 16) })
+            {
+                bool side = Mathf.Abs(p.x) < 4;
+                var ty = Art.Prim(PrimitiveType.Cylinder, R, p + (side ? Vector3.right * Mathf.Sign(p.x) * 0.2f : Vector3.forward * 0.2f), Quaternion.Euler(side ? 0 : 90, 0, side ? 90 : 0), new Vector3(0.85f, 0.16f, 0.85f), Art.Hex("#262626"), false, "tyre");
+                Art.Prim(PrimitiveType.Cylinder, R, ty.transform.position + (side ? Vector3.right * Mathf.Sign(p.x) * 0.17f : Vector3.forward * 0.17f), ty.transform.rotation, new Vector3(0.42f, 0.02f, 0.42f), Art.Hex("#3a3a3a"), false, "tyre_hole");
+            }
+            foreach (var x in new[] { -26f, 8f, 33f }) On("bollard", new Vector3(x, 0, -0.8f), 0, 1f);
+            On("rope", new Vector3(-24.6f, 0, -1.6f), 40, 1f);
+            On("wreck", new Vector3(-40, 0, -14), 115, 0.8f, true);
+            On("cableWaste", new Vector3(-34, 0, -22), 30, 1f);
+            On("planks", new Vector3(31, 0, -21), 75, 1f, true);
+            On("bag", new Vector3(28.5f, 0, -20), 0, 1f);
+            On("advertBroken", new Vector3(-24, 0, -57), 90, 0.8f);
+            On("powerbox", new Vector3(14.6f, 0, -14.5f), 180, 1f);
+            On("epole", new Vector3(-6, 0, -58), 0, 1f);
+            for (int i = 0; i < 4; i++) On(i % 2 == 0 ? "pallet" : "crateBig", new Vector3(27 + i * 2.4f, 0, -16 - (i % 2) * 1.6f), i * 25, 1f, true);
+            On("metalCrate", new Vector3(36, 0, -27), 10, 1f, true);
+            for (int i = 0; i < 4; i++)
+            {
+                // Rust streaks and oil on the concrete.
+                var st = Art.Prim(PrimitiveType.Cylinder, R, new Vector3(-20 + i * 13, 0.014f, -26 + (i % 2) * 9), Quaternion.Euler(0, i * 50, 0), new Vector3(2.4f, 0.004f, 1.2f), i % 2 == 0 ? Art.Hex("#7a4a2c") : Art.Hex("#3c3833"), false, "stain");
+                st.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
+            // A sagging, gappy chain-link fence along the back and the east side of our plot.
+            Run("fence", new Vector3(-54, 0, -62), new Vector3(44, 0, -62), 5, 9f);
+            Run("fence", new Vector3(44, 0, -62), new Vector3(44, 0, -8), 6, -8f);
             // The back of our plot: old sheds, a broken-down truck, a rusty container pile, junk.
-            int w = 0;
-            foreach (var n in new[] { "whRed", "whWhite", "whGreen" }) On(n, new Vector3(-48 + w++ * 34, 0, -70), 0, 0.9f, true);
+            // (Flat-roofed: the pack's lean-to sheds read as tilted boxes from the high cameras.)
+            On("office", new Vector3(-44, 0, -72), 0, 1f, true);
+            On("whBlue", new Vector3(-8, 0, -74), 0, 0.8f, true);
+            On("office2", new Vector3(26, 0, -72), 0, 1f, true);
             On("trailer", new Vector3(-34, 0, -30), 70, 1f, true);
             On("truckB", new Vector3(-27, 0, -42), 200, 1f, true);
             for (int i = 0; i < 7; i++) On("cont" + (i * 3 % 6), new Vector3(-38 + (i % 3) * 3.4f, (i / 3) * 3f, -52), 0, 1f, i < 3);
@@ -117,26 +193,34 @@ namespace PortBoss
             On("cageBarrels", new Vector3(-8, 0, -32), 60, 0.6f, true);
             On("cageBarrels", new Vector3(-5.5f, 0, -31), 20, 0.6f, true);
             // Our plot ends at a chain-link line of containers; the neighbours' yard starts behind it.
-            for (int i = 0; i < 6; i++) On("cont" + (i % 6), new Vector3(46 + (i % 2) * 0.4f, 0, -50 + i * 6.4f), 0, 1f, true);
+            for (int i = 0; i < 6; i++) On("cont" + (i % 6), new Vector3(47, 0, -50 + i * 6.4f), 0, 1f, true);
         }
 
+        // Neat blocks of 8 bays x 5 rows (6 m boxes end to end), heights in steps of 1-4, straight 12 m lanes between,
+        // a rubber-tyred yard crane straddling each block and working along it.
         static void ContainerYard(float x0, float x1, float z0, float z1, int seed, bool colliders)
         {
             var rng = new System.Random(seed);
-            for (float z = z0; z < z1; z += 18)          // bands of 4 rows, lanes between
-                for (int row = 0; row < 4; row++)
-                    for (float x = x0; x < x1; x += 7)
+            const float bay = 6.3f, row = 3.05f, lane = 12f;
+            for (float bz = z0; bz + 5 * row <= z1; bz += 5 * row + lane)
+                for (float bx = x0; bx + 8 * bay <= x1; bx += 8 * bay + lane)
+                {
+                    int h0 = 1 + rng.Next(3);
+                    for (int b = 0; b < 8; b++)
                     {
-                        if (rng.Next(9) == 0) continue;  // gaps
-                        int h = 1 + rng.Next(4);
-                        for (int k = 0; k < h; k++)
-                            On("cont" + rng.Next(6), new Vector3(x, k * 3f, z + row * 3.2f), 90, 1f, colliders && k == 0);
+                        int hb = Mathf.Clamp(h0 + (b % 3 == 1 ? 1 : 0) - (b == 7 ? 1 : 0), 1, 4);
+                        for (int r = 0; r < 5; r++)
+                            for (int k = 0; k < hb - (r == 4 && b % 2 == 0 ? 1 : 0); k++)
+                                On("cont" + rng.Next(6), new Vector3(bx + (b + 0.5f) * bay, k * 3f, bz + (r + 0.5f) * row), 90, 1f, colliders && k == 0);
                     }
+                    var c = On("harbourCrane", new Vector3(bx + 8 * bay * (0.25f + 0.5f * (float)rng.NextDouble()), 0, bz + 2.5f * row), 0, 0.55f);
+                    if (c != null) { var m = c.AddComponent<Mover>(); m.Pts = new[] { new Vector3(bx + 8, 0, bz + 2.5f * row), new Vector3(bx + 8 * bay - 8, 0, bz + 2.5f * row) }; m.Speed = 1.2f; m.Face = false; }
+                }
         }
 
         static void EastTerminal()
         {
-            ContainerYard(92, 232, -48, 108, 21, true);
+            ContainerYard(94, 232, -30, 106, 21, true);
             // Ship-to-shore gantries on the basin face, shuttling along their rails.
             foreach (var z in new[] { 45f, 100f })
             {
@@ -184,6 +268,80 @@ namespace PortBoss
             }
             var tr = On("truck", new Vector3(-80, 0, 10), 0, 1f);
             if (tr != null) { var m = tr.AddComponent<Mover>(); m.Pts = new[] { new Vector3(-80, 0, 10), new Vector3(-80, 0, 205), new Vector3(-180, 0, 205), new Vector3(-180, 0, 10) }; m.Speed = 7f; }
+        }
+
+        // Road tiles (12 m, lane markings and kerbs) along a polyline, top flush with the slabs.
+        static void Road(string tile, params Vector3[] pts)
+        {
+            for (int i = 0; i + 1 < pts.Length; i++)
+            {
+                var d = pts[i + 1] - pts[i]; int n = Mathf.Max(1, Mathf.RoundToInt(d.magnitude / 12f));
+                float yaw = Mathf.Atan2(d.x, d.z) * Mathf.Rad2Deg;
+                for (int k = 0; k < n; k++) Top(tile, pts[i] + d * ((k + 0.5f) / n) + Vector3.up * 0.04f, yaw, new Vector3(1, 1, d.magnitude / n / 12f));
+            }
+        }
+
+        static void Roads()
+        {
+            // The trucks' loops, the gantries' rails, the road past our gate with a boom barrier at each terminal.
+            Road("road", new Vector3(86, 0, -42), new Vector3(86, 0, 112), new Vector3(238, 0, 112), new Vector3(238, 0, -42), new Vector3(86, 0, -42));
+            Road("rail", new Vector3(74, 0, 2), new Vector3(74, 0, 110));
+            Road("road", new Vector3(-80, 0, 10), new Vector3(-80, 0, 205), new Vector3(-180, 0, 205), new Vector3(-180, 0, 10), new Vector3(-80, 0, 10));
+            Road("road", new Vector3(-180, 0, 2), new Vector3(-66, 0, 2));
+            On("barrier", new Vector3(-72, 0, 2), 90, 0.7f);
+            On("barrier", new Vector3(86, 0, -36), 0, 0.7f);
+            // Oil stains and puddles across the terminals; a mix of concrete tones.
+            var rng = new System.Random(17);
+            for (int i = 0; i < 70; i++)
+            {
+                bool east = i % 2 == 0;
+                var p = east ? new Vector3(80 + (float)rng.NextDouble() * 160, 0.015f, -50 + (float)rng.NextDouble() * 160) : new Vector3(-235 + (float)rng.NextDouble() * 170, 0.015f, (float)rng.NextDouble() * 220);
+                var st = Art.Prim(PrimitiveType.Cylinder, R, p, Quaternion.Euler(0, (float)rng.NextDouble() * 180, 0), new Vector3(1 + (float)rng.NextDouble() * 3, 0.004f, 0.8f + (float)rng.NextDouble() * 2), i % 3 == 0 ? Art.Hex("#5c6670") : Art.Hex("#4a443c"), false, "stain");
+                st.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
+            for (int i = 0; i < 24; i++)
+            {
+                var p = i % 2 == 0 ? new Vector3(90 + (float)rng.NextDouble() * 150, 0.008f, -40 + (float)rng.NextDouble() * 150) : new Vector3(-230 + (float)rng.NextDouble() * 160, 0.008f, 5 + (float)rng.NextDouble() * 210);
+                var pt = Art.Box(R, p, new Vector3(16, 0.004f, 16), i % 3 == 0 ? Art.Hex("#8c8a86") : Art.Hex("#a39a8c"), false, "patch");
+                pt.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
+        }
+
+        static void Industry()
+        {
+            // A tank farm on the West Terminal (fenced) with a pipe run to the quay on supports.
+            for (int i = 0; i < 8; i++) On(i % 3 == 0 ? "tankB" : i % 3 == 1 ? "tank" : "tankC", new Vector3(-150 + (i % 4) * 11, 0, 19 + (i / 4) * 12), 0, 1.7f, true);
+            Run("fence", new Vector3(-158, 0, 13), new Vector3(-108, 0, 13));
+            Run("fence", new Vector3(-158, 0, 37), new Vector3(-108, 0, 37));
+            for (int i = 0; i < 2; i++) { On("pipeSup", new Vector3(-106 + i * 12, 0, 25), 90, 1f); On("pipe", new Vector3(-100 + i * 12, 2.5f, 25), 90, 1f); }
+            // A pipe run along the back of the East Terminal.
+            for (int i = 0; i < 12; i++) { On("pipeSup", new Vector3(96 + i * 12, 0, -47), 90, 1f); On("pipe", new Vector3(102 + i * 12, 2.5f, -47), 90, 1f); }
+            // Light towers and parked kit in the yards.
+            var rng = new System.Random(23);
+            foreach (var (x, z) in new[] { (98f, 22f), (158f, 22f), (218f, 22f), (98f, 76f), (158f, 76f), (218f, 76f), (-108f, 120f), (-108f, 60f), (-150f, 180f), (-150f, 110f) })
+                On("streetlight", new Vector3(x, 0, z), rng.Next(4) * 90, 2f);
+            foreach (var (n, x, z, yaw) in new[] { ("trailer", 92f, -36f, 0f), ("trailer", 95.5f, -36f, 0f), ("trailer", 99f, -36f, 0f), ("truck", 232f, 60f, 0f), ("forklift", 128f, -38f, 20f), ("forklift", -96f, 100f, 200f), ("trailer", -96f, 40f, 0f), ("truckB", -168f, 40f, 0f), ("forklift", 200f, 18f, 90f) })
+                On(n, new Vector3(x, 0, z), yaw, 1f, true);
+            Run("cfence", new Vector3(240, 0, -62), new Vector3(240, 0, 108));
+        }
+
+        // Behind the port: rows of city blocks, then hills, fading into the fog.
+        static void Hinterland()
+        {
+            var rng = new System.Random(41);
+            for (int r = 0; r < 3; r++)
+                for (float x = -420 + r * 14; x < 640; x += 34 + (float)rng.NextDouble() * 12)
+                {
+                    var b = On("city" + rng.Next(6), new Vector3(x, -0.1f, -120 - r * 46 - (float)rng.NextDouble() * 8), 180, 1.1f + r * 0.25f + (float)rng.NextDouble() * 0.4f);
+                    if (b != null) foreach (var rr in b.GetComponentsInChildren<Renderer>()) rr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                }
+            void Hill(Vector3 c, Vector3 s, string col)
+            {
+                var h = Art.Prim(PrimitiveType.Sphere, R, c, Quaternion.identity, s, Art.Hex(col), false, "hill");
+                h.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
+            for (int i = 0; i < 12; i++) Hill(new Vector3(-900 + i * 200, -30, -520 - (float)rng.NextDouble() * 160), new Vector3(380, 140 + (float)rng.NextDouble() * 110, 240), i % 2 == 0 ? "#7f8c66" : "#8a9572");
+            for (int i = 0; i < 5; i++) Hill(new Vector3(-560 - (i % 2) * 90, -30, -40 + i * 170), new Vector3(300, 110 + i * 15, 220), "#84906a");
         }
 
         // Tetrapods across the harbour mouth, a gap for the channel, a lighthouse on each pier head.

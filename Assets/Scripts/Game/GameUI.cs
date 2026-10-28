@@ -68,7 +68,10 @@ namespace PortBoss
                 {
                     // The pack water, a touch calmer in pattern and more opaque near the surface (swimmers sit chest-deep in it).
                     var wm = new Material(Skin.ToonWater);
-                    wm.SetFloat("_DistortionAmount1", 0.5f); wm.SetFloat("_DistortionAmount2", 0.3f); wm.SetFloat("_DepthFadeDistance", 1.6f);
+                    wm.SetFloat("_DistortionAmount1", 0.5f); wm.SetFloat("_DistortionAmount2", 0.3f); wm.SetFloat("_DepthFadeDistance", 1.2f);
+                    // Fresnel ~1 everywhere: the surface is sky reflection + colour, never the refracted screen (it smeared the quay into the water).
+                    wm.SetFloat("_FresnelPower", 0.02f);
+                    wm.SetColor("_MainColor", new Color(0.0f, 0.045f, 0.11f)); // + the sky reflection = deep harbour blue
                     Art.WaterMat = wm;
                 }
             }

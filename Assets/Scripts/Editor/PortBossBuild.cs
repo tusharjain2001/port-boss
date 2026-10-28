@@ -305,6 +305,16 @@ namespace PortBoss.EditorTools
                     ("woodStack", "Construction Materials/TH_Wood_Stack_02A"), ("cageBarrels", "Cargo/TH_Cage_Barrels_01A"), ("canopy", "Metal Structures/TH_Metal_Structure_Kit_Building_18B"),
                 };
                 for (int c = 0; c < 6; c++) lib.Add(("cont" + c, "Cargo/TH_Shipping_Container_02" + (char)('A' + c)));
+                for (int c = 0; c < 6; c++) lib.Add(("city" + c, "Concrete Buildings/TH_Concrete_Building_Kit_" + new[] { "02A", "04A", "05A", "06A", "08A", "09A" }[c]));
+                lib.AddRange(new[] {
+                    ("road", "Road System/TH_Industrial_Road_Straight_01A"), ("rail", "Road System/TH_Industrial_Road_Tracks_01A"), ("barrier", "Road System/TH_Road_Barrier_01A"),
+                    ("tank", "Pipe System/TH_Liquid_Tank_01A"), ("tankB", "Pipe System/TH_Liquid_Tank_01B"), ("tankC", "Pipe System/TH_Liquid_Tank_01C"),
+                    ("pipe", "Pipe System/TH_Giant_Pipe_Straight_Long_01A"), ("pipeSup", "Pipe System/TH_Giant_Pipe_Straight_Support_01A"),
+                    ("fence", "Props/TH_Metal_Fence_01A_Module"), ("cfence", "Props/TH_Concrete_Fence_01A"), ("advertBroken", "Props/TH_Advertising_Panel_01A_Damaged"),
+                    ("cableWaste", "Props/TH_Metal_Cable_Waste_01A"), ("cableWasteB", "Props/TH_Metal_Cable_Waste_01C"), ("planks", "Props/TH_Plank_Pile_01A"),
+                    ("bag", "Props/TH_Plastic_Bag_01A"), ("rope", "Props/TH_Rope_Pile_1A"), ("bollard", "Props/TH_Rope_Pole_01A"), ("powerbox", "Props/TH_Powerbox_01A"),
+                    ("sand", "Props/TH_Sand_Patch_01A"), ("epole", "Props/TH_Electric_Pole_01A"), ("wreck", "Ships/Boats/TH_Boat_Small_01B"),
+                    ("pallet", "Cargo/TH_Wooden_Pallet_02B"), ("crateBig", "Cargo/TH_Shipping_Wooden_Crate_03A"), ("metalCrate", "Cargo/TH_Shipping_Metal_Crate_01A") });
                 var names = new System.Collections.Generic.List<string>(); var prefabs = new System.Collections.Generic.List<GameObject>();
                 foreach (var (n, pth) in lib) { var g = P(pth); if (g != null) { names.Add(n); prefabs.Add(g); } }
                 k.LibNames = names.ToArray(); k.Lib = prefabs.ToArray();
