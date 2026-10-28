@@ -1,23 +1,24 @@
-# HANDOFF (portboss-w1, overnight)
+# HANDOFF (portboss-w1, overnight 28→29 Oct)
 
-## Done (proven in builds)
-- Day-1 slice: pier, boat (arrive/dock/rock/countdown/leave with cargo), crates (grab/stack 5/drop/throw/topple/float/spoil), trolley, night card + shop, day 2, menu/pause, Steam lobby co-op (same-PC verified; cross-account Steam relay untested).
-- P1 wobble (balance model, visible bend, Steady!), P2 buyer panel. Last good build: Desktop/Port Boss/builds/20261029-0003 (pre-P1/P2!).
+Branch `panoptes/w-portboss-w1` (Kufu pushes). Log of every step: `LOG.md`. Brief: `Desktop/Port Boss/plan/overnight-brief.md` (+ UPDATE 23:59 / 00:10 / 00:30 / 00:40 / 00:45).
 
-## Written, compiled with dotnet (scratchpad cc.sh), NOT yet run in Unity (Unity paused for Manan's game)
-- P3: captain/buyer personality lines, speech banner with speaker, 90/60/30/10 marks + horn toot, cargo 8/11/14.
-- P4: open sea NE (right headland cut at z~120), lighthouse, horizon islands, drifting Kenney ships, Kenney ships at the rival quay, boat path from the open sea (34 s sail).
-- P5: Gulls.cs (circle/glide/land on perches/take off near players, flapping wings, calls).
-- P6: PortBoss/Water.shader (ripples, fresnel sky, glint, depth tint, contact + crest foam), clouds, exp² fog, skybox tweaks, sky globals, URP asset: shadows 110 m/4096, MSAA 4x, HDR grading, SSAO stronger; wet posts.
+## Rules in force right now
+- **PC busy (Manan gaming): no Unity, no game windows, nothing that can pop up.** Only hidden light tools (git, `dotnet` compile check). Wait for Kufu's "PC is free".
+- **Art direction: stylised cp2 look** (build `20261029-0003`). No PBR/HDRI/realistic characters. No visual change ships without a same-camera A/B vs cp2. `docs/ART-PLAN.md` awaits Kufu + Manan.
+- Hold per-item messages: ONE summary to Kufu when the PC is free. report_done only at the end (~10:45) with the newest build.
 
-## Queue for when Unity is free (in order)
-1. ubuild dev; check log for shader errors ("PortBoss/Water shader missing" / shader compile errors).
-2. Windowed bot run: screenshots of water/foam/sky/clouds/lighthouse/gulls/rival quay; check gull orientation (beak forward) + wing flap axis.
-3. P3 shouts readable (speech banner) in screenshots.
-4. Full-day 4x run: boats on the new path don't clip the lighthouse/rocks; cargo ramp ok.
-5. Wobble test + buyer test regression; co-op 2-instance regression.
-6. Release build -> Desktop/Port Boss/builds/<stamp>/ + HOW-TO-PLAY.md; message kufu per item (P3, P4, P5, P6).
+## Proven in builds (before the pause)
+Day-1 loop, wobble (P1), buyer panel (P2), trolley, night shop, day 2, Steam-lobby co-op (same PC), title scene (P8), water shader + clouds + lighthouse + open sea (P4/P6 parts), gulls flying (P5), menu boat.
+Last Desktop build: `Desktop/Port Boss/builds/20261029-0003` (cp2, pre-polish). Dev build: `Builds/dev` in the worktree (Manan ran this one: it had the headless Quaternius character, since removed).
 
-## Next
-- P7 character (waiting for assets-incoming/Characters), PBR textures + HDRI (waiting).
-- Then backlog from overnight-brief.md (co-op first).
+## Written + compile-checked, NOT yet run (needs the regression run)
+P3 shouts/captains · P7 chunky primitive dockhand (procedural anims) · P9 music (night track in, from sunset) · P10 swimming (ladders, tow, slipway) · P11 settings page (5 tabs, live apply, rebinding, gamepad) · backlog 4 rival speedboat + wake · 5 contract board · 6 second berth + day schedules · 7 knockdown + crate damage · 8 pier repair + sagging end · 9 forklift + pallets · 10 storm + tie-downs · 11 gull raids + end-of-day verdict · revert of PBR/HDRI/LDR grading.
+
+## When the PC is free, in order
+1. `bash <scratchpad>/regress.sh <scratchpad>/reg1`: builds `Builds/dev` and runs menu/settings/solo/wobble/trolley/swim/pier/knock/contract/day2/night/storm/forklift/chars, A/B vs cp2 (`ab-old` vs `ab-new`, same spawn camera), and a 2-instance co-op run. Read the summary + look at the shots.
+2. Fix what breaks. Back out any visual that looks worse than cp2 in the A/B.
+3. Release build → `Desktop/Port Boss/builds/<stamp>/` + `docs/HOW-TO-PLAY.md`.
+4. ONE summary message to Kufu (shots: A/B pair, character front/side, swim, storm, forklift, settings, night card with contract board).
+5. Final: 3–5 screenshots + a 30–60 s capture of a bot playthrough (frames → ffmpeg), report_done ~10:45.
+
+Scratchpad scripts: `ubuild.sh` (headless build), `release.sh`, `cc.sh` (dotnet compile check, no Unity), `regress.sh`.
