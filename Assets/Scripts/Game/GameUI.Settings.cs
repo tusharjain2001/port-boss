@@ -12,7 +12,7 @@ namespace PortBoss
         int tab;
         string rebinding; // action id waiting for a key
         Vector2 scroll;
-        ColorAdjustments colorAdj;
+        ColorAdjustments colorAdj; float exposureBase = 0.25f;
         Material waterLow, waterHigh;
 
         // Push every setting into the engine. Cheap; called on start and whenever something changes.
@@ -44,7 +44,7 @@ namespace PortBoss
             }
             fogScale = 1200f / Mathf.Max(300f, Settings.ViewDistance);
             if (!oldFog) RenderSettings.fogDensity = 0.0021f * fogScale;
-            if (colorAdj != null) colorAdj.postExposure.Override(0.25f + Settings.Brightness);
+            if (colorAdj != null) colorAdj.postExposure.Override(exposureBase + Settings.Brightness);
             QualitySettings.vSyncCount = Settings.VSync ? 1 : 0;
             int cap = Settings.FpsCaps[Mathf.Clamp(Settings.FpsCap, 0, Settings.FpsCaps.Length - 1)];
             Application.targetFrameRate = cap > 0 ? cap : -1;
@@ -56,7 +56,7 @@ namespace PortBoss
         void ApplyWater()
         {
             if (waterHigh == null) { waterHigh = Art.WaterMat; waterLow = new Material(LitMat); waterLow.SetColor("_BaseColor", new Color(0.13f, 0.3f, 0.36f)); waterLow.SetFloat("_Smoothness", 0.88f); }
-            var m = Settings.WaterHigh ? waterHigh : waterLow;
+            var m = Skin.On ? Art.WaterMat : Settings.WaterHigh ? waterHigh : waterLow; // the skin brings its own water
             foreach (var r in World.WaterRenderers) if (r != null) r.sharedMaterial = m;
         }
 

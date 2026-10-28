@@ -53,7 +53,8 @@ namespace PortBoss
             var c = Colors[(int)(OwnerClientId % (ulong)Colors.Length)];
             model = new GameObject("model").transform;
             model.SetParent(transform, false);
-            BuildDockhand(model, c, (int)OwnerClientId);
+            if (Skin.On && Skin.Pick(Skin.I.Players, 0) != null) BuildWorker(model, (int)OwnerClientId);
+            else BuildDockhand(model, c, (int)OwnerClientId);
             if (IsOwner)
             {
                 Local = this;
@@ -114,8 +115,51 @@ namespace PortBoss
             return p;
         }
 
+        // Toon Harbor dock worker (one outfit per player slot), animated by CharAnim.
+        CharAnim anim;
+        void BuildWorker(Transform m, int id)
+        {
+            var g = Instantiate(Skin.Pick(Skin.I.Players, id), m, false);
+            foreach (var col in g.GetComponentsInChildren<Collider>()) Destroy(col);
+            float h = Art.Bounds(g).size.y;
+            if (h > 0.5f) g.transform.localScale = Vector3.one * Mathf.Clamp(1.8f / h, 0.8f, 1.25f);
+            var a = g.GetComponentInChildren<Animator>();
+            if (a == null) a = g.AddComponent<Animator>();
+            anim = a.gameObject.AddComponent<CharAnim>();
+            anim.Init(a, Skin.I);
+        }
+
+        void AnimateWorker(float speed)
+        {
+            float dt = Time.deltaTime;
+            model.localRotation = Quaternion.identity; model.localPosition = Vector3.zero;
+            bool swimming = transform.position.y < Water.Height(transform.position) - SwimDepth + 0.35f;
+            bool grounded = Mathf.Abs(transform.position.y - lastAnimY) < 0.05f * Mathf.Max(1f, dt * 60f);
+            lastAnimY = transform.position.y;
+            CharAnim.Slot slot;
+            if (Driving != null) { slot = CharAnim.Slot.Drive; model.localPosition = new Vector3(0, -0.15f, 0); }
+            else if (knockT >= 0)
+            {
+                // Knocked over: tip backwards, lie there a moment, scramble up.
+                knockT += dt / 1.2f;
+                float fall = knockT < 0.25f ? knockT / 0.25f : knockT < 0.7f ? 1f : 1f - (knockT - 0.7f) / 0.3f;
+                model.localRotation = Quaternion.Euler(-80f * fall, 0, 8f * fall);
+                model.localPosition = new Vector3(0, 0.15f * fall, -0.4f * fall);
+                slot = CharAnim.Slot.Idle;
+                if (knockT >= 1) knockT = -1;
+            }
+            else if (swimming) { slot = speed > 0.3f ? CharAnim.Slot.Swim : CharAnim.Slot.SwimIdle; model.localPosition = new Vector3(0, SwimModelY, 0); }
+            else slot = !grounded ? CharAnim.Slot.Jump : Pushing ? CharAnim.Slot.Push : speed < 0.3f ? CharAnim.Slot.Idle : speed < 4.6f ? CharAnim.Slot.Walk : CharAnim.Slot.Run;
+            if (throwT >= 0 && (throwT += dt / 0.45f) >= 1) throwT = -1;
+            anim.Carry = Carrying > 0 && !swimming && Driving == null && knockT < 0;
+            anim.Throw01 = throwT;
+            anim.Tick(slot, speed);
+        }
+        const float SwimModelY = 0.55f; // lifts the swim clip so head and shoulders stay above the surface
+
         void Animate(float speed)
         {
+            if (anim != null) { AnimateWorker(speed); return; }
             float dt = Time.deltaTime;
             if (Driving != null)
             {

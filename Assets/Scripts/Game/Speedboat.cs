@@ -23,6 +23,14 @@ namespace PortBoss
             var g = new GameObject("RivalSpeedboat");
             I = g.AddComponent<Speedboat>();
             var t = g.transform;
+            if (Skin.On && Skin.I.Speedboat != null) Art.Place(Skin.I.Speedboat, t, new Vector3(0, -0.35f, 0), 0, 0.42f);
+            else Hull(t);
+            I.AddWake(t);
+        }
+
+        // Own-art hull + Marlowe at the wheel (used when the Toon Harbor skin is off).
+        static void Hull(Transform t)
+        {
             Art.Box(t, new Vector3(0, 0.25f, 0), new Vector3(1.9f, 0.7f, 5f), Art.Red, false, "hull", 0.45f);
             Art.Box(t, new Vector3(0, 0.62f, 0), new Vector3(1.95f, 0.06f, 5.05f), Art.Cream, false, "stripe");
             var bow = Art.Box(t, new Vector3(0, 0.25f, 2.7f), new Vector3(1.34f, 0.69f, 1.34f), Art.Red, false, "bow", 0.45f);
@@ -33,6 +41,11 @@ namespace PortBoss
             Art.Prim(PrimitiveType.Capsule, t, new Vector3(0, 1.2f, -0.6f), Quaternion.identity, new Vector3(0.55f, 0.55f, 0.5f), Art.Cream, false, "marlowe");
             Art.Prim(PrimitiveType.Sphere, t, new Vector3(0, 1.95f, -0.6f), Quaternion.identity, Vector3.one * 0.34f, Art.Hex("#d6a27f"), false, "marlowe_head");
             Art.Box(t, new Vector3(0, 2.13f, -0.6f), new Vector3(0.4f, 0.12f, 0.42f), Art.Hex("#f2f2ee"), false, "marlowe_hat");
+        }
+
+        void AddWake(Transform t)
+        {
+            var I = this;
 
             var w = new GameObject("wake").transform;
             w.SetParent(t, false); w.localPosition = new Vector3(0, -0.1f, -2.6f);
@@ -49,7 +62,7 @@ namespace PortBoss
             col.color = grad;
             w.gameObject.GetComponent<ParticleSystemRenderer>().sharedMaterial = Art.Particle;
 
-            I.engine = g.AddComponent<AudioSource>();
+            I.engine = gameObject.AddComponent<AudioSource>();
             I.engine.clip = Sfx.Clip("engine"); I.engine.loop = true; I.engine.spatialBlend = 1; I.engine.minDistance = 8; I.engine.maxDistance = 140;
             I.engine.rolloffMode = AudioRolloffMode.Linear; I.engine.volume = 0;
             if (I.engine.clip != null) I.engine.Play();

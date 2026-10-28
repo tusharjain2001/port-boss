@@ -68,14 +68,28 @@ namespace PortBoss
                 if (x < -14 || x > -6) Art.Prim(PrimitiveType.Cylinder, t, new Vector3(x, 0.3f, -0.6f), Quaternion.identity, new Vector3(0.35f, 0.3f, 0.35f), Art.Hex("#3b3b3b"), true, "bollard");
             // Some clutter on the quay: barrels, a lamp, a fence.
             for (int i = 0; i < 4; i++)
-                Art.Prim(PrimitiveType.Cylinder, t, new Vector3(14 + i * 0.75f, 0.5f, -3.5f + (i % 2) * 0.7f), Quaternion.identity, new Vector3(0.6f, 0.5f, 0.6f), i % 2 == 0 ? Art.Navy : Art.Rust, true, "barrel");
+                if (Skin.On) Art.Place(Skin.Pick(Skin.I.Barrels, i), t, new Vector3(14 + i * 0.85f, 0, -3.5f + (i % 2) * 0.8f), i * 70, 0.8f, true);
+                else Art.Prim(PrimitiveType.Cylinder, t, new Vector3(14 + i * 0.75f, 0.5f, -3.5f + (i % 2) * 0.7f), Quaternion.identity, new Vector3(0.6f, 0.5f, 0.6f), i % 2 == 0 ? Art.Navy : Art.Rust, true, "barrel");
             Lamp(t, new Vector3(3.5f, 0, -1.5f));
             // Net pile, a beached rowboat, empty crate stacks by the shed.
             Art.Prim(PrimitiveType.Sphere, t, new Vector3(5.5f, 0.1f, -3.4f), Quaternion.identity, new Vector3(2.2f, 0.5f, 1.6f), Art.Hex("#4c5a43"), true, "net_pile");
-            var row = Art.Box(t, new Vector3(-20, 0.35f, -5), new Vector3(1.5f, 0.6f, 4f), Art.Hex("#c9b48a"), true, "rowboat");
-            row.transform.localRotation = Quaternion.Euler(0, 25, 8);
-            Art.Box(row.transform, new Vector3(0, 0.45f, 0), new Vector3(1.05f, 0.25f, 0.95f), Art.Hex("#4a6a7a"), false, "rowboat_stripe");
-            for (int i = 0; i < 6; i++)
+            if (Skin.On) Art.Place(Skin.Pick(Skin.I.Dinghies, 0), t, new Vector3(-20, 0, -5), 25, 0.7f, true);
+            else
+            {
+                var row = Art.Box(t, new Vector3(-20, 0.35f, -5), new Vector3(1.5f, 0.6f, 4f), Art.Hex("#c9b48a"), true, "rowboat");
+                row.transform.localRotation = Quaternion.Euler(0, 25, 8);
+                Art.Box(row.transform, new Vector3(0, 0.45f, 0), new Vector3(1.05f, 0.25f, 0.95f), Art.Hex("#4a6a7a"), false, "rowboat_stripe");
+            }
+            if (Skin.On)
+            {
+                // Yard by the shed: pallets with stacked crates, a spare pallet, barrels.
+                Art.Place(Skin.Pick(Skin.I.Pallets, 0), t, new Vector3(12.9f, 0, -12.9f), 4, 0.6f, true);
+                Art.Place(Skin.Pick(Skin.I.BigCrates, 0), t, new Vector3(12.6f, 0.18f, -13.1f), 8, 0.36f, true);
+                Art.Place(Skin.Pick(Skin.I.BigCrates, 1), t, new Vector3(13.35f, 0.18f, -12.7f), -6, 0.36f, true);
+                Art.Place(Skin.Pick(Skin.I.BigCrates, 2), t, new Vector3(12.95f, 0.9f, -12.95f), 30, 0.34f, true);
+                Art.Place(Skin.Pick(Skin.I.Pallets, 1), t, new Vector3(14.6f, 0.05f, -12.6f), 80, 0.6f, true).transform.localRotation = Quaternion.Euler(0, 80, 6);
+            }
+            else for (int i = 0; i < 6; i++)
             {
                 // Lidded empty crates stacked by the shed (same build as the fish crates).
                 var ec = new GameObject("empty_crate").transform;
@@ -195,6 +209,7 @@ namespace PortBoss
             }
             // The buyer: a stout figure behind the table.
             var n = new Vector3(c.x, 0, c.z - 1.3f);
+            if (Skin.On && Skin.I.Buyer != null) { Art.Place(Skin.I.Buyer, b, n, 0, 1f); return; } // a Toon Harbor worker minds the stall
             Art.Prim(PrimitiveType.Capsule, b, n + Vector3.up * 0.95f, Quaternion.identity, new Vector3(0.75f, 0.95f, 0.75f), Art.Hex("#4f5d3a"), true, "buyer_body");
             Art.Prim(PrimitiveType.Sphere, b, n + Vector3.up * 2.05f, Quaternion.identity, Vector3.one * 0.42f, Art.Hex("#c99b7a"), false, "buyer_head");
             Art.Box(b, n + new Vector3(0, 2.3f, 0), new Vector3(0.5f, 0.12f, 0.5f), Art.Hex("#2c2c2c"), false, "buyer_hat");
@@ -281,9 +296,11 @@ namespace PortBoss
                     h.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 }
             // Ships crawling along the horizon (Kenney CC0 models, scaled up).
+            int ship = 0;
             foreach (var (name, x, z, sc, sp) in new[] { ("ship-cargo-a", 260f, 620f, 6f, 1.6f), ("ship-cargo-c", 60f, 900f, 7f, 1.2f) })
             {
-                var s = Art.Model(name, Root, new Vector3(x, Water.Level - 0.4f, z), 90, sc);
+                var s = Skin.On ? Art.Place(Skin.Pick(Skin.I.Freighters, ship++), Root, new Vector3(x, Water.Level - 0.4f, z), 90, 1f)
+                    : Art.Model(name, Root, new Vector3(x, Water.Level - 0.4f, z), 90, sc);
                 if (s != null) s.AddComponent<Drifter>().Speed = sp;
             }
         }
@@ -308,12 +325,30 @@ namespace PortBoss
             }
         }
 
+        // Marlowe's port in Toon Harbor pieces: container stacks, harbour cranes, a freighter alongside, sheds behind.
+        static void RivalPortSkinned(Transform r)
+        {
+            var rng = new System.Random(7);
+            for (int x = -66; x < 66; x += 7)
+                for (int row = 0; row < 3; row++)
+                {
+                    int h = 1 + rng.Next(3);
+                    for (int k = 0; k < h; k++)
+                        Art.Place(Skin.Pick(Skin.I.Containers, rng.Next(99)), r, new Vector3(x, 2 + k * 3f, 4 + row * 3.3f), 90, 1f);
+                }
+            for (int i = 0; i < 3; i++) Art.Place(Skin.Pick(Skin.I.Cranes, i), r, new Vector3(-48 + i * 42, 2, -4), 180, 1f);
+            Art.Place(Skin.Pick(Skin.I.Freighters, 0), r, new Vector3(-8, Water.Level - 0.3f, -24), 90, 1f);
+            Art.Place(Skin.Pick(Skin.I.Freighters, 2), r, new Vector3(48, Water.Level - 0.2f, -30), 200, 1f);
+            for (int i = 0; i < 3; i++) Art.Place(Skin.Pick(Skin.I.Warehouses, i), r, new Vector3(-50 + i * 45, 2, 24), 90, 1f);
+        }
+
         static void RivalPort()
         {
             var r = new GameObject("RivalPort").transform;
             r.SetParent(Root, false);
             r.position = new Vector3(10, 0, 240);
             Art.Box(r, new Vector3(0, -1, 10), new Vector3(170, 6, 40), Art.Concrete, true, "rival_quay");
+            if (Skin.On) { RivalPortSkinned(r); return; }
             var cols = new[] { Art.Red, Art.Navy, Art.Hex("#c9a13a"), Art.Hex("#3f7a5a"), Art.Hex("#d0d0cc"), Art.Rust };
             var rng = new System.Random(7);
             for (int x = -70; x < 70; x += 7)

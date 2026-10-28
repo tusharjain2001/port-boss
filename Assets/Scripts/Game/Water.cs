@@ -66,6 +66,10 @@ namespace PortBoss
                 }
             mesh.vertices = verts;
             mesh.triangles = tris;
+            // World-space UVs (one unit per 40 m) so a textured water shader tiles seamlessly at the pack demo's scale.
+            var uv = new Vector2[verts.Length];
+            for (int i = 0; i < verts.Length; i++) uv[i] = new Vector2(verts[i].x + transform.position.x, verts[i].z + transform.position.z) * 0.025f;
+            mesh.uv = uv;
             mesh.bounds = new Bounds(Vector3.zero, new Vector3(size, 10, size));
             GetComponent<MeshFilter>().sharedMesh = mesh;
         }

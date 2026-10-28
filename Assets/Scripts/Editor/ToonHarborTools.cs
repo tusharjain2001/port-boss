@@ -40,6 +40,35 @@ namespace PortBoss.EditorTools
             Object.DestroyImmediate(tex); rt.Release();
         }
 
+        // One small render per prefab (3/4 view, framed on its bounds) + sizes, for picking swap pieces.
+        public static void Sheet()
+        {
+            var outDir = Arg("-thOut") ?? "th_sheet";
+            Directory.CreateDirectory(outDir);
+            var folders = new[] { "Cargo", "Props", "Ships/Boats", "Ships", "Concrete Buildings", "Metal Structures", "Special", "Plants", "Cranes", "Vehicles", "Construction Materials" };
+            var sizes = new StringBuilder();
+            EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
+            var cam = Camera.main; cam.clearFlags = CameraClearFlags.SolidColor; cam.backgroundColor = new Color(0.62f, 0.75f, 0.85f);
+            foreach (var f in folders)
+                foreach (var p in AssetDatabase.FindAssets("t:Prefab", new[] { Root + "/Prefabs/" + f }).Select(AssetDatabase.GUIDToAssetPath).OrderBy(s => s))
+                {
+                    if (Path.GetDirectoryName(p).Replace('\\', '/') != Root + "/Prefabs/" + f) continue; // direct children only
+                    var go = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(p));
+                    var rs = go.GetComponentsInChildren<Renderer>();
+                    if (rs.Length == 0) { Object.DestroyImmediate(go); continue; }
+                    var b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds);
+                    float rad = b.extents.magnitude;
+                    cam.transform.position = b.center + new Vector3(1f, 0.7f, -1f).normalized * rad * 2.4f;
+                    cam.transform.LookAt(b.center); cam.farClipPlane = rad * 10 + 100; cam.nearClipPlane = Mathf.Max(0.01f, rad * 0.02f);
+                    var name = Path.GetFileNameWithoutExtension(p);
+                    Render(cam, Path.Combine(outDir, f.Replace('/', '_') + "__" + name + ".png"), 320, 240);
+                    sizes.AppendLine($"{f}/{name}\t{b.size.x:F2}\t{b.size.y:F2}\t{b.size.z:F2}");
+                    Object.DestroyImmediate(go);
+                }
+            File.WriteAllText(Path.Combine(outDir, "sizes.tsv"), sizes.ToString());
+            Debug.Log("[TH] sheet written to " + outDir);
+        }
+
         public static void Survey()
         {
             var outDir = Arg("-thOut") ?? "th_survey";

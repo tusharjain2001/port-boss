@@ -14,6 +14,7 @@ namespace PortBoss
         public static GameUI I;
         public GameObject CratePrefab, BoatPrefab, TrolleyPrefab, PortGamePrefab, ForkliftPrefab, PalletPrefab;
         public Material LitMat, EmissiveMat, ParticleMat, WaterMat, CloudMat;
+        public Skin Skin; // Toon Harbor slots (empty = own art)
         public GameObject[] Models; public int[] ModelKit; public Material[] KitMats;
         public Font TitleFont;
 
@@ -59,6 +60,9 @@ namespace PortBoss
             oldFog = Arg("-pb-oldfog");
             if (Arg("-pb-noclouds")) CloudMat = null;
             Art.Lit = LitMat; Art.Emissive = EmissiveMat; Art.Particle = ParticleMat; Art.WaterMat = WaterMat; Art.Cloud = CloudMat;
+            Skin.I = Skin;
+            if (Skin.On && !Arg("-pb-ownart")) { Art.Toon = Skin.Toon; if (Skin.ToonWater != null) Art.WaterMat = Skin.ToonWater; }
+            else Skin.I = null; // -pb-ownart: the pre-pack look, for A/B shots
             Application.targetFrameRate = 144;
             World.Build();
             Storm.Create();
@@ -110,6 +114,20 @@ namespace PortBoss
 
             var vol = new GameObject("PostFX").AddComponent<Volume>();
             vol.isGlobal = true;
+            if (Skin.On)
+            {
+                // Toon Harbor's own sky, fog and grading (its demo scene), minus depth of field + chromatic aberration (gameplay).
+                RenderSettings.skybox = new Material(Skin.I.Sky);
+                RenderSettings.fogMode = FogMode.Linear; RenderSettings.fogStartDistance = 300; RenderSettings.fogEndDistance = 1200;
+                var tp = Instantiate(Skin.I.Post);
+                if (tp.TryGet(out DepthOfField dof)) dof.active = false;
+                if (tp.TryGet(out ChromaticAberration chr)) chr.active = false;
+                if (!tp.TryGet(out ColorAdjustments tca)) tca = tp.Add<ColorAdjustments>();
+                tca.postExposure.Override(0f); colorAdj = tca; exposureBase = 0f;
+                vol.profile = tp;
+                ApplyLight(0.15f, false);
+                return;
+            }
             var prof = ScriptableObject.CreateInstance<VolumeProfile>();
             var tm = prof.Add<Tonemapping>(); tm.mode.Override(TonemappingMode.ACES);
             var bl = prof.Add<Bloom>(); bl.intensity.Override(0.45f); bl.threshold.Override(1.05f);
@@ -123,6 +141,7 @@ namespace PortBoss
         // u = 0..1 through the day: early afternoon → golden → sunset; night = blue dusk.
         void ApplyLight(float u, bool night)
         {
+            if (Skin.On) { ApplyToonLight(u, night); return; }
             // Night: sun below the horizon (dark sky), moonlight comes from the blue ambient.
             float elev = night ? -14f : Mathf.Lerp(42f, 9f, u);
             sun.transform.rotation = Quaternion.Euler(elev, Mathf.Lerp(20f, 35f, u), 0);
@@ -139,6 +158,24 @@ namespace PortBoss
             Shader.SetGlobalColor("_PB_SkyZenith", night ? new Color(0.03f, 0.05f, 0.1f) : Color.Lerp(new Color(0.32f, 0.5f, 0.75f), new Color(0.35f, 0.38f, 0.6f), u));
             Shader.SetGlobalColor("_PB_SkyHorizon", night ? new Color(0.1f, 0.12f, 0.2f) : Color.Lerp(new Color(0.82f, 0.82f, 0.8f), new Color(0.98f, 0.66f, 0.42f), u));
             if (Art.Cloud != null) Art.Cloud.SetColor("_BaseColor", night ? new Color(0.16f, 0.18f, 0.26f) : Color.Lerp(new Color(0.98f, 0.96f, 0.93f), new Color(1f, 0.74f, 0.55f), u * u));
+        }
+
+        // Toon Harbor demo lighting (white sun, warm trilight, blue linear fog), warming a little towards sunset.
+        void ApplyToonLight(float u, bool night)
+        {
+            float elev = night ? -14f : Mathf.Lerp(48f, 14f, u);
+            sun.transform.rotation = Quaternion.Euler(elev, Mathf.Lerp(110f, 125f, u), 0);
+            sun.color = Color.Lerp(Color.white, new Color(1f, 0.8f, 0.62f), u * u);
+            sun.intensity = night ? 0f : Mathf.Lerp(1.05f, 0.9f, u);
+            RenderSettings.ambientSkyColor = night ? new Color(0.22f, 0.28f, 0.45f) : Color.Lerp(new Color(1f, 0.941f, 0.825f), new Color(1f, 0.8f, 0.66f), u * u);
+            RenderSettings.ambientEquatorColor = night ? new Color(0.14f, 0.16f, 0.24f) : Color.Lerp(new Color(0.689f, 0.49f, 0.387f), new Color(0.72f, 0.46f, 0.36f), u * u);
+            RenderSettings.ambientGroundColor = night ? new Color(0.05f, 0.05f, 0.08f) : new Color(0.292f, 0.276f, 0.244f);
+            RenderSettings.fogColor = night ? new Color(0.08f, 0.1f, 0.16f) : Color.Lerp(new Color(0.419f, 0.603f, 0.689f), new Color(0.78f, 0.62f, 0.52f), u * u);
+            if (RenderSettings.skybox != null && RenderSettings.skybox.HasProperty("_Exposure"))
+                RenderSettings.skybox.SetFloat("_Exposure", night ? 0.12f : Mathf.Lerp(1.0f, 0.85f, u * u));
+            Shader.SetGlobalColor("_PB_SkyZenith", night ? new Color(0.03f, 0.05f, 0.1f) : new Color(0.3f, 0.55f, 0.85f));
+            Shader.SetGlobalColor("_PB_SkyHorizon", night ? new Color(0.1f, 0.12f, 0.2f) : RenderSettings.fogColor);
+            if (Art.Cloud != null) Art.Cloud.SetColor("_BaseColor", night ? new Color(0.16f, 0.18f, 0.26f) : Color.Lerp(Color.white, new Color(1f, 0.8f, 0.65f), u * u));
         }
 
         void Update()

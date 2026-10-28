@@ -41,7 +41,13 @@ namespace PortBoss
             vis = new GameObject("vis").transform;
             vis.SetParent(transform, false);
             float s = Size;
-            spoilers = CrateLook.Build(vis, s, true, Random.Range(0, 1 << 20));
+            if (Skin.On && Skin.I.Crate != null)
+            {
+                // Toon Harbor wooden crate (2 m, pivot at the base) scaled to ours, the catch laid on its lid.
+                Art.Place(Skin.I.Crate, vis, new Vector3(0, -s / 2, 0), 90 * Random.Range(0, 4), s / 2f);
+                spoilers = CrateLook.Fish(vis, s, s / 2 + 0.03f, s * 0.86f, new System.Random(Random.Range(0, 1 << 20)));
+            }
+            else spoilers = CrateLook.Build(vis, s, true, Random.Range(0, 1 << 20));
             // Rope tie-down (shown when tied).
             ropes = new GameObject("ropes");
             ropes.transform.SetParent(vis, false);
@@ -191,10 +197,8 @@ namespace PortBoss
             float fresh01 = Mathf.SmoothStep(0, 1, (f - 0.1f) / 0.7f);
             for (int i = 0; i < spoilers.Length; i++)
             {
-                spoilers[i].GetPropertyBlock(mpb);
-                var baseC = spoilers[i].sharedMaterial.GetColor("_BaseColor");
-                mpb.SetColor("_BaseColor", i == 0 ? Color.Lerp(Art.Hex("#9a9a88"), baseC, fresh01) : Color.Lerp(Art.Rot, baseC, fresh01));
-                spoilers[i].SetPropertyBlock(mpb);
+                var baseC = Art.ColorOf(spoilers[i].sharedMaterial);
+                Art.Tint(spoilers[i], mpb, i == 0 ? Color.Lerp(Art.Hex("#9a9a88"), baseC, fresh01) : Color.Lerp(Art.Rot, baseC, fresh01));
             }
 
             // Broken slats show the damage.

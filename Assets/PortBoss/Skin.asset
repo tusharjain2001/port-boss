@@ -1,0 +1,64 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 89627ecb949829f4bb8dfe3a121e0276, type: 3}
+  m_Name: Skin
+  m_EditorClassIdentifier: Assembly-CSharp::PortBoss.Skin
+  Toon: {fileID: 2100000, guid: 23e6a78508c649044ba886e55b25d11d, type: 2}
+  ToonWater: {fileID: 2100000, guid: 141ad930457e9f14ea54af464b604f94, type: 2}
+  Sky: {fileID: 2100000, guid: 3e8f5cdbc862a5f45933e9b8ddad48f8, type: 2}
+  Post: {fileID: 11400000, guid: f22cb3efcd8125242aab89a9a8412ffa, type: 2}
+  Players:
+  - {fileID: 6910515723177477996, guid: 5e838390c12700c468e27750a1bf90ba, type: 3}
+  - {fileID: 8855844279880732513, guid: 6042561578da98044a8c32af44ada4c9, type: 3}
+  - {fileID: 1388698527917796093, guid: 6d9b9abd832ae2d42ac77693597333a1, type: 3}
+  - {fileID: 169311728197664467, guid: d582bf24c8d306945bc0a7a7851a1b80, type: 3}
+  Buyer: {fileID: 8099815364645255957, guid: f8369dac7ce18c249b900d0a13caaf4a, type: 3}
+  Idle: {fileID: -7993625790543202706, guid: 680e75fc8abe8ec4b9a36f0d86dc4269, type: 3}
+  Walk: {fileID: -7003542030617561338, guid: 680e75fc8abe8ec4b9a36f0d86dc4269, type: 3}
+  Run: {fileID: -8815886378510225334, guid: 680e75fc8abe8ec4b9a36f0d86dc4269, type: 3}
+  Jump: {fileID: -3659967873887649963, guid: 680e75fc8abe8ec4b9a36f0d86dc4269, type: 3}
+  Swim: {fileID: 5539243244057379418, guid: 680e75fc8abe8ec4b9a36f0d86dc4269, type: 3}
+  Crate: {fileID: 8834054657701139789, guid: b956fc2b87fc59040bbf4a510a3a77fe, type: 3}
+  Barrels:
+  - {fileID: 28106400867909553, guid: b5ed20dc6689a424e97beec066b55e04, type: 3}
+  - {fileID: 928428318093965161, guid: 29c045976fe621d4fb73deb1f23c1e32, type: 3}
+  - {fileID: 2299785504928814670, guid: e8b7e1d3e5513db4bbbd68b93522c54e, type: 3}
+  - {fileID: 243553271891660619, guid: 73c3ae6c9a6e8004c862e83f7ee4cd2c, type: 3}
+  Pallets:
+  - {fileID: 7427656982153882471, guid: d924056e920a7a549acd24cabe7bfd4e, type: 3}
+  - {fileID: 7158384614572753387, guid: abccd1cbf95171b4982aadeb1fe3409c, type: 3}
+  BigCrates:
+  - {fileID: 4785423907797056725, guid: 55d9eb07e122f364f978af2f3f533d2e, type: 3}
+  - {fileID: 3009850532477330224, guid: 2fe054d61d806e44f970c868f6d63dcf, type: 3}
+  - {fileID: 2997942444506485406, guid: 840e5c59a641fe446a60827efb92a9c3, type: 3}
+  Dinghies:
+  - {fileID: 3708822798620223099, guid: 9bab45ab4a8eb4c4fa03634bde0bf148, type: 3}
+  - {fileID: 3389585567184062819, guid: 9fdb87191243aea4bbc619a878226e59, type: 3}
+  - {fileID: 6640911394054384520, guid: e23203b883921ff4e87ee7aa5b864dcc, type: 3}
+  Shed: {fileID: 1392273112386906603, guid: f49776dd58a1afd49b77f1ff52f7cef9, type: 3}
+  Stall: {fileID: 1018170900100968656, guid: 0757a341268cc9c4ea47693513ca6b61, type: 3}
+  Speedboat: {fileID: 5019460495509071704, guid: c6baa9fc0f9014348b86032286b409db, type: 3}
+  Containers:
+  - {fileID: 2807533455641652487, guid: 706ed5d1574c6a04084975d0e8d640bb, type: 3}
+  - {fileID: 3392544953255907380, guid: 5df097366f19ffd43970bfa63fd0c392, type: 3}
+  - {fileID: 3247649777707758480, guid: 83e735e49dbf2034b9ef390e405e0c27, type: 3}
+  - {fileID: 859419222383163694, guid: 84af850c39a7dc04c873d98b81807026, type: 3}
+  - {fileID: 840024985540208883, guid: 64b01c27d1def664c8af014c746b7175, type: 3}
+  - {fileID: 1290694293412823745, guid: d642e0f55a9b1da47b1250f4b0270b0d, type: 3}
+  Cranes:
+  - {fileID: 1910180729237925524, guid: bad21ea5c6bed6e4bbb3369323419ce8, type: 3}
+  - {fileID: 145282927752981006, guid: 94a1d587d54ee324e8cc4b5d9e0ad52d, type: 3}
+  Freighters: []
+  Warehouses:
+  - {fileID: 8136428365022718900, guid: 9cc9e1781ad6e014280e30b9d3f3ccad, type: 3}
+  - {fileID: 3242281033347475928, guid: 8463ca1b1d02d484f979dbd33b02677c, type: 3}
+  - {fileID: 6861812768923619748, guid: 43d06aafc81f2e940ab59033662e9740, type: 3}

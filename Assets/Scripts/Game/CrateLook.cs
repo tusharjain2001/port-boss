@@ -54,15 +54,21 @@ namespace PortBoss
                     Art.Box(root, new Vector3(0, h + 0.015f, i * s * 0.32f), new Vector3(s, 0.03f, s * 0.3f), Slat * J(), false, "lid");
                 return new Renderer[0];
             }
-            // Ice bed with fish lying across it.
-            var ice = Art.Box(root, new Vector3(0, h - 0.07f, 0), new Vector3(s - th * 2.4f, 0.06f, s - th * 2.4f), Ice, false, "ice", 0.6f).GetComponent<Renderer>();
+            return Fish(root, s, h - 0.07f, s - th * 2.4f, rng);
+        }
+
+        // Ice bed at height y with 4-5 fish lying across it; [0] = ice, rest = fish (they spoil).
+        public static Renderer[] Fish(Transform root, float s, float y, float bed, System.Random rng)
+        {
+            float h = s / 2;
+            var ice = Art.Box(root, new Vector3(0, y, 0), new Vector3(bed, 0.06f, bed), Ice, false, "ice", 0.6f).GetComponent<Renderer>();
             var list = new System.Collections.Generic.List<Renderer> { ice };
             int n = 4 + rng.Next(2);
             for (int i = 0; i < n; i++)
             {
                 var f = new GameObject("fish").transform;
                 f.SetParent(root, false);
-                f.localPosition = new Vector3(-0.15f + i * 0.3f / (n - 1) + ((float)rng.NextDouble() - 0.5f) * 0.03f, h - 0.02f + (i % 2) * 0.015f, ((float)rng.NextDouble() - 0.5f) * 0.08f);
+                f.localPosition = new Vector3(-0.15f + i * 0.3f / (n - 1) + ((float)rng.NextDouble() - 0.5f) * 0.03f, y + 0.05f + (i % 2) * 0.015f, ((float)rng.NextDouble() - 0.5f) * 0.08f);
                 f.localRotation = Quaternion.Euler(0, 80 + (float)rng.NextDouble() * 20 - 10, 90);
                 list.Add(Art.Prim(PrimitiveType.Capsule, f, Vector3.zero, Quaternion.identity, new Vector3(0.05f, 0.14f, 0.08f), Belly, false, "fishy", 0.7f).GetComponent<Renderer>());
                 list.Add(Art.Prim(PrimitiveType.Capsule, f, new Vector3(0.016f, 0, 0), Quaternion.identity, new Vector3(0.03f, 0.13f, 0.05f), Back, false, "fishy", 0.7f).GetComponent<Renderer>());

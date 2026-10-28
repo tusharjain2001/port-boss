@@ -157,6 +157,7 @@ namespace PortBoss.EditorTools
             ui.Models = models.ToArray(); ui.ModelKit = kits.ToArray(); ui.KitMats = kitMats.ToArray();
             ui.CratePrefab = crate; ui.BoatPrefab = boat; ui.TrolleyPrefab = trolley; ui.PortGamePrefab = game; ui.ForkliftPrefab = forklift; ui.PalletPrefab = pallet;
             ui.LitMat = litMat; ui.EmissiveMat = emis; ui.ParticleMat = part; ui.WaterMat = water; ui.CloudMat = cloud;
+            ui.Skin = MakeSkin();
             Dir("Assets/Scenes");
             EditorSceneManager.SaveScene(scene, ScenePath);
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -225,6 +226,73 @@ namespace PortBoss.EditorTools
         }
 
         static BoxCollider Box(GameObject g, Vector3 c, Vector3 s) { var b = g.AddComponent<BoxCollider>(); b.center = c; b.size = s; return b; }
+
+        // The Toon Harbor skin: filled only when the (paid, gitignored) pack is in the project; empty slots = our own art.
+        const string TH = "Assets/ThirdParty/ToonHarbor";
+        static Skin MakeSkin()
+        {
+            const string path = "Assets/PortBoss/Skin.asset";
+            AssetDatabase.DeleteAsset(path);
+            var k = ScriptableObject.CreateInstance<Skin>();
+            if (AssetDatabase.IsValidFolder(TH))
+            {
+                T L<T>(string p) where T : UnityEngine.Object
+                {
+                    var a = AssetDatabase.LoadAssetAtPath<T>(TH + "/" + p);
+                    if (a == null) Debug.LogWarning("[PBBuild] skin: missing " + p);
+                    return a;
+                }
+                GameObject P(string n) => L<GameObject>("Prefabs/" + n + ".prefab");
+                GameObject[] Ps(params string[] n) => System.Linq.Enumerable.ToArray(System.Linq.Enumerable.Where(System.Linq.Enumerable.Select(n, P), g => g != null));
+                k.Toon = L<Material>("Models/Materials/Atlas_1A_D.mat");
+                k.ToonWater = L<Material>("Models/Materials/Water_1A_D.mat");
+                k.Sky = L<Material>("Skybox/TH_Skybox_01A.mat");
+                k.Post = L<UnityEngine.Rendering.VolumeProfile>("Profiles/TH_Sunny_Day_01.asset");
+                k.Players = Ps("Characters Variants/TH_Male_Character_01A", "Characters Variants/TH_Female_Character_02C", "Characters Variants/TH_Male_Character_01B", "Characters Variants/TH_Female_Character_03B");
+                k.Buyer = P("Characters Variants/TH_Male_Character_02A");
+                k.Crate = P("Cargo/TH_Shipping_Wooden_Crate_02B");
+                k.BigCrates = Ps("Cargo/TH_Shipping_Wooden_Crate_02A", "Cargo/TH_Shipping_Wooden_Crate_02C", "Cargo/TH_Shipping_Wooden_Crate_01B");
+                k.Barrels = Ps("Props/TH_Barrel_01A", "Props/TH_Barrel_02A", "Props/TH_Barrel_07B", "Props/TH_Barrel_04B");
+                k.Pallets = Ps("Cargo/TH_Wooden_Pallet_01A", "Cargo/TH_Wooden_Pallet_02A");
+                k.Dinghies = Ps("Ships/Boats/TH_Boat_Small_02B", "Ships/Boats/TH_Boat_Small_01C", "Ships/Boats/TH_Rusty_Boat_01A");
+                k.Shed = P("Metal Structures/TH_Metal_Structure_Kit_Building_20A");
+                k.Stall = P("Concrete Buildings/TH_Concrete_Building_Kit_10A");
+                k.Speedboat = P("Ships/Boats/TH_Boat_Medium_01A");
+                k.Containers = Ps("Cargo/TH_Shipping_Container_02A", "Cargo/TH_Shipping_Container_02C", "Cargo/TH_Shipping_Container_02D", "Cargo/TH_Shipping_Container_02E", "Cargo/TH_Shipping_Container_02F", "Cargo/TH_Shipping_Container_02B");
+                k.Cranes = Ps("Cranes/TH_Harbor_Crane_01A", "Cranes/TH_Harbor_Crane_01C");
+                k.Freighters = Ps("Ships/Ships/TH_Freighter_01A_Loaded", "Ships/Ships/TH_Freighter_03A", "Ships/Ships/TH_Tugboat_01A");
+                k.Warehouses = Ps("Metal Structures/TH_Metal_Structure_Kit_Building_12A", "Metal Structures/TH_Metal_Structure_Kit_Building_16A", "Metal Structures/TH_Metal_Structure_Kit_Building_14B");
+                // Locomotion: CC0 Quaternius UAL1 clips, retargeted through Unity's Humanoid rig onto the pack's workers.
+                const string ual = "Assets/Art/Anim/UAL1_Standard.fbx";
+                if (AssetImporter.GetAtPath(ual) is ModelImporter mi)
+                {
+                    if (mi.animationType != ModelImporterAnimationType.Human || mi.materialImportMode != ModelImporterMaterialImportMode.None)
+                    {
+                        mi.animationType = ModelImporterAnimationType.Human; mi.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
+                        mi.materialImportMode = ModelImporterMaterialImportMode.None; mi.importCameras = false; mi.importLights = false;
+                        mi.SaveAndReimport();
+                    }
+                    var takes = mi.defaultClipAnimations;
+                    foreach (var c in takes) { c.loopTime = c.name.ToLower().Contains("loop") || c.name.ToLower().Contains("idle") || c.name.ToLower().Contains("walk") || c.name.ToLower().Contains("jog") || c.name.ToLower().Contains("sprint") || c.name.ToLower().Contains("swim"); c.lockRootRotation = c.lockRootHeightY = c.lockRootPositionXZ = true; c.keepOriginalOrientation = c.keepOriginalPositionY = c.keepOriginalPositionXZ = true; }
+                    mi.clipAnimations = takes; mi.SaveAndReimport();
+                    var clips = System.Linq.Enumerable.ToArray(System.Linq.Enumerable.OfType<AnimationClip>(AssetDatabase.LoadAllAssetsAtPath(ual)));
+                    Debug.Log("[PBBuild] UAL1 clips: " + string.Join(", ", System.Linq.Enumerable.Select(clips, c => c.name)));
+                    AnimationClip C(params string[] want)
+                    {
+                        // Takes are named "Armature|Idle_Loop": match the part after the bar exactly.
+                        foreach (var w in want) foreach (var c in clips) if (!c.name.StartsWith("__") && c.name.Substring(c.name.LastIndexOf('|') + 1).Equals(w, StringComparison.OrdinalIgnoreCase)) return c;
+                        return null;
+                    }
+                    k.Idle = C("Idle_Loop"); k.Walk = C("Walk_Loop"); k.Run = C("Jog_Fwd_Loop", "Sprint_Loop");
+                    k.Jump = C("Jump_Loop"); k.Swim = C("Swim_Fwd_Loop"); k.SwimIdle = C("Swim_Idle_Loop"); k.Drive = C("Driving_Loop"); k.Push = C("Push_Loop");
+                    Debug.Log($"[PBBuild] skin clips idle={k.Idle?.name} walk={k.Walk?.name} run={k.Run?.name} jump={k.Jump?.name} swim={k.Swim?.name}");
+                }
+                Debug.Log("[PBBuild] skin: Toon Harbor ON");
+            }
+            else Debug.Log("[PBBuild] skin: Toon Harbor not in the project, using own art");
+            AssetDatabase.CreateAsset(k, path);
+            return k;
+        }
 
         static GameObject Prefab(string name, Action<GameObject> build)
         {

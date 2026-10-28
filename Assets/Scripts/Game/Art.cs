@@ -8,16 +8,59 @@ namespace PortBoss
     public static class Art
     {
         public static Material Lit, Emissive, Particle, WaterMat, Cloud;
+        public static Material Toon; // Toon Harbor's toon material when the skin is on: our colours share its shading ramp
         static readonly Dictionary<(Color, float), Material> cache = new();
+        static readonly Dictionary<Material, Color> colorOf = new();
+        static readonly Dictionary<Color, Texture2D> solids = new();
+        const float ToonGain = 0.74f;
 
         public static Material Get(Color c, float smooth = 0.15f)
         {
             if (cache.TryGetValue((c, smooth), out var m)) return m;
-            m = new Material(Lit);
-            m.SetColor("_BaseColor", c);
-            m.SetFloat("_Smoothness", smooth);
-            cache[(c, smooth)] = m;
+            if (Toon != null) { m = new Material(Toon); m.SetTexture("_TextureSample", Solid(c)); }
+            else { m = new Material(Lit); m.SetColor("_BaseColor", c); m.SetFloat("_Smoothness", smooth); }
+            cache[(c, smooth)] = m; colorOf[m] = c;
             return m;
+        }
+
+        // A flat colour as a texture (the toon shader colours by texture, not by a colour property).
+        public static Texture2D Solid(Color c)
+        {
+            if (solids.TryGetValue(c, out var t)) return t;
+            t = new Texture2D(4, 4, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp };
+            // The toon ramp lights flat colours ~1.4x brighter than URP Lit; pull ours down so they sit with the pack's atlas.
+            var px = new Color[16]; for (int i = 0; i < 16; i++) px[i] = new Color(c.r * ToonGain, c.g * ToonGain, c.b * ToonGain, c.a);
+            t.SetPixels(px); t.Apply(false, true);
+            return solids[c] = t;
+        }
+
+        public static Color ColorOf(Material m) => m != null && colorOf.TryGetValue(m, out var c) ? c : m != null && m.HasProperty("_BaseColor") ? m.GetColor("_BaseColor") : Color.white;
+
+        // Per-renderer tint that works with either material type.
+        public static void Tint(Renderer r, MaterialPropertyBlock mpb, Color c)
+        {
+            r.GetPropertyBlock(mpb);
+            if (Toon != null) mpb.SetTexture("_TextureSample", Solid(c)); else mpb.SetColor("_BaseColor", c);
+            r.SetPropertyBlock(mpb);
+        }
+
+        // A Toon Harbor prefab placed as scenery (its colliders dropped unless asked for).
+        public static GameObject Place(GameObject prefab, Transform parent, Vector3 pos, float yaw, float scale = 1f, bool colliders = false)
+        {
+            if (prefab == null) return null;
+            var g = Object.Instantiate(prefab, parent, false);
+            g.transform.localPosition = pos; g.transform.localRotation = Quaternion.Euler(0, yaw, 0); g.transform.localScale = Vector3.one * scale;
+            if (!colliders) foreach (var c in g.GetComponentsInChildren<Collider>()) Object.DestroyImmediate(c);
+            foreach (var r in g.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = scale * Bounds(g).size.magnitude > 120 ? UnityEngine.Rendering.ShadowCastingMode.Off : r.shadowCastingMode;
+            return g;
+        }
+
+        public static Bounds Bounds(GameObject g)
+        {
+            var rs = g.GetComponentsInChildren<Renderer>();
+            if (rs.Length == 0) return new Bounds(g.transform.position, Vector3.zero);
+            var b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds);
+            return b;
         }
 
         public static Material Glow(Color c, float intensity = 2f)
