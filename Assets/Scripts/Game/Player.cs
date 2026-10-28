@@ -717,7 +717,7 @@ namespace PortBoss
             var rot = Quaternion.Euler(pitch, yaw, 0);
             float dist = 5.6f + Carrying * 0.45f;
             var want = target - rot * Vector3.forward * dist;
-            if (Physics.SphereCast(target, 0.25f, (want - target).normalized, out var h, dist, ~0, QueryTriggerInteraction.Ignore)
+            if (Physics.SphereCast(target, 0.4f, (want - target).normalized, out var h, dist, ~0, QueryTriggerInteraction.Ignore)
                 && h.collider.GetComponentInParent<Player>() == null)
             {
                 // Blocked (quay wall, boat): come in closer but rise, so we look over the head instead of into the back.

@@ -160,7 +160,7 @@ namespace PortBoss
             i = Settings.AntiAliasing; if (Custom(CycleRow("Anti-aliasing", ref i, new[] { "Off", "SMAA", "MSAA 4x" }))) { Settings.AntiAliasing = i; ch = true; }
             b = Settings.Ssao; if (Custom(ToggleRow("Ambient occlusion (SSAO)", ref b))) { Settings.Ssao = b; ch = true; }
             b = Settings.PostFx; if (Custom(ToggleRow("Post-processing (bloom, grading)", ref b))) { Settings.PostFx = b; ch = true; }
-            i = Settings.WaterHigh ? 1 : 0; if (Custom(CycleRow("Water quality", ref i, new[] { "Simple", "High" }))) { Settings.WaterHigh = i == 1; ch = true; }
+            i = Settings.WaterHigh ? 1 : 0; if (Custom(CycleRow("Water style", ref i, new[] { "Classic", "Stylised (beta)" }))) { Settings.WaterHigh = i == 1; ch = true; }
             f = Settings.ViewDistance; if (Custom(SliderRow("View distance / fog", ref f, 300, 1500, "{0:0} m"))) { Settings.ViewDistance = Mathf.Round(f / 50) * 50; ch = true; }
             b = Settings.VSync; if (ToggleRow("VSync", ref b)) { Settings.VSync = b; ch = true; }
             i = Settings.FpsCap; if (CycleRow("FPS cap", ref i, new[] { "30", "60", "120", "144", "Unlimited" })) { Settings.FpsCap = i; ch = true; }

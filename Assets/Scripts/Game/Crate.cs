@@ -226,15 +226,15 @@ namespace PortBoss
         {
             var g = new GameObject("flies");
             g.transform.SetParent(transform, false);
-            g.transform.localPosition = Vector3.up * 0.45f;
+            g.transform.localPosition = Vector3.up * 0.5f; // a little swarm just over the fish
             var ps = g.AddComponent<ParticleSystem>();
             ps.Stop();
             var m = ps.main;
-            m.startLifetime = 1.6f; m.startSpeed = 0.25f; m.startSize = 0.045f; m.maxParticles = 14;
+            m.startLifetime = 1.2f; m.startSpeed = 0.1f; m.startSize = 0.028f; m.maxParticles = 18;
             m.startColor = new Color(0.08f, 0.08f, 0.06f); m.simulationSpace = ParticleSystemSimulationSpace.Local;
-            var e = ps.emission; e.rateOverTime = 7;
-            var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Sphere; sh.radius = 0.3f;
-            var n = ps.noise; n.enabled = true; n.strength = 0.9f; n.frequency = 1.6f;
+            var e = ps.emission; e.rateOverTime = 14;
+            var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Sphere; sh.radius = 0.16f;
+            var n = ps.noise; n.enabled = true; n.strength = 0.6f; n.frequency = 3.5f;
             var r = g.GetComponent<ParticleSystemRenderer>(); r.sharedMaterial = Art.Particle;
             ps.Play();
             var a = g.AddComponent<AudioSource>();

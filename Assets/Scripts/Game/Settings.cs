@@ -22,7 +22,7 @@ namespace PortBoss
         public static int AntiAliasing { get => I("gfx.aa", 2); set => S("gfx.aa", value); }           // 0 off, 1 SMAA, 2 MSAA 4x
         public static bool Ssao { get => B("gfx.ssao", true); set => S("gfx.ssao", value); }
         public static bool PostFx { get => B("gfx.post", true); set => S("gfx.post", value); }
-        public static bool WaterHigh { get => B("gfx.water", true); set => S("gfx.water", value); }
+        public static bool WaterHigh { get => B("gfx.water2", false); set => S("gfx.water2", value); } // false = classic cp2 sea (Manan's pick), true = stylised shader (beta)
         public static float ViewDistance { get => F("gfx.view", 1200f); set => S("gfx.view", value); }
         public static bool VSync { get => B("gfx.vsync", true); set => S("gfx.vsync", value); }
         public static readonly int[] FpsCaps = { 30, 60, 120, 144, 0 };
@@ -65,7 +65,7 @@ namespace PortBoss
         public static int AutoPreset()
         {
             int vram = SystemInfo.graphicsMemorySize;
-            return vram >= 6000 ? 2 : vram >= 3000 ? 1 : 0;
+            return vram >= 3000 ? 2 : vram >= 1500 ? 1 : 0; // High by default on any real GPU (Kufu)
         }
 
         public static void ApplyPreset(int p)
@@ -73,10 +73,10 @@ namespace PortBoss
             Preset = p;
             switch (p)
             {
-                case 0: RenderScale = 0.75f; Shadows = 1; ShadowDistance = 45; AntiAliasing = 0; Ssao = false; WaterHigh = false; ViewDistance = 600; break;
-                case 1: RenderScale = 0.9f; Shadows = 2; ShadowDistance = 70; AntiAliasing = 1; Ssao = false; WaterHigh = true; ViewDistance = 900; break;
-                case 2: RenderScale = 1f; Shadows = 2; ShadowDistance = 110; AntiAliasing = 2; Ssao = true; WaterHigh = true; ViewDistance = 1200; break;
-                case 3: RenderScale = 1.25f; Shadows = 2; ShadowDistance = 150; AntiAliasing = 2; Ssao = true; WaterHigh = true; ViewDistance = 1500; break;
+                case 0: RenderScale = 0.75f; Shadows = 1; ShadowDistance = 45; AntiAliasing = 0; Ssao = false; ViewDistance = 600; break;
+                case 1: RenderScale = 0.9f; Shadows = 2; ShadowDistance = 70; AntiAliasing = 1; Ssao = false; ViewDistance = 900; break;
+                case 2: RenderScale = 1f; Shadows = 2; ShadowDistance = 110; AntiAliasing = 2; Ssao = true; ViewDistance = 1200; break;
+                case 3: RenderScale = 1.25f; Shadows = 2; ShadowDistance = 150; AntiAliasing = 2; Ssao = true; ViewDistance = 1500; break;
             }
             PostFx = true;
         }

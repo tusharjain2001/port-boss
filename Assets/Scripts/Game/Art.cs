@@ -82,6 +82,6 @@ namespace PortBoss
         public static readonly Color Wood = Hex("#8a6a4a"), WoodDark = Hex("#5b4330"), WoodLight = Hex("#a88660"),
             Concrete = Hex("#9c968c"), Sand = Hex("#b9a582"), Grass = Hex("#6f7a4a"), Rock = Hex("#6c665e"),
             Rust = Hex("#9a4a2c"), Navy = Hex("#2e4a63"), Red = Hex("#b5402f"), Cream = Hex("#e8dcc4"),
-            Steel = Hex("#7d858c"), Fish = Hex("#a9c3cf"), Rot = Hex("#6b7a3a");
+            Steel = Hex("#7d858c"), Fish = Hex("#a9c3cf"), Rot = Hex("#7d7462");
     }
 }

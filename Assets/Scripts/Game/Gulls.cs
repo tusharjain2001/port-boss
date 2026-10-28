@@ -43,7 +43,7 @@ namespace PortBoss
             for (int i = 0; i < n; i++)
             {
                 var g = new GameObject("Gull").AddComponent<Gull>();
-                var m = Art.Model("gull", g.transform, Vector3.zero, 0, 1.6f);
+                var m = Art.Model("gull", g.transform, Vector3.zero, 0, 0.95f);
                 if (m == null) { Destroy(g.gameObject); return; }
                 g.wingL = FindDeep(m.transform, "Wing_L");
                 g.wingR = FindDeep(m.transform, "Wing_R");
