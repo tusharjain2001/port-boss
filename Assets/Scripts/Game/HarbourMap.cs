@@ -168,7 +168,7 @@ namespace PortBoss
             On("planks", new Vector3(31, 0, -21), 75, 1f, true);
             On("bag", new Vector3(28.5f, 0, -20), 0, 1f);
             On("advertBroken", new Vector3(-24, 0, -57), 90, 0.8f);
-            On("powerbox", new Vector3(14.6f, 0, -14.5f), 180, 1f);
+            On("powerbox", new Vector3(12.6f, 0, -12.2f), 180, 1f);
             On("epole", new Vector3(-6, 0, -58), 0, 1f);
             for (int i = 0; i < 4; i++) On(i % 2 == 0 ? "pallet" : "crateBig", new Vector3(27 + i * 2.4f, 0, -16 - (i % 2) * 1.6f), i * 25, 1f, true);
             On("metalCrate", new Vector3(36, 0, -27), 10, 1f, true);

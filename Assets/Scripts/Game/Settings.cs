@@ -46,7 +46,7 @@ namespace PortBoss
         public static readonly (string id, string label, Key def)[] Actions =
         {
             ("grab", "Grab / stack / sell", Key.E), ("drop", "Drop", Key.Q), ("throw", "Throw (also left click)", Key.R),
-            ("sprint", "Sprint", Key.LeftShift), ("jump", "Jump", Key.Space), ("push", "Push trolley", Key.F),
+            ("sprint", "Sprint", Key.LeftShift), ("jump", "Jump", Key.Space), ("push", "Push trolley / shove", Key.F),
         };
         public static Key KeyFor(string id)
         {

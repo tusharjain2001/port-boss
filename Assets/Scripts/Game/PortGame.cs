@@ -265,11 +265,18 @@ namespace PortBoss
         {
             if (Phase.Value != Ph.Night || HasTrolley.Value || Money.Value < TrolleyPrice) return;
             Money.Value -= TrolleyPrice;
-            HasTrolley.Value = true;
-            var t = Instantiate(GameUI.I.TrolleyPrefab, World.TrolleySpawn, Quaternion.Euler(0, -90, 0));
-            t.GetComponent<NetworkObject>().Spawn(true);
+            SpawnTrolley();
             BoughtRpc();
         }
+
+        void SpawnTrolley()
+        {
+            HasTrolley.Value = true;
+            Instantiate(GameUI.I.TrolleyPrefab, World.TrolleySpawn, Quaternion.Euler(0, -90, 0)).GetComponent<NetworkObject>().Spawn(true);
+        }
+
+        // Tests: the day-3 kit without the night card.
+        public void DebugGrantKit() { if (!HasTrolley.Value) SpawnTrolley(); if (!HasForklift.Value) SpawnForklift(); }
 
         [Rpc(SendTo.ClientsAndHost)]
         void BoughtRpc() => Sfx.Play2D("buy");
@@ -279,13 +286,18 @@ namespace PortBoss
         {
             if (Phase.Value != Ph.Night || HasForklift.Value || !ForkliftForSale || Money.Value < ForkliftPrice) return;
             Money.Value -= ForkliftPrice;
+            SpawnForklift();
+            BoughtRpc();
+        }
+
+        void SpawnForklift()
+        {
             HasForklift.Value = true;
-            Instantiate(GameUI.I.ForkliftPrefab, new Vector3(16f, 0.4f, -5f), Quaternion.Euler(0, -90, 0)).GetComponent<NetworkObject>().Spawn(true);
+            Instantiate(GameUI.I.ForkliftPrefab, new Vector3(19f, 0.4f, -12f), Quaternion.Euler(0, -90, 0)).GetComponent<NetworkObject>().Spawn(true);
             // Two pallets by the pier, if there aren't any about.
             if (Pallet.All.Count < 2)
                 foreach (var z in new[] { -2.2f, -4.2f })
                     Instantiate(GameUI.I.PalletPrefab, new Vector3(7f, 0.2f, z), Quaternion.identity).GetComponent<NetworkObject>().Spawn(true);
-            BoughtRpc();
         }
 
         public void ForkliftLost()

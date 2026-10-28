@@ -452,11 +452,36 @@ namespace PortBoss
         public void Knock(Vector3 crateVel)
         {
             var dir = crateVel; dir.y = 0;
-            KnockedRpc(dir.normalized * Mathf.Min(6f, dir.magnitude * 0.5f));
+            KnockedRpc(dir.normalized * Mathf.Min(6f, dir.magnitude * 0.5f), false);
+        }
+
+        // Shove: a crewmate within arm's reach in front of us (co-op mischief; they drop whatever they carry).
+        float shoveReady;
+        public Player ShoveTarget()
+        {
+            if (swimming || Driving != null || Pushing) return null;
+            foreach (var p in All)
+            {
+                if (p == this || p.swimming || p.Driving != null) continue;
+                var d = p.transform.position - transform.position; d.y = 0;
+                if (d.magnitude < 1.8f && Vector3.Dot(d.normalized, transform.forward) > 0.4f) return p;
+            }
+            return null;
+        }
+
+        public bool DebugShove() { var v = ShoveTarget(); if (v != null) ShoveRpc(v.NetworkObject); return v != null; }
+
+        [Rpc(SendTo.Server)]
+        void ShoveRpc(NetworkObjectReference who)
+        {
+            if (!who.TryGet(out var no) || !no.TryGetComponent(out Player p) || Vector3.Distance(p.transform.position, transform.position) > 2.6f) return;
+            var d = p.transform.position - transform.position; d.y = 0;
+            Debug.Log($"[PB] shove: player {OwnerClientId} shoved player {p.OwnerClientId}");
+            p.KnockedRpc(d.normalized * 5f, true);
         }
 
         [Rpc(SendTo.Everyone)]
-        void KnockedRpc(Vector3 push)
+        void KnockedRpc(Vector3 push, bool shoved)
         {
             knockT = 0;
             Sfx.Play("thud", transform.position + Vector3.up, 1f, 0.7f);
@@ -465,7 +490,7 @@ namespace PortBoss
             hv = push; vy = 3.5f;
             if (Carrying > 0) DropAllRpc();
             Shake(0.6f);
-            GameUI.Toast(PortGame.Pick("Oof! Right in the crate.", "Ow! Who threw that?!", "Down you go!"));
+            GameUI.Toast(shoved ? PortGame.Pick("Hey! Hands off!", "Shoved! Very professional.", "Oi! Watch it!") : PortGame.Pick("Oof! Right in the crate.", "Ow! Who threw that?!", "Down you go!"));
         }
 
         // ---------- swimming ----------
@@ -684,6 +709,7 @@ namespace PortBoss
                 var t = Trolley.I;
                 if (Pushing) PushRpc(false);
                 else if (t != null && Carrying == 0 && Vector3.Distance(t.Handle, transform.position + Vector3.up) < 2.2f) PushRpc(true);
+                else if (Carrying == 0 && Time.time > shoveReady && ShoveTarget() is Player victim) { shoveReady = Time.time + 1f; throwT = 0; Sfx.Play("whoosh", transform.position, 0.6f); ShoveRpc(victim.NetworkObject); }
                 else if (Carrying == 0) { var c = FindCrate(); if (c != null && !c.Attached.Value) TieRpc(c.NetworkObject); }
             }
         }
@@ -820,7 +846,8 @@ namespace PortBoss
             {
                 // Blocked (quay wall, boat): come in closer but rise, so we look over the head instead of into the back.
                 float d = Mathf.Max(0.8f, h.distance - 0.1f);
-                want = target + (want - target).normalized * d + Vector3.up * Mathf.Min(2.2f, (dist - d) * 0.5f);
+                if (h.normal.y > 0.7f) want = target + (want - target).normalized * d + h.normal * 0.35f; // the ground (looking up): slide along it
+                else want = target + (want - target).normalized * d + Vector3.up * Mathf.Min(2.2f, (dist - d) * 0.5f);
             }
             want.y = Mathf.Max(want.y, Water.Height(want) + 0.5f);
             camPos = Vector3.Lerp(camPos, want, 1f - Mathf.Exp(-18f * Time.deltaTime));

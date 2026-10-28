@@ -63,6 +63,8 @@ namespace PortBoss
             if (Has("-pb-swimtest")) StartCoroutine(SwimTest());
             if (Has("-pb-piertest")) StartCoroutine(PierTest());
             if (Has("-pb-knocktest")) StartCoroutine(KnockTest());
+            if (Has("-pb-shovehost")) StartCoroutine(ShoveHost());
+            if (Has("-pb-shovetest")) StartCoroutine(ShoveTest());
             if (Has("-pb-contracttest")) StartCoroutine(ContractTest());
             if (int.TryParse(Arg("-pb-day"), out var day)) StartCoroutine(StartOnDay(day));
             if (int.TryParse(Arg("-pb-settings"), out var st)) ui.DebugOpenSettings(st);
@@ -137,6 +139,30 @@ namespace PortBoss
         }
 
         // Throw a crate at the local player.
+        // Co-op shove (LAN): the host holds 2 crates; the joiner walks up behind and shoves.
+        IEnumerator ShoveHost()
+        {
+            yield return WaitGame();
+            Player.Local.DebugGiveCrates(2);
+            for (int i = 0; i < 40; i++) { yield return new WaitForSeconds(1f); Debug.Log($"[PB] shove host: carrying={Player.Local.Carrying} pos={Player.Local.transform.position:F1}"); }
+        }
+
+        IEnumerator ShoveTest()
+        {
+            yield return WaitGame();
+            while (Player.All.Count < 2) yield return null;
+            yield return new WaitForSeconds(4f);
+            var me = Player.Local; Player host = null;
+            foreach (var p in Player.All) if (p != me) host = p;
+            var hp = host.transform.position;
+            var from = hp - host.transform.forward * 1.2f;
+            me.DebugTeleport(from, Quaternion.LookRotation(hp - from).eulerAngles.y);
+            yield return new WaitForSeconds(0.6f);
+            Debug.Log($"[PB] shove test: target found={me.DebugShove()} host carrying before={host.Carrying}");
+            yield return new WaitForSeconds(2f);
+            Debug.Log($"[PB] shove test: host carrying after={host.Carrying}");
+        }
+
         IEnumerator KnockTest()
         {
             yield return WaitGame();
@@ -286,7 +312,8 @@ namespace PortBoss
                 ("map-mouth", new Vector3(30, 18, 120), new Vector3(190, 0, 300)),
                 ("map-demo-angle", new Vector3(40, 17, 40), new Vector3(5, 0, 5)),
                 ("map-back", new Vector3(-10, 10, -35), new Vector3(-10, 2, -75)),
-                ("map-quay", new Vector3(-12, 3, 14), new Vector3(10, -0.5f, -2)) })
+                ("map-quay", new Vector3(-12, 3, 14), new Vector3(10, -0.5f, -2)),
+                ("map-kit", new Vector3(2, 5, 6), new Vector3(14, 0, -8)) })
             {
                 cam.transform.position = pos; cam.transform.LookAt(look);
                 float t0 = Time.realtimeSinceStartup; int f0 = Time.frameCount;
@@ -294,6 +321,7 @@ namespace PortBoss
                 Debug.Log($"[PB] map shot {name}: fps={(Time.frameCount - f0) / (Time.realtimeSinceStartup - t0):0}");
                 yield return Snap(dir, name);
             }
+            if (Trolley.I != null) Debug.Log($"[PB] trolley at {Trolley.I.transform.position:F1} (spawn {World.TrolleySpawn:F1})");
             Player.CamOverride = false;
         }
 
@@ -363,6 +391,7 @@ namespace PortBoss
         {
             yield return WaitGame();
             PortGame.I.DebugStartDay(n);
+            if (n >= 3) PortGame.I.DebugGrantKit();
             Debug.Log($"[PB] started on day {n}");
         }
 

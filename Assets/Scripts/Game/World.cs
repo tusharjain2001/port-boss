@@ -11,7 +11,7 @@ namespace PortBoss
         public static readonly Vector3 BuyerPos = new(-4f, 0, -5.3f);
         public const float BuyerReach = 3.2f;
         public static readonly Bounds SellZone = new(new Vector3(-4f, 1.25f, -4f), new Vector3(2.6f, 0.9f, 1.4f));
-        public static readonly Vector3 TrolleySpawn = new(5.5f, 0.6f, -7.5f);
+        public static readonly Vector3 TrolleySpawn = new(3.6f, 0.6f, -10f); // clear of the shelter wall (x 6), or physics pops it out rolling
         public const float PierTop = 0.2f;
 
         public static Transform Root;

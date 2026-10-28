@@ -517,6 +517,7 @@ namespace PortBoss
                 else if (pl.NearBuyer && pl.SellableCrates().Count > 0) hint = "E  sell to the buyer";
                 else if (PortGame.I != null && Storm.Gust > 0.15f && pl.Carrying == 0 && pl.FindCrate() is Crate tc && !tc.Attached.Value) hint = tc.Tied.Value ? "F  untie crate" : "F  tie this crate down";
                 else if (pl.Pushing) hint = "F  let go of trolley";
+                else if (pl.Carrying == 0 && pl.ShoveTarget() != null) hint = "F  shove";
                 else if (pl.Carrying < Player.MaxStack && pl.FindCrate() != null) hint = pl.Carrying == 0 ? "E  grab crate" : "E  stack another";
                 else if (pl.Carrying == 0 && Trolley.I != null && Vector3.Distance(Trolley.I.Handle, pl.transform.position + Vector3.up) < 2.2f) hint = "F  push trolley";
                 if (pl.Carrying >= 2 && pl.Teeter > Player.TeeterAt)
@@ -534,7 +535,7 @@ namespace PortBoss
             }
             if (showHelp && !nightCard)
                 Label(new Rect(24 * S, H - 190 * S, 640 * S, 180 * S),
-                    "WASD move · Shift sprint · Space jump · Mouse look\nE / Right click: grab, stack (max 5) · E at the buyer: sell\nQ: drop one · Left click: throw · F: push trolley\nH hide · Esc menu", small, new Color(1, 1, 1, 0.75f));
+                    "WASD move · Shift sprint · Space jump · Mouse look\nE / Right click: grab, stack (max 5) · E at the buyer: sell\nQ: drop one · Left click: throw · F: trolley / shove a mate\nH hide · Esc menu", small, new Color(1, 1, 1, 0.75f));
         }
 
         void Pill(Rect r) => GUI.DrawTexture(r, Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(0.03f, 0.05f, 0.08f, 0.5f), 0, 10 * S);
