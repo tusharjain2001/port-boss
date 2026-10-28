@@ -131,6 +131,14 @@ namespace PortBoss
                     game?.CrateInSea();
                 }
             }
+            // The rival's wake: floating crates heave, loose crates on the deck/pier slide about.
+            float wake = Speedboat.WakeAt(p);
+            if (wake > 0)
+            {
+                if (depth > 0) rb.AddForce(Vector3.up * (Mathf.Sin(Time.time * 3.1f + p.x) * 7f * wake), ForceMode.Acceleration);
+                else rb.AddForce(new Vector3(Mathf.Sin(Time.time * 1.7f + p.z), 0, Mathf.Cos(Time.time * 1.3f + p.x)) * (14f * wake), ForceMode.Acceleration);
+            }
+
             // Towed or washed back onto land: no longer "in the sea".
             if (depth > 0) dryT = 0; else if (InSea && (dryT += Time.fixedDeltaTime) > 1.5f) InSea = false;
             if ((InSea && new Vector2(p.x, p.z).magnitude > 160f) || p.y < -25f) { NetworkObject.Despawn(); return; }

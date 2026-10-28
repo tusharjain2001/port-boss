@@ -43,6 +43,7 @@ namespace PortBoss
             RivalPort();
             OpenSea();
             if (Art.Cloud != null) Clouds();
+            Speedboat.Create();
             WaterRenderers.Clear();
             WaterRenderers.Add(Water.Create(new Vector3(0, 0, 80), 280, 112).GetComponent<Renderer>());
             // Far sea to the horizon (flat, slightly below the wave mean).

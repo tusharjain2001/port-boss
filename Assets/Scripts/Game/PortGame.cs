@@ -24,10 +24,16 @@ namespace PortBoss
         public override void OnNetworkSpawn()
         {
             I = this;
-            if (IsServer) StartDay(1);
+            if (IsServer) { StartDay(1); Speedboat.Arrived += RivalTaunt; }
         }
 
-        public override void OnNetworkDespawn() { if (I == this) I = null; }
+        public override void OnNetworkDespawn() { if (I == this) I = null; Speedboat.Arrived -= RivalTaunt; }
+
+        void RivalTaunt()
+        {
+            if (Phase.Value != Ph.Day) return;
+            Shout("RIVAL MARLOWE", Pick("Nice little pier! Shame if something... rocked it.", "Ha! Still carrying crates by hand?", "Make way! Real port coming through!", "Mind the wake, boss!"), 3.5f);
+        }
 
         void StartDay(int n)
         {

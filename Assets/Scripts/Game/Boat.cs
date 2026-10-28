@@ -189,7 +189,8 @@ namespace PortBoss
             var right = rot * Vector3.right * 2f;
             var ahead = rot * Vector3.forward * 4f;
             float y = Water.Height(p.x, p.z, tw) + 0.1f;
-            float roll = (Water.Height(p.x + right.x, p.z + right.z, tw) - Water.Height(p.x - right.x, p.z - right.z, tw)) * 9f + Mathf.Sin(tw * 0.9f) * 2.5f;
+            float roll = (Water.Height(p.x + right.x, p.z + right.z, tw) - Water.Height(p.x - right.x, p.z - right.z, tw)) * 9f + Mathf.Sin(tw * 0.9f) * 2.5f
+                + Speedboat.WakeAt(p) * 7f * Mathf.Sin(tw * 2.4f); // rival's wake rocks the boat
             float pitch = (Water.Height(p.x - ahead.x, p.z - ahead.z, tw) - Water.Height(p.x + ahead.x, p.z + ahead.z, tw)) * 5f + Mathf.Sin(tw * 0.63f + 1f) * 1.2f;
             rb.MovePosition(new Vector3(p.x, y, p.z));
             rb.MoveRotation(rot * Quaternion.Euler(pitch, 0, roll));
