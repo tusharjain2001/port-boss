@@ -45,6 +45,21 @@ namespace PortBoss
             return g;
         }
 
+        // Instantiate an imported model (Kenney/own-made) with its muted kit material, no colliders.
+        public static GameObject Model(string name, Transform parent, Vector3 pos, float yaw, float scale = 1f)
+        {
+            var ui = GameUI.I;
+            int i = System.Array.FindIndex(ui.Models, m => m != null && m.name == name);
+            if (i < 0) { Debug.LogWarning("[PB] no model " + name); return null; }
+            var g = Object.Instantiate(ui.Models[i], parent, false);
+            g.transform.localPosition = pos;
+            g.transform.localRotation = Quaternion.Euler(0, yaw, 0);
+            g.transform.localScale = Vector3.one * scale;
+            foreach (var r in g.GetComponentsInChildren<Renderer>()) r.sharedMaterial = ui.KitMats[ui.ModelKit[i]];
+            foreach (var c in g.GetComponentsInChildren<Collider>()) Object.Destroy(c);
+            return g;
+        }
+
         public static Color Hex(string hex) => ColorUtility.TryParseHtmlString(hex, out var c) ? c : Color.magenta;
 
         // Palette: stylised realism, warm late afternoon.

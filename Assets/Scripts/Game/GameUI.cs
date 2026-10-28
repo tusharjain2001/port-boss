@@ -14,6 +14,7 @@ namespace PortBoss
         public static GameUI I;
         public GameObject CratePrefab, BoatPrefab, TrolleyPrefab, PortGamePrefab;
         public Material LitMat, EmissiveMat, ParticleMat, WaterMat;
+        public GameObject[] Models; public int[] ModelKit; public Material[] KitMats;
 
         enum Screen { Menu, Join, Playing }
         Screen screen = Screen.Menu;

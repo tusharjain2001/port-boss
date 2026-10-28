@@ -86,7 +86,27 @@ namespace PortBoss.EditorTools
             nm.NetworkConfig.ConnectionApproval = false;
             nm.NetworkConfig.Prefabs.NetworkPrefabsLists.Clear();
             nm.NetworkConfig.Prefabs.NetworkPrefabsLists.Add(list);
+            // Imported models (Kenney CC0 + own-made): one muted kit material per texture atlas.
+            var models = new System.Collections.Generic.List<GameObject>();
+            var kits = new System.Collections.Generic.List<int>();
+            var kitMats = new System.Collections.Generic.List<Material>();
+            foreach (var kitDir in new[] { "Assets/Art/Kenney/watercraft", "Assets/Art/Kenney/pirate", "Assets/Art/Kenney/survival", "Assets/Art/Kenney/city", "Assets/Art/Own" })
+            {
+                var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(kitDir + "/Textures/colormap.png");
+                var kitName = Path.GetFileName(kitDir);
+                kitMats.Add(Mat("Kit_" + kitName, lit, m => { if (tex != null) m.SetTexture("_BaseMap", tex); m.SetColor("_BaseColor", tex != null ? new Color(0.86f, 0.82f, 0.76f) : new Color(0.92f, 0.92f, 0.9f)); m.SetFloat("_Smoothness", 0.1f); }));
+                foreach (var f in Directory.GetFiles(kitDir, "*.fbx"))
+                {
+                    var go = AssetDatabase.LoadAssetAtPath<GameObject>(f.Replace(Path.DirectorySeparatorChar, '/'));
+                    if (go == null) continue;
+                    models.Add(go); kits.Add(kitMats.Count - 1);
+                    var b = new Bounds(); bool first = true;
+                    foreach (var r in go.GetComponentsInChildren<MeshFilter>()) { var mb = r.sharedMesh.bounds; var wb = new Bounds(r.transform.TransformPoint(mb.center), Vector3.Scale(mb.size, r.transform.lossyScale)); if (first) { b = wb; first = false; } else b.Encapsulate(wb); }
+                    Debug.Log($"[PBBuild] model {go.name} size {b.size:F2} center {b.center:F2}");
+                }
+            }
             var ui = new GameObject("Game").AddComponent<GameUI>();
+            ui.Models = models.ToArray(); ui.ModelKit = kits.ToArray(); ui.KitMats = kitMats.ToArray();
             ui.CratePrefab = crate; ui.BoatPrefab = boat; ui.TrolleyPrefab = trolley; ui.PortGamePrefab = game;
             ui.LitMat = litMat; ui.EmissiveMat = emis; ui.ParticleMat = part; ui.WaterMat = water;
             Dir("Assets/Scenes");
