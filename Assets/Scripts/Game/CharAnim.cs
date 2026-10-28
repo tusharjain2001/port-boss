@@ -78,10 +78,11 @@ namespace PortBoss
             }
             if (carry)
             {
-                Aim(armLU, armLL, t.forward * 0.75f - t.up * 0.55f - t.right * 0.12f);
-                Aim(armLL, armLH, t.forward + t.up * 0.12f + t.right * 0.1f);
-                Aim(armRU, armRL, t.forward * 0.75f - t.up * 0.55f + t.right * 0.12f);
-                Aim(armRL, armRH, t.forward + t.up * 0.12f - t.right * 0.1f);
+                // Hands up under the bottom crate at shoulder height.
+                Aim(armLU, armLL, t.forward * 0.85f - t.up * 0.2f - t.right * 0.15f);
+                Aim(armLL, armLH, t.forward * 0.7f + t.up * 0.5f + t.right * 0.1f);
+                Aim(armRU, armRL, t.forward * 0.85f - t.up * 0.2f + t.right * 0.15f);
+                Aim(armRL, armRH, t.forward * 0.7f + t.up * 0.5f - t.right * 0.1f);
             }
             if (throw01 >= 0)
             {

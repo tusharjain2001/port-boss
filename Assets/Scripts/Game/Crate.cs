@@ -220,7 +220,9 @@ namespace PortBoss
                 float mag = s.magnitude;
                 var v = new Vector2(s.x + Mathf.Sin(Time.time * 6.5f + pl.OwnerClientId) * mag * 0.7f, s.y);
                 // Slightly messy stack: a fixed per-crate stagger.
-                float jx = ((NetworkObjectId * 37) % 9 - 4) * 0.01f, jyaw = ((NetworkObjectId * 53) % 13 - 6) * 1.2f;
+                // (signed: NetworkObjectId is a ulong, and "% 9 - 4" on it underflowed to ~1e17 and flung the crate's visual away)
+                long id = (long)(NetworkObjectId % 1000);
+                float jx = (id * 37 % 9 - 4) * 0.01f, jyaw = (id * 53 % 13 - 6) * 1.2f;
                 vis.localPosition = new Vector3(v.x * 0.075f * i * i + jx * i, 0, v.y * 0.075f * i * i);
                 vis.localRotation = Quaternion.Euler(v.y * 14f * i, jyaw * Mathf.Min(i, 1), -v.x * 14f * i);
             }

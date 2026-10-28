@@ -68,6 +68,7 @@ namespace PortBoss
             if (int.TryParse(Arg("-pb-settings"), out var st)) ui.DebugOpenSettings(st);
             if (Has("-pb-settingstest")) StartCoroutine(SettingsTest());
             if (Has("-pb-storm")) StartCoroutine(StormTest());
+            if (Arg("-pb-carrytest") != null) StartCoroutine(CarryTest(Arg("-pb-carrytest")));
             if (float.TryParse(Arg("-pb-weather"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var wsev)) StartCoroutine(ForceWeatherSoon(wsev));
             if (Has("-pb-forklifttest")) StartCoroutine(ForkliftTest());
         }
@@ -166,6 +167,71 @@ namespace PortBoss
         }
 
         // Storm warning now, storm 90 s later (use -pb-timescale to speed it up); crates on the pier get blown.
+        // Carried stacks must be visible from the real gameplay camera: carry 1, 3, 5 and count the crates the
+        // camera can see (line of sight to any corner of each crate, the carrier's body counts as blocking).
+        IEnumerator CarryTest(string dir)
+        {
+            Directory.CreateDirectory(dir);
+            yield return WaitGame();
+            PortGame.I.ForceWeather(0);
+            var pl = Player.Local;
+            pl.DebugTeleport(new Vector3(-12, 0.2f, -6), 30);
+            bool allOk = true;
+            foreach (var n in new[] { 1, 3, 5 })
+            {
+                while (pl.Carrying < n) { pl.DebugGiveCrates(n - pl.Carrying); yield return null; }
+                yield return new WaitForSeconds(2f);
+                var cam = Camera.main;
+                int seen = 0;
+                foreach (var c in Crate.All)
+                {
+                    if (!c.Attached.Value || c.transform.parent != pl.transform) continue;
+                    // Visible = at least 3 of 7 points on the crate (centre, corners) in clear view.
+                    int clear = 0; float h = Crate.Size * 0.45f;
+                    foreach (var o in new[] { Vector3.zero, new Vector3(h, h, h), new Vector3(-h, h, h), new Vector3(h, h, -h), new Vector3(-h, h, -h), new Vector3(h, -h, -h), new Vector3(-h, -h, -h) })
+                    {
+                        var p = c.transform.TransformPoint(o);
+                        if (!Physics.Linecast(cam.transform.position, p, out var hit, ~0, QueryTriggerInteraction.Ignore) && BodyClear(cam.transform.position, p, pl)) clear++;
+                    }
+                    bool vis = clear >= 3;
+                    // Rendered = the crate's renderers were actually drawn by a camera last frame (not just "would be in view").
+                    var rs = c.GetComponentsInChildren<Renderer>();
+                    // (isVisible is useless in batchmode; what broke in Manan's build was the visual flung away from the crate)
+                    bool drawn = System.Array.TrueForAll(rs, r => !r.enabled || (r.gameObject.activeInHierarchy && (r.bounds.center - c.transform.position).sqrMagnitude < 1f));
+                    var vis0 = c.transform.Find("vis");
+                    Debug.Log($"[PB] carry test:   crate {c.NetworkObjectId} slot={c.Slot.Value} local={c.transform.localPosition:F2} world={c.transform.position:F2} scale={c.transform.lossyScale:F2} vis={(vis0 ? vis0.gameObject.activeInHierarchy + " " + vis0.localPosition.ToString("F2") : "none")} r0={(rs.Length > 0 ? rs[0].name + " en=" + rs[0].enabled + " b=" + rs[0].bounds.center.ToString("F2") + " sz=" + rs[0].bounds.size.ToString("F2") : "-")} clear={clear}");
+                    if (vis && drawn) seen++;
+                }
+                Debug.Log($"[PB] carry test: carrying={pl.Carrying} visible={seen} {(seen == n ? "OK" : "FAIL")}");
+                allOk &= seen == n;
+                yield return Snap(dir, $"carry-{n}");
+                if (n == 5)
+                {
+                    Player.CamOverride = true;
+                    var side = pl.transform.position + pl.transform.right * 4.5f + Vector3.up * 2.4f;
+                    Camera.main.transform.position = side; Camera.main.transform.LookAt(pl.transform.position + Vector3.up * 2.6f + pl.transform.forward * 0.7f);
+                    yield return Snap(dir, "carry-5-side");
+                    Player.CamOverride = false;
+                }
+            }
+            Debug.Log($"[PB] carry test: {(allOk ? "PASS" : "FAIL")}");
+        }
+
+        // The worker model has no colliders: treat the body as a capsule (feet to 1.85 m, radius 0.3) between camera and point.
+        static bool BodyClear(Vector3 a, Vector3 b, Player pl)
+        {
+            var p0 = pl.transform.position + Vector3.up * 0.3f; var p1 = pl.transform.position + Vector3.up * 1.5f;
+            var headC = pl.transform.position + Vector3.up * 1.72f;
+            for (int i = 0; i <= 40; i++)
+            {
+                var q = Vector3.Lerp(a, b, i / 40f);
+                var axis = p1 - p0; float t = Mathf.Clamp01(Vector3.Dot(q - p0, axis) / axis.sqrMagnitude);
+                if ((q - (p0 + axis * t)).sqrMagnitude < 0.32f * 0.32f) return false; // torso + shoulders
+                if ((q - headC).sqrMagnitude < 0.19f * 0.19f) return false;            // head + hard hat
+            }
+            return true;
+        }
+
         IEnumerator ForceWeatherSoon(float s) { yield return WaitGame(); PortGame.I.ForceWeather(s); }
 
         IEnumerator StormTest()

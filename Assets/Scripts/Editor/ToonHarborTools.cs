@@ -45,7 +45,7 @@ namespace PortBoss.EditorTools
         {
             var outDir = Arg("-thOut") ?? "th_sheet";
             Directory.CreateDirectory(outDir);
-            var folders = new[] { "Cargo", "Props", "Ships/Boats", "Ships", "Concrete Buildings", "Metal Structures", "Special", "Plants", "Cranes", "Vehicles", "Construction Materials" };
+            var folders = (Arg("-thFolders") ?? "Cargo;Props;Ships/Boats;Ships;Concrete Buildings;Metal Structures;Special;Plants;Cranes;Vehicles;Construction Materials").Split(';');
             var sizes = new StringBuilder();
             EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
             var cam = Camera.main; cam.clearFlags = CameraClearFlags.SolidColor; cam.backgroundColor = new Color(0.62f, 0.75f, 0.85f);

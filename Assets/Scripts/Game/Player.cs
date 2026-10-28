@@ -661,7 +661,8 @@ namespace PortBoss
             return best;
         }
 
-        public static Vector3 HoldPos(int slot) => new(0, 1.22f + slot * (Crate.Size + 0.04f), 0.72f);
+        // Carried chest-high and out front; the camera looks over the shoulder so the whole stack stays in view.
+        public static Vector3 HoldPos(int slot) => new(0, 1.4f + slot * (Crate.Size + 0.04f), 0.78f);
 
         // ---- server ----
         void FixedUpdate()
@@ -758,6 +759,7 @@ namespace PortBoss
 
         // ---- camera (owner) ----
         public static bool CamOverride; // test shots drive the camera themselves
+        float carryCam;
         static float trauma;
         public static void Shake(float amount) { if (Settings.CameraShake) trauma = Mathf.Min(1f, trauma + amount); }
 
@@ -766,8 +768,10 @@ namespace PortBoss
             if (!IsOwner || !IsSpawned || CamOverride) return;
             var cam = Camera.main;
             if (cam == null) return;
-            var target = transform.position + Vector3.up * (1.7f + Carrying * 0.18f);
             var rot = Quaternion.Euler(pitch, yaw, 0);
+            // Carrying: look over the right shoulder so the whole stack in front of the body stays in view.
+            carryCam = Mathf.MoveTowards(carryCam, Carrying > 0 ? 1f : 0f, Time.deltaTime * 2f);
+            var target = transform.position + Vector3.up * (1.7f + Carrying * 0.18f) + rot * Vector3.right * (0.95f * carryCam);
             float dist = 5.6f + Carrying * 0.45f;
             var want = target - rot * Vector3.forward * dist;
             if (Physics.SphereCast(target, 0.4f, (want - target).normalized, out var h, dist, ~0, QueryTriggerInteraction.Ignore)
