@@ -22,7 +22,6 @@ namespace PortBoss
         public static readonly (Vector3 pos, string text)[] Labels =
         {
             (new Vector3(-4f, 2.9f, -5.3f), "FISH BUYER"),
-            (new Vector3(9f, 4.4f, -6.5f), "SHED"),
         };
 
         public static void Build()
@@ -80,7 +79,7 @@ namespace PortBoss
             Art.Box(t, new Vector3(-55, Skin.On ? -3f : -2.5f, -30), new Vector3(30, 6, 60), Art.Sand, true, "beach_left");
             // Slipway ramp: from the quay edge down into the sea (the trolley rolls down this).
             float len = 17f, drop = 3.4f, ang = Mathf.Atan2(drop, len) * Mathf.Rad2Deg;
-            var ramp = Art.Box(t, new Vector3(-10, -drop / 2 - 0.25f, len / 2 - 0.4f), new Vector3(7.5f, 0.5f, Mathf.Sqrt(len * len + drop * drop)), Art.Hex("#8c8374"), true, "slipway");
+            var ramp = Art.Box(t, new Vector3(-10, -drop / 2 - 0.25f, len / 2 - 0.4f), new Vector3(7.5f, 0.5f, Mathf.Sqrt(len * len + drop * drop)), Art.Hex(Skin.On ? "#6e675c" : "#8c8374"), true, "slipway");
             ramp.transform.localRotation = Quaternion.Euler(ang, 0, 0);
             // Fill under quay at slipway gap so there's no hole at its top.
             Art.Box(t, new Vector3(-10, -3, -30.2f), new Vector3(8, 6, 59.6f), Art.Concrete, true, "quay_mid");
@@ -208,7 +207,7 @@ namespace PortBoss
             Lamp(PierEnd, L(PierEnd, new Vector3(-2.6f, PierTop, 29.5f)));
         }
 
-        public static void SetRepaired(bool on) { foreach (var g in holePlanks) if (g != null) g.SetActive(on); }
+        public static void SetRepaired(bool on) { on |= Skin.On; foreach (var g in holePlanks) if (g != null) g.SetActive(on); } // the concrete jetty never has holes
 
         static void BuyerTable()
         {

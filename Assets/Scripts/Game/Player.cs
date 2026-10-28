@@ -385,7 +385,7 @@ namespace PortBoss
             {
                 float speed = (sprint ? 7.4f : 4.6f) * (1f - 0.07f * Carrying) * (Pushing ? 0.85f : 1f);
                 hv = Vector3.MoveTowards(hv, wish * speed, (cc.isGrounded ? 30f : 10f) * dt);
-                if (cc.isGrounded) { vy = -2f; if (input.jump) { vy = 5.6f; Sfx.Play("whoosh", transform.position, 0.3f); } }
+                if (cc.isGrounded) { if (vy < -5f) Sfx.Play("step" + Random.Range(0, 5), transform.position, 0.7f, 0.8f); vy = -2f; if (input.jump) { vy = 5.6f; Sfx.Play("whoosh", transform.position, 0.3f); } }
                 vy -= 19f * dt;
                 cc.Move((hv + Vector3.up * vy + Storm.WindDir * (1.1f * Storm.Gust)) * dt);
             }
@@ -751,6 +751,7 @@ namespace PortBoss
             if (c == null) return;
             var p = transform.TransformPoint(new Vector3(0, 1.35f, 0.95f));
             c.Release(new Vector3(p.x, Mathf.Max(c.transform.position.y, transform.position.y + 1.25f), p.z), serverVel * 0.6f + transform.forward * 0.4f, Vector3.zero);
+            FxRpc("whoosh", p);
         }
 
         [Rpc(SendTo.Server)]

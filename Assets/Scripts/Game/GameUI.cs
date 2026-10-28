@@ -454,6 +454,7 @@ namespace PortBoss
             var g = PortGame.I;
             if (g != null && Settings.Hud)
             {
+                Pill(new Rect(W - 330 * S, 12 * S, 318 * S, 150 * S));
                 Label(new Rect(W - 420 * S, 18 * S, 400 * S, 80 * S), $"${g.Money.Value}", new GUIStyle(big) { alignment = TextAnchor.UpperRight }, new Color(1f, 0.88f, 0.4f));
                 // One shared tin for the whole crew (everyone earns the same), and the goalpost it's saving toward.
                 var tiny = new GUIStyle(small) { alignment = TextAnchor.UpperRight, fontSize = Mathf.RoundToInt(18 * S) };
@@ -505,6 +506,7 @@ namespace PortBoss
             }
 
             var pl = Player.Local;
+            if (pl != null && g != null && !nightCard && Settings.Hud) DrawObjective(W, H, g, pl);
             if (pl != null && !InputBlocked)
             {
                 string hint = null;
@@ -523,11 +525,52 @@ namespace PortBoss
                     Label(new Rect(0, H * 0.70f, W, 70 * S), "Steady...!", new GUIStyle(big) { fontSize = Mathf.RoundToInt(56 * S) }, new Color(1f, 0.55f, 0.3f, a));
                 }
                 if (pl.Carrying > 0) Label(new Rect(0, H - 150 * S, W, 40 * S), $"Carrying {pl.Carrying}/{Player.MaxStack}   ·   Q drop   ·   Left click throw", mid, new Color(1, 1, 1, 0.85f));
-                if (hint != null) Label(new Rect(0, H * 0.56f, W, 40 * S), hint, mid, new Color(1f, 0.92f, 0.7f));
+                if (hint != null)
+                {
+                    float hw = mid.CalcSize(new GUIContent(hint)).x + 40 * S;
+                    Pill(new Rect((W - hw) / 2, H * 0.56f - 2 * S, hw, 44 * S));
+                    Label(new Rect(0, H * 0.56f, W, 40 * S), hint, mid, new Color(1f, 0.92f, 0.7f));
+                }
             }
             if (showHelp && !nightCard)
                 Label(new Rect(24 * S, H - 190 * S, 640 * S, 180 * S),
                     "WASD move · Shift sprint · Space jump · Mouse look\nE / Right click: grab, stack (max 5) · E at the buyer: sell\nQ: drop one · Left click: throw · F: push trolley\nH hide · Esc menu", small, new Color(1, 1, 1, 0.75f));
+        }
+
+        void Pill(Rect r) => GUI.DrawTexture(r, Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(0.03f, 0.05f, 0.08f, 0.5f), 0, 10 * S);
+
+        // First day only: one line saying what to do next, and a bobbing marker over where to do it.
+        void DrawObjective(float W, float H, PortGame g, Player pl)
+        {
+            if (g.DayNum.Value != 1 || g.Sold.Value >= 10) return;
+            Boat boat = null; Crate near = null; float best = 1e9f;
+            foreach (var b in Boat.All) if (b.State.Value != Boat.St.Leaving) boat = b;
+            if (boat != null && boat.State.Value == Boat.St.Docked)
+                foreach (var c in Crate.All)
+                {
+                    if (c == null || c.Attached.Value) continue;
+                    float d = (c.transform.position - boat.transform.position).sqrMagnitude;
+                    if (d < 100f && d < best) { best = d; near = c; }
+                }
+            string job; Vector3? at = null;
+            if (pl.Carrying > 0) { job = near != null && pl.Carrying < 3 ? "Stack a few more (E), then take them to the FISH BUYER" : "Take the fish to the FISH BUYER and press E to sell"; at = World.BuyerPos + Vector3.up * 3.6f; }
+            else if (near != null) { job = "Unload the boat: walk up to a fish crate and press E"; at = near.transform.position + Vector3.up * 1.6f; }
+            else if (boat != null && boat.State.Value == Boat.St.Arriving) { job = "A boat is coming in: meet it at the end of the jetty"; at = boat.BerthPos + Vector3.up * 2.5f; }
+            else job = "Wait at the jetty for the next boat";
+            ThemeTextures();
+            var r = new Rect(24 * S, 74 * S, 640 * S, 34 * S);
+            Pill(new Rect(r.x, r.y, 84 * S + small.CalcSize(new GUIContent(job)).x * 1.1f, r.height));
+            GUI.DrawTexture(new Rect(r.x, r.y, 60 * S, r.height), Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(0.98f, 0.76f, 0.1f), 0, 6 * S);
+            var js = new GUIStyle(small) { fontSize = Mathf.RoundToInt(18 * S), fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+            js.normal.textColor = new Color(0.1f, 0.1f, 0.11f);
+            GUI.Label(new Rect(r.x, r.y, 60 * S, r.height), "JOB", js);
+            Label(new Rect(r.x + 72 * S, r.y, r.width, r.height), job, new GUIStyle(small) { fontSize = Mathf.RoundToInt(22 * S), fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft }, new Color(1f, 0.95f, 0.82f));
+            if (at == null || cam == null) return;
+            var sp = cam.WorldToScreenPoint(at.Value + Vector3.up * (0.25f * Mathf.Sin(Time.unscaledTime * 4f)));
+            if (sp.z < 0) return;
+            float x = Mathf.Clamp(sp.x, 40 * S, W - 40 * S), y = Mathf.Clamp(H - sp.y, 60 * S, H - 120 * S);
+            var arrow = new GUIStyle(GUI.skin.label) { fontSize = Mathf.RoundToInt(44 * S), alignment = TextAnchor.MiddleCenter };
+            Label(new Rect(x - 40 * S, y - 40 * S, 80 * S, 80 * S), "▼", arrow, new Color(1f, 0.8f, 0.2f, 0.95f));
         }
 
         void DrawBuyer(float W, float H)
