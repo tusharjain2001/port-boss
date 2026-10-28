@@ -244,7 +244,7 @@ namespace PortBoss
             void Look(Vector3 at, Vector3 offset) { cam.transform.position = at + offset; cam.transform.LookAt(at); }
             Look(fresh.transform.position, new Vector3(0.3f, 1.1f, -1.3f)); yield return Snap(dir, "crate-fresh");
             Look(spoiled.transform.position + Vector3.left * 0.5f, new Vector3(0.2f, 1.6f, -2.4f)); yield return Snap(dir, "crate-row-fresh-spoiled-damaged");
-            Look(new Vector3(12.7f, 0.9f, -12.8f), new Vector3(-1.2f, 0.9f, 2.6f)); yield return Snap(dir, "crate-empties-by-shed");
+            Look(new Vector3(12.7f, 0.9f, -12.8f), new Vector3(2.2f, 0.9f, 2.4f)); yield return Snap(dir, "crate-empties-by-shed");
             Player.CamOverride = false;
         }
 

@@ -445,7 +445,8 @@ namespace PortBoss
                 Label(new Rect(sp.x - 200 * S, H - sp.y - 30 * S, 400 * S, 60 * S), p.s, new GUIStyle(mid) { fontSize = Mathf.RoundToInt(40 * S) }, c);
             }
 
-            foreach (var (lp, lt) in World.Labels)
+            bool nightCard = PortGame.I != null && PortGame.I.Phase.Value == PortGame.Ph.Night;
+            if (!nightCard) foreach (var (lp, lt) in World.Labels)
             {
                 var sp = cam.WorldToScreenPoint(lp);
                 float d = Vector3.Distance(cam.transform.position, lp);
@@ -474,7 +475,7 @@ namespace PortBoss
                 if (pl.Carrying > 0) Label(new Rect(0, H - 150 * S, W, 40 * S), $"Carrying {pl.Carrying}/{Player.MaxStack}   ·   Q drop   ·   Left click throw", mid, new Color(1, 1, 1, 0.85f));
                 if (hint != null) Label(new Rect(0, H * 0.56f, W, 40 * S), hint, mid, new Color(1f, 0.92f, 0.7f));
             }
-            if (showHelp)
+            if (showHelp && !nightCard)
                 Label(new Rect(24 * S, H - 190 * S, 640 * S, 180 * S),
                     "WASD move · Shift sprint · Space jump · Mouse look\nE / Right click: grab, stack (max 5) · E at the buyer: sell\nQ: drop one · Left click: throw · F: push trolley\nH hide · Esc menu", small, new Color(1, 1, 1, 0.75f));
         }

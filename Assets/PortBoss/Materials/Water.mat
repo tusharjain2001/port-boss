@@ -30,7 +30,7 @@ Material:
     - _FoamWidth: 0.7
     - _Gloss: 350
     - _RippleScale: 0.45
-    - _RippleStrength: 0.1
+    - _RippleStrength: 0.045
     m_Colors:
     - _Deep: {r: 0.06999998, g: 0.21999997, b: 0.32999998, a: 1}
     - _FoamColor: {r: 0.95, g: 0.95, b: 0.9, a: 1}

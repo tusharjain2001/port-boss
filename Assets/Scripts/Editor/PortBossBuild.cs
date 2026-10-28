@@ -26,7 +26,25 @@ namespace PortBoss.EditorTools
             var lit = Shader.Find("Universal Render Pipeline/Lit");
             var litMat = Mat("Lit", lit, m => { m.SetColor("_BaseColor", Color.white); m.SetFloat("_Smoothness", 0.15f); });
             var emis = Mat("Emissive", lit, m => { m.EnableKeyword("_EMISSION"); m.SetColor("_EmissionColor", Color.white); m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive; });
-            var part = Mat("Particle", Shader.Find("Universal Render Pipeline/Particles/Unlit"), m => m.SetColor("_BaseColor", Color.black));
+            // Soft round dot for every particle (splash, wake, rain, flies); each system tints it with its startColor.
+            var dot = new Texture2D(64, 64, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Clamp };
+            for (int y = 0; y < 64; y++)
+                for (int x = 0; x < 64; x++)
+                {
+                    float d = Vector2.Distance(new Vector2(x + 0.5f, y + 0.5f), new Vector2(32, 32)) / 32f;
+                    dot.SetPixel(x, y, new Color(1, 1, 1, Mathf.SmoothStep(1, 0, Mathf.InverseLerp(0.45f, 1f, d))));
+                }
+            dot.Apply();
+            AssetDatabase.DeleteAsset(Root + "/Materials/Dot.asset");
+            AssetDatabase.CreateAsset(dot, Root + "/Materials/Dot.asset");
+            var part = Mat("Particle", Shader.Find("Universal Render Pipeline/Particles/Unlit"), m =>
+            {
+                m.SetColor("_BaseColor", Color.white); m.SetTexture("_BaseMap", dot);
+                m.SetFloat("_Surface", 1); m.SetFloat("_Blend", 0); m.SetFloat("_ZWrite", 0);
+                m.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha); m.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                m.SetFloat("_SrcBlendAlpha", (float)UnityEngine.Rendering.BlendMode.One); m.SetFloat("_DstBlendAlpha", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT"); m.SetOverrideTag("RenderType", "Transparent"); m.renderQueue = 3000;
+            });
             var waterShader = Shader.Find("PortBoss/Water");
             if (waterShader == null) Debug.LogError("[PBBuild] PortBoss/Water shader missing, falling back to Lit");
             var water = waterShader != null ? Mat("Water", waterShader, m => { })

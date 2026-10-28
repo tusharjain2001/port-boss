@@ -11,7 +11,7 @@ Shader "PortBoss/Water"
         _DepthFade ("Depth fade (m)", Float) = 5
         _FoamWidth ("Contact foam width (m)", Float) = 0.7
         _RippleScale ("Ripple scale", Float) = 0.45
-        _RippleStrength ("Ripple strength", Float) = 0.1
+        _RippleStrength ("Ripple strength", Float) = 0.045
         _Gloss ("Sun glint sharpness", Float) = 350
         _CrestHeight ("Crest foam above (y)", Float) = -0.55
     }
@@ -89,7 +89,7 @@ Shader "PortBoss/Water"
                 float lit = L.shadowAttenuation;
                 half3 water = lerp(_Shallow.rgb, _Deep.rgb, d01) * (0.35 + 0.65 * L.color * lit) + _PB_SkyZenith.rgb * 0.15;
 
-                float fres = pow(1 - saturate(dot(n, v)), 5) * 0.55 + 0.03;
+                float fres = pow(1 - saturate(dot(n, v)), 5) * 0.4 + 0.03;
                 float3 r = reflect(-v, n);
                 half3 sky = lerp(_PB_SkyHorizon.rgb, _PB_SkyZenith.rgb, saturate(r.y * 1.6));
                 float3 h = normalize(L.direction + v);

@@ -80,8 +80,9 @@ namespace PortBoss
                 // Lidded empty crates stacked by the shed (same build as the fish crates).
                 var ec = new GameObject("empty_crate").transform;
                 ec.SetParent(t, false);
-                ec.localPosition = new Vector3(12.4f + (i % 2) * 0.62f, 0.3f + (i / 2) * 0.6f, -12.8f);
-                ec.localRotation = Quaternion.Euler(0, (i * 37) % 9 - 4, 0);
+                // A loose pile, not a cabinet: turned every which way, top layer pushed back.
+                ec.localPosition = new Vector3(12.4f + (i % 2) * 0.64f + (i / 2) * 0.05f, 0.3f + (i / 2) * 0.6f, -12.8f + ((i * 7) % 3 - 1) * 0.04f);
+                ec.localRotation = Quaternion.Euler(0, (i % 3) * 90 + (i * 37) % 13 - 6, 0);
                 ec.gameObject.AddComponent<BoxCollider>().size = Vector3.one * 0.58f;
                 CrateLook.Build(ec, 0.58f, false, i);
             }
