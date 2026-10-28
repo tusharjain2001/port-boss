@@ -111,3 +111,9 @@ InitTestScene*.unity*
 # Transient test-runner output
 /Assets/Resources/PerformanceTestRunInfo.json*
 /Assets/Resources/PerformanceTestRunSettings.json*
+
+# Toon Harbor Pack (paid Unity Asset Store item, EULA forbids redistribution): NEVER commit.
+/Assets/ThirdParty/
+/Assets/ThirdParty.meta
+/Assets/Toon Harbor Pack/
+/Assets/Toon Harbor Pack.meta
