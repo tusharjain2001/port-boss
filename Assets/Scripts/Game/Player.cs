@@ -53,6 +53,7 @@ namespace PortBoss
         public override void OnNetworkSpawn()
         {
             All.Add(this);
+            Boat.LetThrough(cc);
             var c = Colors[(int)(OwnerClientId % (ulong)Colors.Length)];
             model = new GameObject("model").transform;
             model.SetParent(transform, false);

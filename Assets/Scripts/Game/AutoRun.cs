@@ -822,14 +822,36 @@ namespace PortBoss
             ("decktop", new Vector3(7.6f, 9f, 11f), new Vector3(7.6f, 1.6f, 16f)),
         };
 
+        // Crates on a boat that sink into its hull (the pack meshes) by more than 3 cm.
+        static void DeckCheck(string when)
+        {
+            foreach (var b in Boat.All)
+            {
+                var hull = b.GetComponentsInChildren<MeshCollider>();
+                int aboard = 0, sunk = 0;
+                foreach (var c in Crate.All)
+                {
+                    var l = b.transform.InverseTransformPoint(c.transform.position);
+                    if (Mathf.Abs(l.x) > Boat.HalfW + 0.5f || Mathf.Abs(l.z) > Boat.HalfL + 1f || l.y < Boat.DeckY - 1f || l.y > Boat.DeckY + 4f) continue;
+                    aboard++;
+                    var cc = c.GetComponent<Collider>();
+                    foreach (var h in hull)
+                        if (Physics.ComputePenetration(cc, c.transform.position, c.transform.rotation, h, h.transform.position, h.transform.rotation, out _, out float d) && d > 0.03f) { sunk++; break; }
+                }
+                Debug.Log($"[PB] deck check ({when}): boat {b.State.Value} crates aboard={aboard} sunk into the hull={sunk}");
+            }
+        }
+
         IEnumerator AreaShots(string dir)
         {
             Directory.CreateDirectory(dir);
             yield return WaitGame();
             var g = PortGame.I;
             g.ForceWeather(0);
+            DeckCheck("arriving");
             while (!Boat.All.Exists(b => b.State.Value == Boat.St.Docked)) yield return null;
             yield return new WaitForSeconds(2f);
+            DeckCheck("docked");
             Player.CamOverride = true;
             var cam = Camera.main;
             foreach (var (cond, sev, dayT) in new[] { ("day", 0f, 72f), ("rain", 0.65f, 72f), ("storm", 1f, 72f), ("dusk", 0f, 445f), ("night", 0f, -1f) })

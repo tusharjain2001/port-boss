@@ -42,6 +42,13 @@ namespace PortBoss
         int shoutIdx;
         readonly List<Crate> cargo = new();
         CharAnim captain; // the pack worker at the wheelhouse (skin only)
+        readonly List<Collider> hullMeshes = new(); // the pack hull's own colliders: crates only (skin only)
+
+        // Every peer: people pass through the pack hull meshes (they board over our gangway and box deck).
+        public static void LetThrough(Collider person)
+        {
+            foreach (var b in All) foreach (var c in b.hullMeshes) if (c != null) Physics.IgnoreCollision(person, c);
+        }
         readonly Dictionary<ulong, float> evicted = new(); // server: player -> when we last threw them off
         float evictCheck;
 
@@ -119,9 +126,12 @@ namespace PortBoss
             if (float.IsNaN(deck)) deck = bs.min.y + bs.size.y * 0.55f;
             float dy = (transform.position.y + DeckY) - deck;
             stern.transform.position += Vector3.up * dy; bow.transform.position += Vector3.up * dy;
-            // The pieces keep the pack's collision meshes: the bow deck is a step higher than the stern's and the bulwarks
-            // stand inside our hull box, so with only our flat box deck, crates slid into the bow and the sides (they
-            // clipped into the boat). The spawner teleports us off the origin before the first physics step.
+            // The pieces keep the pack's collision meshes for the crates: the bow deck is a step higher than the stern's and
+            // the bulwarks stand inside our hull box, so with only our flat box deck, crates slid into the bow and the sides
+            // (they clipped into the boat). People walk on our boxes as before (the bulwark has no gap at the gangway):
+            // LetThrough. The spawner teleports us off the origin before the first physics step.
+            hullMeshes.AddRange(stern.GetComponentsInChildren<Collider>());
+            hullMeshes.AddRange(bow.GetComponentsInChildren<Collider>());
             // Bridge on the stern deck, a pack worker as the captain.
             // The bridge keeps the pack's collision mesh: it is wider than our wheelhouse box, and you shouldn't walk through it.
             var br = Art.Place(Skin.Get("tugBridge"), v, Vector3.zero, 0, k, true);
@@ -139,6 +149,7 @@ namespace PortBoss
         public override void OnNetworkSpawn()
         {
             All.Add(this);
+            foreach (var p in Player.All) foreach (var c in hullMeshes) if (c != null) Physics.IgnoreCollision(p.GetComponent<CharacterController>(), c);
             State.OnValueChanged += (_, s) => OnState(s);
             OnState(State.Value);
             if (!IsServer) return;
