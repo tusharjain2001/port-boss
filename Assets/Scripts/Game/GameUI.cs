@@ -210,6 +210,7 @@ namespace PortBoss
                         || Mouse.current?.leftButton.wasPressedThisFrame == true || pad?.startButton.wasPressedThisFrame == true || pad?.buttonSouth.wasPressedThisFrame == true)
                         Intro.Skip();
                 }
+                else if (charOpen && k.escapeKey.wasPressedThisFrame) CloseCharacter(false);
                 else if (statsOpen && k.escapeKey.wasPressedThisFrame) statsOpen = false;
                 else if (shopOpen && (k.escapeKey.wasPressedThisFrame || k.tabKey.wasPressedThisFrame || pad?.selectButton.wasPressedThisFrame == true)) shopOpen = false;
                 else if (!paused && !buyerOpen && !statsOpen && (k.tabKey.wasPressedThisFrame || pad?.selectButton.wasPressedThisFrame == true)) { shopOpen = true; Sfx.Play2D("click", 0.5f); }
@@ -431,6 +432,7 @@ namespace PortBoss
             if (BodyFont != null) GUI.skin.font = BodyFont; // text fields, toggles and the rest of the default skin
             Styles();
             float W = UnityEngine.Screen.width, H = UnityEngine.Screen.height;
+            if (charOpen) { DrawCharacter(W, H); return; }
             if (screen == Screen.Menu) DrawMenu(W, H);
             else if (screen == Screen.Join) DrawJoin(W, H);
             else if (screen == Screen.Settings) DrawSettings(W, H);

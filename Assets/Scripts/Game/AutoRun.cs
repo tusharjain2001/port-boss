@@ -74,6 +74,8 @@ namespace PortBoss
             if (Arg("-pb-carrytest") != null) StartCoroutine(CarryTest(Arg("-pb-carrytest")));
             if (Arg("-pb-mapshots") != null) StartCoroutine(MapShots(Arg("-pb-mapshots")));
             if (Arg("-pb-uishots") != null) StartCoroutine(UiShots(Arg("-pb-uishots")));
+            if (Arg("-pb-lookshots") != null) StartCoroutine(LookShots(Arg("-pb-lookshots")));
+            if (Has("-pb-randomlook")) StartCoroutine(RandomLook());
             if (Arg("-pb-film") != null) StartCoroutine(Film(Arg("-pb-film")));
             if (float.TryParse(Arg("-pb-weather"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var wsev)) StartCoroutine(ForceWeatherSoon(wsev));
             if (Has("-pb-forklifttest")) StartCoroutine(ForkliftTest());
@@ -964,6 +966,48 @@ namespace PortBoss
             for (float t = 0; t < 40 && (gull = Gull.AnyPerched()) == null; t += 0.5f) yield return new WaitForSeconds(0.5f);
             if (gull != null) { Look(gull.position, new Vector3(1.2f, 0.5f, -1.6f)); yield return Snap(dir, "gull-perched"); }
             Player.CamOverride = false;
+        }
+
+        // Character editor: open it, show a run of looks; each preview render saved (works headless), the whole screen
+        // too (the IMGUI sheet only draws in a window).
+        IEnumerator LookShots(string dir)
+        {
+            Directory.CreateDirectory(dir);
+            yield return new WaitForSecondsRealtime(3f);
+            var ui = GameUI.I;
+            ui.OpenCharacter();
+            var dice = new System.Random(7);
+            for (int i = 0; i < 10; i++)
+            {
+                ui.DebugLook(i < 4 ? Look.Default(i) : Look.Random(dice));
+                yield return new WaitForSecondsRealtime(1.2f);
+                yield return new WaitForEndOfFrame();
+                SaveRT(ui.PreviewRT, Path.Combine(dir, $"look-{i}.png"));
+                if (!Application.isBatchMode && i < 3) yield return Snap(dir, $"editor-{i}");
+            }
+            Debug.Log("[PB] lookshots done");
+        }
+
+        static void SaveRT(RenderTexture rt, string path)
+        {
+            if (rt == null) return;
+            var flat = RenderTexture.GetTemporary(rt.width, rt.height, 0); // resolve the MSAA target first
+            Graphics.Blit(rt, flat);
+            var old = RenderTexture.active; RenderTexture.active = flat;
+            var t = new Texture2D(rt.width, rt.height, TextureFormat.RGB24, false);
+            t.ReadPixels(new Rect(0, 0, rt.width, rt.height), 0, 0); t.Apply();
+            RenderTexture.active = old; RenderTexture.ReleaseTemporary(flat);
+            File.WriteAllBytes(path, t.EncodeToPNG()); Destroy(t);
+        }
+
+        // Co-op look sync test: this process's player wears a random look (not saved); every peer logs what it sees.
+        IEnumerator RandomLook()
+        {
+            while (Player.Local == null) yield return null;
+            yield return new WaitForSeconds(1f);
+            var l = Look.Random(new System.Random(System.Diagnostics.Process.GetCurrentProcess().Id)).Clamped();
+            Player.Local.SetLook(l);
+            Debug.Log($"[PB] look sent p{Player.Local.OwnerClientId} {l}");
         }
 
         IEnumerator Snap(string dir, string name)

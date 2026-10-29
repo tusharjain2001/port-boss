@@ -16,7 +16,8 @@ namespace PortBoss
         public Material Sky;
         public VolumeProfile Post;
         [Header("People")]
-        public GameObject[] Players;   // one per player slot
+        public GameObject[] Players;   // one per player slot (the pack's; used only when our own Worker is missing)
+        public GameObject Worker;      // our own dock worker (Assets/Art/Worker/Worker.fbx, committed), dressed per player by Worker.cs
         public GameObject Buyer, Rival;
         public AnimationClip Idle, Walk, Run, Jump, Swim, SwimIdle, Drive, Push, Sprint;
         [Header("Props")]
