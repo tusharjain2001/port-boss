@@ -511,7 +511,7 @@ namespace PortBoss
             }
 
             bool nightCard = PortGame.I != null && PortGame.I.Phase.Value == PortGame.Ph.Night;
-            if (!nightCard) foreach (var (lp, lt) in World.Labels)
+            if (!nightCard && !Skin.On) foreach (var (lp, lt) in World.Labels) // with the skin the stall has a painted sign
             {
                 var sp = cam.WorldToScreenPoint(lp);
                 float d = Vector3.Distance(cam.transform.position, lp);
