@@ -374,6 +374,21 @@ namespace PortBoss
                 Fit("mpole", new Vector3(c.x + dx, 1.35f, c.z - 1.35f), new Vector3(0.12f, 2.7f, 0.12f));
             var roof = Fit("roofSheet", new Vector3(c.x, 2.75f, c.z - 0.75f), new Vector3(3.3f, 0.35f, 2.2f));
             if (roof != null) roof.transform.rotation = Quaternion.Euler(-10, 0, 0) * roof.transform.rotation;
+            // A painted board on the front edge: FRESH FISH.
+            var board = Art.Box(R, new Vector3(c.x, 3.05f, c.z + 0.42f), new Vector3(2.6f, 0.55f, 0.06f), Art.Hex("#2f5d6e"), false, "stall_sign");
+            var font = GameUI.I != null ? GameUI.I.TitleFont : null;
+            if (font != null)
+            {
+                var t = new GameObject("stall_sign_text").transform;
+                t.SetParent(R, false);
+                var tm = t.gameObject.AddComponent<TextMesh>();
+                tm.font = font; tm.fontSize = 96; tm.characterSize = 0.1f; tm.anchor = TextAnchor.MiddleCenter; tm.text = "FRESH FISH"; tm.color = new Color(1f, 0.93f, 0.8f);
+                t.GetComponent<MeshRenderer>().sharedMaterial = font.material;
+                float w = Mathf.Max(0.01f, t.GetComponent<MeshRenderer>().bounds.size.x);
+                t.localScale = Vector3.one * (2.2f / w);
+                t.position = new Vector3(c.x, 3.05f, c.z + 0.45f);
+                t.rotation = Quaternion.Euler(0, 180, 0); // readable from the quay side (+z)
+            }
         }
 
         // Road tiles (12 m, lane markings and kerbs) along a polyline, top flush with the slabs.
