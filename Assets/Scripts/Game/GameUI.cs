@@ -381,6 +381,15 @@ namespace PortBoss
             st.normal.textColor = old;
         }
 
+        // A copy of st that keeps s on one line (never wraps or clips), shrunk until it fits maxW.
+        static GUIStyle OneLine(GUIStyle st, string s, float maxW)
+        {
+            var o = new GUIStyle(st) { wordWrap = false, clipping = TextClipping.Overflow };
+            var c = new GUIContent(s);
+            while (o.fontSize > 10 && o.CalcSize(c).x > maxW) o.fontSize = Mathf.FloorToInt(o.fontSize * 0.92f);
+            return o;
+        }
+
         bool Button(Rect r, string s, bool enabled = true)
         {
             GUI.enabled = enabled;
@@ -491,7 +500,7 @@ namespace PortBoss
                 Label(new Rect(band.x + 20 * S, band.y + 36 * S, band.width - 40 * S, band.height - 40 * S), shout, shoutS, new Color(1f, 0.97f, 0.9f, a));
             }
             if (Time.unscaledTime < toastUntil)
-                Label(new Rect(0, H * 0.62f, W, 50 * S), toast, mid, new Color(0.85f, 0.95f, 1f, Mathf.Clamp01((toastUntil - Time.unscaledTime) * 2)));
+                Label(new Rect(0, H * 0.62f, W, 50 * S), toast, OneLine(mid, toast, W * 0.94f), new Color(0.85f, 0.95f, 1f, Mathf.Clamp01((toastUntil - Time.unscaledTime) * 2)));
 
             for (int i = pops.Count - 1; i >= 0; i--)
             {
@@ -501,7 +510,9 @@ namespace PortBoss
                 var sp = cam.WorldToScreenPoint(p.p + Vector3.up * t * 0.9f);
                 if (sp.z < 0) continue;
                 var c = p.c; c.a = Mathf.Clamp01((1.6f - t) * 2);
-                Label(new Rect(sp.x - 200 * S, H - sp.y - 30 * S, 400 * S, 60 * S), p.s, new GUIStyle(mid) { fontSize = Mathf.RoundToInt(40 * S) }, c);
+                var ps = OneLine(new GUIStyle(mid) { fontSize = Mathf.RoundToInt(40 * S) }, p.s, W * 0.9f);
+                float pw = ps.CalcSize(new GUIContent(p.s)).x + 20 * S, px = Mathf.Clamp(sp.x - pw / 2, 10 * S, W - pw - 10 * S); // whole line on screen
+                Label(new Rect(px, H - sp.y - 30 * S, pw, 60 * S), p.s, ps, c);
             }
 
             bool nightCard = PortGame.I != null && PortGame.I.Phase.Value == PortGame.Ph.Night;
@@ -543,7 +554,7 @@ namespace PortBoss
                     float a = 0.6f + 0.4f * Mathf.Sin(Time.unscaledTime * 18f);
                     Label(new Rect(0, H * 0.70f, W, 70 * S), "Steady...!", new GUIStyle(big) { fontSize = Mathf.RoundToInt(56 * S) }, new Color(1f, 0.55f, 0.3f, a));
                 }
-                if (pl.Carrying > 0) Label(new Rect(0, H - 150 * S, W, 40 * S), $"Carrying {pl.Carrying}/{Player.MaxStack}   ·   Q put down   ·   Left click throw", mid, new Color(1, 1, 1, 0.85f));
+                if (pl.Carrying > 0) { var cl = $"Carrying {pl.Carrying}/{Player.MaxStack}   ·   Q put down   ·   Left click throw"; Label(new Rect(0, H - 150 * S, W, 40 * S), cl, OneLine(mid, cl, W * 0.94f), new Color(1, 1, 1, 0.85f)); }
                 if (pl.Swimming || pl.Stamina < 0.999f)
                 {
                     // Stamina: drains while swimming, refills on land. Low = slow; empty = fished out.
@@ -557,9 +568,10 @@ namespace PortBoss
                 }
                 if (hint != null)
                 {
-                    float hw = mid.CalcSize(new GUIContent(hint)).x + 40 * S;
+                    var hs = OneLine(mid, hint, W * 0.9f);
+                    float hw = hs.CalcSize(new GUIContent(hint)).x + 40 * S;
                     Pill(new Rect((W - hw) / 2, H * 0.56f - 2 * S, hw, 44 * S));
-                    Label(new Rect(0, H * 0.56f, W, 40 * S), hint, mid, new Color(1f, 0.92f, 0.7f));
+                    Label(new Rect(0, H * 0.56f, W, 40 * S), hint, hs, new Color(1f, 0.92f, 0.7f));
                 }
             }
             if (showHelp && !nightCard)
@@ -650,12 +662,14 @@ namespace PortBoss
             else job = g.NextBoatIn > 0 ? $"Next boat in {(int)g.NextBoatIn / 60}:{(int)g.NextBoatIn % 60:00}: wait at the jetty" : "That was the last boat today";
             ThemeTextures();
             var r = new Rect(24 * S, 74 * S, 640 * S, 34 * S);
-            Pill(new Rect(r.x, r.y, 84 * S + small.CalcSize(new GUIContent(job)).x * 1.1f, r.height));
+            var jt = OneLine(new GUIStyle(small) { fontSize = Mathf.RoundToInt(22 * S), fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft }, job, W - r.x - 72 * S - 30 * S);
+            float tw = jt.CalcSize(new GUIContent(job)).x;
+            Pill(new Rect(r.x, r.y, 84 * S + tw, r.height));
             GUI.DrawTexture(new Rect(r.x, r.y, 60 * S, r.height), Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(0.98f, 0.76f, 0.1f), 0, 6 * S);
             var js = new GUIStyle(small) { fontSize = Mathf.RoundToInt(18 * S), fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
             js.normal.textColor = new Color(0.1f, 0.1f, 0.11f);
             GUI.Label(new Rect(r.x, r.y, 60 * S, r.height), "JOB", js);
-            Label(new Rect(r.x + 72 * S, r.y, r.width, r.height), job, new GUIStyle(small) { fontSize = Mathf.RoundToInt(22 * S), fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft }, new Color(1f, 0.95f, 0.82f));
+            Label(new Rect(r.x + 72 * S, r.y, tw + 10 * S, r.height), job, jt, new Color(1f, 0.95f, 0.82f));
             if (at == null || cam == null) return;
             var sp = cam.WorldToScreenPoint(at.Value + Vector3.up * (0.25f * Mathf.Sin(Time.unscaledTime * 4f)));
             if (sp.z < 0) return;
