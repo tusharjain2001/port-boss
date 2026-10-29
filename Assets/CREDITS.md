@@ -1,6 +1,9 @@
 # Credits
 
-All third-party assets are CC0 (public domain). No AI-generated art or audio.
+All third-party assets in this repo are CC0 (public domain) or OFL, apart from the AI-generated music noted below.
+
+Not in the repo: the **Toon Harbor Pack** (SICS Games, Unity Asset Store, paid licence). Release builds use it when it is imported
+under `Assets/ThirdParty/ToonHarbor` (gitignored, never commit it); without it the game falls back to the own art below.
 
 ## Audio (Assets/Resources/Audio)
 | File | Source | Licence |
@@ -26,4 +29,9 @@ All third-party assets are CC0 (public domain). No AI-generated art or audio.
 ## Models
 Pier, boat, crates, trolley, buyer, characters: Unity primitives built in code (own work).
 Kenney CC0 kits (watercraft, pirate, survival, city-kit-commercial), https://kenney.nl: distant ships and rival-port dressing.
-Gull (Assets/Art/Own/gull.fbx): modelled by the team in Blender (own work).
+Gull (Assets/Art/Own/gull.fbx): modelled by the team in Blender (own work); with the Toon Harbor skin the gull is built in code.
+
+## Animation
+| File | Source | Licence |
+|---|---|---|
+| Assets/Art/Anim/UAL1_Standard.fbx (Universal Animation Library 1) | Quaternius, https://quaternius.com | CC0 (UAL1-License.txt alongside) |

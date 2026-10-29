@@ -117,3 +117,6 @@ InitTestScene*.unity*
 /Assets/ThirdParty.meta
 /Assets/Toon Harbor Pack/
 /Assets/Toon Harbor Pack.meta
+
+# tools/ compile-check project (cc.sh)
+!/tools/cc.csproj
