@@ -57,3 +57,4 @@ One line per step: time | step | result
 - 2026-10-29 07:08 | buyer stall gets a painted FRESH FISH sign board (Kufu note: sign); reported t-2802ed44, t-1dbba2d3, t-7c9e11e2, t-8064d922 with proof | map-stall shot
 - 2026-10-29 07:17 | shelter corrugated pack roof; net pile -> pack rope piles; co-op: stage 2 bought by the host builds on the client too ('[PB] stage 2 built' in host + client logs) |
 - 2026-10-29 07:25 | FRESH FISH sign: lettering rendered once into a texture on quads (a TextMesh's font shader ignores depth: it showed mirrored through the board) | title-0 + map-stall: both faces read correctly
+- 2026-10-29 11:03 | MISSED 09:00: my background wait-until-09:00 loop failed (exit 4), nothing woke me until Kufu's task t-b01fcc01 at 10:50. MORNING cut headless from 4f61141: builds/20261029-1054-MORNING (+HOW-TO-PLAY, screenshots/ 1-7 + NOTES.txt, test-logs/); batchmode bot 11 sold, map check 0/1954, 0 exceptions. Capture skipped (-pb-film needs a window) |
