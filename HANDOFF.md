@@ -29,12 +29,12 @@ Feature freeze **09:00**. 09:00–09:45 fixes + release into `Desktop/Port Boss/
 - `docs/PORT-STAGES.md` (5 stages → pack prefabs). Proof: `Desktop/Port Boss/proof/overnight/toon-harbor/`.
 
 ## Next
-Done tonight after the map: menu, milestone B, milestone C, #7 shove, pack forklift, pack shelter panels, pack stall, Kufu's vault notes
-(water/puddles/ground tiles/bollards/logo), first-boat head start. Latest release `builds/20261029-0550`.
-1. (in progress) Life in the harbour: pack dock workers walking terminal routes.
-2. 09:00 freeze → MORNING release: `release.sh`, rename to `<stamp>-MORNING`, 5 shots (`-pb-uishots`, `-pb-mapshots`, HUD),
-   capture: windowed `-pb-film <dir>` (30 fps fixed, menu + HUD, ~75 s) → `ffmpeg -framerate 30 -i f_%05d.jpg -c:v libx264 -crf 20
-   -pix_fmt yuv420p`; then report_done every open task.
+Release candidate `builds/20261029-0640` (commit 317fc63) passes the full battery: reg2 (bot, wobble, swim, crates, storm, LAN co-op),
+carry 1/3/5, stage 2 (`-pb-stagetest`), forklift, shove (LAN). Since 05:00: menu, B, C, #7 shove, pack forklift/shelter/stall/bollards,
+ground tiles, lighter water, crisp logo, first-boat head start, walking dock workers, roads visible, parked trailers, storm sky,
+next-boat countdown, buildable stage 2 (Concrete quay $1500), toon gull.
+1. 09:00 freeze → MORNING: copy the final build to `builds/<stamp>-MORNING/` + HOW-TO-PLAY + 5 shots + capture
+   (windowed `-pb-film <dir>` → `ffmpeg -framerate 30 -i f_%05d.jpg -c:v libx264 -crf 20 -pix_fmt yuv420p`), report_done all tasks.
 
 ## Later (not tonight)
 - Ideas rejected for tonight: #1 hazard-modifier vote, #2 special crates (live/fragile), #4 storm warning tell (no warnings by design), #5 tipping plank.
@@ -44,7 +44,7 @@ Done tonight after the map: menu, milestone B, milestone C, #7 shove, pack forkl
 
 ## Known issues
 - Pack shader logs 3 "duplicate keyword" errors at build: harmless (build succeeds).
-- Gull model is still our own v1 (the pack has no birds).
+- Gull is code-built (the pack has no birds).
 
 ## How to build/test (scratchpad scripts, paths in LOG.md)
 `ubuild.sh <outdir> [-pbDev]` headless build · `release.sh` stamped Desktop build + HOW-TO-PLAY · `cc.sh` dotnet compile check ·
