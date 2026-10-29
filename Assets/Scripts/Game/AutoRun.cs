@@ -354,7 +354,9 @@ namespace PortBoss
                 ("map-quay", new Vector3(-12, 3, 14), new Vector3(10, -0.5f, -2)),
                 ("map-kit", new Vector3(2, 5, 6), new Vector3(14, 0, -8)),
                 ("map-forklift", new Vector3(14.5f, 2.6f, -7.5f), new Vector3(19, 0.8f, -12)),
-                ("map-workers", new Vector3(58, 6, -60), new Vector3(66, 0, 10)) })
+                ("map-workers", new Vector3(58, 6, -60), new Vector3(66, 0, 10)),
+                ("map-stall", new Vector3(-8.5f, 2.4f, 1.5f), new Vector3(-4, 1.2f, -5)),
+                ("map-shelter", new Vector3(5, 2.2f, 1.5f), new Vector3(9, 1.6f, -9)) })
             {
                 cam.transform.position = pos; cam.transform.LookAt(look);
                 float t0 = Time.realtimeSinceStartup; int f0 = Time.frameCount;

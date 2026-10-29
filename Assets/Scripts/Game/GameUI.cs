@@ -253,6 +253,13 @@ namespace PortBoss
             if (Art.Cloud != null) Art.Cloud.SetColor("_BaseColor", Color.Lerp(Art.Cloud.GetColor("_BaseColor"), new Color(0.45f, 0.47f, 0.52f), L));
             Shader.SetGlobalColor("_PB_SkyHorizon", Color.Lerp(Shader.GetGlobalColor("_PB_SkyHorizon"), new Color(0.45f, 0.48f, 0.52f), L));
             Shader.SetGlobalColor("_PB_SkyZenith", Color.Lerp(Shader.GetGlobalColor("_PB_SkyZenith"), new Color(0.25f, 0.28f, 0.33f), L));
+            // The pack's procedural sky greys over and dims with the weather.
+            var sk = RenderSettings.skybox;
+            if (sk != null && sk.HasProperty("_SkyTint") && Skin.On)
+            {
+                sk.SetColor("_SkyTint", Color.Lerp(Skin.I.Sky.GetColor("_SkyTint"), new Color(0.32f, 0.34f, 0.37f), L));
+                sk.SetFloat("_Exposure", sk.GetFloat("_Exposure") * (1f - 0.45f * L));
+            }
         }
 
         string MusicSlot(PortGame g)
