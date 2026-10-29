@@ -17,7 +17,7 @@ namespace PortBoss
         public VolumeProfile Post;
         [Header("People")]
         public GameObject[] Players;   // one per player slot
-        public GameObject Buyer;
+        public GameObject Buyer, Rival;
         public AnimationClip Idle, Walk, Run, Jump, Swim, SwimIdle, Drive, Push, Sprint;
         [Header("Props")]
         public GameObject Crate;

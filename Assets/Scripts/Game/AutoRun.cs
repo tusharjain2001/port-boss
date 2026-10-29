@@ -81,6 +81,9 @@ namespace PortBoss
             if (Has("-pb-staminatest")) StartCoroutine(StaminaTest());
             if (Has("-pb-trucktest")) StartCoroutine(TruckTest());
             if (Has("-pb-boattest")) StartCoroutine(BoatTest());
+            if (Has("-pb-boardtest")) StartCoroutine(BoardTest());
+            if (Arg("-pb-intro") != null) StartCoroutine(IntroShots(Arg("-pb-intro")));
+            if (Arg("-pb-rivalshots") != null) StartCoroutine(RivalShots(Arg("-pb-rivalshots")));
         }
 
         // One input for one frame (a key press), then hands off.
@@ -243,6 +246,102 @@ namespace PortBoss
             Player.BotInput = () => new Player.In();
             float z = b.transform.InverseTransformPoint(pl.transform.position).z;
             Debug.Log($"[PB] boat test: {(inside < 0.3f && z > -2.9f ? "PASS" : "FAIL")} walked aft to local z={z:F2} (the bridge starts about -2.4)");
+        }
+
+        // Walk from the jetty over the gangplank onto the docked boat (and back): never held up on the way.
+        IEnumerator BoardTest()
+        {
+            yield return WaitGame();
+            var pl = Player.Local;
+            Boat b = null;
+            while (b == null) { b = Boat.DockedAt[0]; yield return null; }
+            yield return new WaitForSeconds(1.5f);
+            var deckY = b.transform.TransformPoint(new Vector3(0, Boat.DeckY, 0)).y;
+            Debug.Log($"[PB] board test: deck at y={deckY:F2}, pier top {World.PierTop:F2}, boat at {b.transform.position:F2}");
+            bool ok = true;
+            foreach (var (from, dir, name) in new[] { (new Vector3(1.2f, World.PierTop + 0.1f, World.Gangway), Vector3.right, "on"), (Vector3.zero, Vector3.left, "off") })
+            {
+                if (name == "on") pl.DebugTeleport(from, 90);
+                Player.BotInput = () => new Player.In { hasWorldMove = true, worldMove = dir };
+                float t0 = Time.time, lastX = pl.transform.position.x, stuck = 0;
+                while (Time.time - t0 < 3.5f)
+                {
+                    yield return new WaitForSeconds(0.25f);
+                    float x = pl.transform.position.x;
+                    if (Mathf.Abs(x - lastX) < 0.3f) stuck += 0.25f;
+                    lastX = x;
+                    Debug.Log($"[PB] board test {name}: t={Time.time - t0:F2} pos={pl.transform.position:F2}");
+                    if (name == "on" && x > b.transform.position.x - 0.5f) break;
+                    if (name == "off" && x < 1.5f) break;
+                }
+                foreach (var h in Physics.SphereCastAll(pl.transform.position + Vector3.up * 0.9f - dir * 0.2f, 0.45f, dir, 1.2f, ~0, QueryTriggerInteraction.Ignore))
+                    if (!h.collider.transform.IsChildOf(pl.transform)) Debug.Log($"[PB] board test {name}: ahead {h.collider.name} ({h.collider.GetType().Name}) parent={h.collider.transform.parent?.name} at {h.point:F2} d={h.distance:F2}");
+                float xEnd = pl.transform.position.x;
+                bool done = name == "on" ? xEnd > b.transform.position.x - 0.5f && pl.transform.position.y > deckY - 0.3f : xEnd < 1.5f;
+                Debug.Log($"[PB] board test {name}: {(done ? "made it" : "STUCK")} in {Time.time - t0:F1}s, stuck for {stuck:F2}s");
+                ok &= done && stuck <= 0.25f;
+            }
+            Player.BotInput = () => new Player.In();
+            Debug.Log($"[PB] board test: {(ok ? "PASS" : "FAIL")}");
+        }
+
+        // The intro flythrough at a few moments (captions are IMGUI: not in batchmode shots), and the clock held meanwhile.
+        IEnumerator IntroShots(string dir)
+        {
+            Directory.CreateDirectory(dir);
+            while (!Intro.Playing) yield return null;
+            foreach (var at in new[] { 2f, 9f, 14f, 19f, 24f, 28f, 32f, 37f, 41f })
+            {
+                while (Intro.Playing && Intro.I.T < at) yield return null;
+                if (!Intro.Playing) break;
+                Debug.Log($"[PB] intro shot at {at}s: dayT={PortGame.I?.DayT.Value:F1} cam={Camera.main.transform.position:F0}");
+                yield return Snap(dir, $"intro-{at:00}");
+            }
+            while (Intro.Playing) yield return null;
+            yield return new WaitForSeconds(2f);
+            Debug.Log($"[PB] intro over: dayT={PortGame.I?.DayT.Value:F1} camOverride={Player.CamOverride}");
+        }
+
+        // Marlowe's drive-by (stopped off the jetty end, gloating), the banner plane and the fireworks.
+        IEnumerator RivalShots(string dir)
+        {
+            Directory.CreateDirectory(dir);
+            yield return WaitGame();
+            var pl = Player.Local;
+            pl.DebugTeleport(new Vector3(0.5f, World.PierTop + 0.1f, 30f), 0);
+            Player.BotInput = () => new Player.In();
+            // Speedboat: wait for the gloat (cycle second 14), shot from the jetty end, then a side view.
+            float Cyc() => Mathf.Repeat(Water.T - Speedboat.Offset, Speedboat.Period);
+            while (Water.T < Speedboat.Offset || Cyc() > 30f || Cyc() < 11.8f) yield return null;
+            Player.CamOverride = true;
+            var cam = Camera.main;
+            foreach (var (at, nm) in new[] { (12.6f, "rival-splash"), (14.5f, "rival-gloat"), (16f, "rival-gloat-side") })
+            {
+                while (Cyc() < at) yield return null;
+                var boat = Speedboat.I.transform.position;
+                if (nm == "rival-gloat-side") { cam.transform.position = boat + new Vector3(9, 3, -3); cam.transform.LookAt(boat + Vector3.up * 1.5f); }
+                else { cam.transform.position = new Vector3(0.5f, 2.6f, 27.5f); cam.transform.LookAt(boat + Vector3.up * 1.2f); }
+                Debug.Log($"[PB] rival shot {nm}: bubble=\"{Speedboat.Bubble}\" boat={boat:F1}");
+                yield return Snap(dir, nm);
+            }
+            Player.CamOverride = false;
+            // Fireworks: set some off and look at Marlowe Port.
+            Player.CamOverride = true;
+            Fireworks.Show(Fireworks.Over);
+            cam.transform.position = new Vector3(0, 12, 20); cam.transform.LookAt(Fireworks.Over + Vector3.up * 60);
+            yield return new WaitForSeconds(1.2f); yield return Snap(dir, "rival-fireworks");
+            yield return new WaitForSeconds(2.5f); yield return Snap(dir, "rival-fireworks-2");
+            Player.CamOverride = false;
+            // The banner plane's first pass (from second 150): from the yard, looking up as it goes over.
+            while (Water.T < 150f + 19f) yield return null;
+            Player.CamOverride = true;
+            cam.transform.position = new Vector3(-10, 3, -10); cam.transform.LookAt(new Vector3(20, 40, -40));
+            yield return Snap(dir, "rival-plane");
+            yield return new WaitForSeconds(2.5f);
+            cam.transform.LookAt(new Vector3(-30, 40, -40));
+            yield return Snap(dir, "rival-plane-2");
+            Player.CamOverride = false;
+            Debug.Log("[PB] rival shots done");
         }
 
         IEnumerator WaitGame() { while (PortGame.I == null || Player.Local == null) yield return null; yield return new WaitForSeconds(1); }
@@ -846,7 +945,8 @@ namespace PortBoss
                         Debug.Log($"[PB] high crate {c.NetworkObjectId} at {c.transform.position:F1} parent={(c.transform.parent ? c.transform.parent.name : "-")} attached={c.Attached.Value}");
                 Debug.Log($"[PB] t={Time.realtimeSinceStartup:0} fps={1f / Mathf.Max(Time.smoothDeltaTime, 1e-4f):0} listening={nm.IsListening} server={nm.IsServer} clients={(nm.IsServer ? nm.ConnectedClientsIds.Count : -1)} " +
                           $"players={Player.All.Count} phase={g?.Phase.Value} day={g?.DayNum.Value} dayT={g?.DayT.Value:0} money={g?.Money.Value} sold={g?.Sold.Value} sea={g?.InSea.Value} left={g?.LeftAboard.Value} " +
-                          $"crates={Crate.All.Count} boats=[{boats}] me={(pl ? pl.transform.position.ToString("F1") : "-")} carrying={(pl ? pl.Carrying : 0)} bot={bot?.State}");
+                          $"crates={Crate.All.Count} boats=[{boats}] me={(pl ? pl.transform.position.ToString("F1") : "-")} carrying={(pl ? pl.Carrying : 0)} bot={bot?.State} " +
+                          $"objs={FindObjectsByType<Transform>(FindObjectsSortMode.None).Length} ps={FindObjectsByType<ParticleSystem>(FindObjectsSortMode.None).Length} audio={FindObjectsByType<AudioSource>(FindObjectsSortMode.None).Length} water={Water.T:0}");
             }
         }
 

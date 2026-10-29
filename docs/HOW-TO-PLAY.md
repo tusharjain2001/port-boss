@@ -3,6 +3,8 @@
 Double-click **PortBoss.exe**. It opens windowed (drag the edge to resize, or pick a window mode in Settings). Have Steam running for co-op; solo works without it.
 
 ## The goal
+Every game opens with the story (Space / Esc / click skips it): Grandpa's old fish pier is the last one on the coast that Marlowe doesn't own, and it's yours now.
+
 You run the shabbiest berth on the coast: one concrete jetty, a tin shelter, an old crane, a crate store and a big walled yard to grow into; the fish market is across the road outside your gate. Out across the sea stands **Marlowe Port**, your rival's mega port: giant gantries, container terraces, and freighters calling all day (he'll make sure you hear about every one). **Earn enough to grow your berth.** The crew tin (top right) counts toward the next stage. At **$1500** the night shop lets you **build the Concrete quay**: a proper shed and a forklift yard on your plot, and the boats bring **30% bigger catches**. After that the goal is the next stage (crane + warehouse).
 
 ## A day at the berth
@@ -16,7 +18,7 @@ At night the day's report plays in (click to skip), then the **night shop** and 
 - **Flying crates** knock people over (they drop their stack). Crates that land hard get **damaged**: each knock costs 25% of the price.
 - **Your crew:** stand in front of a mate and press **F** to **shove** them; they drop whatever they're carrying. Use responsibly.
 - **Gulls** go for crates nobody is watching: stand near your crates or lose fish.
-- **Marlowe**, the rival, does doughnuts off your jetty in his speedboat. His wake rocks the boat and slides loose crates. When another freighter docks at Marlowe Port, he calls to brag.
+- **Marlowe**, the rival, roars up to the end of your jetty in his speedboat every few minutes: a wall of spray soaks anyone standing there, then he stands in the boat laughing and pointing (speech bubble, cheeky horn tune) and soaks you again as he guns it away. His wake rocks the boat and slides loose crates. Now and then his **banner plane** drones over the yard with a new insult, and every time a freighter docks at Marlowe Port he sets off **fireworks**.
 - **Weather** changes on its own, any time, any day: calm, breezy, overcast, rain, storm and back. Nothing warns you: read the sky and the sea. In rough weather the waves grow, the boat heaves, gulls clear off and gusts shove loose crates about. Get crates into the shelter or **tie them down (F)**.
 
 Fell in? You **swim**, but only as long as your **stamina** lasts (the STAMINA bar at the bottom: about 25 s, less if you sprint; it refills on land). Boats are solid: one under way will shove you aside (or flat on your back on the quay). Paddle to a **ladder** (jetty sides, quay front) and press **E** to climb out, or swim up the slipway. Run out of stamina and the harbour master fishes you out onto the nearest ladder, dazed. While swimming, **E** tows one floating crate and **Q** lets it go.

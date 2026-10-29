@@ -12,6 +12,7 @@ namespace PortBoss
     {
         static Transform R;
         const float MarloweFront = 600f; // z of Marlowe's quay face
+        public static Vector3 MarloweSign = new(30, 120, 900); // his name on the HQ roof (the intro and the fireworks aim here)
 
         public static void Build(Transform root)
         {
@@ -169,7 +170,7 @@ namespace PortBoss
             On("cageBarrels", new Vector3(42, 0, -3.5f), 15, 0.7f, true);
             // Shabby but charming: old tyres hung on the quay wall and the jetty as fenders, bollards with rope, junk.
             foreach (var p in new[] { new Vector3(-30, -0.55f, 0.1f), new Vector3(-21, -0.55f, 0.1f), new Vector3(13, -0.55f, 0.1f), new Vector3(25, -0.55f, 0.1f), new Vector3(38, -0.55f, 0.1f),
-                                      new Vector3(2.75f, World.PierTop - 0.7f, 10), new Vector3(2.75f, World.PierTop - 0.7f, 22), new Vector3(-2.75f, World.PierTop - 0.7f, 16) })
+                                      new Vector3(2.75f, World.PierTop - 0.7f, 10), new Vector3(2.75f, World.PierTop - 0.7f, 22), new Vector3(-2.75f, World.PierTop - 0.7f, 12.5f) })
             {
                 bool side = Mathf.Abs(p.x) < 4;
                 var ty = Art.Prim(PrimitiveType.Cylinder, R, p + (side ? Vector3.right * Mathf.Sign(p.x) * 0.2f : Vector3.forward * 0.2f), Quaternion.Euler(side ? 0 : 90, 0, side ? 90 : 0), new Vector3(0.85f, 0.16f, 0.85f), Art.Hex("#262626"), false, "tyre");
@@ -349,6 +350,7 @@ namespace PortBoss
                 // His name on the roof's front edge, facing us across the sea.
                 var hb = Art.Bounds(hq);
                 float top = hb.max.y, front = hb.min.z + 4;
+                MarloweSign = new Vector3(hqX, top + 9.5f, front);
                 var tex = SignTexture("MARLOWE PORT", Art.Hex("#b5402f"), new Color(1f, 0.95f, 0.85f), 5.5f, true);
                 Art.Box(R, new Vector3(hqX, top + 9.5f, front), new Vector3(104, 19, 1.5f), Art.Hex("#b5402f"), false, "marlowe_sign");
                 if (tex != null)
@@ -432,7 +434,7 @@ namespace PortBoss
         }
 
         // Paint text on a coloured board into a texture (off-stage ortho camera, rendered once).
-        static RenderTexture SignTexture(string text, Color bg, Color fg, float aspect, bool mips = false)
+        public static RenderTexture SignTexture(string text, Color bg, Color fg, float aspect, bool mips = false)
         {
             var font = GameUI.I != null ? GameUI.I.TitleFont : null;
             if (font == null) return null;
@@ -695,14 +697,15 @@ namespace PortBoss
             {
                 var l = lorries[i];
                 if (l.t == null) continue;
-                // Room ahead: to the nearest thing in the lane (anything alongside counts as right there)
+                // Room ahead: to the nearest thing in the lane in front of the nose (someone beside the trailer is not in
+                // the way: it's solid, they can't step into it, and stopping would park it across their crossing),
                 // and to the tail of the lorry in front (by hitch distance round the loop; ties go by index).
                 float room = float.MaxValue; bool person = false;
                 foreach (var b in blockers)
                 {
                     if (b.dir != l.dir) continue;
                     float d = b.s - (l.s + l.front);
-                    if (d > -l.front - l.back && d < room) { room = Mathf.Max(0, d); person = b.person; }
+                    if (d > -0.6f && d < room) { room = Mathf.Max(0, d); person = b.person; }
                 }
                 for (int j = 0; j < lorries.Count; j++)
                 {
@@ -867,7 +870,7 @@ namespace PortBoss
                 bool full = u >= Arrive + Stay * 0.5f;
                 if (s.empty != null && s.empty.activeSelf == full) s.empty.SetActive(!full);
                 if (s.loaded != null && s.loaded.activeSelf != full) s.loaded.SetActive(full);
-                if (primed && docked && !s.docked) Docked?.Invoke();
+                if (primed && docked && !s.docked) { Docked?.Invoke(); Fireworks.Show(Fireworks.Over); }
                 s.docked = docked;
             }
             primed = true; // ships already alongside when we start don't count as news

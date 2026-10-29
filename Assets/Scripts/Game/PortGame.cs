@@ -88,11 +88,11 @@ namespace PortBoss
             {
                 wx = new System.Random(System.Environment.TickCount ^ System.Guid.NewGuid().GetHashCode());
                 Severity.Value = PickSeverity() * 0.6f; wxTarget = Severity.Value; wxNextPick = Time.time + 30f;
-                Storage.Reset(); StartDay(1); Speedboat.Arrived += RivalTaunt; RivalTraffic.Docked += RivalOrder;
+                Storage.Reset(); StartDay(1); RivalTraffic.Docked += RivalOrder;
             }
         }
 
-        public override void OnNetworkDespawn() { if (I == this) I = null; Speedboat.Arrived -= RivalTaunt; RivalTraffic.Docked -= RivalOrder; }
+        public override void OnNetworkDespawn() { if (I == this) I = null; RivalTraffic.Docked -= RivalOrder; }
 
         // Another freighter ties up at Marlowe's port across the sea: he makes sure we hear about it.
         void RivalOrder()
@@ -104,11 +104,7 @@ namespace PortBoss
                 "Look out to sea, boss. THAT is a port."), 4f);
         }
 
-        void RivalTaunt()
-        {
-            if (Phase.Value != Ph.Day) return;
-            Shout("RIVAL MARLOWE", Pick("Nice little pier! Shame if something... rocked it.", "Ha! Still carrying crates by hand?", "Make way! Real port coming through!", "Mind the wake, boss!"), 3.5f);
-        }
+        // (Marlowe's drive-by taunts are Speedboat's: a speech bubble over his head, same moment on every peer.)
 
         void StartDay(int n)
         {
@@ -140,6 +136,7 @@ namespace PortBoss
             if (IsServer && (loadCheck -= Time.deltaTime) <= 0) { loadCheck = 0.4f; WeighPierEnd(); }
             if (IsServer) UpdateWeather();
             if (!IsServer || Phase.Value != Ph.Day) return;
+            if (Intro.Playing) return; // the host is watching the intro: the day starts when it ends
             if (Severity.Value < 0.55f) GullRaids(); // gulls hide in rough weather
             DayT.Value += Time.deltaTime;
             var sched = Schedule;

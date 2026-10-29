@@ -23,6 +23,8 @@ namespace PortBoss
         public float Throw01 = -1;
         public bool Flail;            // just fell in the water
         public float Reach;           // 0..1: arms down to a crate (picking up / putting down)
+        public float Laugh;           // 0..1: Marlowe gloating: doubled up laughing, pointing at PointAt
+        public Vector3 PointAt;
 
         void LateUpdate() => Arms(Carry, Throw01);
 
@@ -112,6 +114,17 @@ namespace PortBoss
                 var dir = Quaternion.AngleAxis(-a, t.right) * t.forward; // swings up over the head and down in front
                 Aim(armRU, armRL, dir + t.right * 0.2f);
                 Aim(armRL, armRH, dir);
+            }
+            if (Laugh > 0.01f)
+            {
+                // Belly laugh: rocking at the waist, one hand on the belly, the other pointing (finger wagging) at you.
+                if (spine != null) spine.rotation = Quaternion.AngleAxis((Mathf.Abs(Mathf.Sin(Time.time * 9f)) * 14f - 4f) * Laugh, t.right) * spine.rotation;
+                var at = (PointAt - armRU.position).normalized;
+                var wag = Quaternion.AngleAxis(Mathf.Sin(Time.time * 11f) * 8f, t.up);
+                Aim(armRU, armRL, wag * at, Laugh);
+                Aim(armRL, armRH, wag * at, Laugh);
+                Aim(armLU, armLL, -t.up * 0.7f + t.forward * 0.4f - t.right * 0.3f, Laugh);
+                Aim(armLL, armLH, t.right * 0.8f + t.forward * 0.3f, Laugh);
             }
             if (Reach > 0.01f)
             {

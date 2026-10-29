@@ -495,14 +495,16 @@ namespace PortBoss
         }
 
         // Boats are solid even when they move into you (a kinematic hull doesn't push a CharacterController by itself):
-        // anyone inside a hull's footprint below its deck is moved out to the nearer side, and if the boat is under
-        // way it shoves them: bowled over on the quay, pushed aside with a splash in the water.
+        // a swimmer inside a hull's footprint, or anyone in the way of a boat under way, is moved out to the nearer
+        // side, and if the boat is moving it shoves them: bowled over on the quay, pushed aside with a splash in the water.
         float boatBumpAt;
         void BoatPush()
         {
             foreach (var b in Boat.All)
             {
                 if (b == null || platform == b.transform || (b.transform.position - transform.position).sqrMagnitude > 18f * 18f) continue;
+                // A boat at its berth only bobs: leave people alone (they'd be nudged off the gangplank).
+                if (!swimming && b.Velocity.sqrMagnitude < 1f) continue;
                 var lp = b.transform.InverseTransformPoint(transform.position);
                 if (lp.y > Boat.DeckY - 0.1f || lp.y < -4f) continue;
                 // The footprint: the hull's width, narrowing to the bow.

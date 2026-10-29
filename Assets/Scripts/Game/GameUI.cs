@@ -13,7 +13,7 @@ namespace PortBoss
     {
         public static GameUI I;
         public GameObject CratePrefab, BoatPrefab, TrolleyPrefab, PortGamePrefab, ForkliftPrefab, PalletPrefab;
-        public Material LitMat, EmissiveMat, ParticleMat, WaterMat, CloudMat, LandMat;
+        public Material LitMat, EmissiveMat, ParticleMat, WaterMat, CloudMat, LandMat, SparkMat;
         public Skin Skin; // Toon Harbor slots (empty = own art)
         public GameObject[] Models; public int[] ModelKit; public Material[] KitMats;
         public Font TitleFont;
@@ -46,7 +46,7 @@ namespace PortBoss
         public static void OpenBuyer() { if (I == null) return; I.buyerOpen = true; I.buyerOpenedAt = Time.unscaledTime; Sfx.Play2D("click", 0.5f); }
         public static void CloseBuyer() { if (I != null) I.buyerOpen = false; }
 
-        public static bool InputBlocked => I == null || I.screen != Screen.Playing || I.paused || I.buyerOpen || I.statsOpen
+        public static bool InputBlocked => I == null || I.screen != Screen.Playing || I.paused || I.buyerOpen || I.statsOpen || Intro.Playing
             || (PortGame.I != null && PortGame.I.Phase.Value == PortGame.Ph.Night);
 
         void Awake()
@@ -59,7 +59,7 @@ namespace PortBoss
             if (Arg("-pb-oldwater")) { var w = new Material(LitMat); w.SetColor("_BaseColor", new Color(0.13f, 0.3f, 0.36f)); w.SetFloat("_Smoothness", 0.88f); WaterMat = w; }
             oldFog = Arg("-pb-oldfog");
             if (Arg("-pb-noclouds")) CloudMat = null;
-            Art.Lit = LitMat; Art.Emissive = EmissiveMat; Art.Particle = ParticleMat; Art.WaterMat = WaterMat; Art.Cloud = CloudMat; Art.Land = LandMat;
+            Art.Lit = LitMat; Art.Emissive = EmissiveMat; Art.Particle = ParticleMat; Art.WaterMat = WaterMat; Art.Cloud = CloudMat; Art.Land = LandMat; Art.Spark = SparkMat;
             Skin.I = Skin;
             if (Skin.On && !Arg("-pb-ownart"))
             {
@@ -203,7 +203,14 @@ namespace PortBoss
             if (screen == Screen.Playing && k != null)
             {
                 var grabKey = Settings.KeyFor("grab");
-                if (statsOpen && k.escapeKey.wasPressedThisFrame) statsOpen = false;
+                var pad = Gamepad.current;
+                if (Intro.Playing)
+                {
+                    if (k.escapeKey.wasPressedThisFrame || k.spaceKey.wasPressedThisFrame || k.enterKey.wasPressedThisFrame
+                        || Mouse.current?.leftButton.wasPressedThisFrame == true || pad?.startButton.wasPressedThisFrame == true || pad?.buttonSouth.wasPressedThisFrame == true)
+                        Intro.Skip();
+                }
+                else if (statsOpen && k.escapeKey.wasPressedThisFrame) statsOpen = false;
                 else if (buyerOpen && (k.escapeKey.wasPressedThisFrame || (grabKey != Key.None && k[grabKey].wasPressedThisFrame))) CloseBuyer();
                 else if (k.escapeKey.wasPressedThisFrame || Gamepad.current?.startButton.wasPressedThisFrame == true) SetPaused(!paused);
                 if (k.hKey.wasPressedThisFrame) { showHelp = !showHelp; Settings.ControlsHint = showHelp; }
@@ -219,6 +226,12 @@ namespace PortBoss
             bool live = nm.IsListening && !nm.ShutdownInProgress;
             if (screen != Screen.Playing && live) screen = Screen.Playing;
             else if (screen == Screen.Playing && !live) BackToMenu();
+            // Every new game opens with the story flythrough (test runs only when asked for).
+            if (screen == Screen.Playing && Player.Local != null && !introShown && (!AutoRun.Active || System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-pb-intro") >= 0))
+            {
+                introShown = true;
+                Intro.Begin();
+            }
 
             bool wantCursor = InputBlocked;
             Cursor.lockState = wantCursor || AutoRun.Active ? CursorLockMode.None : CursorLockMode.Locked;
@@ -295,8 +308,12 @@ namespace PortBoss
             if (Session.Solo) Time.timeScale = p ? 0 : 1;
         }
 
+        bool introShown;
+
         void BackToMenu()
         {
+            introShown = false;
+            Intro.Skip();
             SetPaused(false);
             Session.Leave();
             screen = Screen.Menu;
@@ -416,6 +433,7 @@ namespace PortBoss
             else if (screen == Screen.Settings) DrawSettings(W, H);
             else
             {
+                if (Intro.Playing) { DrawIntro(W, H); return; }
                 DrawHud(W, H);
                 if (PortGame.I != null && PortGame.I.Phase.Value == PortGame.Ph.Night) { if (!statsOpen) DrawNight(W, H); }
                 else if (buyerOpen) DrawBuyer(W, H);
@@ -526,6 +544,8 @@ namespace PortBoss
 
             var pl = Player.Local;
             if (pl != null && !nightCard && Settings.Hud) DrawCrateRings(H, pl);
+            if (!nightCard) DrawMarlowe(W, H);
+            DrawSoak(W, H);
             if (pl != null && g != null && !nightCard && Settings.Hud) DrawObjective(W, H, g, pl);
             if (pl != null && !InputBlocked)
             {
@@ -637,6 +657,113 @@ namespace PortBoss
                 Label(r, "$" + PortGame.I?.PriceFor(c), price, new Color(1, 1, 1, alpha));
                 for (int i = 0; i < c.Damage.Value; i++)
                     GUI.DrawTexture(new Rect(sp.x - (c.Damage.Value * 9f * S) / 2 + i * 9f * S, r.yMax + 2 * S, 6 * S, 6 * S), Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(1f, 0.3f, 0.25f, alpha), 0, 3 * S);
+            }
+        }
+
+        // The intro flythrough: letterbox bars, the story captions (typed out), Marlowe's line in a bubble, the title card.
+        void DrawIntro(float W, float H)
+        {
+            var it = Intro.I;
+            if (it == null) return;
+            float t = it.T, bars = Mathf.Clamp01(t / 0.8f) * Mathf.Clamp01((Intro.Length - t) / 0.8f);
+            float bh = H * 0.11f * bars;
+            GUI.DrawTexture(new Rect(0, 0, W, bh), Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, Color.black, 0, 0);
+            GUI.DrawTexture(new Rect(0, H - bh, W, bh), Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, Color.black, 0, 0);
+            foreach (var (a, b, text, who) in Intro.Captions)
+            {
+                if (t < a || t > b) continue;
+                float alpha = Mathf.Clamp01((t - a) / 0.4f) * Mathf.Clamp01((b - t) / 0.4f);
+                if (who == "TITLE")
+                {
+                    float pop = 1f + 0.25f * Mathf.Clamp01(1 - (t - a) / 0.35f);
+                    var ts = new GUIStyle(title) { alignment = TextAnchor.MiddleCenter, fontSize = Mathf.RoundToInt(150 * S * pop) };
+                    ts = OneLine(ts, "PORT BOSS", W * 0.9f);
+                    Label(new Rect(0, H * 0.3f, W, 180 * S), "PORT BOSS", ts, new Color(1f, 0.86f, 0.35f, alpha));
+                    var sub = new GUIStyle(mid) { alignment = TextAnchor.MiddleCenter, fontSize = Mathf.RoundToInt(34 * S), wordWrap = true, clipping = TextClipping.Overflow };
+                    Label(new Rect(W * 0.1f, H * 0.3f + 190 * S, W * 0.8f, 90 * S), text, sub, new Color(1, 1, 1, alpha));
+                    continue;
+                }
+                // Typed out, two characters a frame-ish.
+                int n = Mathf.Clamp(Mathf.FloorToInt((t - a) * 45f), 0, text.Length);
+                var cs = new GUIStyle(mid) { alignment = TextAnchor.MiddleCenter, fontSize = Mathf.RoundToInt(32 * S), wordWrap = true, clipping = TextClipping.Overflow };
+                float cw = Mathf.Min(W * 0.84f, 1300 * S), ch = cs.CalcHeight(new GUIContent(text), cw) + 26 * S;
+                var r = new Rect((W - cw) / 2, H - bh - ch - 26 * S, cw, ch);
+                if (who == "MARLOWE")
+                {
+                    // His line in a white speech bubble, with his name.
+                    GUI.DrawTexture(r, Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(1, 1, 1, 0.95f * alpha), 0, 20 * S);
+                    var nm = new GUIStyle(small) { fontSize = Mathf.RoundToInt(20 * S), fontStyle = FontStyle.Bold };
+                    nm.normal.textColor = new Color(0.75f, 0.2f, 0.15f, alpha);
+                    GUI.Label(new Rect(r.x + 22 * S, r.y - 30 * S, 300 * S, 30 * S), "MARLOWE", new GUIStyle(nm) { normal = { textColor = new Color(1f, 0.8f, 0.6f, alpha) } });
+                    cs.normal.textColor = new Color(0.12f, 0.12f, 0.15f, alpha);
+                    GUI.Label(r, text.Substring(0, n), cs);
+                }
+                else
+                {
+                    GUI.DrawTexture(r, Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(0.02f, 0.04f, 0.06f, 0.55f * alpha), 0, 14 * S);
+                    Label(r, text.Substring(0, n), cs, new Color(1f, 0.96f, 0.86f, alpha));
+                }
+            }
+            var hint = new GUIStyle(small) { alignment = TextAnchor.MiddleRight, fontSize = Mathf.RoundToInt(19 * S) };
+            Label(new Rect(W - 520 * S, H - Mathf.Max(bh, 40 * S) + (bh > 30 * S ? (bh - 30 * S) / 2 : 4 * S), 500 * S, 30 * S), "Space / Esc / click: skip", hint, new Color(1, 1, 1, 0.6f));
+        }
+
+        // Marlowe's speech bubble, over his head while he gloats off the end of the jetty.
+        void DrawMarlowe(float W, float H)
+        {
+            var cam = Camera.main;
+            if (Speedboat.Bubble == null || Speedboat.Head == null || cam == null) return;
+            var at = Speedboat.Head.position + Vector3.up * 0.7f;
+            float d = Vector3.Distance(cam.transform.position, at);
+            var sp = cam.WorldToScreenPoint(at);
+            if (sp.z < 0.5f || d > 90f) return;
+            var st = new GUIStyle(small) { fontSize = Mathf.RoundToInt(23 * S), fontStyle = FontStyle.Bold, wordWrap = true, alignment = TextAnchor.MiddleCenter, clipping = TextClipping.Overflow };
+            float bw = Mathf.Min(460 * S, W * 0.6f), bh = st.CalcHeight(new GUIContent(Speedboat.Bubble), bw - 36 * S) + 30 * S;
+            float x = Mathf.Clamp(sp.x - bw / 2, 10 * S, W - bw - 10 * S), y = Mathf.Clamp(H - sp.y - bh - 26 * S, 60 * S, H - bh - 140 * S);
+            var r = new Rect(x, y, bw, bh);
+            GUI.DrawTexture(new Rect(r.x + 4 * S, r.y + 6 * S, r.width, r.height), Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(0, 0, 0, 0.35f), 0, 18 * S);
+            GUI.DrawTexture(r, Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, Color.white, 0, 18 * S);
+            // Tail down to his head.
+            var tail = new GUIStyle(GUI.skin.label) { fontSize = Mathf.RoundToInt(34 * S), alignment = TextAnchor.UpperCenter, clipping = TextClipping.Overflow };
+            tail.normal.textColor = Color.white;
+            GUI.Label(new Rect(Mathf.Clamp(sp.x, r.x + 20 * S, r.xMax - 20 * S) - 20 * S, r.yMax - 12 * S, 40 * S, 40 * S), "▼", tail);
+            var name = new GUIStyle(small) { fontSize = Mathf.RoundToInt(17 * S), fontStyle = FontStyle.Bold, alignment = TextAnchor.UpperLeft };
+            name.normal.textColor = new Color(0.75f, 0.2f, 0.15f);
+            GUI.Label(new Rect(r.x + 16 * S, r.y + 4 * S, r.width, 24 * S), "MARLOWE", name);
+            st.normal.textColor = new Color(0.12f, 0.12f, 0.15f);
+            GUI.Label(new Rect(r.x + 18 * S, r.y + 14 * S, r.width - 36 * S, r.height - 18 * S), Speedboat.Bubble, st);
+        }
+
+        // Soaked: water drops running down the screen for a few seconds.
+        static float soakAt = -99f; static int soakSeed;
+        static Texture2D dropTex;
+        public static void Soak() { soakAt = Time.unscaledTime; soakSeed = Random.Range(0, 1 << 20); }
+        void DrawSoak(float W, float H)
+        {
+            float t = Time.unscaledTime - soakAt;
+            if (t > 3.5f) return;
+            if (dropTex == null)
+            {
+                const int n = 64;
+                dropTex = new Texture2D(n, n, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
+                for (int y = 0; y < n; y++)
+                    for (int x = 0; x < n; x++)
+                    {
+                        float dx = (x + 0.5f) / n * 2 - 1, dy = (y + 0.5f) / n * 2 - 1, d = Mathf.Sqrt(dx * dx + dy * dy);
+                        float a = Mathf.Clamp01((1 - d) * 6f) * (0.35f + 0.4f * Mathf.Clamp01(d * 1.3f)); // clear middle, darker rim
+                        float hi = Mathf.Clamp01(1 - Vector2.Distance(new Vector2(dx, dy), new Vector2(-0.35f, 0.4f)) * 4f); // highlight
+                        dropTex.SetPixel(x, y, new Color(0.85f + 0.15f * hi, 0.93f + 0.07f * hi, 1f, Mathf.Max(a, hi * 0.9f)));
+                    }
+                dropTex.Apply();
+            }
+            float fade = Mathf.Clamp01((3.5f - t) / 1.2f);
+            GUI.DrawTexture(new Rect(0, 0, W, H), Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(0.6f, 0.8f, 0.95f, 0.18f * fade * Mathf.Clamp01(1.5f - t)), 0, 0);
+            var rng = new System.Random(soakSeed);
+            for (int i = 0; i < 34; i++)
+            {
+                float sz = (24 + (float)rng.NextDouble() * 70) * S, x = (float)rng.NextDouble() * W, y0 = (float)rng.NextDouble() * H;
+                float slide = (float)rng.NextDouble() * 60f * S * t * t; // bigger drops run down
+                GUI.DrawTexture(new Rect(x - sz / 2, y0 + slide - sz / 2, sz, sz * 1.15f), dropTex, ScaleMode.StretchToFill, true, 0, new Color(1, 1, 1, fade), 0, 0);
             }
         }
 

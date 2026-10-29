@@ -61,6 +61,9 @@ namespace PortBoss
                 case "engine": len = 1f; f = t => 0.3f * (Saw(t * 96f) * 0.6f + Saw(t * 192.5f) * 0.25f + Noise() * 0.15f) * (0.85f + 0.15f * Mathf.Sin(t * 2 * Mathf.PI * 8)); break;
                 case "siren": len = 3.5f; f = t => Env(t, 0.2f, 3.5f, 0.5f) * 0.35f * Mathf.Sin(2 * Mathf.PI * (520f * t + 90f * Mathf.Sin(t * 2.2f) / 2.2f)); break;
                 case "rain": return Rain();
+                case "tauntHorn": return TauntHorn();
+                case "boom": len = 1.6f; f = t => Mathf.Exp(-t * 3.2f) * (0.7f * Mathf.Sin(2 * Mathf.PI * (55 - 20 * t) * t) + 0.35f * Noise() * Mathf.Exp(-t * 9f)) + (t > 0.25f ? 0.12f * Noise() * Mathf.Exp(-(t - 0.25f) * 6f) * (Noise() > 0.6f ? 1 : 0) : 0); break;
+                case "plane": len = 2f; f = t => 0.3f * (Saw(t * 88f) * 0.5f + Saw(t * 132f) * 0.25f + Noise() * 0.1f) * (0.8f + 0.2f * Mathf.Sin(t * 2 * Mathf.PI * 22f)); break;
                 case "wind": return Wind();
                 case "thunder": return Thunder();
                 case "clank": len = 0.3f; f = t => Mathf.Exp(-t * 16) * 0.3f * (Mathf.Sin(t * 2 * Mathf.PI * 523) * 0.5f + Mathf.Sin(t * 2 * Mathf.PI * 1307) * 0.35f + Mathf.Sin(t * 2 * Mathf.PI * 2093) * 0.2f) + (t < 0.008f ? Noise() * 0.3f : 0); break;
@@ -129,6 +132,26 @@ namespace PortBoss
                 }
             }
             return Make("rain", Normalize(Seamless(d, fade), 0.6f));
+        }
+
+        // Marlowe's horn: the first bars of a cheeky tune (G G G C E, G G G C E) on a two-tone air horn.
+        static AudioClip TauntHorn()
+        {
+            var notes = new (float f, float len)[] { (392, 0.13f), (392, 0.13f), (392, 0.13f), (523, 0.3f), (659, 0.42f), (0, 0.12f), (392, 0.13f), (392, 0.13f), (392, 0.13f), (523, 0.3f), (659, 0.6f) };
+            float total = 0; foreach (var nn in notes) total += nn.len + 0.03f;
+            var d = new float[(int)(total * Rate)];
+            int at = 0;
+            foreach (var (fq, len) in notes)
+            {
+                int n = (int)(len * Rate);
+                for (int i = 0; i < n && at + i < d.Length; i++)
+                {
+                    float t = i / (float)Rate, env = Mathf.Clamp01(t / 0.015f) * Mathf.Clamp01((len - t) / 0.04f);
+                    d[at + i] = fq <= 0 ? 0 : env * 0.32f * (Saw(t * fq) * 0.6f + Saw(t * fq * 1.26f) * 0.3f + Saw(t * fq * 2.01f) * 0.1f);
+                }
+                at += n + (int)(0.03f * Rate);
+            }
+            return Make("tauntHorn", d);
         }
 
         // Wind: a whoosh (noise band-passed around a few hundred Hz) that brightens and swells with each gust,

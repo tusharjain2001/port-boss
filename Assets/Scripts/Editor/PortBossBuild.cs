@@ -51,6 +51,7 @@ namespace PortBoss.EditorTools
                 : Mat("Water", lit, m => { m.SetColor("_BaseColor", new Color(0.13f, 0.3f, 0.36f)); m.SetFloat("_Smoothness", 0.88f); });
             var cloud = Mat("Cloud", Shader.Find("PortBoss/ToonCloud") ?? Shader.Find("Universal Render Pipeline/Unlit"), m => m.SetColor("_BaseColor", Color.white));
             var land = Mat("Land", Shader.Find("PortBoss/ToonLand"), m => { });
+            var spark = Mat("Spark", Shader.Find("PortBoss/Spark"), m => m.SetTexture("_BaseMap", dot));
 
             var crate = Prefab("Crate", g =>
             {
@@ -157,7 +158,7 @@ namespace PortBoss.EditorTools
             ui.TitleFont = AssetDatabase.LoadAssetAtPath<Font>("Assets/Art/Fonts/AlfaSlabOne-Regular.ttf");
             ui.Models = models.ToArray(); ui.ModelKit = kits.ToArray(); ui.KitMats = kitMats.ToArray();
             ui.CratePrefab = crate; ui.BoatPrefab = boat; ui.TrolleyPrefab = trolley; ui.PortGamePrefab = game; ui.ForkliftPrefab = forklift; ui.PalletPrefab = pallet;
-            ui.LitMat = litMat; ui.EmissiveMat = emis; ui.ParticleMat = part; ui.WaterMat = water; ui.CloudMat = cloud; ui.LandMat = land;
+            ui.LitMat = litMat; ui.EmissiveMat = emis; ui.ParticleMat = part; ui.WaterMat = water; ui.CloudMat = cloud; ui.LandMat = land; ui.SparkMat = spark;
             ui.Skin = MakeSkin();
             Dir("Assets/Scenes");
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -250,7 +251,7 @@ namespace PortBoss.EditorTools
                 k.Sky = L<Material>("Skybox/TH_Skybox_01A.mat");
                 k.Post = L<UnityEngine.Rendering.VolumeProfile>("Profiles/TH_Sunny_Day_01.asset");
                 k.Players = Ps("Characters Variants/TH_Male_Character_01A", "Characters Variants/TH_Female_Character_02C", "Characters Variants/TH_Male_Character_01B", "Characters Variants/TH_Female_Character_03B");
-                k.Buyer = P("Characters Variants/TH_Male_Character_02A");
+                k.Buyer = P("Characters Variants/TH_Male_Character_02A"); k.Rival = P("Characters Variants/TH_Male_Character_03A");
                 k.Crate = P("Cargo/TH_Shipping_Wooden_Crate_02B");
                 k.BigCrates = Ps("Cargo/TH_Shipping_Wooden_Crate_02A", "Cargo/TH_Shipping_Wooden_Crate_02C", "Cargo/TH_Shipping_Wooden_Crate_01B");
                 k.Barrels = Ps("Props/TH_Barrel_01A", "Props/TH_Barrel_02A", "Props/TH_Barrel_07B", "Props/TH_Barrel_04B");

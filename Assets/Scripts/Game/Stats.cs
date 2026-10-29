@@ -17,7 +17,7 @@ namespace PortBoss
             ("sold", "Crates sold", ""), ("spoiled", "Spoiled crates sold", ""), ("sea", "Crates lost to the sea", ""),
             ("left", "Crates left on the boats", ""), ("carried", "Crates picked up", ""), ("throws", "Crates thrown", ""),
             ("knocked", "Times knocked over", ""), ("swims", "Times in the water", ""), ("fishedOut", "Fished out by the harbour master", ""),
-            ("honked", "Honked at by lorries", ""), ("walked", "Distance on foot", "km"),
+            ("honked", "Honked at by lorries", ""), ("soaked", "Soaked by Marlowe", ""), ("walked", "Distance on foot", "km"),
         };
 
         public static int Run(string key) => run.TryGetValue(key, out var n) ? n : 0;

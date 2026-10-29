@@ -20,6 +20,7 @@ namespace PortBoss
         public const float RoadZ = YardZ0 - 9f, RoadEdgeSouth = RoadZ - 6f; // the 12 m road behind our wall (RoadTraffic)
         public static readonly Vector3 TrolleySpawn = new(3.6f, 0.6f, -10f); // clear of the shelter wall (x 6), or physics pops it out rolling
         public const float PierTop = 0.2f;
+        public const float Gangway = 16f; // z where the gangplanks land on the jetty (Boat.DockPos)
 
         public static Transform Root;
         public struct Ladder { public Vector3 Bottom, Top; }
@@ -82,6 +83,7 @@ namespace PortBoss
             }
             if (Skin.On) Scenery.Clouds(Root, Art.Cloud); else if (Art.Cloud != null) Clouds();
             Speedboat.Create();
+            BannerPlane.Create(Root);
             // Sea floor: the transparent toon water needs something below it (else the sky's ground colour shows through).
             if (Skin.On)
             {
@@ -221,7 +223,9 @@ namespace PortBoss
                 float zc = (z0 + z1) / 2, len = z1 - z0;
                 foreach (var x in new[] { -2.7f, 0f, 2.7f })
                     Art.Box(sec, L(sec, new Vector3(x, y - 0.2f, zc)), new Vector3(0.25f, 0.25f, len), Art.WoodDark, false, "stringer");
-                Art.Box(sec, L(sec, new Vector3(-2.85f, PierTop + 0.1f, zc)), new Vector3(0.18f, 0.2f, len), Art.WoodDark, true, "kerb");
+                // Kerb on the left edge, with a gap where the left berth's gangplank lands (z 16).
+                foreach (var (a, b) in new[] { (z0, Mathf.Min(z1, Gangway - 1.6f)), (Mathf.Max(z0, Gangway + 1.6f), z1) })
+                    if (b - a > 0.1f) Art.Box(sec, L(sec, new Vector3(-2.85f, PierTop + 0.1f, (a + b) / 2)), new Vector3(0.18f, 0.2f, b - a), Art.WoodDark, true, "kerb");
             }
             for (float z = 1.5f; z < 30.5f; z += 3f)
                 foreach (var x in new[] { -2.9f, 2.9f })
@@ -229,6 +233,7 @@ namespace PortBoss
             // Rope bollards on the right (boat side).
             for (float z = 4f; z < 30f; z += 6f)
             {
+                if (Mathf.Abs(z - Gangway) < 2f) continue; // not in the way of the gangplank
                 var sec = Sec(z);
                 Art.Prim(PrimitiveType.Cylinder, sec, L(sec, new Vector3(2.75f, PierTop + 0.2f, z)), Quaternion.identity, new Vector3(0.3f, 0.2f, 0.3f), Art.Hex("#3b3b3b"), true, "bollard");
             }
