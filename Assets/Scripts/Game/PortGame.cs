@@ -25,9 +25,22 @@ namespace PortBoss
         public (int boats, float first) Tomorrow { get { var s = Schedules[Mathf.Clamp(DayNum.Value, 0, Schedules.Length - 1)]; return (s.Length, s[0].t); } }
         public string NextCaptain => Contracts[Mathf.Clamp(NextContractId.Value, 0, Contracts.Length - 1)].Captain;
 
-        // The goalpost: the crew saves toward the next port stage (docs/PORT-STAGES.md). Not buildable yet in this build.
-        public const int NextStageCost = 1500;
-        public const string NextStageName = "Concrete quay";
+        // The goalpost: the crew saves toward the next port stage (docs/PORT-STAGES.md). Stage 2 can be built; later ones are goals.
+        public NetworkVariable<byte> Stage = new(1);
+        static readonly (string name, int cost)[] Stages = { ("Concrete quay", 1500), ("Crane + warehouse", 4000), ("Container berth", 10000), ("Mega port", 25000) };
+        public string NextStageName => Stages[Mathf.Clamp(Stage.Value - 1, 0, Stages.Length - 1)].name;
+        public int NextStageCost => Stages[Mathf.Clamp(Stage.Value - 1, 0, Stages.Length - 1)].cost;
+        public static int QuayCost => Stages[0].cost;
+
+        [Rpc(SendTo.Server)]
+        public void BuyStageRpc()
+        {
+            if (Phase.Value != Ph.Night || Stage.Value != 1 || Money.Value < QuayCost) return;
+            Money.Value -= QuayCost;
+            Stage.Value = 2;
+            BoughtRpc();
+            Shout("BUYER", "A proper shed and a forklift yard! Look at us, boss.", 4f);
+        }
 
         public NetworkVariable<Ph> Phase = new(Ph.Day);
         public NetworkVariable<int> DayNum = new(1), Money = new(0), Earned = new(0), Sold = new(0), InSea = new(0), LeftAboard = new(0), SpoiledSold = new(0);
@@ -68,6 +81,8 @@ namespace PortBoss
         {
             I = this;
             PierRepaired.OnValueChanged += (_, on) => World.SetRepaired(on);
+            Stage.OnValueChanged += (_, s) => HarbourMap.SetStage(s);
+            HarbourMap.SetStage(Stage.Value);
             World.SetRepaired(PierRepaired.Value);
             if (IsServer)
             {
@@ -123,7 +138,7 @@ namespace PortBoss
                 var b = Instantiate(GameUI.I.BoatPrefab).GetComponent<Boat>();
                 b.Berth.Value = sched[nextBoat].berth;
                 if (nextBoat == 0) b.HeadStart = 20f;
-                b.CargoCount = Mathf.RoundToInt((8 + nextBoat * 3 + (DayNum.Value - 1) * 2) * Today.Cargo);
+                b.CargoCount = Mathf.RoundToInt((8 + nextBoat * 3 + (DayNum.Value - 1) * 2) * Today.Cargo * (Stage.Value >= 2 ? 1.3f : 1f)); // the quay draws bigger catches
                 b.NetworkObject.Spawn(true);
                 activeBoats++; nextBoat++;
                 bool last = nextBoat == sched.Length, left = sched[nextBoat - 1].berth == 1;

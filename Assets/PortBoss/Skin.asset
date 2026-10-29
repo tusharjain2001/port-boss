@@ -145,6 +145,7 @@ MonoBehaviour:
   - tile1
   - tile3
   - tile6
+  - shed07
   - roofSheet
   - mpole
   - wallY2
@@ -239,6 +240,7 @@ MonoBehaviour:
   - {fileID: 2648393994072168194, guid: 3ca05c27b084e6c49b8b525b9823ec13, type: 3}
   - {fileID: 2062834928850428775, guid: 6d8da3511ec7d1849b472ff3147fc0c7, type: 3}
   - {fileID: 8147590995571728152, guid: e50e643cd5cb2184c898b09c045d1754, type: 3}
+  - {fileID: 3659875058546432268, guid: faa91059ef94ff84cb2bbc304150ca1a, type: 3}
   - {fileID: 3962593886708909824, guid: 387ff7afdfbd6a3489c62715a682cee5, type: 3}
   - {fileID: 2057827124730851612, guid: b61b024deceb1e64a890c5a58bfb4a5c, type: 3}
   - {fileID: 7991091776529434264, guid: e779a8a71104eae4c8aafc5ffb8e018e, type: 3}

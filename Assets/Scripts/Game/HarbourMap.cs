@@ -100,8 +100,7 @@ namespace PortBoss
                 for (float x = x0 + 6; x < x1 + 6; x += 12)
                     for (float z = z0 + 6; z < z1 + 6; z += 12)
                     {
-                        int k = rng.Next(10);
-                        Top(k < 6 ? "tile1" : "tile3", new Vector3(x, 0.0f, z), 90 * rng.Next(4), Vector3.one);
+                        Top("tile1", new Vector3(x, 0.0f, z), 90 * rng.Next(4), Vector3.one);
                     }
             }
             Tile(-70, 250, -64, 0, 1);    // our yard, the beach end and the East Terminal's back lot
@@ -276,6 +275,23 @@ namespace PortBoss
             }
             var tr = On("truck", new Vector3(-80, 0, 10), 0, 1f);
             if (tr != null) { var m = tr.AddComponent<Mover>(); m.Pts = new[] { new Vector3(-80, 0, 10), new Vector3(-80, 0, 205), new Vector3(-180, 0, 205), new Vector3(-180, 0, 10) }; m.Speed = 7f; }
+        }
+
+        // Port stage 2 (bought at night): a proper metal shed and a marked forklift yard on our plot.
+        static GameObject stage2;
+        public static void SetStage(int s)
+        {
+            if (s < 2) { if (stage2 != null) Object.Destroy(stage2); stage2 = null; return; } // a new session starts at stage 1
+            if (stage2 != null || R == null || !Skin.On) return;
+            stage2 = new GameObject("Stage2");
+            var keep = R; R = stage2.transform; R.SetParent(keep, false);
+            On("shed07", new Vector3(30, 0, -39), 180, 0.8f, true);
+            for (int i = 0; i < 5; i++) // yellow bay lines
+                Art.Box(R, new Vector3(18 + i * 3.2f, 0.02f, -27), new Vector3(0.15f, 0.01f, 5f), Art.Hex("#e8b030"), false, "bay_line").GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            Art.Box(R, new Vector3(24.4f, 0.02f, -24.5f), new Vector3(12.95f, 0.01f, 0.15f), Art.Hex("#e8b030"), false, "bay_line");
+            On("streetlight", new Vector3(36, 0, -30), 200, 1.4f);
+            placed.Clear();
+            R = keep;
         }
 
         // Our shelter's walls (World keeps them as colliders) wear the pack's weathered yellow metal panels, both faces.

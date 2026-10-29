@@ -18,4 +18,4 @@ port: a reminder of the next step, not the end-game. Prefab names below are unde
 - **Scale:** the demo's sea is at y = −6.1 on a 3 km plane; our sea level is −1.2. Offset the layout on import, don't move our water.
 - **Rival port:** keep it one stage ahead of the player (stage 1 → the rival shows stage 2–3 pieces), so the next upgrade is always visible across the bay.
 - **Upgrades are physical:** each stage is built over the previous one (the wooden pier stays as a fishing jetty at stage 2, etc.), so the port's history shows.
-- Only stage 1 exists tonight; nothing here is built beyond what the code already has.
+- Built so far: stage 1, and stage 2 as a night-shop purchase at $1500 (a pack metal shed, a marked forklift yard, +30% catch; `HarbourMap.SetStage`). Stages 3–5 are HUD goals only.

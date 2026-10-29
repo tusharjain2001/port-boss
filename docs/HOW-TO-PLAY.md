@@ -3,7 +3,7 @@
 Double-click **PortBoss.exe**. It opens windowed (drag the edge to resize, or pick a window mode in Settings). Have Steam running for co-op; solo works without it.
 
 ## The goal
-You run the shabbiest berth in a busy harbour: one concrete jetty, a tin shelter, an old crane, a fish buyer's stall. All around you the big terminals are working: gantries, container yards, freighters. **Earn enough to grow your berth.** The crew tin (top right) counts toward the next stage, **Concrete quay ($1500)**.
+You run the shabbiest berth in a busy harbour: one concrete jetty, a tin shelter, an old crane, a fish buyer's stall. All around you the big terminals are working: gantries, container yards, freighters. **Earn enough to grow your berth.** The crew tin (top right) counts toward the next stage. At **$1500** the night shop lets you **build the Concrete quay**: a proper shed and a forklift yard on your plot, and the boats bring **30% bigger catches**. After that the goal is the next stage (crane + warehouse).
 
 ## A day at the berth
 Boats come in with a horn and dock at the end of the jetty. **Captain Mags** shouts a countdown: **two minutes**. Get the fish crates off the boat and carry them to **the FISH BUYER** (stall on the quay, left of the jetty). Press **E** at the buyer: his panel lists your crates with his offer for each. **Fresh $15, okay $12, spoiled $4** (spoiled fish goes green and gets flies).
@@ -48,5 +48,5 @@ Graphics presets (Low/Medium/High/Ultra, High by default) plus individual option
 - **Steam co-op needs testing with a friend.** One PC with one Steam account can't test it (Steam won't connect an account to itself). Two copies on one PC through a real Steam lobby work, and LAN/IP co-op is tested. If friends can't connect over Steam, use LAN/IP.
 - Music: only the night track so far (picked by Manan); the day, rush and menu slots are silent until their tracks are chosen.
 - The gull is still our own simple model (the art pack has no birds).
-- Only stage 1 of the port exists; buying "Concrete quay" is the next thing to build.
+- Stages 1 and 2 are playable; stage 3 onwards (crane + warehouse, container berth, mega port) are goals on the HUD, not built yet.
 - Windows may ask for firewall access the first time you host co-op.

@@ -466,11 +466,11 @@ namespace PortBoss
                 // One shared tin for the whole crew (everyone earns the same), and the goalpost it's saving toward.
                 var tiny = new GUIStyle(small) { alignment = TextAnchor.UpperRight, fontSize = Mathf.RoundToInt(18 * S) };
                 Label(new Rect(W - 420 * S, 92 * S, 400 * S, 26 * S), Player.All.Count > 1 ? $"crew tin · shared by all {Player.All.Count}" : "crew tin", tiny, new Color(1f, 0.92f, 0.7f, 0.8f));
-                float goal = Mathf.Clamp01(g.Money.Value / (float)PortGame.NextStageCost);
+                float goal = Mathf.Clamp01(g.Money.Value / (float)g.NextStageCost);
                 var bar = new Rect(W - 300 * S, 122 * S, 280 * S, 12 * S);
                 GUI.DrawTexture(bar, Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(0, 0, 0, 0.45f), 0, 4 * S);
                 GUI.DrawTexture(new Rect(bar.x, bar.y, Mathf.Max(8 * S, bar.width * goal), bar.height), Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(0.98f, 0.79f, 0.38f, 0.95f), 0, 4 * S);
-                Label(new Rect(W - 420 * S, 136 * S, 400 * S, 26 * S), $"next: {PortGame.NextStageName}  ${g.Money.Value} / ${PortGame.NextStageCost}", tiny, new Color(1f, 0.92f, 0.7f, 0.85f));
+                Label(new Rect(W - 420 * S, 136 * S, 400 * S, 26 * S), $"next: {g.NextStageName}  ${g.Money.Value} / ${g.NextStageCost}", tiny, new Color(1f, 0.92f, 0.7f, 0.85f));
                 float u = g.DayT.Value / PortGame.DayLength;
                 string tod = g.Phase.Value == PortGame.Ph.Night ? "night" : u < 0.33f ? "afternoon" : u < 0.7f ? "late afternoon" : "sunset";
                 Label(new Rect(24 * S, 18 * S, 600 * S, 50 * S), $"DAY {g.DayNum.Value} · {tod}", new GUIStyle(mid) { alignment = TextAnchor.UpperLeft }, new Color(1f, 0.95f, 0.85f));
@@ -642,7 +642,7 @@ namespace PortBoss
             Label(new Rect(x, y, pw, lh), $"Crew tin:  ${g.Money.Value}" + (Player.All.Count > 1 ? $"  (shared, same for all {Player.All.Count})" : ""), st, new Color(1f, 0.88f, 0.4f)); y += lh;
             var note = new GUIStyle(small) { alignment = TextAnchor.MiddleLeft, fontSize = Mathf.RoundToInt(20 * S) };
             var tm = g.Tomorrow;
-            Label(new Rect(x, y, pw - 80 * S, 30 * S), $"Saving for: {PortGame.NextStageName}  ${g.Money.Value} / ${PortGame.NextStageCost}", note, new Color(1f, 0.92f, 0.75f, 0.9f)); y += 30 * S;
+            Label(new Rect(x, y, pw - 80 * S, 30 * S), $"Saving for: {g.NextStageName}  ${g.Money.Value} / ${g.NextStageCost}", note, new Color(1f, 0.92f, 0.75f, 0.9f)); y += 30 * S;
             Label(new Rect(x, y, pw - 80 * S, 30 * S), $"Tomorrow: Captain {g.NextCaptain[0]}{g.NextCaptain.Substring(1).ToLowerInvariant()}, {tm.boats} boats, first one at {Mathf.FloorToInt(tm.first / 60)}:{Mathf.FloorToInt(tm.first % 60):00}", note, new Color(1f, 0.92f, 0.75f, 0.9f)); y += 30 * S * 1.4f;
 
             Label(new Rect(r.x, y, pw, lh), "NIGHT SHOP", mid, new Color(1f, 0.8f, 0.5f)); y += lh * 1.1f;
@@ -657,6 +657,7 @@ namespace PortBoss
             Row(g.HasTrolley.Value, "Hand trolley: owned", "Hand trolley (6 crates)", PortGame.TrolleyPrice, g.BuyTrolleyRpc);
             if (!Skin.On) Row(g.PierRepaired.Value, "Pier: repaired", "Repair the pier", PortGame.RepairPrice, g.BuyRepairRpc);
             if (g.ForkliftForSale) Row(g.HasForklift.Value, "Forklift: in the yard", "Forklift + 2 pallets", PortGame.ForkliftPrice, g.BuyForkliftRpc);
+            Row(g.Stage.Value >= 2, "Concrete quay: built (+30% catch)", "BUILD: Concrete quay (+30% catch)", PortGame.QuayCost, g.BuyStageRpc);
             y += lh * 1.6f;
             if (NetworkManager.Singleton.IsServer)
             {

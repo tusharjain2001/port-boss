@@ -65,6 +65,7 @@ namespace PortBoss
             if (Has("-pb-knocktest")) StartCoroutine(KnockTest());
             if (Has("-pb-shovehost")) StartCoroutine(ShoveHost());
             if (Has("-pb-shovetest")) StartCoroutine(ShoveTest());
+            if (Arg("-pb-stagetest") != null) StartCoroutine(StageTest(Arg("-pb-stagetest")));
             if (Has("-pb-contracttest")) StartCoroutine(ContractTest());
             if (int.TryParse(Arg("-pb-day"), out var day)) StartCoroutine(StartOnDay(day));
             if (int.TryParse(Arg("-pb-settings"), out var st)) ui.DebugOpenSettings(st);
@@ -140,6 +141,28 @@ namespace PortBoss
         }
 
         // Throw a crate at the local player.
+        // Stage 2: earn it, end the day, build the quay at night, check the shed is up and tomorrow's boat is bigger.
+        IEnumerator StageTest(string dir)
+        {
+            Directory.CreateDirectory(dir);
+            yield return WaitGame();
+            var g = PortGame.I;
+            g.Money.Value = 1600;
+            g.EndDayNow();
+            yield return new WaitForSeconds(1f);
+            g.BuyStageRpc();
+            yield return new WaitForSeconds(1f);
+            Debug.Log($"[PB] stage test: stage={g.Stage.Value} money={g.Money.Value} next={g.NextStageName} ${g.NextStageCost} shed={GameObject.Find("Stage2") != null}");
+            g.NextDayRpc();
+            yield return new WaitForSeconds(8f);
+            foreach (var b in Boat.All) Debug.Log($"[PB] stage test: day {g.DayNum.Value} boat cargo={b.CargoCount} (stage 1 would be {Mathf.RoundToInt((8 + (g.DayNum.Value - 1) * 2) * g.Today.Cargo)})");
+            Player.CamOverride = true;
+            Camera.main.transform.position = new Vector3(14, 9, -12); Camera.main.transform.LookAt(new Vector3(28, 0, -34));
+            yield return new WaitForSeconds(1f);
+            yield return Snap(dir, "stage2");
+            Player.CamOverride = false;
+        }
+
         // Co-op shove (LAN): the host holds 2 crates; the joiner walks up behind and shoves.
         IEnumerator ShoveHost()
         {
