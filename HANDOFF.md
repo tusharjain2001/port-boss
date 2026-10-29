@@ -29,12 +29,12 @@ Feature freeze **09:00**. 09:00–09:45 fixes + release into `Desktop/Port Boss/
 - `docs/PORT-STAGES.md` (5 stages → pack prefabs). Proof: `Desktop/Port Boss/proof/overnight/toon-harbor/`.
 
 ## Next
-Release candidate `builds/20261029-0640` (commit 317fc63) passes the full battery: reg2 (bot, wobble, swim, crates, storm, LAN co-op),
-carry 1/3/5, stage 2 (`-pb-stagetest`), forklift, shove (LAN). Since 05:00: menu, B, C, #7 shove, pack forklift/shelter/stall/bollards,
-ground tiles, lighter water, crisp logo, first-boat head start, walking dock workers, roads visible, parked trailers, storm sky,
-next-boat countdown, buildable stage 2 (Concrete quay $1500), toon gull.
-1. 09:00 freeze → MORNING: copy the final build to `builds/<stamp>-MORNING/` + HOW-TO-PLAY + 5 shots + capture
-   (windowed `-pb-film <dir>` → `ffmpeg -framerate 30 -i f_%05d.jpg -c:v libx264 -crf 20 -pix_fmt yuv420p`), report_done all tasks.
+Feature-complete for the morning (commit fce04c2): full battery green on the 07:30 build (reg2 + carry + stage + forklift + shove).
+Since 0640: ground tiles fitted to plots (regression fix), FRESH FISH sign (render texture), corrugated shelter roof, rope piles,
+next-boat pill. Kufu tasks t-2802ed44, t-1dbba2d3, t-7c9e11e2, t-8064d922 reported.
+1. 09:00: `bash scratchpad/morning.sh` → `builds/<stamp>-MORNING/` (+ HOW-TO-PLAY, screenshots/); then the capture:
+   windowed `-pb-film <dir>` from that build → `ffmpeg -framerate 30 -i f_%05d.jpg -c:v libx264 -crf 20 -pix_fmt yuv420p capture.mp4`
+   into the MORNING folder; report_done every open task by 10:00; vault notes.
 
 ## Later (not tonight)
 - Ideas rejected for tonight: #1 hazard-modifier vote, #2 special crates (live/fragile), #4 storm warning tell (no warnings by design), #5 tipping plank.
