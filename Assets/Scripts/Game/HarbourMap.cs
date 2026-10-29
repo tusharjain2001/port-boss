@@ -90,15 +90,18 @@ namespace PortBoss
             return g;
         }
 
-        // Concrete slabs (16 m) over every walkable plot.
+        // Plain 12 m concrete ground tiles (stains, grit; the paved slab's crack pattern read as X marks) over every plot.
         static void Ground()
         {
             void Tile(float x0, float x1, float z0, float z1, int seed)
             {
                 var rng = new System.Random(seed);
-                for (float x = x0 + 8; x < x1; x += 16)
-                    for (float z = z0 + 8; z < z1; z += 16)
-                        Top("slab", new Vector3(x, 0.0f, z), 90 * rng.Next(4), new Vector3(2, 1, 2));
+                for (float x = x0 + 6; x < x1 + 6; x += 12)
+                    for (float z = z0 + 6; z < z1 + 6; z += 12)
+                    {
+                        int k = rng.Next(10);
+                        Top(k < 6 ? "tile1" : "tile3", new Vector3(x, 0.0f, z), 90 * rng.Next(4), Vector3.one);
+                    }
             }
             Tile(-70, 250, -64, 0, 1);    // our yard, the beach end and the East Terminal's back lot
             Tile(60, 250, 0, 30, 2);      // East Terminal, south strip

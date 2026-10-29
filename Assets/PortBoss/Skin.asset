@@ -134,6 +134,9 @@ MonoBehaviour:
   - planks
   - bag
   - wallY
+  - tile1
+  - tile3
+  - tile6
   - roofSheet
   - mpole
   - wallY2
@@ -217,6 +220,9 @@ MonoBehaviour:
   - {fileID: 1134948531770059408, guid: 490e4aaa25e2ae04a8085aec66217a15, type: 3}
   - {fileID: 6659217654719951842, guid: ab67f17b7155f0c4185635f7cc55a03b, type: 3}
   - {fileID: 414166245539075928, guid: 48f972f8ca219a241b212c7a0a862d58, type: 3}
+  - {fileID: 2648393994072168194, guid: 3ca05c27b084e6c49b8b525b9823ec13, type: 3}
+  - {fileID: 2062834928850428775, guid: 6d8da3511ec7d1849b472ff3147fc0c7, type: 3}
+  - {fileID: 8147590995571728152, guid: e50e643cd5cb2184c898b09c045d1754, type: 3}
   - {fileID: 3962593886708909824, guid: 387ff7afdfbd6a3489c62715a682cee5, type: 3}
   - {fileID: 2057827124730851612, guid: b61b024deceb1e64a890c5a58bfb4a5c, type: 3}
   - {fileID: 7991091776529434264, guid: e779a8a71104eae4c8aafc5ffb8e018e, type: 3}
