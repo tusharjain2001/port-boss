@@ -362,6 +362,28 @@ namespace PortBoss
             On("boxB", new Vector3(o.x + 2.3f, 0, o.z - 0.9f), -10, 1f);
         }
 
+        // Paint text on a coloured board into a texture (off-stage ortho camera, rendered once).
+        static RenderTexture SignTexture(string text, Color bg, Color fg, float aspect)
+        {
+            var font = GameUI.I != null ? GameUI.I.TitleFont : null;
+            if (font == null) return null;
+            const int layer = 30;
+            var rig = new GameObject("signRig").transform; rig.position = new Vector3(0, -600, 0);
+            var t = new GameObject("text").transform; t.SetParent(rig, false); t.gameObject.layer = layer;
+            var tm = t.gameObject.AddComponent<TextMesh>();
+            tm.font = font; tm.fontSize = 96; tm.characterSize = 0.1f; tm.anchor = TextAnchor.MiddleCenter; tm.text = text; tm.color = fg;
+            var mr = t.GetComponent<MeshRenderer>(); mr.sharedMaterial = font.material;
+            t.localScale = Vector3.one * (aspect * 0.86f / Mathf.Max(0.01f, mr.bounds.size.x));
+            var cam = new GameObject("signCam").AddComponent<Camera>();
+            cam.orthographic = true; cam.orthographicSize = 0.5f; cam.aspect = aspect;
+            cam.clearFlags = CameraClearFlags.SolidColor; cam.backgroundColor = bg; cam.cullingMask = 1 << layer;
+            cam.transform.position = rig.position - Vector3.forward * 5f;
+            var rt = new RenderTexture(1024, Mathf.RoundToInt(1024 / aspect), 16) { antiAliasing = 4 };
+            cam.targetTexture = rt; cam.Render(); cam.targetTexture = null;
+            Object.Destroy(cam.gameObject); Object.Destroy(rig.gameObject);
+            return rt;
+        }
+
         // A pack piece stretched to fill a box (centre, size), e.g. our stall's parts.
         static GameObject Fit(string n, Vector3 center, Vector3 size, float yaw = 0)
         {
@@ -393,19 +415,16 @@ namespace PortBoss
             if (roof != null) roof.transform.rotation = Quaternion.Euler(-10, 0, 0) * roof.transform.rotation;
             // A painted board on the front edge: FRESH FISH.
             var board = Art.Box(R, new Vector3(c.x, 3.05f, c.z + 0.42f), new Vector3(2.6f, 0.55f, 0.06f), Art.Hex("#2f5d6e"), false, "stall_sign");
-            var font = GameUI.I != null ? GameUI.I.TitleFont : null;
-            if (font != null)
-            {
-                var t = new GameObject("stall_sign_text").transform;
-                t.SetParent(R, false);
-                var tm = t.gameObject.AddComponent<TextMesh>();
-                tm.font = font; tm.fontSize = 96; tm.characterSize = 0.1f; tm.anchor = TextAnchor.MiddleCenter; tm.text = "FRESH FISH"; tm.color = new Color(1f, 0.93f, 0.8f);
-                t.GetComponent<MeshRenderer>().sharedMaterial = font.material;
-                float w = Mathf.Max(0.01f, t.GetComponent<MeshRenderer>().bounds.size.x);
-                t.localScale = Vector3.one * (2.2f / w);
-                t.position = new Vector3(c.x, 3.05f, c.z + 0.45f);
-                t.rotation = Quaternion.Euler(0, 180, 0); // readable from the quay side (+z)
-            }
+            // The lettering is rendered once into a texture (the font shader ignores depth, so a TextMesh would
+            // show through the board and walls) and put on a quad on each face.
+            var tex = SignTexture("FRESH FISH", Art.Hex("#2f5d6e"), new Color(1f, 0.93f, 0.8f), 2.6f / 0.55f);
+            if (tex != null)
+                foreach (var front in new[] { true, false })
+                {
+                    var q = Art.Prim(PrimitiveType.Quad, R, new Vector3(c.x, 3.05f, c.z + (front ? 0.455f : 0.385f)), Quaternion.Euler(0, front ? 180 : 0, 0), new Vector3(2.56f, 0.52f, 1), Color.white, false, "stall_sign_face");
+                    var mpb = new MaterialPropertyBlock(); mpb.SetTexture("_TextureSample", tex);
+                    q.GetComponent<Renderer>().SetPropertyBlock(mpb);
+                }
         }
 
         // Road tiles (12 m, lane markings and kerbs) along a polyline, top flush with the slabs.
