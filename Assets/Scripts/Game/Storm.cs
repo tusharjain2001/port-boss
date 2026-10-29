@@ -35,6 +35,7 @@ namespace PortBoss
             vel.x = WindDir.x * 6f; vel.y = 0; vel.z = WindDir.z * 6f;
             var pr = r.gameObject.GetComponent<ParticleSystemRenderer>();
             pr.renderMode = ParticleSystemRenderMode.Stretch; pr.lengthScale = 2f; pr.velocityScale = 0.06f;
+            pr.maxParticleSize = 0.0025f; // drops passing right by the lens were drawn as thick white bars
             pr.sharedMaterial = Art.Particle;
             I.rain.Play();
             // Whitecaps: foam patches blown across the sea around the camera, more and bigger as it roughens.
@@ -43,8 +44,11 @@ namespace PortBoss
             I.caps = fc.gameObject.AddComponent<ParticleSystem>();
             I.caps.Stop();
             var cm = I.caps.main;
-            cm.startLifetime = new ParticleSystem.MinMaxCurve(1.6f, 3f); cm.startSpeed = 0f; cm.startSize = new ParticleSystem.MinMaxCurve(1.5f, 4.5f);
-            cm.startColor = new Color(0.95f, 0.97f, 1f, 0.75f); cm.simulationSpace = ParticleSystemSimulationSpace.World; cm.maxParticles = 900;
+            // Streaks of foam lying along the wind (round blobs read as white polka dots on the sea).
+            cm.startLifetime = new ParticleSystem.MinMaxCurve(1.6f, 3f); cm.startSpeed = 0f;
+            cm.startSize3D = true; cm.startSizeX = new ParticleSystem.MinMaxCurve(3f, 7f); cm.startSizeY = new ParticleSystem.MinMaxCurve(0.6f, 1.3f); cm.startSizeZ = 1f;
+            cm.startRotation = Mathf.Atan2(WindDir.z, WindDir.x);
+            cm.startColor = new Color(0.95f, 0.97f, 1f, 0.45f); cm.simulationSpace = ParticleSystemSimulationSpace.World; cm.maxParticles = 900;
             var ce = I.caps.emission; ce.rateOverTime = 0;
             var cs = I.caps.shape; cs.shapeType = ParticleSystemShapeType.Box; cs.scale = new Vector3(90, 0.1f, 90);
             var cv = I.caps.velocityOverLifetime; cv.enabled = true; cv.space = ParticleSystemSimulationSpace.World; cv.x = WindDir.x * 3f; cv.y = 0; cv.z = WindDir.z * 3f;

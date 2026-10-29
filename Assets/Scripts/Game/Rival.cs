@@ -146,7 +146,8 @@ namespace PortBoss
             m.gravityModifier = 0.5f; m.maxParticles = 300; m.simulationSpace = ParticleSystemSimulationSpace.World;
             var e = ps.emission; e.rateOverTime = 0; e.SetBursts(new[] { new ParticleSystem.Burst(0, (short)(140 * size)) });
             var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Sphere; sh.radius = 1f; sh.radiusThickness = 0f; // all from the shell, out to the same distance
-            var shrink = ps.sizeOverLifetime; shrink.enabled = true; shrink.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0, 1f, 1, 0.4f));
+            // Sparks start small and grow as they fly apart: full size at the shell, all 140 stacked up, drew one blown-out ball.
+            var shrink = ps.sizeOverLifetime; shrink.enabled = true; shrink.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0, 0.1f), new Keyframe(0.12f, 1f), new Keyframe(1, 0.4f)));
             var col = ps.colorOverLifetime; col.enabled = true;
             var grad = new Gradient(); grad.SetKeys(new[] { new GradientColorKey(Color.white, 0), new GradientColorKey(Color.white, 1) }, new[] { new GradientAlphaKey(1, 0), new GradientAlphaKey(0.9f, 0.6f), new GradientAlphaKey(0, 1) });
             col.color = grad;

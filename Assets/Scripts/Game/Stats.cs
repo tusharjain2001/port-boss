@@ -27,13 +27,13 @@ namespace PortBoss
         {
             if (n == 0) return;
             run[key] = Run(key) + n;
-            PlayerPrefs.SetInt("pb.stat." + key, AllTime(key) + n);
+            if (!AutoRun.Active) PlayerPrefs.SetInt("pb.stat." + key, AllTime(key) + n); // test bots don't count
         }
 
         static void Max(string key, int v)
         {
             if (v > Run(key)) run[key] = v;
-            if (v > AllTime(key)) PlayerPrefs.SetInt("pb.stat." + key, v);
+            if (v > AllTime(key) && !AutoRun.Active) PlayerPrefs.SetInt("pb.stat." + key, v);
         }
 
         // Metres on foot (whole metres are banked as they add up).

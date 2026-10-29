@@ -73,6 +73,7 @@ namespace PortBoss
             if (Has("-pb-storm")) StartCoroutine(StormTest());
             if (Arg("-pb-carrytest") != null) StartCoroutine(CarryTest(Arg("-pb-carrytest")));
             if (Arg("-pb-mapshots") != null) StartCoroutine(MapShots(Arg("-pb-mapshots")));
+            if (Arg("-pb-uiscreens") != null) StartCoroutine(UiScreens(Arg("-pb-uiscreens")));
             if (Arg("-pb-areashots") != null) StartCoroutine(AreaShots(Arg("-pb-areashots")));
             if (Arg("-pb-uishots") != null) StartCoroutine(UiShots(Arg("-pb-uishots")));
             if (Arg("-pb-film") != null) StartCoroutine(Film(Arg("-pb-film")));
@@ -849,6 +850,28 @@ namespace PortBoss
             }
             Player.CamOverride = false;
             Debug.Log("[PB] area shots done");
+            Application.Quit();
+        }
+
+        // The IMGUI screens (windowed runs only: batchmode draws no GUI): HUD with freshness rings, Tab shop, Stats, the
+        // end-of-day card as it counts up, and Stats over it.
+        IEnumerator UiScreens(string dir)
+        {
+            Directory.CreateDirectory(dir);
+            yield return WaitGame();
+            var pl = Player.Local;
+            pl.DebugTeleport(new Vector3(1.2f, World.PierTop + 0.1f, 12f), 0);
+            for (int i = 0; i < 4; i++) PortGame.I.SpawnCrate(pl.transform.position + new Vector3(-0.8f + i * 0.6f, 0.5f, 1.6f), 1f - i * 0.25f);
+            yield return new WaitForSeconds(3f);
+            yield return Snap(dir, "ui-hud");
+            ui.DebugPanels(true, false); yield return new WaitForSecondsRealtime(0.8f); yield return Snap(dir, "ui-shop");
+            ui.DebugPanels(false, true); yield return new WaitForSecondsRealtime(0.8f); yield return Snap(dir, "ui-stats");
+            ui.DebugPanels(false, false);
+            PortGame.I.EndDayNow();
+            float shown = 0;
+            foreach (var t in new[] { 0.4f, 1.5f, 6f }) { yield return new WaitForSecondsRealtime(t - shown); shown = t; yield return Snap(dir, $"ui-card-{t:0.0}"); }
+            ui.DebugPanels(false, true); yield return new WaitForSecondsRealtime(0.8f); yield return Snap(dir, "ui-card-stats");
+            Debug.Log("[PB] ui screens done");
             Application.Quit();
         }
 

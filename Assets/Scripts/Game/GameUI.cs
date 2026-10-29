@@ -547,7 +547,8 @@ namespace PortBoss
             if (Time.unscaledTime < shoutUntil && g?.Phase.Value != PortGame.Ph.Night) // the night card has the floor
             {
                 float a = Mathf.Clamp01((shoutUntil - Time.unscaledTime) * 2);
-                var band = new Rect(W * 0.14f, H * 0.11f, W * 0.72f, 150 * S);
+                float bw = Mathf.Min(W * 0.36f, W / 2 - 350 * S); // centred, clear of the money panel on the right
+                var band = new Rect(W / 2 - bw, H * 0.11f, bw * 2, 150 * S);
                 var old = GUI.color; GUI.color = new Color(1, 1, 1, a * 0.85f);
                 GUI.Box(band, "", panel);
                 GUI.color = old;
@@ -634,7 +635,7 @@ namespace PortBoss
                 }
             }
             if (showHelp && !nightCard)
-                Label(new Rect(24 * S, H - 190 * S, 640 * S, 180 * S),
+                Label(new Rect(24 * S, H - 190 * S, 900 * S, 180 * S), // wide enough that no line wraps
                     "WASD move · Shift sprint · Space jump · Mouse look\nE / Right click: pick up, stack (max 5; hold for more) · E at the buyer: sell\nQ: put down (on the rack / in the trolley when next to it; hold for all)\nLeft click: throw · F: trolley / shove a mate · Tab shop · H hide · Esc menu", small, new Color(1, 1, 1, 0.75f));
         }
 
@@ -888,6 +889,7 @@ namespace PortBoss
         int nightDay = -1, nightLanded, nightStars;
         float nightAt, nightSkip, nightTickAt;
         bool statsOpen, shopOpen;
+        public void DebugPanels(bool shop, bool stats) { shopOpen = shop; statsOpen = stats; }
         const float RowsStart = 0.55f, RowGap = 0.4f, RowCount = 0.6f, NightRows = 3, StarsAt = 2.05f, StarGap = 0.32f;
         float NightT => Time.unscaledTime - nightAt + nightSkip;
         float NightDone => StarsAt + 3 * StarGap;
