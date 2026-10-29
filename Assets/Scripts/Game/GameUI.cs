@@ -467,6 +467,10 @@ namespace PortBoss
                 float u = g.DayT.Value / PortGame.DayLength;
                 string tod = g.Phase.Value == PortGame.Ph.Night ? "night" : u < 0.33f ? "afternoon" : u < 0.7f ? "late afternoon" : "sunset";
                 Label(new Rect(24 * S, 18 * S, 600 * S, 50 * S), $"DAY {g.DayNum.Value} · {tod}", new GUIStyle(mid) { alignment = TextAnchor.UpperLeft }, new Color(1f, 0.95f, 0.85f));
+                // Between boats (after the day-1 JOB line is gone): when the next one comes.
+                bool firstDayJob = g.DayNum.Value == 1 && g.Sold.Value < 10;
+                if (!firstDayJob && g.Phase.Value == PortGame.Ph.Day && g.NextBoatIn > 0 && !Boat.All.Exists(b => b.State.Value != Boat.St.Leaving))
+                    Label(new Rect(24 * S, 66 * S, 600 * S, 30 * S), $"next boat in {(int)g.NextBoatIn / 60}:{(int)g.NextBoatIn % 60:00}", new GUIStyle(small) { fontSize = Mathf.RoundToInt(20 * S), alignment = TextAnchor.UpperLeft }, new Color(1f, 0.92f, 0.7f, 0.85f));
             }
             else Label(new Rect(0, H * 0.45f, W, 60 * S), "Connecting…", mid, Color.white);
 
@@ -557,7 +561,7 @@ namespace PortBoss
             if (pl.Carrying > 0) { job = near != null && pl.Carrying < 3 ? "Stack a few more (E), then take them to the FISH BUYER" : "Take the fish to the FISH BUYER and press E to sell"; at = World.BuyerPos + Vector3.up * 3.6f; }
             else if (near != null) { job = "Unload the boat: walk up to a fish crate and press E"; at = near.transform.position + Vector3.up * 1.6f; }
             else if (boat != null && boat.State.Value == Boat.St.Arriving) { job = "A boat is coming in: meet it at the end of the jetty"; at = boat.BerthPos + Vector3.up * 2.5f; }
-            else job = "Wait at the jetty for the next boat";
+            else job = g.NextBoatIn > 0 ? $"Next boat in {(int)g.NextBoatIn / 60}:{(int)g.NextBoatIn % 60:00}: wait at the jetty" : "That was the last boat today";
             ThemeTextures();
             var r = new Rect(24 * S, 74 * S, 640 * S, 34 * S);
             Pill(new Rect(r.x, r.y, 84 * S + small.CalcSize(new GUIContent(job)).x * 1.1f, r.height));

@@ -19,6 +19,8 @@ namespace PortBoss
             new (float, byte)[] { (5f, 0), (80f, 1), (215f, 0), (300f, 1) },   // day 3+: overlapping all day
         };
         (float t, byte berth)[] Schedule => Schedules[Mathf.Clamp(DayNum.Value - 1, 0, Schedules.Length - 1)];
+        // Seconds until the next boat sets off for us (-1: none left today). Works on clients: schedule + DayT are shared.
+        public float NextBoatIn { get { foreach (var e in Schedule) if (e.t > DayT.Value) return e.t - DayT.Value; return -1; } }
         // Tomorrow, for the end-of-shift recap: how many boats, and when the first one comes in.
         public (int boats, float first) Tomorrow { get { var s = Schedules[Mathf.Clamp(DayNum.Value, 0, Schedules.Length - 1)]; return (s.Length, s[0].t); } }
         public string NextCaptain => Contracts[Mathf.Clamp(NextContractId.Value, 0, Contracts.Length - 1)].Captain;
