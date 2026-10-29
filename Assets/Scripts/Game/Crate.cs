@@ -22,7 +22,8 @@ namespace PortBoss
         public const float FreshAt = 0.75f;
         public NetworkVariable<bool> Tied = new(false); // roped down against the storm
         public NetworkVariable<byte> Damage = new(0); // hard landings: each level knocks off a slat and 25% of the price
-        public int Value => Mathf.Max(1, Mathf.RoundToInt((Fresh.Value >= FreshAt ? 15 : Fresh.Value >= Spoiled ? 12 : 4) * (1f - 0.25f * Damage.Value)));
+        public const int PriceFresh = 15, PriceOkay = 12, PriceSpoiled = 4; // base prices (the shop line and the market board show them)
+        public int Value => Mathf.Max(1, Mathf.RoundToInt((Fresh.Value >= FreshAt ? PriceFresh : Fresh.Value >= Spoiled ? PriceOkay : PriceSpoiled) * (1f - 0.25f * Damage.Value)));
         public string Grade => Fresh.Value >= FreshAt ? "fresh" : Fresh.Value >= Spoiled ? "okay" : "spoiled";
         public bool IsSpoiled => Fresh.Value < Spoiled;
 

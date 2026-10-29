@@ -31,7 +31,11 @@ namespace PortBoss.Net
                 SteamClient.Init(480, false);
                 SteamOk = true;
                 SteamNetworkingUtils.InitRelayNetworkAccess();
-                SteamFriends.OnGameLobbyJoinRequested += (l, friend) => _ = JoinLobby(l);
+                SteamFriends.OnGameLobbyJoinRequested += async (l, friend) =>
+                {
+                    try { await JoinLobby(l); }
+                    catch (Exception e) { Status = "Couldn't join your friend's game."; Debug.LogWarning("[PB] invite join failed: " + e); }
+                };
                 Debug.Log($"[PB] Steam ok: {SteamClient.Name} {SteamClient.SteamId}");
             }
             catch (Exception e)

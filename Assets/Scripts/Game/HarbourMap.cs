@@ -574,7 +574,7 @@ namespace PortBoss
             var chalk = new Vector3(c.x + 4.4f, 0, c.z + 2.4f);
             Fit("mpole", chalk + new Vector3(-0.8f, 0.7f, 0), new Vector3(0.07f, 1.4f, 0.07f));
             Fit("mpole", chalk + new Vector3(0.8f, 0.7f, 0), new Vector3(0.07f, 1.4f, 0.07f));
-            Board("PRICES TODAY\nFresh   $15\nOkay   $12\nSpoiled   $4", chalk + new Vector3(0, 1.55f, 0), 1.9f, 1.15f, Art.Hex("#1f4d36"), new Color(0.95f, 0.95f, 0.9f));
+            Board($"PRICES TODAY\nFresh   ${Crate.PriceFresh}\nOkay   ${Crate.PriceOkay}\nSpoiled   ${Crate.PriceSpoiled}", chalk + new Vector3(0, 1.55f, 0), 1.9f, 1.15f, Art.Hex("#1f4d36"), new Color(0.95f, 0.95f, 0.9f));
             // FISH MARKET over the way in from the road.
             var arch = new Vector3(c.x, 0, World.RoadEdgeSouth - 1.2f);
             foreach (var dx in new[] { -4.2f, 4.2f }) Fit("mpole", arch + new Vector3(dx, 2.9f, 0), new Vector3(0.18f, 5.8f, 0.18f));

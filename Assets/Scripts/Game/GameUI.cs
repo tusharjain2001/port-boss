@@ -1041,11 +1041,11 @@ namespace PortBoss
             ThemeTextures();
             GUI.DrawTexture(new Rect(0, 0, W, H), dimTex);
             var items = new List<(string name, string desc, int price, string state, System.Action buy)>();
-            items.Add(("Hand trolley", "Carries 6 crates. Wheel it to the market, and don't let it roll into the sea!", PortGame.TrolleyPrice,
+            items.Add(("Hand trolley", $"Carries {Trolley.Capacity} crates. Wheel it to the market, and don't let it roll into the sea!", PortGame.TrolleyPrice,
                 g.HasTrolley.Value ? "Owned" : "", g.BuyTrolleyRpc));
             int lvl = g.StoreLevel.Value;
-            if (lvl < 2) items.Add(("Bigger crate store", "A third rack under the store roof: room for 18 crates (now 12).", PortGame.StorePrice[2], "", g.BuyStoreRpc));
-            else items.Add(("Cold store", "A fourth rack (24 crates) and a chiller: fish on the racks stays fresh much longer.", PortGame.StorePrice[3], lvl >= 3 ? "Owned" : "", g.BuyStoreRpc));
+            if (lvl < 2) items.Add(("Bigger crate store", $"A third rack under the store roof: room for {3 * Storage.PerRack} crates (now {2 * Storage.PerRack}).", PortGame.StorePrice[2], "", g.BuyStoreRpc));
+            else items.Add(("Cold store", $"A fourth rack ({4 * Storage.PerRack} crates) and a chiller: fish on the racks stays fresh much longer.", PortGame.StorePrice[3], lvl >= 3 ? "Owned" : "", g.BuyStoreRpc));
             items.Add(("Forklift + 2 pallets", "Lifts a whole pallet of crates at once. Drive with WASD, lift with Shift, lower with Q, E to get out.", PortGame.ForkliftPrice,
                 g.HasForklift.Value ? "Owned" : !g.ForkliftForSale ? "From day 3" : "", g.BuyForkliftRpc));
             if (!Skin.On) items.Add(("Pier repair", "Fix the old pier end so it holds more weight.", PortGame.RepairPrice, g.PierRepaired.Value ? "Owned" : "", g.BuyRepairRpc));
@@ -1087,7 +1087,7 @@ namespace PortBoss
             }
             // What the market pays, for reference.
             float pm = g.Today.Price;
-            string prices = $"The market pays per crate: fresh ${Mathf.RoundToInt(15 * pm)} · older ${Mathf.RoundToInt(12 * pm)} · spoiled ${Mathf.RoundToInt(4 * pm)} (less if damaged)";
+            string prices = $"The market pays per crate: fresh ${Mathf.RoundToInt(Crate.PriceFresh * pm)} · older ${Mathf.RoundToInt(Crate.PriceOkay * pm)} · spoiled ${Mathf.RoundToInt(Crate.PriceSpoiled * pm)} (less if damaged)";
             if (pm > 1) prices += $" · {PortGame.Title(g.Today.Captain)}'s fish pays +{Mathf.RoundToInt((pm - 1) * 100)}%";
             Label(new Rect(x, y + 4 * S, xr - x, 28 * S), prices, OneLine(new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontSize = Mathf.RoundToInt(19 * S) }, prices, xr - x), new Color(1f, 0.93f, 0.8f, 0.85f));
             var closeR = new Rect(r.center.x - 120 * S, r.yMax - 84 * S, 240 * S, 60 * S);

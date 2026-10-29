@@ -63,8 +63,8 @@ Two areas are being rewritten by other workers, so their findings are listed her
 | `Game/AutoRun.cs` (14 places, e.g. 181) | Tests hand control back with `BotInput = () => new In()`, so in a windowed run the human can't move after a test ends. | Set it to `null`. | LEFT (only affects windowed test runs; the visuals worker is editing AutoRun) |
 | `Editor/PortBossBuild.cs:53-54` | The `Land` and `Spark` materials have no fallback. If `Shader.Find` returns null, `Setup()` throws and builds no scene. | Fall back like Water does. | LEFT (shaders: other worker's area) |
 | `Editor/PortBossBuild.cs:349` | Prefab hashes are set by calling `NetworkObject.OnValidate` through reflection. If NGO renames it, the hashes stay 0 and host/client prefabs mismatch, with no error. | Log an error if the method is missing. | FIXED |
-| `Net/FacepunchTransport.cs:152` | A failing send logs a warning for every packet, every frame, which floods the log while a connection dies. | Log once per client and result. | LEFT (log noise only) |
-| `Net/Net.cs:34` | `_ = JoinLobby(l)` throws away the task, so a failure in a friend-invite join is never seen. | Log failures. | LEFT (Steam co-op is still untested across two accounts) |
+| `Net/FacepunchTransport.cs:152` | A failing send logs a warning for every packet, every frame, which floods the log while a connection dies. | Log once per client and result. | FIXED |
+| `Net/Net.cs:34` | `_ = JoinLobby(l)` throws away the task, so a failure in a friend-invite join is never seen. | Log failures. | FIXED |
 | `Game/GameUI.cs:104` | `GetComponent<…>() ?? AddComponent` uses `??` on a Unity object, which never adds the component in the Editor. | Use `TryGetComponent`. | FIXED |
 
 ## Quality: performance (per frame)
@@ -101,9 +101,9 @@ Two areas are being rewritten by other workers, so their findings are listed her
 
 | Where | What | Status |
 |---|---|---|
-| `Crate.cs:25`, `GameUI.cs:1085`, `HarbourMap.cs:575` | The crate prices 15/12/4 appear three times. The market board is also wrong on Bjorn's days (×1.25). | LEFT (the board is baked art: a visual change) |
+| `Crate.cs:25`, `GameUI.cs:1085`, `HarbourMap.cs:575` | The crate prices 15/12/4 appear three times. The market board is also wrong on Bjorn's days (×1.25). | FIXED: shared `Crate.PriceFresh/Okay/Spoiled` (same values). The Bjorn-day board is LEFT: making it change by day is a visual change |
 | `PortGame.cs:166` vs `AutoRun.cs:562` | The cargo formula is copied, and the copy has already drifted (it's missing `nextBoat*3`). | LEFT (test log only) |
-| `GameUI.cs:1039-1043`, `PortGame.cs:56` | "6 crates", "18 (now 12)" and "24" are written by hand instead of from `Trolley.Capacity` and `Storage.PerRack`. | LEFT (shop text; fine until capacities change) |
+| `GameUI.cs:1039-1043`, `PortGame.cs:56` | "6 crates", "18 (now 12)" and "24" are written by hand instead of from `Trolley.Capacity` and `Storage.PerRack`. | FIXED (same text, now built from the constants) |
 | `Storage.cs:16`, `World.cs:300`, `HarbourMap.cs:278` | Shelf heights appear in three files. | LEFT |
 | `PortGame.cs:222` (InShed), `HarbourMap.cs:471`, `World.cs:309` | The shed footprint appears three times. | LEFT |
 | `Boat.cs:19` `DockSeconds = 120` vs `PortGame.Contracts[0].DockSeconds` | The fallback copies Mags' dock time. | LEFT |

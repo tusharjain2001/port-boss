@@ -32,6 +32,7 @@ namespace PortBoss.Net
         // everything else happens on the main thread in OnEarlyUpdate.
         readonly ConcurrentQueue<TransportEvent> m_Events = new ConcurrentQueue<TransportEvent>();
         readonly HashSet<uint> m_Clients = new HashSet<uint>(); // server only: fully connected remote clients
+        readonly HashSet<(ulong, Result)> m_SendFailLogged = new HashSet<(ulong, Result)>();
         SocketManager m_Server;
         ConnectionManager m_Client;
 
@@ -149,8 +150,9 @@ namespace PortBoss.Net
                 : SendType.Reliable | SendType.NoNagle;
 
             var result = connection.SendMessage(payload.Array, payload.Offset, payload.Count, sendType);
-            if (result != Result.OK)
-                Debug.LogWarning($"{Tag} Send to {clientId} failed: {result}");
+            // Once per client and result: a dying connection fails every packet, every frame.
+            if (result != Result.OK && m_SendFailLogged.Add((clientId, result)))
+                Debug.LogWarning($"{Tag} Send to {clientId} failed: {result} (logged once)");
         }
 
         public override ulong GetCurrentRtt(ulong clientId)

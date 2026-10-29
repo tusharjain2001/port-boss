@@ -53,7 +53,7 @@ namespace PortBoss
             if (next > Storage.MaxLevel || Money.Value < StorePrice[next]) return;
             Money.Value -= StorePrice[next];
             StoreLevel.Value = (byte)next;
-            BoughtRpc(next == 2 ? "Crate store: a third rack! Room for 18 crates." : "Cold store! 24 crates, and stored fish stays fresh far longer.");
+            BoughtRpc(next == 2 ? $"Crate store: a third rack! Room for {3 * Storage.PerRack} crates." : $"Cold store! {4 * Storage.PerRack} crates, and stored fish stays fresh far longer.");
         }
 
         public NetworkVariable<Ph> Phase = new(Ph.Day);
