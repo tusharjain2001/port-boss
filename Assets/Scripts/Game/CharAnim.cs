@@ -13,10 +13,13 @@ namespace PortBoss
     [DefaultExecutionOrder(1000)] // LateUpdate after the crates and the trolley have posed themselves this frame
     public class CharAnim : MonoBehaviour
     {
-        public enum Slot { Idle, Walk, Run, Jump, Swim, SwimIdle, Drive, Push, Sprint }
+        // On foot (Idle, or any gait) the gaits blend by speed; Land plays by itself after a fall; Climb is the body on a
+        // ladder (the stand-in is Idle, with the limbs put on the rungs).
+        public enum Slot { Idle, Walk, Run, Jump, Swim, SwimIdle, Drive, Push, Sprint, Jog, Land, Climb }
 
         PlayableGraph graph;
         AnimationMixerPlayable mixer;
+        AnimationLayerMixerPlayable layers; // [0] the body, [1] the arms holding a box (upper body only, when there's a clip)
         AnimationClipPlayable[] plays;
         float[] w;
         Animator animator;
@@ -43,11 +46,25 @@ namespace PortBoss
         {
             animator = a;
             a.runtimeAnimatorController = null; a.applyRootMotion = false; a.cullingMode = AnimatorCullingMode.AlwaysAnimate;
-            var clips = new[] { k.Idle, k.Walk, k.Run, k.Jump, k.Swim, k.SwimIdle, k.Drive, k.Push, k.Sprint };
-            for (int i = 0; i < clips.Length; i++) if (clips[i] == null) clips[i] = clips[i == (int)Slot.Run || i == (int)Slot.Sprint ? (int)Slot.Walk : i == (int)Slot.SwimIdle ? (int)Slot.Swim : 0];
+            var clips = new[] { k.Idle, k.Walk, k.Run, k.Jump, k.Swim, k.SwimIdle, k.Drive, k.Push, k.Sprint, k.Jog, k.Land, k.Climb };
+            // Missing: the gaits, landing and climbing just aren't used; the rest stand in with something close.
+            if (clips[(int)Slot.SwimIdle] == null) clips[(int)Slot.SwimIdle] = clips[(int)Slot.Swim];
+            for (int i = 0; i < clips.Length; i++) if (clips[i] == null && !IsGait((Slot)i) && i != (int)Slot.Land && i != (int)Slot.Climb) clips[i] = clips[0];
             graph = PlayableGraph.Create("char");
             graph.SetTimeUpdateMode(DirectorUpdateMode.GameTime);
-            AnimationPlayableOutput.Create(graph, "anim", a).SetSourcePlayable(mixer = AnimationMixerPlayable.Create(graph, clips.Length));
+            mixer = AnimationMixerPlayable.Create(graph, clips.Length);
+            layers = AnimationLayerMixerPlayable.Create(graph, 2);
+            graph.Connect(mixer, 0, layers, 0); layers.SetInputWeight(0, 1);
+            if (k.Carry != null)
+            {
+                var arms = new AvatarMask();
+                for (var part = AvatarMaskBodyPart.Root; part < AvatarMaskBodyPart.LastBodyPart; part++) arms.SetHumanoidBodyPartActive(part, false);
+                foreach (var part in new[] { AvatarMaskBodyPart.Body, AvatarMaskBodyPart.Head, AvatarMaskBodyPart.LeftArm, AvatarMaskBodyPart.RightArm, AvatarMaskBodyPart.LeftFingers, AvatarMaskBodyPart.RightFingers })
+                    arms.SetHumanoidBodyPartActive(part, true);
+                graph.Connect(AnimationClipPlayable.Create(graph, k.Carry), 0, layers, 1);
+                layers.SetLayerMaskFromAvatarMask(1, arms);
+            }
+            AnimationPlayableOutput.Create(graph, "anim", a).SetSourcePlayable(layers);
             plays = new AnimationClipPlayable[clips.Length];
             w = new float[clips.Length];
             for (int i = 0; i < clips.Length; i++)
@@ -71,26 +88,41 @@ namespace PortBoss
 
         // ---------- locomotion ----------
 
-        // Every gait clip shares one stride phase (0..1 from the left heel strike), so walk, jog and sprint can blend at
+        // Every gait clip shares one stride phase (0..1 from the left heel strike), so walk, jog, run and sprint blend at
         // any speed without the legs scissoring, and the phase advances by ground speed over the blended stride length,
-        // so a planted foot stays put. Speeds and heel strikes are measured from the clips on this rig (Measure).
-        static readonly Slot[] Gaits = { Slot.Walk, Slot.Run, Slot.Sprint };
-        float[] gaitSpeed, gaitStrike;
-        float phase, pushPhase, speedS;
+        // so a planted foot stays put. Speeds and heel strikes are measured from the clips on this rig (MeasureGaits).
+        readonly List<Slot> gaits = new();   // the gaits this skin has, slowest first
+        readonly List<float> gaitSpeed = new(), gaitStrike = new();
+        bool measuredGaits;
+        float phase, speedS, airT, landT = -1;
         Slot last;
 
         public void Tick(Slot want, float speed)
         {
             if (!graph.IsValid()) return;
-            if (gaitSpeed == null) MeasureGaits();
+            if (!measuredGaits) MeasureGaits();
             float dt = Time.deltaTime;
             speedS = Mathf.Lerp(speedS, speed, 1 - Mathf.Exp(-12f * dt)); // speed from position deltas is noisy (remote peers more so)
             bool onFoot = want == Slot.Idle || IsGait(want);
+            if (!onFoot && !plays[(int)want].IsValid()) { want = Slot.Idle; onFoot = true; } // e.g. no climbing clip
+            // Landing after a real fall (not a hop or a step down): the landing clip, cut short if we run straight on.
+            airT = want == Slot.Jump ? airT + dt : onFoot ? airT : 0;
+            if (onFoot && airT > 0.35f && plays[(int)Slot.Land].IsValid()) { landT = 0; plays[(int)Slot.Land].SetTime(0); }
+            if (onFoot) airT = 0;
+            float land = 0;
+            if (landT >= 0)
+            {
+                float len = Mathf.Min(Len(Slot.Land), 0.6f);
+                landT += dt;
+                land = (1 - Mathf.Clamp01(speedS / 3.5f)) * Mathf.Clamp01((len - landT) / (len * 0.4f));
+                if (!onFoot || landT >= len) { landT = -1; land = 0; }
+            }
             var target = new float[w.Length];
             if (onFoot) GaitWeights(speedS, target); else target[(int)want] = 1;
+            if (land > 0) { for (int i = 0; i < target.Length; i++) target[i] *= 1 - land; target[(int)Slot.Land] = land; }
             // Into the water: no lingering in the air pose, straight to treading.
             bool wet = want == Slot.Swim || want == Slot.SwimIdle;
-            float k = 1 - Mathf.Exp(-(wet && last != Slot.Swim && last != Slot.SwimIdle ? 22f : 10f) * dt);
+            float k = 1 - Mathf.Exp(-(wet && last != Slot.Swim && last != Slot.SwimIdle ? 22f : land > 0 ? 25f : 10f) * dt);
             last = want;
             for (int i = 0; i < w.Length; i++)
             {
@@ -99,61 +131,78 @@ namespace PortBoss
             }
             // Advance the shared stride over the blended stride length (m per cycle) of the gaits now playing.
             float stride = 0, sw = 0;
-            for (int g = 0; g < Gaits.Length; g++) { float gw = w[(int)Gaits[g]]; stride += gw * gaitSpeed[g] * Len(Gaits[g]); sw += gw; }
+            for (int g = 0; g < gaits.Count; g++) { float gw = w[(int)gaits[g]]; stride += gw * gaitSpeed[g] * Len(gaits[g]); sw += gw; }
             if (sw > 0.001f) phase = Mathf.Repeat(phase + dt * speedS / Mathf.Max(0.05f, stride / sw), 1f);
-            for (int g = 0; g < Gaits.Length; g++)
+            for (int g = 0; g < gaits.Count; g++)
             {
-                var p = plays[(int)Gaits[g]];
-                if (p.IsValid()) { p.SetSpeed(0); p.SetTime(Mathf.Repeat(phase + gaitStrike[g], 1f) * Len(Gaits[g])); }
+                var p = plays[(int)gaits[g]];
+                p.SetSpeed(0); p.SetTime(Mathf.Repeat(phase + gaitStrike[g], 1f) * Len(gaits[g]));
             }
             Rate(Slot.Push, speedS / 1.5f, 0.4f, 1.8f);
             Rate(Slot.Swim, speedS / 2f, 0.7f, 1.5f);
+            // Climbing clip: one cycle per two rungs climbed (up or down), whatever the speed.
+            if (Ladder != null && plays[(int)Slot.Climb].IsValid())
+            {
+                var p = plays[(int)Slot.Climb];
+                p.SetSpeed(0); p.SetTime(Mathf.Repeat((transform.position.y - Ladder.Value.FirstRung) / (2 * World.Ladder.RungStep), 1f) * Len(Slot.Climb));
+            }
+            if (layers.GetInputCount() > 1 && layers.GetInput(1).IsValid()) layers.SetInputWeight(1, boxW);
         }
 
-        // Target weights for the on-foot clips at this speed: idle into walk, walk into jog, jog into sprint, each pair
+        // Target weights for the on-foot clips at this speed: idle into the slowest gait, then each gait into the next,
         // crossing over between their own speeds (a gait only ever plays near the speed it was made for).
         void GaitWeights(float v, float[] t)
         {
-            float walk = gaitSpeed[0], jog = gaitSpeed[1], sprint = gaitSpeed[2];
-            if (v < walk)
+            if (gaits.Count == 0) { t[(int)Slot.Idle] = 1; return; }
+            if (v < gaitSpeed[0])
             {
-                float m = Mathf.SmoothStep(0, 1, (v - 0.12f) / (0.45f * walk));
-                t[(int)Slot.Idle] = 1 - m; t[(int)Slot.Walk] = m;
+                float m = Mathf.SmoothStep(0, 1, (v - 0.12f) / (0.45f * gaitSpeed[0]));
+                t[(int)Slot.Idle] = 1 - m; t[(int)gaits[0]] = m;
+                return;
             }
-            else if (v < jog) { float m = (v - walk) / (jog - walk); t[(int)Slot.Walk] = 1 - m; t[(int)Slot.Run] = m; }
-            else { float m = Mathf.Clamp01((v - jog) / (sprint - jog)); t[(int)Slot.Run] = 1 - m; t[(int)Slot.Sprint] = m; }
+            for (int g = 0; g < gaits.Count - 1; g++)
+                if (v < gaitSpeed[g + 1])
+                {
+                    float m = (v - gaitSpeed[g]) / (gaitSpeed[g + 1] - gaitSpeed[g]);
+                    t[(int)gaits[g]] = 1 - m; t[(int)gaits[g + 1]] = m;
+                    return;
+                }
+            t[(int)gaits[gaits.Count - 1]] = 1;
         }
 
         float Len(Slot s) => plays[(int)s].IsValid() ? Mathf.Max(0.1f, plays[(int)s].GetAnimationClip().length) : 1f;
-        static bool IsGait(Slot s) => s == Slot.Walk || s == Slot.Run || s == Slot.Sprint;
+        static bool IsGait(Slot s) => s == Slot.Walk || s == Slot.Jog || s == Slot.Run || s == Slot.Sprint;
         void Rate(Slot s, float r, float lo, float hi) { if (plays[(int)s].IsValid()) plays[(int)s].SetSpeed(Mathf.Clamp(r, lo, hi)); }
 
         // Ground speed and left heel strike of each gait clip on this rig, sampled once per (clip, avatar): while a foot
-        // is planted it slides back under the hips at exactly the ground speed the clip was made for.
+        // is planted it slides back under the hips at exactly the ground speed the clip was made for. Gaits that measure
+        // no faster than the one below (the same clip twice, say) are dropped.
         static readonly Dictionary<(AnimationClip, Avatar), (float speed, float strike)> measured = new();
         void MeasureGaits()
         {
-            gaitSpeed = new float[Gaits.Length]; gaitStrike = new float[Gaits.Length];
-            float[] fallback = { 1.1f, 3.8f, 6.2f };
+            measuredGaits = true;
             var saved = (float[])w.Clone();
             float scale = animator.transform.lossyScale.y;
-            for (int g = 0; g < Gaits.Length; g++)
+            var found = new List<(Slot slot, float speed, float strike)>();
+            foreach (var (slot, fallback) in new[] { (Slot.Walk, 1.1f), (Slot.Jog, 3.4f), (Slot.Run, 3.8f), (Slot.Sprint, 6.2f) })
             {
-                var p = plays[(int)Gaits[g]];
-                if (!p.IsValid() || legLF == null) { gaitSpeed[g] = fallback[g] * Scale; continue; }
+                var p = plays[(int)slot];
+                if (!p.IsValid()) continue;
                 var key = (p.GetAnimationClip(), animator.avatar);
-                if (!measured.TryGetValue(key, out var m))
+                if (!measured.TryGetValue(key, out var m) && legLF != null)
                 {
-                    for (int i = 0; i < w.Length; i++) if (plays[i].IsValid()) mixer.SetInputWeight(i, plays[i].Equals(p) ? 1 : 0);
-                    m = Sample(p);
-                    measured[key] = m;
-                    Debug.Log($"[PB] gait {p.GetAnimationClip().name}: {m.speed * scale:F2} m/s, left heel strike at {m.strike:F2}");
+                    for (int i = 0; i < w.Length; i++) if (plays[i].IsValid()) mixer.SetInputWeight(i, i == (int)slot ? 1 : 0);
+                    measured[key] = m = Sample(p);
+                    Debug.Log($"[PB] gait {slot} = {p.GetAnimationClip().name}: {m.speed * scale:F2} m/s, left heel strike at {m.strike:F2}");
                 }
-                gaitSpeed[g] = m.speed > 0.2f ? m.speed * scale : fallback[g] * Scale;
-                gaitStrike[g] = m.strike;
+                found.Add((slot, m.speed > 0.2f ? m.speed * scale : fallback * Scale, m.strike));
             }
-            // The same clip may stand in for two gaits: keep the speeds increasing so the blend is well defined.
-            gaitSpeed[1] = Mathf.Max(gaitSpeed[1], gaitSpeed[0] * 1.6f); gaitSpeed[2] = Mathf.Max(gaitSpeed[2], gaitSpeed[1] * 1.25f);
+            found.Sort((a, b) => a.speed.CompareTo(b.speed));
+            foreach (var f in found)
+            {
+                if (gaitSpeed.Count > 0 && f.speed < gaitSpeed[gaitSpeed.Count - 1] * 1.15f) continue;
+                gaits.Add(f.slot); gaitSpeed.Add(f.speed); gaitStrike.Add(f.strike);
+            }
             for (int i = 0; i < w.Length; i++) if (plays[i].IsValid()) mixer.SetInputWeight(i, saved[i]);
         }
 
@@ -192,7 +241,8 @@ namespace PortBoss
 
         // ---------- after the clips: IK and overrides ----------
 
-        float boxW, gripW, ladderW, waterW, crouch, bend;
+        float boxW, gripW, ladderW, waterW, crouch, bend, lastWaterY;
+        World.Ladder lastLadder; // kept while the weights ease out after Ladder / WaterY are switched off
 
         void PostPose()
         {
@@ -202,6 +252,8 @@ namespace PortBoss
             gripW = Mathf.Lerp(gripW, Grip != null ? 1f : 0f, ease);
             ladderW = Mathf.Lerp(ladderW, Ladder != null ? LadderW : 0f, 1 - Mathf.Exp(-20f * dt));
             waterW = Mathf.Lerp(waterW, float.IsNaN(WaterY) ? 0f : 1f, 1 - Mathf.Exp(-20f * dt));
+            if (Ladder != null) lastLadder = Ladder.Value;
+            if (!float.IsNaN(WaterY)) lastWaterY = WaterY;
 
             if (Flail)
             {
@@ -228,7 +280,7 @@ namespace PortBoss
             crouch = Mathf.Lerp(crouch, wantCrouch, ease); bend = Mathf.Lerp(bend, wantBend, ease);
             if (crouch > 0.005f) Squat(t, crouch);
 
-            if (ladderW > 0.01f) LadderLimbs(t, Ladder.Value, ladderW);
+            if (ladderW > 0.01f) LadderLimbs(t, lastLadder, ladderW);
             if (spine != null)
             {
                 if (bend > 0.1f) spine.rotation = Quaternion.AngleAxis(bend, t.right) * spine.rotation;
@@ -244,7 +296,7 @@ namespace PortBoss
             if (waterW > 0.01f && armLU != null)
             {
                 // Treading water: hands low out in front, sculling in small circles, always under the surface.
-                float s = Time.time * 5f, below = WaterY - 0.22f;
+                float s = Time.time * 5f, below = lastWaterY - 0.22f;
                 Vector3 Scull(Transform shoulder, float side, float ph)
                 {
                     var p = shoulder.position + t.forward * 0.32f + t.right * side * 0.22f - t.up * 0.3f

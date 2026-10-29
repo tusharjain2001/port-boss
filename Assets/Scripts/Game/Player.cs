@@ -155,8 +155,8 @@ namespace PortBoss
             if (Driving != null) { slot = CharAnim.Slot.Drive; model.localPosition = new Vector3(0, -0.15f, 0); }
             else if (climbing)
             {
-                // On a ladder: standing pose, hands and feet put on the rungs by CharAnim; eased off while stepping on/off.
-                slot = CharAnim.Slot.Idle;
+                // On a ladder: hands and feet put on the rungs by CharAnim; eased off while stepping on and off.
+                slot = CharAnim.Slot.Climb;
                 var l = LadderAt(transform.position);
                 var line = l.Edge - l.In * ClimbOut; var off = transform.position - line; off.y = 0;
                 anim.Ladder = l; anim.LadderW = 1f - Mathf.Clamp01((off.magnitude - 0.1f) / 0.6f);

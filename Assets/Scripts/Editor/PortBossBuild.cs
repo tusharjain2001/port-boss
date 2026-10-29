@@ -230,6 +230,47 @@ namespace PortBoss.EditorTools
 
         static BoxCollider Box(GameObject g, Vector3 c, Vector3 s) { var b = g.AddComponent<BoxCollider>(); b.center = c; b.size = s; return b; }
 
+        // Mixamo clips take over from UAL1 when they are in the project: Manan downloads them (plan/mixamo-list.md, FBX for
+        // Unity, without skin, In Place) into Assets/ThirdParty/Mixamo, gitignored like the pack. Found by Mixamo's file
+        // names; each is set up as Humanoid with the root baked into the pose.
+        const string Mixamo = "Assets/ThirdParty/Mixamo";
+        static void MixamoClips(Skin k)
+        {
+            if (!AssetDatabase.IsValidFolder(Mixamo)) return;
+            var files = System.IO.Directory.GetFiles(Mixamo, "*.fbx");
+            AnimationClip M(string name, bool loop)
+            {
+                // "Standard Walk.fbx", or "Standard Walk (1).fbx" when downloaded twice.
+                foreach (var f in files)
+                {
+                    var n = System.IO.Path.GetFileNameWithoutExtension(f);
+                    if (!n.Equals(name, StringComparison.OrdinalIgnoreCase) && !n.StartsWith(name + " (", StringComparison.OrdinalIgnoreCase)) continue;
+                    var path = f.Replace('\\', '/');
+                    if (AssetImporter.GetAtPath(path) is not ModelImporter mi) continue;
+                    mi.animationType = ModelImporterAnimationType.Human; mi.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
+                    mi.materialImportMode = ModelImporterMaterialImportMode.None; mi.importCameras = false; mi.importLights = false;
+                    var takes = mi.defaultClipAnimations;
+                    foreach (var c in takes) { c.loopTime = loop; c.lockRootRotation = c.lockRootHeightY = c.lockRootPositionXZ = true; c.keepOriginalOrientation = c.keepOriginalPositionY = c.keepOriginalPositionXZ = true; }
+                    mi.clipAnimations = takes; mi.SaveAndReimport();
+                    foreach (var a in AssetDatabase.LoadAllAssetsAtPath(path)) if (a is AnimationClip clip && !clip.name.StartsWith("__")) return clip;
+                }
+                return null;
+            }
+            k.Idle = M("Breathing Idle", true) ?? k.Idle;
+            k.Walk = M("Standard Walk", true) ?? k.Walk;
+            k.Jog = M("Jogging", true) ?? k.Jog;
+            k.Run = M("Standard Run", true) ?? k.Run;
+            k.Sprint = M("Sprint", true) ?? M("Fast Run", true) ?? k.Sprint;
+            k.Jump = M("Falling Idle", true) ?? k.Jump;
+            k.Land = M("Falling To Landing", false) ?? k.Land;
+            k.SwimIdle = M("Treading Water", true) ?? k.SwimIdle;
+            k.Swim = M("Swimming", true) ?? k.Swim;
+            k.Push = M("Pushing", true) ?? k.Push;
+            k.Drive = M("Driving", true) ?? k.Drive;
+            k.Climb = M("Climbing Ladder", true) ?? k.Climb;
+            k.Carry = M("Box Idle", true) ?? k.Carry;
+        }
+
         // The Toon Harbor skin: filled only when the (paid, gitignored) pack is in the project; empty slots = our own art.
         const string TH = "Assets/ThirdParty/ToonHarbor";
         static Skin MakeSkin()
@@ -288,8 +329,10 @@ namespace PortBoss.EditorTools
                     }
                     k.Idle = C("Idle_Loop"); k.Walk = C("Walk_Loop"); k.Run = C("Jog_Fwd_Loop", "Sprint_Loop"); k.Sprint = C("Sprint_Loop", "Jog_Fwd_Loop");
                     k.Jump = C("Jump_Loop"); k.Swim = C("Swim_Fwd_Loop"); k.SwimIdle = C("Swim_Idle_Loop"); k.Drive = C("Driving_Loop"); k.Push = C("Push_Loop");
-                    Debug.Log($"[PBBuild] skin clips idle={k.Idle?.name} walk={k.Walk?.name} run={k.Run?.name} jump={k.Jump?.name} swim={k.Swim?.name}");
+                    k.Land = C("Jump_Land");
                 }
+                MixamoClips(k);
+                Debug.Log($"[PBBuild] skin clips idle={k.Idle?.name} walk={k.Walk?.name} jog={k.Jog?.name} run={k.Run?.name} sprint={k.Sprint?.name} jump={k.Jump?.name} land={k.Land?.name} swim={k.Swim?.name} tread={k.SwimIdle?.name} push={k.Push?.name} climb={k.Climb?.name} carry={k.Carry?.name}");
                 // Harbour map library: short name → pack prefab (HarbourMap.cs asks for these by name).
                 var lib = new System.Collections.Generic.List<(string, string)>
                 {

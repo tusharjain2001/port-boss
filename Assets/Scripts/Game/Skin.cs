@@ -19,6 +19,7 @@ namespace PortBoss
         public GameObject[] Players;   // one per player slot
         public GameObject Buyer, Rival;
         public AnimationClip Idle, Walk, Run, Jump, Swim, SwimIdle, Drive, Push, Sprint;
+        public AnimationClip Jog, Land, Climb, Carry; // optional (Mixamo): a fourth gait, landing, the body on a ladder, arms holding a box
         [Header("Props")]
         public GameObject Crate;
         public GameObject[] Barrels, Pallets, BigCrates, Dinghies;
