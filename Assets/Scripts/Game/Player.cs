@@ -12,7 +12,7 @@ namespace PortBoss
         public struct In
         {
             public Vector2 move, look;
-            public bool sprint, jump, jumpHeld, grab, drop, throwP, push;
+            public bool sprint, jump, jumpHeld, grab, grabHeld, drop, dropHeld, throwP, push;
             public bool hasWorldMove; public Vector3 worldMove; // bot steering
         }
 
@@ -145,7 +145,7 @@ namespace PortBoss
             // Falling in: a second of arm-waving panic (every peer sees it) before they start swimming.
             if (swimming && !wasSwimmingAnim) flailUntil = Time.time + 1.3f;
             wasSwimmingAnim = swimming;
-            anim.Flail = swimming && Time.time < flailUntil;
+            anim.Flail = swimming && (Time.time < flailUntil || OutOfBreath.Value); // just fell in, or going under
             CharAnim.Slot slot;
             if (Driving != null) { slot = CharAnim.Slot.Drive; model.localPosition = new Vector3(0, -0.15f, 0); }
             else if (knockT >= 0)
@@ -170,6 +170,11 @@ namespace PortBoss
             else slot = !grounded ? CharAnim.Slot.Jump : Pushing ? CharAnim.Slot.Push : speed < 0.3f ? CharAnim.Slot.Idle : speed < 4.6f ? CharAnim.Slot.Walk : CharAnim.Slot.Run;
             if (!swimming) swimLean = 0;
             if (throwT >= 0 && (throwT += dt / 0.45f) >= 1) throwT = -1;
+            // Picking up / putting down: a quick bend at the waist, arms reaching down to the crate.
+            if (reachT >= 0 && (reachT += dt / 0.35f) >= 1) reachT = -1;
+            float reach = reachT >= 0 && !swimming && Driving == null && knockT < 0 ? Mathf.Sin(reachT * Mathf.PI) : 0f;
+            if (reach > 0) { model.localPosition += new Vector3(0, -0.16f * reach, 0.06f * reach); model.localRotation *= Quaternion.Euler(16f * reach, 0, 0); }
+            anim.Reach = reach;
             anim.Carry = Carrying > 0 && !swimming && Driving == null && knockT < 0;
             anim.Throw01 = throwT;
             anim.Tick(slot, speed);
@@ -324,15 +329,15 @@ namespace PortBoss
                 i.move = new Vector2((k.dKey.isPressed ? 1 : 0) - (k.aKey.isPressed ? 1 : 0), (k.wKey.isPressed ? 1 : 0) - (k.sKey.isPressed ? 1 : 0));
                 var sprintKey = Settings.KeyFor("sprint");
                 i.sprint = sprintKey != Key.None && k[sprintKey].isPressed;
-                var jumpKey = Settings.KeyFor("jump");
-                i.jumpHeld = jumpKey != Key.None && k[jumpKey].isPressed;
+                bool Held(string id) { var key = Settings.KeyFor(id); return key != Key.None && k[key].isPressed; }
+                i.jumpHeld = Held("jump"); i.grabHeld = Held("grab"); i.dropHeld = Held("drop");
                 i.jump = Down("jump"); i.grab = Down("grab"); i.drop = Down("drop"); i.push = Down("push"); i.throwP = Down("throw");
             }
             if (m != null)
             {
                 i.look = m.delta.ReadValue() * (0.1f * Settings.Sensitivity);
                 i.throwP |= m.leftButton.wasPressedThisFrame;
-                i.grab |= m.rightButton.wasPressedThisFrame;
+                i.grab |= m.rightButton.wasPressedThisFrame; i.grabHeld |= m.rightButton.isPressed;
             }
             if (pad != null)
             {
@@ -340,6 +345,7 @@ namespace PortBoss
                 if (ls.sqrMagnitude > 0.04f) i.move = ls;
                 i.look += pad.rightStick.ReadValue() * (220f * Settings.PadSensitivity * Time.deltaTime);
                 i.jump |= pad.buttonSouth.wasPressedThisFrame; i.jumpHeld |= pad.buttonSouth.isPressed; i.grab |= pad.buttonWest.wasPressedThisFrame;
+                i.grabHeld |= pad.buttonWest.isPressed; i.dropHeld |= pad.buttonEast.isPressed;
                 i.drop |= pad.buttonEast.wasPressedThisFrame; i.throwP |= pad.rightTrigger.wasPressedThisFrame;
                 i.sprint |= pad.leftShoulder.isPressed || pad.leftStickButton.isPressed; i.push |= pad.rightShoulder.wasPressedThisFrame;
             }
@@ -390,15 +396,31 @@ namespace PortBoss
             if (!swimming && transform.position.y < surface - SwimDepth + 0.3f && vy <= 0 && !Shallow()) EnterWater();
             if (swimming)
             {
-                // Swimming: stay at the surface (head and shoulders out), bob with the waves, never sink.
-                hv = Vector3.MoveTowards(hv, wish * (sprint ? 3.1f : 2.2f), 6f * dt);
-                float dy = (surface - SwimDepth - transform.position.y) * Mathf.Min(1f, 5f * dt);
+                // Swimming costs breath (sprinting more); tired swimmers slow down; out of breath, they go under
+                // and the harbour master fishes them out onto the nearest ladder.
+                bool spent = exhaustedAt >= 0;
+                if (!spent)
+                {
+                    Stamina -= dt / (sprint ? SprintSwimBreath : SwimBreath);
+                    if (Stamina <= 0) { Stamina = 0; exhaustedAt = Time.time; OutOfBreath.Value = true; if (Towing) TowRpc(default, false); GameUI.Toast("Out of breath...!"); Sfx.Play("splash", transform.position, 0.6f, 0.7f); }
+                }
+                float tired = Mathf.Lerp(0.5f, 1f, Mathf.Clamp01(Stamina / 0.25f));
+                hv = Vector3.MoveTowards(hv, spent ? Vector3.zero : wish * ((sprint ? 3.1f : 2.2f) * tired), 6f * dt);
+                float sink = spent ? Mathf.Min(1.3f, (Time.time - exhaustedAt) * 0.9f) : 0f;
+                float dy = (surface - SwimDepth - sink - transform.position.y) * Mathf.Min(1f, 5f * dt);
                 cc.Move(hv * dt + Vector3.up * dy);
                 vy = 0;
                 if (Shallow()) LeaveWater(); // slipway / shore: walk out
+                else if (spent && Time.time - exhaustedAt > 1.8f) FishedOut();
             }
             else
             {
+                Stamina = Mathf.Min(1f, Stamina + dt / BreathBack);
+                if (Time.time > truckSafeUntil && RoadTraffic.HitBy(transform.position, out var truckDir))
+                {
+                    truckSafeUntil = Time.time + 2.5f;
+                    KnockedRpc(truckDir * 8f + Vector3.up, Down.Truck);
+                }
                 float speed = (sprint ? 7.4f : 4.6f) * (1f - 0.07f * Carrying) * (Pushing ? 0.85f : 1f);
                 hv = Vector3.MoveTowards(hv, wish * speed, (cc.isGrounded ? 30f : 18f) * dt);
                 // Jump: a little grace after walking off an edge, and a press just before landing still counts.
@@ -477,11 +499,13 @@ namespace PortBoss
         // ---------- knocked over ----------
         float stunnedUntil = -1, knockT = -1;
 
+        enum Down : byte { Crate, Shove, Truck, Rescued }
+
         // Server: a flying crate hit this player.
         public void Knock(Vector3 crateVel)
         {
             var dir = crateVel; dir.y = 0;
-            KnockedRpc(dir.normalized * Mathf.Min(6f, dir.magnitude * 0.5f), false);
+            KnockedRpc(dir.normalized * Mathf.Min(6f, dir.magnitude * 0.5f), Down.Crate);
         }
 
         // Shove: a crewmate within arm's reach in front of us (co-op mischief; they drop whatever they carry).
@@ -506,20 +530,28 @@ namespace PortBoss
             if (!who.TryGet(out var no) || !no.TryGetComponent(out Player p) || Vector3.Distance(p.transform.position, transform.position) > 2.6f) return;
             var d = p.transform.position - transform.position; d.y = 0;
             Debug.Log($"[PB] shove: player {OwnerClientId} shoved player {p.OwnerClientId}");
-            p.KnockedRpc(d.normalized * 5f, true);
+            p.KnockedRpc(d.normalized * 5f, Down.Shove);
         }
 
         [Rpc(SendTo.Everyone)]
-        void KnockedRpc(Vector3 push, bool shoved)
+        void KnockedRpc(Vector3 push, Down why)
         {
             knockT = 0;
             Sfx.Play("thud", transform.position + Vector3.up, 1f, 0.7f);
             if (!IsOwner) return;
-            stunnedUntil = Time.time + 1.2f;
-            hv = push; vy = 3.5f;
+            Debug.Log($"[PB] knocked down: {why}");
+            stunnedUntil = Time.time + (why == Down.Rescued ? 1.6f : 1.2f);
+            hv = push; vy = why == Down.Rescued ? 0f : 3.5f;
             if (Carrying > 0) DropAllRpc();
-            Shake(0.6f);
-            GameUI.Toast(shoved ? PortGame.Pick("Hey! Hands off!", "Shoved! Very professional.", "Oi! Watch it!") : PortGame.Pick("Oof! Right in the crate.", "Ow! Who threw that?!", "Down you go!"));
+            if (Pushing) PushRpc(false);
+            Shake(why == Down.Truck ? 1f : 0.6f);
+            GameUI.Toast(why switch
+            {
+                Down.Shove => PortGame.Pick("Hey! Hands off!", "Shoved! Very professional.", "Oi! Watch it!"),
+                Down.Truck => PortGame.Pick("HONK! Look both ways, boss!", "Flattened by a lorry. Mind the road!", "That truck did NOT brake."),
+                Down.Rescued => PortGame.Pick("Out of breath! The harbour master hauls you out.", "Fished out like a mackerel. Catch your breath, boss."),
+                _ => PortGame.Pick("Oof! Right in the crate.", "Ow! Who threw that?!", "Down you go!"),
+            });
         }
 
         // ---------- swimming ----------
@@ -550,7 +582,27 @@ namespace PortBoss
         void LeaveWater()
         {
             swimming = false;
+            exhaustedAt = -1; OutOfBreath.Value = false;
             if (Towing) TowRpc(default, false);
+        }
+
+        // ---------- breath (swimming stamina) ----------
+        public const float SwimBreath = 24f, SprintSwimBreath = 13f, BreathBack = 4f; // seconds to empty / to refill on land
+        public float Stamina { get; private set; } = 1f; // owner
+        public NetworkVariable<bool> OutOfBreath = new(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        float exhaustedAt = -1, truckSafeUntil;
+
+        // Out of breath: hauled up onto the nearest ladder's deck, dazed for a moment.
+        void FishedOut()
+        {
+            var to = World.Spawn; float bd = float.MaxValue;
+            foreach (var l in World.Ladders) { float d = (l.Bottom - transform.position).sqrMagnitude; if (d < bd) { bd = d; to = l.Top; } }
+            Debug.Log($"[PB] fished out at {transform.position:F1} -> {to:F1}");
+            LeaveWater();
+            Stamina = 0.35f;
+            Teleport(to, yaw);
+            Sfx.Play("splash", to, 0.7f, 1.3f);
+            KnockedRpc(Vector3.zero, Down.Rescued);
         }
 
         public World.Ladder? NearLadder()
@@ -607,6 +659,7 @@ namespace PortBoss
             if (climbT >= 1)
             {
                 climbT = -1; swimming = false; vy = 0; hv = Vector3.zero;
+                exhaustedAt = -1; OutOfBreath.Value = false;
                 cc.enabled = true;
             }
         }
@@ -735,12 +788,13 @@ namespace PortBoss
                 fk.EnterRpc();
                 return;
             }
-            if (input.grab && Carrying < MaxStack && !Pushing)
+            // E picks a crate up, Q puts one down; hold either to keep going (stack a pile, empty the stack).
+            if (Repeat(input.grab, input.grabHeld, ref grabNextAt) && Carrying < MaxStack && !Pushing)
             {
                 var c = FindCrate();
                 if (c != null) GrabRpc(c.NetworkObject);
             }
-            if (input.drop && Carrying > 0) DropRpc();
+            if (Repeat(input.drop, input.dropHeld, ref dropNextAt) && Carrying > 0) PutDownRpc();
             if (input.throwP && Carrying > 0)
             {
                 var dir = Quaternion.Euler(0, yaw, 0) * Vector3.forward;
@@ -757,6 +811,27 @@ namespace PortBoss
                 else if (Carrying == 0 && Time.time > shoveReady && ShoveTarget() is Player victim) { shoveReady = Time.time + 1f; throwT = 0; Sfx.Play("whoosh", transform.position, 0.6f); ShoveRpc(victim.NetworkObject); }
                 else if (Carrying == 0) { var c = FindCrate(); if (c != null && !c.Attached.Value) TieRpc(c.NetworkObject); }
             }
+        }
+
+        float grabNextAt, dropNextAt;
+        static bool Repeat(bool pressed, bool held, ref float next)
+        {
+            if (pressed) { next = Time.time + 0.38f; return true; }
+            if (held && Time.time >= next) { next = Time.time + 0.26f; return true; }
+            return false;
+        }
+
+        // What Q would do with the top crate right now (every peer can ask, for the hint).
+        public enum PutSpot { Ground, Rack, Trolley, Pallet }
+        public PutSpot PutTarget(out int load, out int cap)
+        {
+            load = cap = 0;
+            if (Storage.Near(transform.position) && Storage.Count < Storage.Slots) { load = Storage.Count; cap = Storage.Slots; return PutSpot.Rack; }
+            var t = Trolley.I;
+            if (t != null && !Pushing && Vector3.Distance(t.transform.position, transform.position) < 2.4f && t.Load < Trolley.Capacity) { load = t.Load; cap = Trolley.Capacity; return PutSpot.Trolley; }
+            foreach (var pa in Pallet.All)
+                if (!pa.Carried.Value && Vector3.Distance(pa.transform.position, transform.position) < 2.4f && pa.Load < Pallet.Capacity) { load = pa.Load; cap = Pallet.Capacity; return PutSpot.Pallet; }
+            return PutSpot.Ground;
         }
 
         public Crate FindCrate()
@@ -815,14 +890,40 @@ namespace PortBoss
             return c;
         }
 
+        // Q: the top crate goes where it obviously belongs: on the storage rack, into the trolley or onto a pallet
+        // within reach; otherwise set down upright on the ground (or neatly on the crate below) just in front.
         [Rpc(SendTo.Server)]
-        void DropRpc()
+        void PutDownRpc()
         {
             var c = PopTop();
             if (c == null) return;
-            var p = transform.TransformPoint(new Vector3(0, 1.35f, 0.95f));
-            c.Release(new Vector3(p.x, Mathf.Max(c.transform.position.y, transform.position.y + 1.25f), p.z), serverVel * 0.6f + transform.forward * 0.4f, Vector3.zero);
-            FxRpc("whoosh", p);
+            var at = c.transform.position;
+            bool put = PutTarget(out _, out _) switch
+            {
+                PutSpot.Rack => Storage.Put(c, transform.position + Vector3.up * 1.1f),
+                PutSpot.Trolley => Trolley.I.Put(c),
+                PutSpot.Pallet => Pallet.All.Find(pa => !pa.Carried.Value && Vector3.Distance(pa.transform.position, transform.position) < 2.4f && pa.Load < Pallet.Capacity) is Pallet pl && pl.Put(c),
+                _ => SetDown(c),
+            };
+            if (!put)
+            {
+                // Nowhere sensible (a wall in the way, the quay edge): let it go from the hands, as before.
+                var p = transform.TransformPoint(new Vector3(0, 1.35f, 0.95f));
+                c.Release(new Vector3(p.x, Mathf.Max(c.transform.position.y, transform.position.y + 1.25f), p.z), serverVel * 0.6f + transform.forward * 0.4f, Vector3.zero);
+            }
+            FxRpc("place", at);
+        }
+
+        // Server: stand the crate on whatever is just in front (ground, deck, another crate), squared to us.
+        bool SetDown(Crate c)
+        {
+            var front = transform.TransformPoint(new Vector3(0, 0, 0.95f));
+            if (!Physics.Raycast(front + Vector3.up * 2.2f, Vector3.down, out var hit, 4f, ~0, QueryTriggerInteraction.Ignore)) return false; // over the water
+            if (hit.point.y > transform.position.y + 1.3f || hit.point.y < transform.position.y - 1.5f) return false; // a wall top, or a drop
+            var pos = new Vector3(front.x, hit.point.y + Crate.Size / 2 + 0.02f, front.z);
+            if (Physics.CheckBox(pos + Vector3.up * 0.03f, Vector3.one * (Crate.Size / 2 - 0.05f), transform.rotation, ~0, QueryTriggerInteraction.Ignore)) return false;
+            c.Release(pos, Vector3.zero, Vector3.zero, Quaternion.Euler(0, transform.eulerAngles.y, 0));
+            return true;
         }
 
         [Rpc(SendTo.Server)]
@@ -867,7 +968,12 @@ namespace PortBoss
         }
 
         [Rpc(SendTo.ClientsAndHost)]
-        void FxRpc(string sfx, Vector3 p) => Sfx.Play(sfx, p, 0.7f);
+        void FxRpc(string sfx, Vector3 p)
+        {
+            Sfx.Play(sfx, p, 0.7f);
+            if (sfx == "grab" || sfx == "place") reachT = 0; // bend and reach (every peer sees it)
+        }
+        float reachT = -1;
 
         // ---- camera (owner) ----
         public static bool CamOverride; // test shots drive the camera themselves

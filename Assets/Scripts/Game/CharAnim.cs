@@ -20,6 +20,7 @@ namespace PortBoss
         public Transform Facing;      // the player (the model itself is turned to face the pack's way)
         public float Throw01 = -1;
         public bool Flail;            // just fell in the water
+        public float Reach;           // 0..1: arms down to a crate (picking up / putting down)
 
         void LateUpdate() => Arms(Carry, Throw01);
 
@@ -91,14 +92,23 @@ namespace PortBoss
                 Aim(armRU, armRL, dir + t.right * 0.2f);
                 Aim(armRL, armRH, dir);
             }
+            if (Reach > 0.01f)
+            {
+                // Both hands down and out to where the crate is, from whatever pose we were in.
+                Aim(armLU, armLL, t.forward * 0.7f - t.up * 0.8f - t.right * 0.25f, Reach);
+                Aim(armLL, armLH, t.forward * 0.9f - t.up * 0.4f, Reach);
+                Aim(armRU, armRL, t.forward * 0.7f - t.up * 0.8f + t.right * 0.25f, Reach);
+                Aim(armRL, armRH, t.forward * 0.9f - t.up * 0.4f, Reach);
+            }
         }
 
-        // Rotate a bone so it points from itself towards its child along dir (world space), whatever its local axes.
-        static void Aim(Transform bone, Transform child, Vector3 dir)
+        // Rotate a bone so it points from itself towards its child along dir (world space), whatever its local axes;
+        // weight < 1 turns it only part of the way there.
+        static void Aim(Transform bone, Transform child, Vector3 dir, float weight = 1f)
         {
             if (bone == null || child == null) return;
             var cur = child.position - bone.position;
-            bone.rotation = Quaternion.FromToRotation(cur, dir.normalized) * bone.rotation;
+            bone.rotation = Quaternion.Slerp(Quaternion.identity, Quaternion.FromToRotation(cur, dir.normalized), weight) * bone.rotation;
         }
 
         void OnDestroy() { if (graph.IsValid()) graph.Destroy(); }

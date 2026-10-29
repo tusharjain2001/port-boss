@@ -8,12 +8,16 @@ namespace PortBoss
     public static class World
     {
         public static readonly Vector3 Spawn = new(0, 0.4f, -3f);
-        // The fish buyer's stall stands at the back of the yard, ~30 m from the jetty: selling is a real carry.
-        public static readonly Vector3 BuyerPos = new(-4f, 0, -32.3f);
+        // The fish market stands outside our back gate, across the road (~115 m from the jetty): selling is a haul,
+        // so the catch goes on the storage rack first and the trolley earns its keep. Counter faces the road (+z).
+        public static readonly Vector3 BuyerPos = new(-6f, 0, -115.5f);
         public const float BuyerReach = 3.2f;
-        public static readonly Bounds SellZone = new(new Vector3(-4f, 1.25f, -31f), new Vector3(2.6f, 0.9f, 1.4f));
-        // Our yard with the skin on (fenced; room to grow into later stages).
-        public const float YardX0 = -60f, YardX1 = 90f, YardZ0 = -90f;
+        public static readonly Bounds SellZone = new(new Vector3(-6f, 1.25f, -114.2f), new Vector3(2.6f, 0.9f, 1.4f));
+        // Our yard with the skin on (walled; room to grow into later stages), the gate in the back wall, and the
+        // strip behind it (road + market) that players may walk on.
+        public const float YardX0 = -60f, YardX1 = 90f, YardZ0 = -90f, GateX0 = -11f, GateX1 = -1f;
+        public const float BackX0 = -150f, BackX1 = 180f, BackZ0 = -132f;
+        public const float RoadZ = YardZ0 - 9f, RoadEdgeSouth = RoadZ - 6f; // the 12 m road behind our wall (RoadTraffic)
         public static readonly Vector3 TrolleySpawn = new(3.6f, 0.6f, -10f); // clear of the shelter wall (x 6), or physics pops it out rolling
         public const float PierTop = 0.2f;
 
@@ -24,7 +28,8 @@ namespace PortBoss
         // Floating labels drawn by GameUI (hidden when something is in the way).
         public static readonly (Vector3 pos, string text)[] Labels =
         {
-            (new Vector3(-4f, 2.9f, -32.3f), "FISH BUYER"),
+            (new Vector3(-6f, 2.9f, -115.5f), "FISH BUYER"),
+            (new Vector3(-8.5f, 3.2f, -7.4f), "CRATE STORE"),
         };
 
         public static void Build()
@@ -33,6 +38,7 @@ namespace PortBoss
             Shore();
             Pier();
             BuyerTable();
+            Racks();
             Shed();
             Bay();
             Ladders.Clear();
@@ -55,7 +61,14 @@ namespace PortBoss
                 Hidden(new Vector3((x1 - 6) / 2, -3, z0 / 2), new Vector3(x1 + 6, 6, -z0), "yard_east");
                 Hidden(new Vector3(x0 - 0.5f, 1.5f, z0 / 2 + 0.5f), new Vector3(1, 3, -z0 + 1), "yard_wall_w");
                 Hidden(new Vector3(x1 + 0.5f, 1.5f, z0 / 2 + 0.5f), new Vector3(1, 3, -z0 + 1), "yard_wall_e");
-                Hidden(new Vector3((x0 + x1) / 2, 1.5f, z0 - 0.5f), new Vector3(x1 - x0 + 2, 3, 1), "yard_wall_back");
+                // The back wall runs on along the coast both ways, with the gate in it.
+                Hidden(new Vector3((BackX0 + GateX0) / 2, 1.5f, z0 - 0.5f), new Vector3(GateX0 - BackX0, 3, 1), "yard_wall_back");
+                Hidden(new Vector3((GateX1 + BackX1) / 2, 1.5f, z0 - 0.5f), new Vector3(BackX1 - GateX1, 3, 1), "yard_wall_back");
+                // Out of the gate: the road and the fish market (ground, walled off beyond the market's plaza).
+                Hidden(new Vector3((BackX0 + BackX1) / 2, -3, (z0 + BackZ0) / 2), new Vector3(BackX1 - BackX0, 6, z0 - BackZ0), "backstrip");
+                Hidden(new Vector3((BackX0 + BackX1) / 2, 1.5f, BackZ0 - 0.5f), new Vector3(BackX1 - BackX0, 3, 1), "backstrip_wall");
+                Hidden(new Vector3(BackX0 - 0.5f, 1.5f, (z0 + BackZ0) / 2), new Vector3(1, 3, z0 - BackZ0), "backstrip_wall");
+                Hidden(new Vector3(BackX1 + 0.5f, 1.5f, (z0 + BackZ0) / 2), new Vector3(1, 3, z0 - BackZ0), "backstrip_wall");
                 // The shore either side of us (a swimmer can't climb its revetment).
                 Hidden(new Vector3(x0 - 250, -3.1f, -50), new Vector3(500, 6, 100), "coast_w");
                 Hidden(new Vector3(x1 + 250, -3.1f, -50), new Vector3(500, 6, 100), "coast_e");
@@ -257,6 +270,25 @@ namespace PortBoss
             Art.Prim(PrimitiveType.Sphere, b, n + Vector3.up * 2.05f, Quaternion.identity, Vector3.one * 0.42f, Art.Hex("#c99b7a"), false, "buyer_head");
             Art.Box(b, n + new Vector3(0, 2.3f, 0), new Vector3(0.5f, 0.12f, 0.5f), Art.Hex("#2c2c2c"), false, "buyer_hat");
             // Sign board.
+        }
+
+        // The crate store's shelving (Storage): solid racks; the crates sit kinematic on their shelves.
+        // With the skin, HarbourMap dresses them as the pack's orange shelving under a tin roof.
+        static void Racks()
+        {
+            var r = new GameObject("CrateStore").transform;
+            r.SetParent(Root, false);
+            foreach (var c in Storage.Racks)
+            {
+                var col = Art.Box(r, c + new Vector3(0, Storage.RackH / 2, -0.05f), new Vector3(Storage.RackW, Storage.RackH, Storage.RackD), Art.Steel, true, "rack");
+                col.GetComponent<Renderer>().enabled = false;
+                if (Skin.On) continue;
+                foreach (var dx in new[] { -1, 1 })
+                    foreach (var dz in new[] { -1, 1 })
+                        Art.Box(r, c + new Vector3(dx * (Storage.RackW / 2 - 0.04f), Storage.RackH / 2, dz * (Storage.RackD / 2 - 0.04f) - 0.05f), new Vector3(0.07f, Storage.RackH, 0.07f), Art.Hex("#e0892b"), false, "rack_post");
+                foreach (var y in new[] { 0.7f, 1.4f, 2.1f, 2.8f })
+                    Art.Box(r, c + new Vector3(0, y - 0.02f, -0.05f), new Vector3(Storage.RackW, 0.04f, Storage.RackD), Art.Hex("#e0892b"), false, "rack_shelf");
+            }
         }
 
         static void Shed()

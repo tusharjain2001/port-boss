@@ -24,7 +24,8 @@ namespace PortBoss
             Coast();
             Breakwater();
             Shelter(root.Find("Shed"));
-            Stall(root.Find("Buyer"));
+            CrateStore();
+            Market(root.Find("Buyer"));
             Roads();
             Hinterland();
             Check();
@@ -104,6 +105,8 @@ namespace PortBoss
                         Top("tile1", new Vector3(x0 + (i + 0.5f) * cx, 0.0f, z0 + (j + 0.5f) * cz), 180 * rng.Next(2), new Vector3(cx / 12f, 1, cz / 12f));
             }
             Tile(World.YardX0, World.YardX1, World.YardZ0, 0, 1); // our yard
+            Tile(World.YardX0, World.YardX1, World.RoadZ + 6, World.YardZ0, 5); // pavement between our wall and the road
+            Tile(World.YardX0, World.YardX1, World.BackZ0, World.RoadZ - 6, 6); // the market's plaza across the road
             // Hinterland to the horizon behind the port and along the coast either side (flat concrete-coloured land, no seams).
             Art.Box(R, new Vector3(0, -0.6f, -667.5f), new Vector3(3000, 1, 1335), Art.Hex("#9a9184"), false, "hinterland");
             Art.Box(R, new Vector3(-900, -0.6f, 300), new Vector3(1300, 1, 900), Art.Hex("#9a9184"), false, "hinterland_w");
@@ -190,19 +193,13 @@ namespace PortBoss
                 var st = Art.Prim(PrimitiveType.Cylinder, R, new Vector3(-40 + i * 22, 0.014f, -26 - (i % 3) * 18), Quaternion.Euler(0, i * 50, 0), new Vector3(2.4f, 0.004f, 1.2f), i % 2 == 0 ? Art.Hex("#7a4a2c") : Art.Hex("#6e655a"), false, "stain");
                 st.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             }
-            // A sagging, gappy chain-link fence round three sides (World's invisible walls do the stopping),
-            // with the gate at the back onto the road.
-            float x0 = World.YardX0 + 1, x1 = World.YardX1 - 1, zb = World.YardZ0 + 1;
-            Run("fence", new Vector3(x0, 0, zb), new Vector3(-12, 0, zb), 5, 9f);
-            Run("fence", new Vector3(0, 0, zb), new Vector3(x1, 0, zb), 5, -9f);
-            Run("fence", new Vector3(x0, 0, zb), new Vector3(x0, 0, -6), 6, 8f);
-            Run("fence", new Vector3(x1, 0, zb), new Vector3(x1, 0, -6), 6, -8f);
-            // Everything else lives along the fences, so the middle of the yard is open ground to build on.
+            Boundary();
+            // Everything else lives along the walls, so the middle of the yard is open ground to build on.
             // West fence: a fisherman's clutter, the wreck, a broken-down truck and an old trailer.
             On("wreck", new Vector3(-54, 0, -12), 100, 0.8f, true);
             On("epole", new Vector3(-57, 0, -8), 0, 1f);
             On("pallet", new Vector3(-53, 0, -20), 10, 1f, true);
-            On("crateBig", new Vector3(-53.2f, 0.14f, -20.1f), 25, 0.7f, true);
+            On("crateBig", new Vector3(-53.2f, 0.14f, -20.1f), 25, 0.7f); // riding the pallet (a collider here reads as the pallet floating)
             On("pallet", new Vector3(-55.5f, 0, -23), -15, 1f, true);
             for (int i = 0; i < 3; i++) On(i == 1 ? "gasBarrelB" : "gasBarrel", new Vector3(-56.5f, 0, -36 + i * 0.9f), i * 40, 1f, true);
             On("barrelA", new Vector3(-55, 0, -39), 0, 1f, true);
@@ -216,7 +213,7 @@ namespace PortBoss
             On("office2", new Vector3(-47, 0, -79), 0, 1f, true);
             On("advertBroken", new Vector3(-30, 0, -87), 90, 0.8f);
             for (int i = 0; i < 4; i++) On("woodStack", new Vector3(14 + i * 5f, 0, -85), 90 + i * 7, 0.6f, true);
-            On("epole", new Vector3(-6, 0, -88), 0, 1f);
+            On("epole", new Vector3(-17, 0, -88), 0, 1f);
             for (int i = 0; i < 7; i++) On("cont" + (i * 3 % 6), new Vector3(66 + (i % 3) * 3.4f, (i / 3) * 3f, -84), 0, 1f, i < 3);
             On("cageBarrels", new Vector3(52, 0, -85), 60, 0.6f, true);
             On("cageBarrels", new Vector3(55, 0, -84), 20, 0.6f, true);
@@ -228,6 +225,63 @@ namespace PortBoss
             On("metalCrate", new Vector3(85, 0, -44), 10, 1f, true);
             On("planks", new Vector3(85, 0, -16), 0, 1f, true);
             On("bag", new Vector3(83, 0, -18), 0, 1f);
+        }
+
+        // Our port's boundary: a solid concrete wall round three sides (World's invisible walls do the stopping),
+        // lamp posts along it, and the gate in the back wall: two pillars, a PORT BOSS board over the top, a guard booth.
+        static void Boundary()
+        {
+            float x0 = World.YardX0 + 0.3f, x1 = World.YardX1 - 0.3f, zb = World.YardZ0 + 0.3f, g0 = World.GateX0 - 0.6f, g1 = World.GateX1 + 0.6f;
+            void Wall(Vector3 a, Vector3 b) { Run("cfence", a, b); }
+            Wall(new Vector3(x0, 0, zb), new Vector3(g0, 0, zb));
+            Wall(new Vector3(g1, 0, zb), new Vector3(x1, 0, zb));
+            Wall(new Vector3(x0, 0, -1.5f), new Vector3(x0, 0, zb));
+            Wall(new Vector3(x1, 0, -1.5f), new Vector3(x1, 0, zb));
+            // Lamps along the inside of the wall.
+            for (float x = x0 + 12; x < x1 - 6; x += 20) if (x < g0 - 3 || x > g1 + 3) On("streetlight2", new Vector3(x, 0, zb + 1.2f), 0, 1f);
+            for (float z = zb + 14; z < -10; z += 20) { On("streetlight2", new Vector3(x0 + 1.2f, 0, z), 90, 1f); On("streetlight2", new Vector3(x1 - 1.2f, 0, z), 270, 1f); }
+            // The gate: pillars, the name board over it (painted both sides), a booth for the gateman, lamps.
+            var concrete = Art.Hex("#a8a196");
+            foreach (var x in new[] { g0, g1 }) Art.Box(R, new Vector3(x, 2.9f, zb), new Vector3(1.2f, 5.8f, 1.2f), concrete, true, "gate_pillar");
+            Art.Box(R, new Vector3((g0 + g1) / 2, 6.4f, zb), new Vector3(g1 - g0 + 1.2f, 1.6f, 0.5f), Art.Hex("#1f3346"), false, "gate_board");
+            var tex = SignTexture("PORT BOSS", Art.Hex("#1f3346"), Art.Hex("#f2c230"), (g1 - g0 + 1.2f) / 1.6f);
+            if (tex != null)
+                foreach (var inside in new[] { true, false })
+                {
+                    var q = Art.Prim(PrimitiveType.Quad, R, new Vector3((g0 + g1) / 2, 6.4f, zb + (inside ? 0.26f : -0.26f)), Quaternion.Euler(0, inside ? 180 : 0, 0), new Vector3(g1 - g0 + 1.1f, 1.5f, 1), Color.white, false, "gate_sign");
+                    var mpb = new MaterialPropertyBlock(); mpb.SetTexture("_TextureSample", tex);
+                    q.GetComponent<Renderer>().SetPropertyBlock(mpb);
+                }
+            On("booth", new Vector3(g1 + 4.2f, 0, zb + 4.4f), 0, 1f, true); // windows and lanterns towards the yard
+            On("streetlight2", new Vector3(g0 - 1.6f, 0, zb + 1.4f), 0, 1f);
+            On("streetlight2", new Vector3(g1 + 1.6f, 0, zb - 1.4f), 180, 1f);
+        }
+
+        // The crate store at the foot of the jetty: the pack's orange shelving (stretched so a crate fits between
+        // shelves) under a tin roof on poles, a painted CRATE STORE board, odds and ends on the top shelves.
+        static void CrateStore()
+        {
+            foreach (var c in Storage.Racks)
+            {
+                var s = Art.Place(Skin.Get("shelves"), R, c + new Vector3(0, 0, -0.05f), 0, 1f);
+                if (s != null) s.transform.localScale = new Vector3(1.15f, 1.4f, 1.15f);
+                for (int i = 0; i < 3; i++) Top(i % 2 == 0 ? "box" : "boxB", c + new Vector3(-0.8f + i * 0.8f, 2.1f + 0.35f, -0.1f), i * 30, Vector3.one); // the 4th shelf
+            }
+            var ctr = Storage.Center; float w = Storage.Racks[^1].x - Storage.Racks[0].x + Storage.RackW + 1.2f, front = ctr.z + 1.1f, back = ctr.z - 1.2f;
+            foreach (var x in new[] { ctr.x - w / 2, ctr.x + w / 2 })
+                foreach (var z in new[] { front, back })
+                    Fit("mpole", new Vector3(x, 1.95f, z), new Vector3(0.14f, 3.9f, 0.14f));
+            var roof = Fit("roofSheet", new Vector3(ctr.x, 4.0f, ctr.z - 0.05f), new Vector3(w + 0.6f, 0.3f, 3f));
+            if (roof != null) roof.transform.rotation = Quaternion.Euler(8, 0, 0) * roof.transform.rotation;
+            Art.Box(R, new Vector3(ctr.x, 4.55f, front + 0.25f), new Vector3(3.6f, 0.6f, 0.06f), Art.Hex("#2f5d6e"), false, "store_sign");
+            var tex = SignTexture("CRATE STORE", Art.Hex("#2f5d6e"), new Color(1f, 0.93f, 0.8f), 3.6f / 0.6f);
+            if (tex != null)
+                foreach (var fr in new[] { true, false })
+                {
+                    var q = Art.Prim(PrimitiveType.Quad, R, new Vector3(ctr.x, 4.55f, front + (fr ? 0.29f : 0.21f)), Quaternion.Euler(0, fr ? 180 : 0, 0), new Vector3(3.56f, 0.57f, 1), Color.white, false, "store_sign_face");
+                    var mpb = new MaterialPropertyBlock(); mpb.SetTexture("_TextureSample", tex);
+                    q.GetComponent<Renderer>().SetPropertyBlock(mpb);
+                }
         }
 
         // Neat blocks of 8 bays x 5 rows (6 m boxes end to end), heights in steps of 1-4, straight 12 m lanes between,
@@ -418,8 +472,26 @@ namespace PortBoss
             return g;
         }
 
-        // The fish buyer's stall from pack pieces: a counter of big crates, steel poles, a corrugated roof (our table keeps its colliders).
-        static void Stall(Transform stall)
+        // A painted board: lettering rendered once into a texture (the font shader ignores depth, so a TextMesh would
+        // show through the board and walls), on a quad on each face. Facing +z unless turned.
+        static void Board(string text, Vector3 c, float w, float h, Color bg, Color fg, float yaw = 0)
+        {
+            var rot = Quaternion.Euler(0, yaw, 0);
+            Art.Box(R, c, new Vector3(w, h, 0.06f), bg, false, "board").transform.rotation = rot;
+            var tex = SignTexture(text, bg, fg, w / h);
+            if (tex == null) return;
+            foreach (var front in new[] { true, false })
+            {
+                var q = Art.Prim(PrimitiveType.Quad, R, c + rot * new Vector3(0, 0, front ? 0.035f : -0.035f), rot * Quaternion.Euler(0, front ? 180 : 0, 0), new Vector3(w - 0.04f, h - 0.03f, 1), Color.white, false, "board_face");
+                var mpb = new MaterialPropertyBlock(); mpb.SetTexture("_TextureSample", tex);
+                q.GetComponent<Renderer>().SetPropertyBlock(mpb);
+            }
+        }
+
+        // The fish market across the road: an open market hall with a red roof; the buyer behind a counter of crates
+        // with fish laid out on ice; fridges and shelves at the back; his prices on a chalkboard; a FISH MARKET
+        // sign over the way in from the road; a couple of customers about. (Our table keeps its colliders.)
+        static void Market(Transform stall)
         {
             if (stall == null || Skin.Get("crateBig") == null) return;
             var top = stall.Find("table_top");
@@ -427,25 +499,45 @@ namespace PortBoss
             foreach (var r in stall.GetComponentsInChildren<MeshRenderer>())
                 if (r.GetComponentInParent<Animator>() == null && (r.name == "table_top" || r.name == "lip" || r.name == "leg" || r.name == "pole" || r.name == "awning")) r.enabled = false;
             var c = top.position; float y = top.GetComponent<Renderer>().bounds.max.y;
+            var rng = new System.Random(19);
+            // The hall: long side along the road, open front just behind the counter.
+            On("marketHall", new Vector3(c.x, 0, c.z - 5.6f), 90, 0.85f, true);
+            // The counter, and a display either side, each topped with fish on beds of ice.
             Fit("crateBig", new Vector3(c.x - 0.66f, y / 2, c.z), new Vector3(1.28f, y, 1.36f), 0);
             Fit("crateBig", new Vector3(c.x + 0.66f, y / 2, c.z), new Vector3(1.28f, y, 1.36f), 90);
-            foreach (var dx in new[] { -1.45f, 1.45f })
-                Fit("mpole", new Vector3(c.x + dx, 1.35f, c.z - 1.35f), new Vector3(0.12f, 2.7f, 0.12f));
-            var roof = Fit("roofSheet", new Vector3(c.x, 2.75f, c.z - 0.75f), new Vector3(3.3f, 0.35f, 2.2f));
-            if (roof != null) roof.transform.rotation = Quaternion.Euler(-10, 0, 0) * roof.transform.rotation;
-            // A painted board on the front edge: FRESH FISH.
-            var board = Art.Box(R, new Vector3(c.x, 3.05f, c.z + 0.42f), new Vector3(2.6f, 0.55f, 0.06f), Art.Hex("#2f5d6e"), false, "stall_sign");
-            // The lettering is rendered once into a texture (the font shader ignores depth, so a TextMesh would
-            // show through the board and walls) and put on a quad on each face.
-            var tex = SignTexture("FRESH FISH", Art.Hex("#2f5d6e"), new Color(1f, 0.93f, 0.8f), 2.6f / 0.55f);
-            if (tex != null)
-                foreach (var front in new[] { true, false })
-                {
-                    var q = Art.Prim(PrimitiveType.Quad, R, new Vector3(c.x, 3.05f, c.z + (front ? 0.455f : 0.385f)), Quaternion.Euler(0, front ? 180 : 0, 0), new Vector3(2.56f, 0.52f, 1), Color.white, false, "stall_sign_face");
-                    var mpb = new MaterialPropertyBlock(); mpb.SetTexture("_TextureSample", tex);
-                    q.GetComponent<Renderer>().SetPropertyBlock(mpb);
-                }
+            foreach (var dx in new[] { -2.4f, 2.4f })
+            {
+                Fit("crateBig", new Vector3(c.x + dx, 0.45f, c.z - 0.2f), new Vector3(1.6f, 0.9f, 1.1f), dx < 0 ? 0 : 90);
+                for (int i = 0; i < 3; i++) CrateLook.Fish(Spot(new Vector3(c.x + dx - 0.5f + i * 0.5f, 0.9f, c.z - 0.2f)), 0.55f, 0.03f, 0.48f, rng);
+            }
+            for (int i = 0; i < 4; i++) CrateLook.Fish(Spot(new Vector3(c.x - 0.9f + i * 0.6f, y, c.z + 0.15f)), 0.55f, 0.03f, 0.5f, rng);
+            Board("FRESH FISH", new Vector3(c.x, 3.05f, c.z + 0.42f), 2.6f, 0.55f, Art.Hex("#2f5d6e"), new Color(1f, 0.93f, 0.8f));
+            // Back of the hall: fridges, shelves of boxes, a bin.
+            for (int i = 0; i < 3; i++) On("fridge", new Vector3(c.x - 3.4f + i * 1.1f, 0, c.z - 9.4f), 0, 1f, true);
+            On("shelves", new Vector3(c.x + 2.6f, 0, c.z - 9.6f), 0, 1f, true);
+            for (int i = 0; i < 3; i++) Top(i % 2 == 0 ? "box" : "boxB", new Vector3(c.x + 1.9f + i * 0.7f, 1.35f, c.z - 9.6f), i * 25, Vector3.one);
+            On("trashcan", new Vector3(c.x + 4.2f, 0, c.z - 0.8f), 0, 1f, true);
+            // His prices, chalked up on the pavement, facing the road.
+            var chalk = new Vector3(c.x + 4.4f, 0, c.z + 2.4f);
+            Fit("mpole", chalk + new Vector3(-0.8f, 0.7f, 0), new Vector3(0.07f, 1.4f, 0.07f));
+            Fit("mpole", chalk + new Vector3(0.8f, 0.7f, 0), new Vector3(0.07f, 1.4f, 0.07f));
+            Board("PRICES TODAY\nFresh   $15\nOkay   $12\nSpoiled   $4", chalk + new Vector3(0, 1.55f, 0), 1.9f, 1.15f, Art.Hex("#1f4d36"), new Color(0.95f, 0.95f, 0.9f));
+            // FISH MARKET over the way in from the road.
+            var arch = new Vector3(c.x, 0, World.RoadEdgeSouth - 1.2f);
+            foreach (var dx in new[] { -4.2f, 4.2f }) Fit("mpole", arch + new Vector3(dx, 2.9f, 0), new Vector3(0.18f, 5.8f, 0.18f));
+            Board("FISH MARKET", arch + new Vector3(0, 5.4f, 0), 8.8f, 1.4f, Art.Hex("#b5402f"), new Color(1f, 0.95f, 0.85f));
+            On("streetlight2", new Vector3(c.x - 7.5f, 0, c.z + 3.5f), 0, 1f);
+            On("streetlight2", new Vector3(c.x + 7.5f, 0, c.z + 3.5f), 0, 1f);
+            // Customers browsing (idle; a CharAnim starts on its idle clip).
+            foreach (var (n, dx, dz, yaw) in new[] { ("npc2", -2.6f, 1.6f, 10f), ("npc5", 3.0f, 1.7f, -20f), ("npc7", -5.5f, 3.6f, 60f) })
+            {
+                var m = Art.Place(Skin.Get(n), R, new Vector3(c.x + dx, 0, c.z + dz), yaw, 1f);
+                var an = m != null ? m.GetComponentInChildren<Animator>() : null;
+                if (an != null) an.gameObject.AddComponent<CharAnim>().Init(an, Skin.I);
+            }
         }
+
+        static Transform Spot(Vector3 p) { var t = new GameObject("display").transform; t.SetParent(R, false); t.position = p; return t; }
 
         // Road tiles (12 m, lane markings and kerbs) along a polyline, top flush with the slabs.
         static void Road(string tile, params Vector3[] pts)
@@ -461,15 +553,19 @@ namespace PortBoss
 
         static void Roads()
         {
-            // The road past our back gate, trucks going by; a boom barrier at the gate.
-            const float z = World.YardZ0 - 9;
-            Road("road", new Vector3(-400, 0, z), new Vector3(400, 0, z));
-            On("barrier", new Vector3(-6, 0, World.YardZ0 + 2), 0, 0.7f);
-            for (int t = 0; t < 3; t++)
+            // The road past our back gate (between us and the fish market), lorries going by both ways.
+            Road("road", new Vector3(-RoadTraffic.Half, 0, World.RoadZ), new Vector3(RoadTraffic.Half, 0, World.RoadZ));
+            var traffic = new GameObject("RoadTraffic").AddComponent<RoadTraffic>();
+            traffic.transform.SetParent(R, false);
+            for (int t = 0; t < 6; t++)
             {
-                // Each truck drives the length of the road one way, turns round out in the haze and comes back the other.
-                var tr = On(t % 2 == 0 ? "truck" : "truckB", new Vector3(-300 + t * 230, 0, z), 90, 1f);
-                if (tr != null) { var m = tr.AddComponent<Mover>(); m.Pts = new[] { new Vector3(-390, 0, z - 3), new Vector3(390, 0, z - 3), new Vector3(390, 0, z + 3), new Vector3(-390, 0, z + 3) }; m.Index = t % 4; m.Speed = 9f; }
+                // A cab pulling a trailer (some loaded with a container), built round the hitch, facing +z.
+                var rig = new GameObject("lorry" + t).transform;
+                rig.SetParent(traffic.transform, false);
+                Art.Place(Skin.Get(t % 2 == 0 ? "truck" : "truckB"), rig, Vector3.zero, 0, 1f);
+                var trailer = Art.Place(Skin.Get("trailer"), rig, Vector3.zero, 0, 1f);
+                if (trailer != null && t % 3 != 2) Art.Place(Skin.Get("cont" + t % 6), rig, new Vector3(0, Art.Bounds(trailer).max.y - 0.35f, -4.6f), 0, 0.95f);
+                traffic.Add(rig, t % 2 == 0 ? 1 : -1, t / 2 * RoadTraffic.Half * 2 / 3f + t * 37f, t % 2 == 0 ? 10f : 9f); // one speed per lane: no driving through each other
             }
         }
 
@@ -539,6 +635,82 @@ namespace PortBoss
             }
             p.y = float.IsNaN(FloatY) ? y0 : Water.Height(p) + (FloatY - Water.Level) ;
             transform.position = p;
+        }
+    }
+
+    // Lorries on the road behind our gate, on a timetable of server time so every peer sees each one in the same
+    // place: crossing to the fish market means looking both ways. Drive on the right; they honk at people in the road,
+    // and one that catches you knocks you flat (Player checks HitBy for itself).
+    public class RoadTraffic : MonoBehaviour
+    {
+        public const float Half = 600f, Lane = 3f; // road half-length; lanes either side of the centre line
+        struct Lorry { public Transform t; public float dir, phase, speed, front, back, hornAt; }
+        static readonly System.Collections.Generic.List<Lorry> lorries = new();
+
+        void Awake() => lorries.Clear(); // a fresh harbour (new session)
+
+        public void Add(Transform rig, float dir, float phase, float speed)
+        {
+            var b = Art.Bounds(rig.gameObject);
+            var local = rig.InverseTransformPoint(b.max).z; // the cab's nose (built facing +z round the hitch)
+            lorries.Add(new Lorry { t = rig, dir = dir, phase = phase, speed = speed, front = Mathf.Max(5f, local) + 0.4f, back = Mathf.Max(10f, b.size.z - local) + 0.3f });
+            Place(lorries[^1], Water.T);
+        }
+
+        static float LaneZ(float dir) => World.RoadZ - dir * Lane; // eastbound keeps to the south side
+
+        static void Place(Lorry l, float now)
+        {
+            float run = Mathf.Repeat(now * l.speed + l.phase, Half * 2);
+            l.t.SetPositionAndRotation(new Vector3(l.dir > 0 ? -Half + run : Half - run, 0, LaneZ(l.dir)), Quaternion.Euler(0, l.dir > 0 ? 90 : 270, 0));
+        }
+
+        void Update()
+        {
+            float now = Water.T;
+            var me = Player.Local != null ? Player.Local.transform.position : new Vector3(0, -99, 0);
+            for (int i = 0; i < lorries.Count; i++)
+            {
+                var l = lorries[i];
+                if (l.t == null) continue;
+                Place(l, now);
+                // Honk at us if we're standing in its lane up ahead.
+                float ahead = (me.x - l.t.position.x) * l.dir;
+                if (ahead > 0 && ahead < 32f && Mathf.Abs(me.z - LaneZ(l.dir)) < 2.6f && Time.time > l.hornAt)
+                {
+                    l.hornAt = Time.time + 4f; lorries[i] = l;
+                    Sfx.Play("horn", l.t.position + Vector3.up * 2, 0.9f, 1.7f);
+                }
+            }
+        }
+
+        // Test hook: a spot in some lorry's lane this far ahead of its nose, on the stretch we can walk (null if none).
+        public static Vector3? DebugAhead(float metres)
+        {
+            foreach (var l in lorries)
+            {
+                float x = l.t.position.x + l.dir * (l.front + metres);
+                if (x > World.BackX0 + 10 && x < World.BackX1 - 10) return new Vector3(x, 0.3f, LaneZ(l.dir));
+            }
+            return null;
+        }
+
+        // Is a lorry on top of this spot right now? dir = which way it shoves you.
+        public static bool HitBy(Vector3 p, out Vector3 shove)
+        {
+            shove = Vector3.zero;
+            if (p.y > 2f) return false;
+            foreach (var l in lorries)
+            {
+                if (l.t == null) continue;
+                float along = (p.x - l.t.position.x) * l.dir, side = p.z - l.t.position.z;
+                if (along > -l.back && along < l.front && Mathf.Abs(side) < 2.1f)
+                {
+                    shove = (new Vector3(l.dir, 0, 0) * 0.7f + new Vector3(0, 0, Mathf.Sign(side == 0 ? 1 : side)) * 0.7f).normalized;
+                    return true;
+                }
+            }
+            return false;
         }
     }
 

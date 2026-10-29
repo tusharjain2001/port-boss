@@ -88,7 +88,7 @@ namespace PortBoss
             {
                 wx = new System.Random(System.Environment.TickCount ^ System.Guid.NewGuid().GetHashCode());
                 Severity.Value = PickSeverity() * 0.6f; wxTarget = Severity.Value; wxNextPick = Time.time + 30f;
-                StartDay(1); Speedboat.Arrived += RivalTaunt; RivalTraffic.Docked += RivalOrder;
+                Storage.Reset(); StartDay(1); Speedboat.Arrived += RivalTaunt; RivalTraffic.Docked += RivalOrder;
             }
         }
 
@@ -216,7 +216,7 @@ namespace PortBoss
             }
             if ((raidTimer -= Time.deltaTime) > 0 || raided != null) return;
             raidTimer = Random.Range(25f, 40f);
-            var candidates = Crate.All.FindAll(c => !c.Attached.Value && !c.InSea && c.transform.position.y > Water.Level + 0.6f && !PlayerWithin(c.transform.position, 5f));
+            var candidates = Crate.All.FindAll(c => !c.Attached.Value && !c.Stored && !c.InSea && c.transform.position.y > Water.Level + 0.6f && !PlayerWithin(c.transform.position, 5f));
             if (candidates.Count == 0) return;
             raided = candidates[Random.Range(0, candidates.Count)];
             raidPenaltyAt = Time.time + 7f;

@@ -52,6 +52,7 @@ namespace PortBoss
                 case "whoosh": len = 0.35f; f = t => Mathf.Sin(t / 0.35f * Mathf.PI) * Noise() * 0.25f; break;
                 case "jump": len = 0.2f; f = t => Env(t, 0.006f, 0.2f, 0.14f) * (0.3f * Mathf.Sin(2 * Mathf.PI * (240 * t + 700 * t * t)) + 0.08f * Mathf.Sin(4 * Mathf.PI * (240 * t + 700 * t * t)) + 0.05f * Noise() * Mathf.Exp(-t * 40)); break;
                 case "land": len = 0.18f; f = t => Mathf.Exp(-t * 26) * (0.55f * Mathf.Sin(2 * Mathf.PI * (105 * t - 120 * t * t)) + 0.2f * Noise() * Mathf.Exp(-t * 60)); break;
+                case "place": len = 0.2f; f = t => Mathf.Exp(-t * 45) * (0.5f * Mathf.Sin(2 * Mathf.PI * 180 * t) + 0.25f * Mathf.Sin(2 * Mathf.PI * 410 * t)) + 0.25f * Noise() * Mathf.Exp(-t * 90); break;
                 case "grab": len = 0.12f; f = t => Mathf.Exp(-t * 30) * Mathf.Sin(t * 2 * Mathf.PI * 220) * 0.6f; break;
                 case "buy": len = 0.5f; f = t => Mathf.Exp(-t * 5) * 0.4f * Mathf.Sin(t * 2 * Mathf.PI * (t < 0.12f ? 784 : 1175)); break;
                 case "flies": len = 2f; f = t => 0.15f * Mathf.Sin(t * 2 * Mathf.PI * (210 + 25 * Mathf.Sin(t * 7))) * (0.6f + 0.4f * Mathf.Sin(t * 3.3f)); break;

@@ -8,12 +8,15 @@ namespace PortBoss
     // parented + kinematic with its collider off, so it is never simulated in a hand.
     public class Crate : NetworkBehaviour
     {
-        public const float Size = 0.55f, Spoiled = 0.35f, SpoilSeconds = 330f;
+        // (Spoil time sized for the long haul to the fish market across the road; stored crates spoil slower.)
+        public const float Size = 0.55f, Spoiled = 0.35f, SpoilSeconds = 450f, StoredSpoilRate = 0.4f;
         public static readonly List<Crate> All = new();
 
         public NetworkVariable<float> Fresh = new(1f);
         public NetworkVariable<bool> Attached = new(false);
         public NetworkVariable<sbyte> Slot = new(-1); // index in a player's stack, -1 otherwise
+        public NetworkVariable<sbyte> Shelf = new(-1); // slot on the storage rack, -1 otherwise
+        public bool Stored => Shelf.Value >= 0;
 
         public bool InSea { get; private set; }
         public const float FreshAt = 0.75f;
@@ -59,18 +62,21 @@ namespace PortBoss
         public override void OnNetworkSpawn()
         {
             All.Add(this);
-            Attached.OnValueChanged += (_, _) => ApplyState();
+            Attached.OnValueChanged += (_, _) => { ApplyState(); BeginGlide(); };
+            Shelf.OnValueChanged += (_, _) => { ApplyState(); BeginGlide(); };
             Tied.OnValueChanged += (_, _) => ApplyState();
             ApplyState();
         }
 
-        public override void OnNetworkDespawn() => All.Remove(this);
+        public override void OnNetworkDespawn() { All.Remove(this); if (IsServer && Stored) Storage.Take(this); }
+
+        void OnTransformParentChanged() => BeginGlide();
 
         void ApplyState()
         {
             bool att = Attached.Value;
             col.enabled = !att;
-            rb.isKinematic = att || !IsServer || Tied.Value;
+            rb.isKinematic = att || !IsServer || Tied.Value || Stored;
             if (ropes != null) ropes.SetActive(Tied.Value && !att);
             rb.interpolation = !att && IsServer ? RigidbodyInterpolation.Interpolate : RigidbodyInterpolation.None;
             if (!att) { vis.localPosition = Vector3.zero; vis.localRotation = Quaternion.identity; }
@@ -80,6 +86,8 @@ namespace PortBoss
         public void Attach(NetworkObject parent, Vector3 localPos, int slot)
         {
             Tied.Value = false;
+            if (Stored) Storage.Take(this);
+            Shelf.Value = -1;
             Attached.Value = true;
             ApplyState();
             NetworkObject.TrySetParent(parent, true);
@@ -88,19 +96,34 @@ namespace PortBoss
             Slot.Value = (sbyte)slot;
         }
 
-        public void Release(Vector3 pos, Vector3 vel, Vector3 spin)
+        public void Release(Vector3 pos, Vector3 vel, Vector3 spin, Quaternion? rotation = null)
         {
-            var rot = transform.rotation;
+            if (Stored) Storage.Take(this);
+            var rot = rotation ?? transform.rotation;
             NetworkObject.TryRemoveParent(true);
             transform.SetPositionAndRotation(pos, rot);
             Attached.Value = false;
             Slot.Value = -1;
+            Shelf.Value = -1;
             ApplyState();
             rb.position = pos;
             rb.rotation = rot;
             rb.linearVelocity = vel;
             rb.angularVelocity = spin;
             Debug.Log($"[PB] release {name} at {pos:F2} v={vel:F1}");
+        }
+
+        // Server: onto a storage rack slot (kinematic, out of the wind and the gulls' reach).
+        public void Store(int slot, Vector3 pos, Quaternion rot)
+        {
+            NetworkObject.TryRemoveParent(true);
+            Tied.Value = false;
+            Attached.Value = false;
+            Slot.Value = -1;
+            Shelf.Value = (sbyte)slot;
+            ApplyState();
+            transform.SetPositionAndRotation(pos, rot);
+            rb.position = pos; rb.rotation = rot;
         }
 
         // Server: pull towards a point on the water (towed by a swimmer); buoyancy still handles height.
@@ -159,7 +182,7 @@ namespace PortBoss
             if (game != null && game.Phase.Value == PortGame.Ph.Day)
             {
                 // Quantised so 30 crates don't sync a float every tick.
-                fresh = Mathf.Min(fresh, Fresh.Value) - Time.fixedDeltaTime / SpoilSeconds;
+                fresh = Mathf.Min(fresh, Fresh.Value) - Time.fixedDeltaTime / SpoilSeconds * (Stored ? StoredSpoilRate : 1f);
                 float q = Mathf.Max(0, Mathf.Ceil(fresh * 40) / 40);
                 if (q < Fresh.Value) Fresh.Value = q;
             }
@@ -226,6 +249,36 @@ namespace PortBoss
                 vis.localPosition = new Vector3(v.x * 0.075f * i * i + jx * i, 0, v.y * 0.075f * i * i);
                 vis.localRotation = Quaternion.Euler(v.y * 14f * i, jyaw * Mathf.Min(i, 1), -v.x * 14f * i);
             }
+            else { vis.localPosition = Vector3.zero; vis.localRotation = Quaternion.identity; }
+            Glide();
+        }
+
+        // Moving between hands, the ground, a trolley, a pallet or the rack, the crate's visual swings across in a
+        // short arc from where it was drawn last frame instead of popping there (every peer, purely visual).
+        const float GlideTime = 0.22f;
+        Vector3 lastVisPos, glideFromPos; Quaternion lastVisRot, glideFromRot;
+        float glide = 1f; bool drawn;
+
+        void BeginGlide()
+        {
+            if (!drawn) return;
+            glideFromPos = lastVisPos; glideFromRot = lastVisRot; glide = 0;
+        }
+
+        void Glide()
+        {
+            if (glide < 1f)
+            {
+                var to = vis.position; var toRot = vis.rotation;
+                if ((to - glideFromPos).sqrMagnitude > 64f) glide = 1f; // a teleport, not a hand-over
+                else
+                {
+                    glide = Mathf.Min(1f, glide + Time.deltaTime / GlideTime);
+                    float e = Mathf.SmoothStep(0, 1, glide), lift = Mathf.Min(0.3f, Vector3.Distance(glideFromPos, to) * 0.2f);
+                    vis.SetPositionAndRotation(Vector3.Lerp(glideFromPos, to, e) + Vector3.up * (Mathf.Sin(e * Mathf.PI) * lift), Quaternion.Slerp(glideFromRot, toRot, e));
+                }
+            }
+            lastVisPos = vis.position; lastVisRot = vis.rotation; drawn = true;
         }
 
         ParticleSystem MakeFlies()

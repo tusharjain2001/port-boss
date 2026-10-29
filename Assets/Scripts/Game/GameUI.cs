@@ -529,17 +529,37 @@ namespace PortBoss
                 else if (fk != null && fk.Free && pl.Carrying == 0 && Vector3.Distance(fk.Seat, pl.transform.position + Vector3.up) < 2.4f) hint = "E  drive the forklift";
                 else if (pl.Swimming) hint = pl.NearLadder() != null ? "E  climb out" : pl.Towing ? "Q  let go of the crate" : pl.FloatingCrateNear() != null ? "E  tow this crate" : "Swim to a ladder or the slipway";
                 else if (pl.NearBuyer && pl.SellableCrates().Count > 0) hint = "E  sell to the buyer";
+                else if (pl.Carrying > 0 && pl.PutTarget(out int load, out int cap) is var spot && spot != Player.PutSpot.Ground)
+                    hint = $"Q  {(spot == Player.PutSpot.Rack ? "store on the rack" : spot == Player.PutSpot.Trolley ? "put in the trolley" : "put on the pallet")} ({load}/{cap})   ·   hold Q: all";
                 else if (PortGame.I != null && Storm.Gust > 0.15f && pl.Carrying == 0 && pl.FindCrate() is Crate tc && !tc.Attached.Value) hint = tc.Tied.Value ? "F  untie crate" : "F  tie this crate down";
                 else if (pl.Pushing) hint = "F  let go of trolley";
                 else if (pl.Carrying == 0 && pl.ShoveTarget() != null) hint = "F  shove";
-                else if (pl.Carrying < Player.MaxStack && pl.FindCrate() != null) hint = pl.Carrying == 0 ? "E  grab crate" : "E  stack another";
+                else if (pl.Carrying < Player.MaxStack && pl.FindCrate() is Crate gc)
+                {
+                    var from = gc.Stored ? " from the rack" : gc.transform.parent != null && gc.transform.parent.GetComponent<Trolley>() ? " from the trolley" : gc.transform.parent != null && gc.transform.parent.GetComponent<Pallet>() ? " off the pallet" : "";
+                    hint = (pl.Carrying == 0 ? "E  pick up" : "E  stack another") + from + "   ·   hold E: more";
+                    // A little marker over the crate E will take.
+                    var sp = cam != null ? cam.WorldToScreenPoint(gc.transform.position + Vector3.up * (0.62f + 0.06f * Mathf.Sin(Time.unscaledTime * 6f))) : Vector3.back;
+                    if (sp.z > 0) Label(new Rect(sp.x - 20 * S, H - sp.y - 20 * S, 40 * S, 40 * S), "▼", new GUIStyle(GUI.skin.label) { fontSize = Mathf.RoundToInt(26 * S), alignment = TextAnchor.MiddleCenter }, new Color(1f, 0.92f, 0.6f, 0.9f));
+                }
                 else if (pl.Carrying == 0 && Trolley.I != null && Vector3.Distance(Trolley.I.Handle, pl.transform.position + Vector3.up) < 2.2f) hint = "F  push trolley";
                 if (pl.Carrying >= 2 && pl.Teeter > Player.TeeterAt)
                 {
                     float a = 0.6f + 0.4f * Mathf.Sin(Time.unscaledTime * 18f);
                     Label(new Rect(0, H * 0.70f, W, 70 * S), "Steady...!", new GUIStyle(big) { fontSize = Mathf.RoundToInt(56 * S) }, new Color(1f, 0.55f, 0.3f, a));
                 }
-                if (pl.Carrying > 0) Label(new Rect(0, H - 150 * S, W, 40 * S), $"Carrying {pl.Carrying}/{Player.MaxStack}   ·   Q drop   ·   Left click throw", mid, new Color(1, 1, 1, 0.85f));
+                if (pl.Carrying > 0) Label(new Rect(0, H - 150 * S, W, 40 * S), $"Carrying {pl.Carrying}/{Player.MaxStack}   ·   Q put down   ·   Left click throw", mid, new Color(1, 1, 1, 0.85f));
+                if (pl.Swimming || pl.Stamina < 0.999f)
+                {
+                    // Breath: drains while swimming, refills on land. Low = slow; empty = fished out.
+                    float st = pl.Stamina, bw = 320 * S;
+                    var br = new Rect((W - bw) / 2, H - 196 * S, bw, 16 * S);
+                    Pill(new Rect(br.x - 92 * S, br.y - 10 * S, bw + 104 * S, 36 * S));
+                    Label(new Rect(br.x - 88 * S, br.y - 9 * S, 84 * S, 34 * S), "BREATH", new GUIStyle(small) { fontSize = Mathf.RoundToInt(17 * S), fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft }, new Color(0.8f, 0.92f, 1f));
+                    GUI.DrawTexture(br, Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(0, 0, 0, 0.45f), 0, 5 * S);
+                    var col = st > 0.5f ? new Color(0.45f, 0.8f, 1f) : st > 0.25f ? new Color(1f, 0.8f, 0.3f) : new Color(1f, 0.35f, 0.3f, 0.7f + 0.3f * Mathf.Sin(Time.unscaledTime * 14f));
+                    GUI.DrawTexture(new Rect(br.x, br.y, Mathf.Max(6 * S, br.width * st), br.height), Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, col, 0, 5 * S);
+                }
                 if (hint != null)
                 {
                     float hw = mid.CalcSize(new GUIContent(hint)).x + 40 * S;
@@ -549,7 +569,7 @@ namespace PortBoss
             }
             if (showHelp && !nightCard)
                 Label(new Rect(24 * S, H - 190 * S, 640 * S, 180 * S),
-                    "WASD move · Shift sprint · Space jump · Mouse look\nE / Right click: grab, stack (max 5) · E at the buyer: sell\nQ: drop one · Left click: throw · F: trolley / shove a mate\nH hide · Esc menu", small, new Color(1, 1, 1, 0.75f));
+                    "WASD move · Shift sprint · Space jump · Mouse look\nE / Right click: pick up, stack (max 5; hold for more) · E at the buyer: sell\nQ: put down (on the rack / in the trolley when next to it; hold for all)\nLeft click: throw · F: trolley / shove a mate · H hide · Esc menu", small, new Color(1, 1, 1, 0.75f));
         }
 
         void Pill(Rect r) => GUI.DrawTexture(r, Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(0.03f, 0.05f, 0.08f, 0.5f), 0, 10 * S);
@@ -568,8 +588,10 @@ namespace PortBoss
                     if (d < 100f && d < best) { best = d; near = c; }
                 }
             string job; Vector3? at = null;
-            if (pl.Carrying > 0) { job = near != null && pl.Carrying < 3 ? "Stack a few more (E), then take them to the FISH BUYER" : "Take the fish to the FISH BUYER and press E to sell"; at = World.BuyerPos + Vector3.up * 3.6f; }
+            if (pl.Carrying > 0 && near != null && boat != null) { job = pl.Carrying < 3 ? "Stack a few more (E), then put them on the CRATE STORE rack (Q)" : "Quick, before she sails: put them on the CRATE STORE rack (Q)"; at = Storage.Center + Vector3.up * 4.2f; }
+            else if (pl.Carrying > 0) { job = "Take the fish to the FISH MARKET: out the back gate, across the road (mind the lorries)"; at = World.BuyerPos + Vector3.up * 3.6f; }
             else if (near != null) { job = "Unload the boat: walk up to a fish crate and press E"; at = near.transform.position + Vector3.up * 1.6f; }
+            else if (Storage.Count > 0) { job = "Fetch fish from the rack (E) and sell it at the FISH MARKET"; at = Storage.Center + Vector3.up * 4.2f; }
             else if (boat != null && boat.State.Value == Boat.St.Arriving) { job = "A boat is coming in: meet it at the end of the jetty"; at = boat.BerthPos + Vector3.up * 2.5f; }
             else job = g.NextBoatIn > 0 ? $"Next boat in {(int)g.NextBoatIn / 60}:{(int)g.NextBoatIn % 60:00}: wait at the jetty" : "That was the last boat today";
             ThemeTextures();

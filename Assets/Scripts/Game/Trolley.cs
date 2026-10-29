@@ -55,6 +55,19 @@ namespace PortBoss
 
         public void Remove(Crate c) => load.Remove(c);
         public bool NearBuyer => Vector3.Distance(transform.position, World.BuyerPos) < World.BuyerReach + 2.5f;
+        public int Load { get { int n = 0; foreach (Transform c in transform) if (c.TryGetComponent<Crate>(out _)) n++; return n; } } // every peer
+
+        static Vector3 BedSlot(int i) => new(i % 2 == 0 ? -0.29f : 0.29f, 0.4f + Crate.Size / 2 + (i / 4) * (Crate.Size + 0.02f), (i / 2) % 2 == 0 ? -0.28f : 0.34f);
+
+        // Server: set a crate straight into the bed (put down by a player standing next to it).
+        public bool Put(Crate c)
+        {
+            if (load.Count >= Capacity || lost) return false;
+            c.Attach(NetworkObject, BedSlot(load.Count), -1);
+            load.Add(c);
+            ClunkRpc(c.transform.position);
+            return true;
+        }
 
         void FixedUpdate()
         {
@@ -88,11 +101,8 @@ namespace PortBoss
                 {
                     if (load.Count >= Capacity) break;
                     var c = h.GetComponent<Crate>();
-                    if (c == null || c.Attached.Value || load.Contains(c)) continue;
-                    int i = load.Count;
-                    c.Attach(NetworkObject, new Vector3(i % 2 == 0 ? -0.29f : 0.29f, 0.4f + Crate.Size / 2 + (i / 4) * (Crate.Size + 0.02f), (i / 2) % 2 == 0 ? -0.28f : 0.34f), -1);
-                    load.Add(c);
-                    ClunkRpc(c.transform.position);
+                    if (c == null || c.Attached.Value || c.Stored || load.Contains(c)) continue;
+                    Put(c);
                 }
             }
 

@@ -66,6 +66,17 @@ namespace PortBoss
         }
 
         public void Remove(Crate c) => load.Remove(c);
+        public int Load { get { int n = 0; foreach (Transform c in transform) if (c.TryGetComponent<Crate>(out _)) n++; return n; } } // every peer
+
+        // Server: set a crate straight onto the deck (3 x 2 grid).
+        public bool Put(Crate c)
+        {
+            if (load.Count >= Capacity) return false;
+            int i = load.Count;
+            c.Attach(NetworkObject, new Vector3(-0.6f + (i % 3) * 0.6f, H + Crate.Size / 2 + 0.01f, i < 3 ? -0.3f : 0.3f), -1);
+            load.Add(c);
+            return true;
+        }
 
         void FixedUpdate()
         {
@@ -78,10 +89,8 @@ namespace PortBoss
                 {
                     if (load.Count >= Capacity) break;
                     var c = h.GetComponent<Crate>();
-                    if (c == null || c.Attached.Value || load.Contains(c)) continue;
-                    int i = load.Count;
-                    c.Attach(NetworkObject, new Vector3(-0.6f + (i % 3) * 0.6f, H + Crate.Size / 2 + 0.01f, i < 3 ? -0.3f : 0.3f), -1);
-                    load.Add(c);
+                    if (c == null || c.Attached.Value || c.Stored || load.Contains(c)) continue;
+                    Put(c);
                 }
             }
             if (Carried.Value) return;

@@ -77,6 +77,116 @@ namespace PortBoss
             if (Arg("-pb-film") != null) StartCoroutine(Film(Arg("-pb-film")));
             if (float.TryParse(Arg("-pb-weather"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var wsev)) StartCoroutine(ForceWeatherSoon(wsev));
             if (Has("-pb-forklifttest")) StartCoroutine(ForkliftTest());
+            if (Arg("-pb-handletest") != null) StartCoroutine(HandleTest(Arg("-pb-handletest")));
+            if (Has("-pb-staminatest")) StartCoroutine(StaminaTest());
+            if (Has("-pb-trucktest")) StartCoroutine(TruckTest());
+        }
+
+        // One input for one frame (a key press), then hands off.
+        IEnumerator Press(Player.In i, float after = 0.45f)
+        {
+            Player.BotInput = () => i; yield return null;
+            Player.BotInput = () => new Player.In();
+            yield return new WaitForSeconds(after);
+        }
+
+        // Held for a while (hold-to-repeat), then let go.
+        IEnumerator Hold(Player.In i, float secs)
+        {
+            bool first = true;
+            Player.BotInput = () => { var x = i; if (!first) { x.grab = x.drop = false; } first = false; return x; };
+            yield return new WaitForSeconds(secs);
+            Player.BotInput = () => new Player.In();
+            yield return new WaitForSeconds(0.4f);
+        }
+
+        // Crate handling: store on the rack (Q, hold Q), take back (E, hold E), into the trolley (Q), set one down
+        // on open ground (Q: upright, at ground level). Shots of each.
+        IEnumerator HandleTest(string dir)
+        {
+            Directory.CreateDirectory(dir);
+            yield return WaitGame();
+            var pl = Player.Local; var g = PortGame.I;
+            g.DebugGrantKit();
+            yield return new WaitForSeconds(1.5f);
+            var cam = Camera.main;
+            pl.DebugTeleport(Storage.Center + new Vector3(0.5f, 0.2f, 1.7f), 180);
+            yield return new WaitForSeconds(0.4f);
+            pl.DebugGiveCrates(5);
+            yield return new WaitForSeconds(0.6f);
+            yield return Press(new Player.In { drop = true });
+            int rack1 = Storage.Count;
+            yield return Hold(new Player.In { drop = true, dropHeld = true }, 1.6f);
+            Debug.Log($"[PB] handle test: rack after Q={rack1}, after hold Q={Storage.Count} carrying={pl.Carrying}");
+            Player.CamOverride = true;
+            cam.transform.position = Storage.Center + new Vector3(3.5f, 2.6f, 5f); cam.transform.LookAt(Storage.Center + Vector3.up * 1.3f);
+            yield return Snap(dir, "handle-rack");
+            Player.CamOverride = false;
+            bool rackOk = rack1 == 1 && Storage.Count == 5 && pl.Carrying == 0;
+            yield return Press(new Player.In { grab = true });
+            int got1 = pl.Carrying;
+            yield return Hold(new Player.In { grab = true, grabHeld = true }, 1.2f);
+            Debug.Log($"[PB] handle test: took from rack E={got1}, after hold E={pl.Carrying}, rack now {Storage.Count}");
+            bool takeOk = got1 == 1 && pl.Carrying >= 3 && Storage.Count == 5 - pl.Carrying;
+            var t = Trolley.I;
+            bool trolleyOk = false;
+            if (t != null)
+            {
+                pl.DebugTeleport(t.transform.position + new Vector3(0, 0.3f, 1.6f), 180);
+                yield return new WaitForSeconds(0.5f);
+                yield return Press(new Player.In { drop = true });
+                yield return Press(new Player.In { drop = true });
+                Debug.Log($"[PB] handle test: trolley load={t.Load} carrying={pl.Carrying}");
+                trolleyOk = t.Load == 2;
+                Player.CamOverride = true;
+                cam.transform.position = t.transform.position + new Vector3(2.5f, 2.2f, 2.5f); cam.transform.LookAt(t.transform.position + Vector3.up * 0.6f);
+                yield return Snap(dir, "handle-trolley");
+                Player.CamOverride = false;
+            }
+            pl.DebugTeleport(new Vector3(30, 0.2f, -50), 0);
+            yield return new WaitForSeconds(0.6f);
+            int before = pl.Carrying;
+            yield return Press(new Player.In { drop = true }, 1.2f);
+            Crate down = null; float bd = 9f;
+            foreach (var c in Crate.All) { float d = Vector3.Distance(c.transform.position, pl.transform.position); if (!c.Attached.Value && d < bd) { bd = d; down = c; } }
+            bool groundOk = down != null && pl.Carrying == before - 1 && Vector3.Angle(down.transform.up, Vector3.up) < 5f && Mathf.Abs(down.transform.position.y - Crate.Size / 2) < 0.1f;
+            Debug.Log($"[PB] handle test: set down at {(down != null ? down.transform.position.ToString("F2") : "-")} tilt={(down != null ? Vector3.Angle(down.transform.up, Vector3.up) : -1):F1}");
+            Player.CamOverride = true;
+            cam.transform.position = pl.transform.position + new Vector3(2.5f, 2.4f, -1.5f); cam.transform.LookAt(pl.transform.position + pl.transform.forward * 0.9f + Vector3.up * 0.5f);
+            yield return Snap(dir, "handle-ground");
+            Player.CamOverride = false;
+            Debug.Log($"[PB] handle test: {(rackOk && takeOk && trolleyOk && groundOk ? "PASS" : "FAIL")} (rack {rackOk}, take {takeOk}, trolley {trolleyOk}, ground {groundOk})");
+        }
+
+        // Swim (sprinting) until out of breath: the harbour master should fish us out onto a ladder.
+        IEnumerator StaminaTest()
+        {
+            yield return WaitGame();
+            var pl = Player.Local;
+            pl.DebugTeleport(new Vector3(30, -2.4f, 30), 0);
+            float t0 = Time.time, next = 0;
+            Player.BotInput = () => new Player.In { hasWorldMove = true, worldMove = new Vector3(Mathf.Sin(Time.time * 0.3f), 0, Mathf.Cos(Time.time * 0.3f)), sprint = true };
+            while (Time.time - t0 < 40 && (pl.Swimming || Time.time - t0 < 2))
+            {
+                if (Time.time > next) { next = Time.time + 3; Debug.Log($"[PB] stamina test: t={Time.time - t0:F0} swimming={pl.Swimming} breath={pl.Stamina:F2}"); }
+                yield return null;
+            }
+            Player.BotInput = () => new Player.In();
+            yield return new WaitForSeconds(2f);
+            bool onDeck = pl.transform.position.y > -0.5f && !pl.Swimming;
+            Debug.Log($"[PB] stamina test: {(onDeck ? "PASS" : "FAIL")} out of the water after {Time.time - t0:F1}s at {pl.transform.position:F1}, breath {pl.Stamina:F2}");
+        }
+
+        // Stand in a lorry's lane ahead of it: it honks, then knocks us down.
+        IEnumerator TruckTest()
+        {
+            yield return WaitGame();
+            var pl = Player.Local;
+            Vector3? spot = null;
+            while (spot == null) { spot = RoadTraffic.DebugAhead(30f); yield return null; }
+            pl.DebugTeleport(spot.Value, 90);
+            Debug.Log($"[PB] truck test: standing in the road at {spot.Value:F1}");
+            yield return new WaitForSeconds(6f);
         }
 
         IEnumerator WaitGame() { while (PortGame.I == null || Player.Local == null) yield return null; yield return new WaitForSeconds(1); }
@@ -398,8 +508,13 @@ namespace PortBoss
                 ("map-quay", new Vector3(-12, 3, 14), new Vector3(10, -0.5f, -2)),
                 ("map-kit", new Vector3(2, 5, 6), new Vector3(14, 0, -8)),
                 ("map-forklift", new Vector3(14.5f, 2.6f, -7.5f), new Vector3(19, 0.8f, -12)),
-                ("map-stall", new Vector3(-8.5f, 2.4f, -25.5f), new Vector3(-4, 1.2f, -31)),
-                ("map-to-stall", new Vector3(1, 2.6f, 6), new Vector3(-4, 1, -31)),
+                ("map-stall", new Vector3(-12f, 3.2f, -106f), new Vector3(-6, 1.5f, -116)),
+                ("map-market", new Vector3(10f, 7f, -98f), new Vector3(-6, 2f, -117)),
+                ("map-to-stall", new Vector3(1, 2.6f, 6), new Vector3(-6, 1, -90)),
+                ("map-gate", new Vector3(-6f, 3f, -70f), new Vector3(-6, 3, -100)),
+                ("map-road", new Vector3(-30f, 6f, -84f), new Vector3(10, 0, -105)),
+                ("map-store", new Vector3(-2f, 3f, 1f), new Vector3(-8.5f, 1.5f, -7.6f)),
+                ("map-wall", new Vector3(80f, 12f, -10f), new Vector3(20, 0, -80)),
                 ("map-shelter", new Vector3(5, 2.2f, 1.5f), new Vector3(9, 1.6f, -9)) })
             {
                 cam.transform.position = pos; cam.transform.LookAt(look);

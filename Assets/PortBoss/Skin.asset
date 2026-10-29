@@ -105,6 +105,14 @@ MonoBehaviour:
   - freighter05
   - freighter05L
   - freighter09
+  - marketHall
+  - booth
+  - shelves
+  - fridge
+  - chalkboard
+  - cfenceB
+  - wallLight
+  - trashcan
   - tugBow
   - tugStern
   - tugBridge
@@ -211,6 +219,14 @@ MonoBehaviour:
   - {fileID: 1653901835717290297, guid: 9fcb5a1901552b3459ddd7f757718e9f, type: 3}
   - {fileID: 8650706791991085678, guid: bffb833e1f7deee4eb9d423f99c31e3b, type: 3}
   - {fileID: 6938848548056527784, guid: 91719892833e8ae4ca315cd6ad962c41, type: 3}
+  - {fileID: 4373216560044213817, guid: 76e727ae5c1c6de42aaeba24b97874e2, type: 3}
+  - {fileID: 1018170900100968656, guid: 0757a341268cc9c4ea47693513ca6b61, type: 3}
+  - {fileID: 2260335702996290033, guid: a0a567e057db6fe468e2f2d4991fc31c, type: 3}
+  - {fileID: 8818923879576890788, guid: 218d464bb91d9864280a9eb894f4ba1b, type: 3}
+  - {fileID: 3441132097602620747, guid: fde5914299f21764fa6042aa7874311a, type: 3}
+  - {fileID: 2887700736407961110, guid: 71ca41cf17d6a4c4ca55eef2a0e1d2c5, type: 3}
+  - {fileID: 9159551695523981053, guid: 6b41f6c520cb085469fab0be6bd92fb2, type: 3}
+  - {fileID: 7420687325765625051, guid: f22f9e2568938c84e8cd2178c2937631, type: 3}
   - {fileID: 8097115300489029346, guid: fe5b20dbcdcf83249aa81a8df03b3271, type: 3}
   - {fileID: 8460060969793275664, guid: 0e34a40c8281f5c4d9dba29d7c267140, type: 3}
   - {fileID: 3408518586814620485, guid: 3917388cbf196f54facc6b8124090de5, type: 3}
