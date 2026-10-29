@@ -167,6 +167,14 @@ namespace PortBoss
                 var ty = Art.Prim(PrimitiveType.Cylinder, R, p + (side ? Vector3.right * Mathf.Sign(p.x) * 0.2f : Vector3.forward * 0.2f), Quaternion.Euler(side ? 0 : 90, 0, side ? 90 : 0), new Vector3(0.85f, 0.16f, 0.85f), Art.Hex("#262626"), false, "tyre");
                 Art.Prim(PrimitiveType.Cylinder, R, ty.transform.position + (side ? Vector3.right * Mathf.Sign(p.x) * 0.17f : Vector3.forward * 0.17f), ty.transform.rotation, new Vector3(0.42f, 0.02f, 0.42f), Art.Hex("#3a3a3a"), false, "tyre_hole");
             }
+            // World's net pile (a green blob) becomes pack rope piles.
+            foreach (var r in R.parent.GetComponentsInChildren<Renderer>())
+                if (r.name == "net_pile" && r.enabled)
+                {
+                    r.enabled = false; var p = r.transform.position;
+                    On("ropeB", new Vector3(p.x - 0.4f, 0, p.z), 20, 1.2f);
+                    On("rope", new Vector3(p.x + 0.7f, 0, p.z + 0.3f), 140, 1.1f);
+                }
             // World's quay bollards (colliders) wear the pack bollard instead of a grey cylinder.
             foreach (var r in R.parent.GetComponentsInChildren<Renderer>())
                 if (r.name == "bollard" && r.enabled && r.transform.position.y < 1f) { r.enabled = false; On("bollard", new Vector3(r.transform.position.x, 0, r.transform.position.z), 0, 1f); }
@@ -331,6 +339,14 @@ namespace PortBoss
                         g.transform.position += b.center - Art.Bounds(g).center + n * side * (ext + (flip == 0 ? 0.01f : 0.03f));
                     }
                 r.enabled = false;
+            }
+            // A corrugated pack roof sheet instead of our flat slab (the slab keeps its collider).
+            var roofBox = shed.Find("roof");
+            if (roofBox != null)
+            {
+                var rb = roofBox.GetComponent<Renderer>().bounds;
+                var sheet = Fit("roofSheet", rb.center + Vector3.up * 0.08f, new Vector3(rb.size.x + 0.3f, 0.3f, rb.size.z + 0.3f));
+                if (sheet != null) { sheet.transform.rotation = roofBox.rotation * sheet.transform.rotation; roofBox.GetComponent<Renderer>().enabled = false; }
             }
             var o = shed.position + new Vector3(9, 0, -9) - shed.position; // the shelter's centre (World.Shed's origin)
             Top("extinguisher", new Vector3(o.x + 2.3f, 1.7f, o.z + 2.65f), 0, Vector3.one);
