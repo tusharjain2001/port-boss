@@ -47,7 +47,7 @@ Steam app ID. "Port Boss" is still a working title.
 - **The Toon Harbor Pack is paid and this repo is PUBLIC: never commit any pack file.** It lives in
   `Assets/ThirdParty/ToonHarbor`, which is gitignored (so is `Assets/Toon Harbor Pack/`). Before every commit:
   `git diff --cached --name-only | grep -ciE 'ThirdParty|Toon Harbor'` must print **0**.
-  (Manan has asked whether you could make the repo private. You're the admin.)
+  (We suggest making the repo private: you're the admin, Manan only has push access.)
 - Never put a secret, token or password in the repo.
 - Builds for players are **release builds only** (no `-pbDev`, no Development console).
 - **Art direction = the Toon Harbor pack; its demo scene is the reference.** Stylised, not realistic PBR.
