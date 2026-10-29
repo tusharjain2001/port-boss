@@ -21,6 +21,7 @@ MonoBehaviour:
   - {fileID: 8855844279880732513, guid: 6042561578da98044a8c32af44ada4c9, type: 3}
   - {fileID: 1388698527917796093, guid: 6d9b9abd832ae2d42ac77693597333a1, type: 3}
   - {fileID: 169311728197664467, guid: d582bf24c8d306945bc0a7a7851a1b80, type: 3}
+  Worker: {fileID: 919132149155446097, guid: 3a9ed3cc823cb0a41925d0bda8083fc1, type: 3}
   Buyer: {fileID: 8099815364645255957, guid: f8369dac7ce18c249b900d0a13caaf4a, type: 3}
   Rival: {fileID: 3696328144751532536, guid: 1bd52d1b4c980454e874944754d236bc, type: 3}
   Idle: {fileID: 7994627924475153551, guid: 680e75fc8abe8ec4b9a36f0d86dc4269, type: 3}
