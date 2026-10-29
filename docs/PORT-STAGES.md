@@ -16,6 +16,6 @@ port: a reminder of the next step, not the end-game. Prefab names below are unde
 ## Notes for building stages 2–5 later
 - **Performance:** the demo harbour is ~47,000 renderers (Buildings 18.5k, Ships 8.6k, Props 6.2k). Stage 5 needs static batching, LODs (the pack ships `_Mobile` variants for containers and crates) and culling; budget it before building it.
 - **Scale:** the demo's sea is at y = −6.1 on a 3 km plane; our sea level is −1.2. Offset the layout on import, don't move our water.
-- **Rival port:** keep it one stage ahead of the player (stage 1 → the rival shows stage 2–3 pieces), so the next upgrade is always visible across the bay.
+- **Rival port:** Marlowe Port now stands ~600 m out across the sea (`HarbourMap.MarlowePort`): already a stage-5 mega port (gantries, container terraces, freighters calling via `RivalTraffic`), the end-game the player can always see. The terminals that used to flank our berth are gone; our fenced yard is x −60..90, z −90..0 (`World.Yard*`), with the open middle kept free for stages 3–4.
 - **Upgrades are physical:** each stage is built over the previous one (the wooden pier stays as a fishing jetty at stage 2, etc.), so the port's history shows.
 - Built so far: stage 1, and stage 2 as a night-shop purchase at $1500 (a pack metal shed, a marked forklift yard, +30% catch; `HarbourMap.SetStage`). Stages 3–5 are HUD goals only.

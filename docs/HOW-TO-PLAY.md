@@ -3,10 +3,10 @@
 Double-click **PortBoss.exe**. It opens windowed (drag the edge to resize, or pick a window mode in Settings). Have Steam running for co-op; solo works without it.
 
 ## The goal
-You run the shabbiest berth in a busy harbour: one concrete jetty, a tin shelter, an old crane, a fish buyer's stall. All around you the big terminals are working: gantries, container yards, freighters. **Earn enough to grow your berth.** The crew tin (top right) counts toward the next stage. At **$1500** the night shop lets you **build the Concrete quay**: a proper shed and a forklift yard on your plot, and the boats bring **30% bigger catches**. After that the goal is the next stage (crane + warehouse).
+You run the shabbiest berth on the coast: one concrete jetty, a tin shelter, an old crane, a fish buyer's stall and a big empty yard to grow into. Out across the sea stands **Marlowe Port**, your rival's mega port: giant gantries, container terraces, and freighters calling all day (he'll make sure you hear about every one). **Earn enough to grow your berth.** The crew tin (top right) counts toward the next stage. At **$1500** the night shop lets you **build the Concrete quay**: a proper shed and a forklift yard on your plot, and the boats bring **30% bigger catches**. After that the goal is the next stage (crane + warehouse).
 
 ## A day at the berth
-Boats come in with a horn and dock at the end of the jetty. **Captain Mags** shouts a countdown: **two minutes**. Get the fish crates off the boat and carry them to **the FISH BUYER** (stall on the quay, left of the jetty). Press **E** at the buyer: his panel lists your crates with his offer for each. **Fresh $15, okay $12, spoiled $4** (spoiled fish goes green and gets flies).
+Boats come in with a horn and dock at the end of the jetty. **Captain Mags** shouts a countdown: **two minutes**. Get the fish crates off the boat and carry them to **the FISH BUYER** (the FRESH FISH stall at the back of the yard, about 30 m from the jetty: a hand trolley saves a lot of trips). Press **E** at the buyer: his panel lists your crates with his offer for each, and **Sell all** sells the lot in one go. **Fresh $15, okay $12, spoiled $4** (spoiled fish goes green and gets flies).
 When the countdown runs out the boat **leaves with whatever is still aboard**. Three boats a day, about 8 minutes. On day 1 the **JOB** line (top left) and a yellow marker show you what to do next.
 At night you get the day's card and the **night shop**: the **hand trolley ($120)** holds 6 crates, and from day 3 a **forklift ($350)** with pallets.
 
@@ -16,7 +16,7 @@ At night you get the day's card and the **night shop**: the **hand trolley ($120
 - **Flying crates** knock people over (they drop their stack). Crates that land hard get **damaged**: each knock costs 25% of the price.
 - **Your crew:** stand in front of a mate and press **F** to **shove** them; they drop whatever they're carrying. Use responsibly.
 - **Gulls** go for crates nobody is watching: stand near your crates or lose fish.
-- **Marlowe**, the rival, does doughnuts off your jetty in his speedboat. His wake rocks the boat and slides loose crates.
+- **Marlowe**, the rival, does doughnuts off your jetty in his speedboat. His wake rocks the boat and slides loose crates. When another freighter docks at Marlowe Port, he calls to brag.
 - **Weather** changes on its own, any time, any day: calm, breezy, overcast, rain, storm and back. Nothing warns you: read the sky and the sea. In rough weather the waves grow, the boat heaves, gulls clear off and gusts shove loose crates about. Get crates into the shelter or **tie them down (F)**.
 
 Fell in? You **swim** (you never sink). Paddle to a **ladder** (jetty sides, quay front) and press **E** to climb out, or swim up the slipway. While swimming, **E** tows one floating crate and **Q** lets it go.
@@ -26,7 +26,7 @@ Fell in? You **swim** (you never sink). Paddle to a **ladder** (jetty sides, qua
 |---|---|---|
 | WASD / mouse | left / right stick | move / look |
 | Shift | LB | sprint (the stack wobbles more) |
-| Space | A | jump |
+| Space | A | jump (hold for a higher jump; a full stack is heavy) |
 | E or right click | X | grab a crate, stack more (max 5); sell at the buyer; drive the forklift; tow / climb when swimming |
 | Q | B | drop the top crate |
 | R or left click | RT | throw the top crate |

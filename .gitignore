@@ -120,3 +120,4 @@ InitTestScene*.unity*
 
 # tools/ compile-check project (cc.sh)
 !/tools/cc.csproj
+/tools/obj/

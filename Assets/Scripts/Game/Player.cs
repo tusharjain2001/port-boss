@@ -12,7 +12,7 @@ namespace PortBoss
         public struct In
         {
             public Vector2 move, look;
-            public bool sprint, jump, grab, drop, throwP, push;
+            public bool sprint, jump, jumpHeld, grab, drop, throwP, push;
             public bool hasWorldMove; public Vector3 worldMove; // bot steering
         }
 
@@ -40,6 +40,9 @@ namespace PortBoss
         Vector3 camPos;
         float stepDist;
         Vector3 lastStepPos;
+        // Jump: ~1.2 m high when held, ~0.6 m on a tap.
+        const float JumpSpeed = 7f, RiseGravity = 20f, FallGravity = 38f, JumpGrace = 0.12f;
+        float jumpBufferedUntil, groundedUntil;
 
         void Awake()
         {
@@ -138,6 +141,11 @@ namespace PortBoss
             bool swimming = transform.position.y < Water.Height(transform.position) - SwimDepth + 0.35f;
             bool grounded = Mathf.Abs(transform.position.y - lastAnimY) < 0.05f * Mathf.Max(1f, dt * 60f);
             lastAnimY = transform.position.y;
+            Ripples(swimming);
+            // Falling in: a second of arm-waving panic (every peer sees it) before they start swimming.
+            if (swimming && !wasSwimmingAnim) flailUntil = Time.time + 1.3f;
+            wasSwimmingAnim = swimming;
+            anim.Flail = swimming && Time.time < flailUntil;
             CharAnim.Slot slot;
             if (Driving != null) { slot = CharAnim.Slot.Drive; model.localPosition = new Vector3(0, -0.15f, 0); }
             else if (knockT >= 0)
@@ -150,20 +158,26 @@ namespace PortBoss
                 slot = CharAnim.Slot.Idle;
                 if (knockT >= 1) knockT = -1;
             }
-            else if (swimming) { slot = CharAnim.Slot.SwimIdle; model.localPosition = new Vector3(0, SwimModelY, 0); } // treading water, chest-deep
-            Ripples(swimming);
-            // Falling in: a second of arm-waving panic (every peer sees it) before they start swimming.
-            if (swimming && !wasSwimmingAnim) flailUntil = Time.time + 1.3f;
-            wasSwimmingAnim = swimming;
-            anim.Flail = swimming && Time.time < flailUntil;
-            if (anim.Flail) { slot = CharAnim.Slot.SwimIdle; model.localPosition = new Vector3(0, SwimModelY + 0.25f + Mathf.Abs(Mathf.Sin(Time.time * 9f)) * 0.15f, 0); }
+            else if (anim.Flail) { slot = CharAnim.Slot.SwimIdle; model.localPosition = new Vector3(0, SwimModelY + 0.25f + Mathf.Abs(Mathf.Sin(Time.time * 9f)) * 0.15f, 0); }
+            else if (swimming)
+            {
+                // Breaststroke when moving (body tipped forward along the surface), treading water when still.
+                bool stroke = speed > 0.6f;
+                slot = stroke ? CharAnim.Slot.Swim : CharAnim.Slot.SwimIdle;
+                swimLean = Mathf.MoveTowards(swimLean, stroke ? 1f : 0f, dt * 3f);
+                model.localPosition = new Vector3(0, Mathf.Lerp(SwimModelY, SwimStrokeY, swimLean), 0);
+            }
             else slot = !grounded ? CharAnim.Slot.Jump : Pushing ? CharAnim.Slot.Push : speed < 0.3f ? CharAnim.Slot.Idle : speed < 4.6f ? CharAnim.Slot.Walk : CharAnim.Slot.Run;
+            if (!swimming) swimLean = 0;
             if (throwT >= 0 && (throwT += dt / 0.45f) >= 1) throwT = -1;
             anim.Carry = Carrying > 0 && !swimming && Driving == null && knockT < 0;
             anim.Throw01 = throwT;
             anim.Tick(slot, speed);
         }
-        const float SwimModelY = -0.05f; // with the treading clip: shoulders at the surface
+        // The UAL swim clips sit the body ~1 m lower than standing; lifts measured with -pb-swimtest's "swim pose" line.
+        const float SwimModelY = 1.24f;  // treading: head out, shoulders at the surface
+        const float SwimStrokeY = 1.4f;  // stroke (lies flat): back at the surface, head just out
+        float swimLean;
 
         static Material ringMat;
         static Material RingMat()
@@ -310,6 +324,8 @@ namespace PortBoss
                 i.move = new Vector2((k.dKey.isPressed ? 1 : 0) - (k.aKey.isPressed ? 1 : 0), (k.wKey.isPressed ? 1 : 0) - (k.sKey.isPressed ? 1 : 0));
                 var sprintKey = Settings.KeyFor("sprint");
                 i.sprint = sprintKey != Key.None && k[sprintKey].isPressed;
+                var jumpKey = Settings.KeyFor("jump");
+                i.jumpHeld = jumpKey != Key.None && k[jumpKey].isPressed;
                 i.jump = Down("jump"); i.grab = Down("grab"); i.drop = Down("drop"); i.push = Down("push"); i.throwP = Down("throw");
             }
             if (m != null)
@@ -323,7 +339,7 @@ namespace PortBoss
                 var ls = pad.leftStick.ReadValue();
                 if (ls.sqrMagnitude > 0.04f) i.move = ls;
                 i.look += pad.rightStick.ReadValue() * (220f * Settings.PadSensitivity * Time.deltaTime);
-                i.jump |= pad.buttonSouth.wasPressedThisFrame; i.grab |= pad.buttonWest.wasPressedThisFrame;
+                i.jump |= pad.buttonSouth.wasPressedThisFrame; i.jumpHeld |= pad.buttonSouth.isPressed; i.grab |= pad.buttonWest.wasPressedThisFrame;
                 i.drop |= pad.buttonEast.wasPressedThisFrame; i.throwP |= pad.rightTrigger.wasPressedThisFrame;
                 i.sprint |= pad.leftShoulder.isPressed || pad.leftStickButton.isPressed; i.push |= pad.rightShoulder.wasPressedThisFrame;
             }
@@ -384,9 +400,22 @@ namespace PortBoss
             else
             {
                 float speed = (sprint ? 7.4f : 4.6f) * (1f - 0.07f * Carrying) * (Pushing ? 0.85f : 1f);
-                hv = Vector3.MoveTowards(hv, wish * speed, (cc.isGrounded ? 30f : 10f) * dt);
-                if (cc.isGrounded) { if (vy < -5f) Sfx.Play("step" + Random.Range(0, 5), transform.position, 0.7f, 0.8f); vy = -2f; if (input.jump) { vy = 5.6f; Sfx.Play("whoosh", transform.position, 0.3f); } }
-                vy -= 19f * dt;
+                hv = Vector3.MoveTowards(hv, wish * speed, (cc.isGrounded ? 30f : 18f) * dt);
+                // Jump: a little grace after walking off an edge, and a press just before landing still counts.
+                if (input.jump) jumpBufferedUntil = Time.time + JumpGrace;
+                if (cc.isGrounded)
+                {
+                    if (vy < -4f) Sfx.Play("land", transform.position, Mathf.Clamp01(-vy / 12f), Random.Range(0.9f, 1.1f));
+                    vy = -2f; groundedUntil = Time.time + JumpGrace;
+                }
+                if (Time.time < jumpBufferedUntil && Time.time < groundedUntil && !Pushing)
+                {
+                    vy = JumpSpeed * (1f - 0.06f * Carrying); // a full stack is heavy
+                    jumpBufferedUntil = groundedUntil = 0;
+                    Sfx.Play("jump", transform.position, 0.55f);
+                }
+                // Snappy arc: floaty on the way up while the button is held, quick on the way down (and on a short tap).
+                vy -= (vy > 0 && input.jumpHeld ? RiseGravity : FallGravity) * dt;
                 cc.Move((hv + Vector3.up * vy + Storm.WindDir * (1.1f * Storm.Gust)) * dt);
             }
 
@@ -657,16 +686,32 @@ namespace PortBoss
         }
 
         public void RequestSell(Crate c) => SellRpc(c.NetworkObject);
-        public void RequestSellAll() { foreach (var c in SellableCrates()) SellRpc(c.NetworkObject); }
+        public void RequestSellAll() => SellAllRpc();
 
         [Rpc(SendTo.Server)]
         void SellRpc(NetworkObjectReference r)
         {
             if (!r.TryGet(out var no) || !no.TryGetComponent<Crate>(out var c) || !NearBuyer || PortGame.I == null) return;
+            if (TakeForSale(c)) PortGame.I.Sell(new List<Crate> { c });
+        }
+
+        // Everything the buyer can see goes in one sale: one till ring, one popup with the total.
+        [Rpc(SendTo.Server)]
+        void SellAllRpc()
+        {
+            if (!NearBuyer || PortGame.I == null) return;
+            var sold = SellableCrates().FindAll(TakeForSale);
+            if (sold.Count > 0) PortGame.I.Sell(sold);
+        }
+
+        // Server: lift a crate off whatever holds it (hands, trolley or pallet by the stall), ready to sell.
+        bool TakeForSale(Crate c)
+        {
             var parent = c.transform.parent;
-            if (parent == transform) { stack.Remove(c); PortGame.I.Sell(c); Restack(); }
-            else if (parent != null && parent.TryGetComponent<Trolley>(out var t) && t.NearBuyer) { t.Remove(c); PortGame.I.Sell(c); }
-            else if (parent != null && parent.TryGetComponent<Pallet>(out var pa) && pa.NearBuyer) { pa.Remove(c); PortGame.I.Sell(c); }
+            if (parent == transform) { stack.Remove(c); Restack(); return true; }
+            if (parent != null && parent.TryGetComponent<Trolley>(out var t) && t.NearBuyer) { t.Remove(c); return true; }
+            if (parent != null && parent.TryGetComponent<Pallet>(out var pa) && pa.NearBuyer) { pa.Remove(c); return true; }
+            return false;
         }
 
         // Close the gap after a crate from the middle of the stack is sold.

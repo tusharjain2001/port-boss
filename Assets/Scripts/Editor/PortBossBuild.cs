@@ -301,6 +301,8 @@ namespace PortBoss.EditorTools
                     ("office", "Concrete Buildings/TH_Concrete_Building_Kit_07A"), ("office2", "Concrete Buildings/TH_Concrete_Building_Kit_03A"), ("cabin", "Concrete Buildings/TH_Concrete_Building_Kit_11A"),
                     ("truck", "Vehicles/TH_Truck_Cabin_01A"), ("truckB", "Vehicles/TH_Truck_Cabin_02B"), ("trailer", "Vehicles/TH_Truck_Trailer_01A"), ("forklift", "Vehicles/TH_Forklift_01B"),
                     ("tug", "Ships/Ships/TH_Tugboat_01A"), ("tugB", "Ships/Ships/TH_Tugboat_04A"), ("freighter", "Ships/Ships/TH_Freighter_01A_Loaded"), ("freighterB", "Ships/Ships/TH_Freighter_03A"),
+                    ("freighterL", "Ships/Ships/TH_Freighter_01A_Loaded"), ("freighter01", "Ships/Ships/TH_Freighter_01A"), ("freighter05", "Ships/Ships/TH_Freighter_05A"),
+                    ("freighter05L", "Ships/Ships/TH_Freighter_05A_Loaded"), ("freighter09", "Ships/Ships/TH_Freighter_09A"),
                     ("tugBow", "Ships/Ship Elements/TH_Tugboat_Bow_01A"), ("tugStern", "Ships/Ship Elements/TH_Tugboat_Stern_01A"), ("tugBridge", "Ships/Ship Elements/TH_Tugboat_Bridge_01A"),
                     ("woodStack", "Construction Materials/TH_Wood_Stack_02A"), ("cageBarrels", "Cargo/TH_Cage_Barrels_01A"), ("canopy", "Metal Structures/TH_Metal_Structure_Kit_Building_18B"),
                 };

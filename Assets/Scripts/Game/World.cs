@@ -8,9 +8,12 @@ namespace PortBoss
     public static class World
     {
         public static readonly Vector3 Spawn = new(0, 0.4f, -3f);
-        public static readonly Vector3 BuyerPos = new(-4f, 0, -5.3f);
+        // The fish buyer's stall stands at the back of the yard, ~30 m from the jetty: selling is a real carry.
+        public static readonly Vector3 BuyerPos = new(-4f, 0, -32.3f);
         public const float BuyerReach = 3.2f;
-        public static readonly Bounds SellZone = new(new Vector3(-4f, 1.25f, -4f), new Vector3(2.6f, 0.9f, 1.4f));
+        public static readonly Bounds SellZone = new(new Vector3(-4f, 1.25f, -31f), new Vector3(2.6f, 0.9f, 1.4f));
+        // Our yard with the skin on (fenced; room to grow into later stages).
+        public const float YardX0 = -60f, YardX1 = 90f, YardZ0 = -90f;
         public static readonly Vector3 TrolleySpawn = new(3.6f, 0.6f, -10f); // clear of the shelter wall (x 6), or physics pops it out rolling
         public const float PierTop = 0.2f;
 
@@ -21,7 +24,7 @@ namespace PortBoss
         // Floating labels drawn by GameUI (hidden when something is in the way).
         public static readonly (Vector3 pos, string text)[] Labels =
         {
-            (new Vector3(-4f, 2.9f, -5.3f), "FISH BUYER"),
+            (new Vector3(-4f, 2.9f, -32.3f), "FISH BUYER"),
         };
 
         public static void Build()
@@ -38,14 +41,25 @@ namespace PortBoss
             AddLadder(new Vector3(3.15f, 0, 27f), Vector3.left);      // pier, right side near the end
             AddLadder(new Vector3(20f, 0, 0.15f), Vector3.back);      // quay front
             AddLadder(new Vector3(-26f, 0, 0.15f), Vector3.back);
-            RivalPort();
+            AddLadder(new Vector3(55f, 0, 0.15f), Vector3.back);
+            if (!Skin.On) RivalPort(); // with the skin, Marlowe's mega port is far out across the sea (HarbourMap)
             OpenSea();
             if (Skin.On)
             {
-                // The big harbour: our plain boxes stay as colliders, the pack pieces are what you see.
-                Art.Box(Root, new Vector3(155, -3, -15), new Vector3(190, 6, 90), Art.Concrete, true, "east_lot").GetComponent<Renderer>().enabled = false;
-                Art.Box(Root, new Vector3(62.5f, -3, 75), new Vector3(5, 6, 90), Art.Concrete, true, "east_edge").GetComponent<Renderer>().enabled = false;
-                foreach (var n in new[] { "quay_left", "quay_right", "quay_mid", "beach_left", "land_left", "land_right" })
+                // Our plain boxes stay as colliders, the pack pieces are what you see. The yard is twice the old plot,
+                // fenced on three sides (invisible walls behind the chain-link); the coast either side is out of bounds.
+                float x0 = YardX0, x1 = YardX1, z0 = YardZ0;
+                void Hidden(Vector3 c, Vector3 s, string n) => Art.Box(Root, c, s, Art.Concrete, true, n).GetComponent<Renderer>().enabled = false;
+                Hidden(new Vector3((x0 - 14) / 2, -3, z0 / 2), new Vector3(-14 - x0, 6, -z0), "yard_west");
+                Hidden(new Vector3(-10, -3, (z0 - 0.5f) / 2), new Vector3(8, 6, -z0 - 0.5f), "yard_mid"); // stops short of the slipway's top
+                Hidden(new Vector3((x1 - 6) / 2, -3, z0 / 2), new Vector3(x1 + 6, 6, -z0), "yard_east");
+                Hidden(new Vector3(x0 - 0.5f, 1.5f, z0 / 2 + 0.5f), new Vector3(1, 3, -z0 + 1), "yard_wall_w");
+                Hidden(new Vector3(x1 + 0.5f, 1.5f, z0 / 2 + 0.5f), new Vector3(1, 3, -z0 + 1), "yard_wall_e");
+                Hidden(new Vector3((x0 + x1) / 2, 1.5f, z0 - 0.5f), new Vector3(x1 - x0 + 2, 3, 1), "yard_wall_back");
+                // The shore either side of us (a swimmer can't climb its revetment).
+                Hidden(new Vector3(x0 - 250, -3.1f, -50), new Vector3(500, 6, 100), "coast_w");
+                Hidden(new Vector3(x1 + 250, -3.1f, -50), new Vector3(500, 6, 100), "coast_e");
+                foreach (var n in new[] { "quay_left", "quay_right", "quay_mid", "beach_left" })
                     foreach (Transform c in Root) if (c.name == n) c.GetComponent<Renderer>().enabled = false;
                 // The concrete jetty replaces the planks (colliders kept, holes filled, no sag).
                 foreach (var r in GameObject.Find("Pier").GetComponentsInChildren<Renderer>()) if (r.name != "rung" && !r.name.StartsWith("ladder")) r.enabled = false;
@@ -63,7 +77,8 @@ namespace PortBoss
                 if (Art.Cloud != null) { var bm = new Material(Art.Cloud); bm.SetColor("_BaseColor", Art.Hex("#0f3550")); bed.GetComponent<Renderer>().sharedMaterial = bm; }
             }
             WaterRenderers.Clear();
-            WaterRenderers.Add(Water.Create(new Vector3(0, 0, 80), 280, 112).GetComponent<Renderer>());
+            // With the skin the sea is open all round us, so the waves reach out to Marlowe's port (else the patch's edges show).
+            WaterRenderers.Add((Skin.On ? Water.Create(new Vector3(0, 0, 260), 720, 240) : Water.Create(new Vector3(0, 0, 80), 280, 112)).GetComponent<Renderer>());
             // Far sea to the horizon (flat, slightly below the wave mean).
             var far = Skin.On ? Art.Box(Root, new Vector3(0, Water.Level - 0.35f, 700), new Vector3(5000, 0.1f, 4400), Art.Hex("#2f5562"), false, "far_sea", 0.8f) // to the horizon all round
                 : Art.Box(Root, new Vector3(0, Water.Level - 0.35f, 600), new Vector3(3000, 0.1f, 1600), Art.Hex("#2f5562"), false, "far_sea", 0.8f);
@@ -267,10 +282,10 @@ namespace PortBoss
 
         static void Bay()
         {
+            if (Skin.On) return; // open water either side of our yard
             // Low land either side of the bay, rolling hills on top, rocks at the waterline.
             Art.Box(Root, new Vector3(-150, -2, 110), new Vector3(190, 4, 240), Art.Grass, true, "land_left");
             Art.Box(Root, new Vector3(155, -2, 75), new Vector3(180, 4, 90), Art.Grass, true, "land_right");
-            if (Skin.On) return; // the terminals stand here
             Hills(new Vector2(-62, 15), new Vector2(-75, 210), 9, 30, 7);
             Hills(new Vector2(-110, 40), new Vector2(-120, 220), 6, 55, 11);
             Hills(new Vector2(72, 40), new Vector2(84, 112), 5, 28, 3);
@@ -315,7 +330,7 @@ namespace PortBoss
                 Art.Prim(PrimitiveType.Cylinder, lh, new Vector3(0, 2 + i * 2.6f, 0), Quaternion.identity, new Vector3(3.2f - i * 0.18f, 1.3f, 3.2f - i * 0.18f), i % 2 == 0 ? Art.Cream : Art.Red, false, "lh_band");
             Art.Prim(PrimitiveType.Cylinder, lh, new Vector3(0, 17.6f, 0), Quaternion.identity, new Vector3(2.2f, 0.9f, 2.2f), Art.Cream, false, "lh_lamp").GetComponent<Renderer>().sharedMaterial = Art.Glow(Art.Hex("#ffe2a8"), 2.5f);
             Art.Prim(PrimitiveType.Sphere, lh, new Vector3(0, 19f, 0), Quaternion.identity, new Vector3(2.4f, 1.4f, 2.4f), Art.Red, false, "lh_cap");
-            if (Skin.On) Object.Destroy(lh.gameObject); // pack lighthouses stand on the breakwater instead
+            if (Skin.On) { Object.Destroy(lh.gameObject); return; } // pack lighthouses on the breakwater; Marlowe's port fills the horizon
             // Distant islands on the horizon.
             var rng = new System.Random(9);
             foreach (var (x, z, r) in new[] { (320f, 520f, 70f), (520f, 380f, 45f), (230f, 760f, 110f), (-260f, 820f, 90f) })
@@ -326,11 +341,9 @@ namespace PortBoss
                     h.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 }
             // Ships crawling along the horizon (Kenney CC0 models, scaled up).
-            int ship = 0;
             foreach (var (name, x, z, sc, sp) in new[] { ("ship-cargo-a", 260f, 620f, 6f, 1.6f), ("ship-cargo-c", 60f, 900f, 7f, 1.2f) })
             {
-                var s = Skin.On ? Art.Place(Skin.Pick(Skin.I.Freighters, ship++), Root, new Vector3(x, Water.Level - 0.4f, z), 90, 1f)
-                    : Art.Model(name, Root, new Vector3(x, Water.Level - 0.4f, z), 90, sc);
+                var s = Art.Model(name, Root, new Vector3(x, Water.Level - 0.4f, z), 90, sc);
                 if (s != null) s.AddComponent<Drifter>().Speed = sp;
             }
         }

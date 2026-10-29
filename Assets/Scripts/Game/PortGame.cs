@@ -88,11 +88,21 @@ namespace PortBoss
             {
                 wx = new System.Random(System.Environment.TickCount ^ System.Guid.NewGuid().GetHashCode());
                 Severity.Value = PickSeverity() * 0.6f; wxTarget = Severity.Value; wxNextPick = Time.time + 30f;
-                StartDay(1); Speedboat.Arrived += RivalTaunt;
+                StartDay(1); Speedboat.Arrived += RivalTaunt; RivalTraffic.Docked += RivalOrder;
             }
         }
 
-        public override void OnNetworkDespawn() { if (I == this) I = null; Speedboat.Arrived -= RivalTaunt; }
+        public override void OnNetworkDespawn() { if (I == this) I = null; Speedboat.Arrived -= RivalTaunt; RivalTraffic.Docked -= RivalOrder; }
+
+        // Another freighter ties up at Marlowe's port across the sea: he makes sure we hear about it.
+        void RivalOrder()
+        {
+            if (Phase.Value != Ph.Day) return;
+            Shout("RIVAL MARLOWE", Pick("Another mega-freighter just docked at Marlowe Port! Keep up, boss!",
+                "Hear that? 230 metres of ship, all mine. How's the fish, boss?",
+                "Ship number... I've lost count! Marlowe Port never sleeps!",
+                "Look out to sea, boss. THAT is a port."), 4f);
+        }
 
         void RivalTaunt()
         {
@@ -251,14 +261,19 @@ namespace PortBoss
 
         public void CrateInSea() => InSea.Value++;
 
-        public void Sell(Crate c)
+        public void Sell(System.Collections.Generic.List<Crate> crates)
         {
-            int v = PriceFor(c);
-            Debug.Log($"[PB] sold ${v} at {c.transform.position:F2}");
-            Money.Value += v; Earned.Value += v; Sold.Value++;
-            if (c.IsSpoiled) SpoiledSold.Value++;
-            SoldRpc(World.SellZone.center, v, c.IsSpoiled);
-            c.NetworkObject.Despawn();
+            int total = 0, spoiled = 0;
+            foreach (var c in crates)
+            {
+                int v = PriceFor(c);
+                Debug.Log($"[PB] sold ${v} at {c.transform.position:F2}");
+                total += v;
+                if (c.IsSpoiled) spoiled++;
+                c.NetworkObject.Despawn();
+            }
+            Money.Value += total; Earned.Value += total; Sold.Value += crates.Count; SpoiledSold.Value += spoiled;
+            SoldRpc(World.SellZone.center, total, crates.Count, spoiled);
         }
 
         public static string Pick(params string[] lines) => lines[Random.Range(0, lines.Length)];
@@ -272,10 +287,12 @@ namespace PortBoss
         public void TootRpc(Vector3 p) => Sfx.Play("horn", p, 0.7f, 1.35f);
 
         [Rpc(SendTo.ClientsAndHost)]
-        void SoldRpc(Vector3 p, int v, bool spoiled)
+        void SoldRpc(Vector3 p, int v, int crates, int spoiled)
         {
-            Sfx.Play("kaching", p, 1f, spoiled ? 0.8f : 1f);
-            GameUI.Popup(p + Vector3.up * 0.5f, spoiled ? $"+${v}  (spoiled)" : $"+${v}", spoiled ? new Color(0.75f, 0.8f, 0.45f) : new Color(1f, 0.85f, 0.3f));
+            bool allSpoiled = spoiled == crates;
+            Sfx.Play("kaching", p, 1f, allSpoiled ? 0.8f : 1f);
+            string what = crates == 1 ? (allSpoiled ? "  (spoiled)" : "") : $"  for {crates} crates" + (spoiled > 0 ? $" ({spoiled} spoiled)" : "");
+            GameUI.Popup(p + Vector3.up * 0.5f, $"+${v}{what}", allSpoiled ? new Color(0.75f, 0.8f, 0.45f) : new Color(1f, 0.85f, 0.3f));
         }
 
         [Rpc(SendTo.Server)]

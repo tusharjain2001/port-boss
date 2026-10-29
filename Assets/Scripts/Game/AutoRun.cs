@@ -126,9 +126,28 @@ namespace PortBoss
                 Player.BotInput = () => new Player.In { hasWorldMove = true, worldMove = Vector3.forward };
                 yield return new WaitForSeconds(3f);
                 yield return Snap(shotDir, "swim-open-water");
+                // Side-on close-ups: swimming along (stroke), then still (treading water).
+                Player.CamOverride = true;
+                var cam = Camera.main;
+                for (int k = 0; k < 2; k++)
+                {
+                    if (k == 1) { Player.BotInput = () => new Player.In(); yield return new WaitForSeconds(1.5f); }
+                    else yield return new WaitForSeconds(0.5f);
+                    var p = pl.transform.position + Vector3.up * SwimCamY;
+                    cam.transform.position = p + pl.transform.right * 3.2f + Vector3.up * 0.6f; cam.transform.LookAt(p);
+                    var an = pl.GetComponentInChildren<Animator>();
+                    if (an != null && an.isHuman)
+                    {
+                        float s = Water.Height(pl.transform.position);
+                        Debug.Log($"[PB] swim pose {(k == 0 ? "stroke" : "tread")}: head {an.GetBoneTransform(HumanBodyBones.Head).position.y - s:F2} chest {an.GetBoneTransform(HumanBodyBones.Chest).position.y - s:F2} hips {an.GetBoneTransform(HumanBodyBones.Hips).position.y - s:F2} feet(transform) {pl.transform.position.y - s:F2} (m above the surface)");
+                    }
+                    yield return Snap(shotDir, k == 0 ? "swim-side-stroke" : "swim-side-tread");
+                }
+                Player.CamOverride = false;
                 Player.BotInput = () => new Player.In();
             }
         }
+        const float SwimCamY = 1.2f;
 
         // Pile crates on the old pier end and watch it sag.
         IEnumerator PierTest()
@@ -368,17 +387,19 @@ namespace PortBoss
             var cam = Camera.main;
             foreach (var (name, pos, look) in new[] {
                 ("map-aerial", new Vector3(-40, 70, -90), new Vector3(30, 0, 90)),
+                ("map-yard-top", new Vector3(15, 160, -44), new Vector3(15, 0, -43.9f)),
                 ("map-berth", new Vector3(-14, 9, -24), new Vector3(10, 0, 20)),
-                ("map-east", new Vector3(20, 14, -10), new Vector3(140, 0, 60)),
-                ("map-west", new Vector3(10, 14, 40), new Vector3(-120, 0, 110)),
+                ("map-rival", new Vector3(0, 4, -6), new Vector3(0, 25, 600)),
+                ("map-rival-zoom", new Vector3(0, 30, 250), new Vector3(0, 20, 620)),
+                ("map-rival-sign", new Vector3(30, 100, 700), new Vector3(30, 100, 850)),
                 ("map-mouth", new Vector3(30, 18, 120), new Vector3(190, 0, 300)),
                 ("map-demo-angle", new Vector3(40, 17, 40), new Vector3(5, 0, 5)),
                 ("map-back", new Vector3(-10, 10, -35), new Vector3(-10, 2, -75)),
                 ("map-quay", new Vector3(-12, 3, 14), new Vector3(10, -0.5f, -2)),
                 ("map-kit", new Vector3(2, 5, 6), new Vector3(14, 0, -8)),
                 ("map-forklift", new Vector3(14.5f, 2.6f, -7.5f), new Vector3(19, 0.8f, -12)),
-                ("map-workers", new Vector3(58, 6, -60), new Vector3(66, 0, 10)),
-                ("map-stall", new Vector3(-8.5f, 2.4f, 1.5f), new Vector3(-4, 1.2f, -5)),
+                ("map-stall", new Vector3(-8.5f, 2.4f, -25.5f), new Vector3(-4, 1.2f, -31)),
+                ("map-to-stall", new Vector3(1, 2.6f, 6), new Vector3(-4, 1, -31)),
                 ("map-shelter", new Vector3(5, 2.2f, 1.5f), new Vector3(9, 1.6f, -9)) })
             {
                 cam.transform.position = pos; cam.transform.LookAt(look);
@@ -668,7 +689,7 @@ namespace PortBoss
         Vector3 lastPos;
         int trips;
 
-        static readonly Vector3 QuayMid = new(1.2f, 0, -1.2f), PierB = new(1.2f, 0, 16f), Gang = new(3.4f, 0, 16f), Deck = new(6.2f, 0, 16f), TableApproach = new(-4f, 0, -2.9f);
+        static readonly Vector3 QuayMid = new(1.2f, 0, -1.2f), PierB = new(1.2f, 0, 16f), Gang = new(3.4f, 0, 16f), Deck = new(6.2f, 0, 16f), TableApproach = World.BuyerPos + new Vector3(0, 0, 2.4f);
 
         static bool OnBoat(Vector3 p) => p.x > 4.3f;
         static bool OnPier(Vector3 p) => p.z > 0.3f && !OnBoat(p);
