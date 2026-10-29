@@ -146,6 +146,12 @@ MonoBehaviour:
   - tile3
   - tile6
   - shed07
+  - gasBarrel
+  - gasBarrelB
+  - ropeB
+  - plankB
+  - barrelA
+  - barrelB
   - roofSheet
   - mpole
   - wallY2
@@ -241,6 +247,12 @@ MonoBehaviour:
   - {fileID: 2062834928850428775, guid: 6d8da3511ec7d1849b472ff3147fc0c7, type: 3}
   - {fileID: 8147590995571728152, guid: e50e643cd5cb2184c898b09c045d1754, type: 3}
   - {fileID: 3659875058546432268, guid: faa91059ef94ff84cb2bbc304150ca1a, type: 3}
+  - {fileID: 8569274054298217155, guid: 5d10e21b6433708459fa4651d38dac38, type: 3}
+  - {fileID: 7738304819771514675, guid: 5320a6ed8f67d704eb25605107ccbbf7, type: 3}
+  - {fileID: 2964678856498058984, guid: 186905ece223bf0488b446d2dce7a77a, type: 3}
+  - {fileID: 7640970625443941002, guid: 887bcfafbe5560f4ba874d0fcfb54bc9, type: 3}
+  - {fileID: 1658442143051190757, guid: b700f9fe9fa3f874abeea94a8dffec58, type: 3}
+  - {fileID: 6159544957010217745, guid: 5f68b0d73c667664a9236584f66b3afb, type: 3}
   - {fileID: 3962593886708909824, guid: 387ff7afdfbd6a3489c62715a682cee5, type: 3}
   - {fileID: 2057827124730851612, guid: b61b024deceb1e64a890c5a58bfb4a5c, type: 3}
   - {fileID: 7991091776529434264, guid: e779a8a71104eae4c8aafc5ffb8e018e, type: 3}

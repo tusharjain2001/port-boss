@@ -188,6 +188,18 @@ namespace PortBoss
             // A sagging, gappy chain-link fence along the back and the east side of our plot.
             Run("fence", new Vector3(-54, 0, -62), new Vector3(44, 0, -62), 5, 9f);
             Run("fence", new Vector3(44, 0, -62), new Vector3(44, 0, -8), 6, -8f);
+            // The corner behind the stall, off the walking lines: a fisherman's clutter.
+            On("pallet", new Vector3(-13, 0, -15), 10, 1f, true);
+            On("crateBig", new Vector3(-13.2f, 0.14f, -15.1f), 25, 0.7f, true);
+            On("pallet", new Vector3(-10.4f, 0, -16.4f), -15, 1f, true);
+            for (int i = 0; i < 3; i++) On(i == 1 ? "gasBarrelB" : "gasBarrel", new Vector3(-16.5f + i * 0.9f, 0, -12.5f + (i % 2) * 0.6f), i * 40, 1f, true);
+            On("barrelA", new Vector3(-9.2f, 0, -13.2f), 0, 1f, true);
+            On("barrelB", new Vector3(-8.4f, 0, -14.1f), 70, 1f, true);
+            On("ropeB", new Vector3(-11.5f, 0, -11.6f), 30, 1f);
+            On("plankB", new Vector3(-17.5f, 0, -19.5f), 80, 1f, true);
+            On("planks", new Vector3(-12, 0, -21.5f), 15, 1f, true);
+            On("cableWasteB", new Vector3(-8.5f, 0, -20.5f), 120, 1f);
+            On("epole", new Vector3(-19, 0, -9.5f), 0, 1f);
             // The back of our plot: old sheds, a broken-down truck, a rusty container pile, junk.
             // (Flat-roofed: the pack's lean-to sheds read as tilted boxes from the high cameras.)
             On("office", new Vector3(-44, 0, -72), 0, 1f, true);
