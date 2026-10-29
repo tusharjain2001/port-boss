@@ -81,18 +81,22 @@ namespace PortBoss
                 t.position = new Vector3(b.center.x + at.x, b.center.y + at.y, face - z);
             }
             // Name in cream paint with a worn dark edge; real-container markings in the corners.
-            Paint("PORT BOSS", new Vector2(0.04f, 0.12f), b.size.x * 0.84f, new Color(0.08f, 0.06f, 0.05f, 0.9f), TextAnchor.MiddleCenter);
-            Paint("PORT BOSS", new Vector2(0, 0.16f), b.size.x * 0.84f, new Color(0.98f, 0.93f, 0.8f), TextAnchor.MiddleCenter, 0.01f);
+            Paint("PORT BOSS", new Vector2(0.05f, 0.11f), b.size.x * 0.84f, new Color(0.22f, 0.08f, 0.02f, 0.95f), TextAnchor.MiddleCenter);
+            Paint("PORT BOSS", new Vector2(0, 0.16f), b.size.x * 0.84f, new Color(1f, 0.42f, 0.02f), TextAnchor.MiddleCenter, 0.01f);
             Paint("HARBOUR CO-OP  ·  BERTH 7", new Vector2(0, -0.82f), b.size.x * 0.42f, new Color(0.98f, 0.93f, 0.8f, 0.9f), TextAnchor.MiddleCenter, 0.01f);
             Paint("PBSU 290726 [1]", new Vector2(-b.size.x * 0.33f, b.size.y * 0.36f), b.size.x * 0.2f, new Color(1, 1, 1, 0.85f), TextAnchor.MiddleCenter, 0.01f);
             Paint("MAX GROSS 30,480 KG", new Vector2(b.size.x * 0.32f, -b.size.y * 0.36f), b.size.x * 0.22f, new Color(1, 1, 1, 0.75f), TextAnchor.MiddleCenter, 0.01f);
             foreach (var tr in root.GetComponentsInChildren<Transform>(true)) tr.gameObject.layer = LogoLayer;
-            logoRT = new RenderTexture(1024, 512, 24, RenderTextureFormat.ARGB32) { antiAliasing = 4 };
+            // Turned 15 degrees so the end face shows and the corrugations catch the light; framed exactly on the silhouette.
+            const float turn = 15f;
+            float projW = b.size.x * Mathf.Cos(turn * Mathf.Deg2Rad) + b.size.z * Mathf.Sin(turn * Mathf.Deg2Rad), aspect = projW / b.size.y;
+            logoRT = new RenderTexture(2048, Mathf.RoundToInt(2048 / aspect), 24, RenderTextureFormat.ARGB32) { antiAliasing = 8 };
             logoCam = new GameObject("LogoCam").AddComponent<Camera>();
             logoCam.orthographic = true;
-            logoCam.orthographicSize = b.size.y * 0.5f * 1.02f;
-            logoCam.aspect = 2f;
-            logoCam.transform.SetPositionAndRotation(new Vector3(b.center.x, b.center.y, face - 10f), Quaternion.identity);
+            logoCam.orthographicSize = b.size.y * 0.5f;
+            logoCam.aspect = aspect;
+            var look = Quaternion.Euler(0, turn, 0);
+            logoCam.transform.SetPositionAndRotation(b.center - look * Vector3.forward * 12f, look);
             logoCam.cullingMask = 1 << LogoLayer;
             logoCam.clearFlags = CameraClearFlags.SolidColor; logoCam.backgroundColor = new Color(0.2f, 0.1f, 0.08f, 1);
             logoCam.targetTexture = logoRT;
@@ -209,7 +213,7 @@ namespace PortBoss
             if (logo != null)
             {
                 // The container, hung slightly crooked, as if on a crane hook.
-                var lr = new Rect(x, 46 * S, 600 * S, 300 * S);
+                var lr = new Rect(x, 46 * S, 600 * S, 600 * S * logo.height / logo.width);
                 var m = GUI.matrix;
                 GUIUtility.RotateAroundPivot(-2f + Mathf.Sin(Time.unscaledTime * 0.6f) * 0.6f, new Vector2(lr.center.x, lr.y - 40 * S));
                 GUI.DrawTexture(new Rect(lr.x + 10 * S, lr.y + 14 * S, lr.width, lr.height), Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(0, 0, 0, 0.35f), 0, 6 * S);

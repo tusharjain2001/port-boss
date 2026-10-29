@@ -24,6 +24,7 @@ namespace PortBoss
             WestTerminal();
             Breakwater();
             Shelter(root.Find("Shed"));
+            Stall(root.Find("Buyer"));
             Roads();
             Industry();
             Hinterland();
@@ -148,7 +149,7 @@ namespace PortBoss
             {
                 // Puddles on the cracked concrete.
                 var pd = Art.Prim(PrimitiveType.Cylinder, R, new Vector3(-30 + (float)rng.NextDouble() * 60, 0.012f, -40 + (float)rng.NextDouble() * 36), Quaternion.Euler(0, (float)rng.NextDouble() * 180, 0),
-                    new Vector3(1.2f + (float)rng.NextDouble() * 2.2f, 0.004f, 0.8f + (float)rng.NextDouble() * 1.4f), Art.Hex("#5c6670"), false, "puddle");
+                    new Vector3(1.2f + (float)rng.NextDouble() * 2.2f, 0.004f, 0.8f + (float)rng.NextDouble() * 1.4f), Art.Hex("#93a6b2"), false, "puddle"); // light, sky-coloured: dark ones read as holes
                 pd.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             }
             On("woodStack", new Vector3(-22, 0, -14), 30, 0.7f, true);
@@ -162,7 +163,9 @@ namespace PortBoss
                 var ty = Art.Prim(PrimitiveType.Cylinder, R, p + (side ? Vector3.right * Mathf.Sign(p.x) * 0.2f : Vector3.forward * 0.2f), Quaternion.Euler(side ? 0 : 90, 0, side ? 90 : 0), new Vector3(0.85f, 0.16f, 0.85f), Art.Hex("#262626"), false, "tyre");
                 Art.Prim(PrimitiveType.Cylinder, R, ty.transform.position + (side ? Vector3.right * Mathf.Sign(p.x) * 0.17f : Vector3.forward * 0.17f), ty.transform.rotation, new Vector3(0.42f, 0.02f, 0.42f), Art.Hex("#3a3a3a"), false, "tyre_hole");
             }
-            foreach (var x in new[] { -26f, 8f, 33f }) On("bollard", new Vector3(x, 0, -0.8f), 0, 1f);
+            // World's quay bollards (colliders) wear the pack bollard instead of a grey cylinder.
+            foreach (var r in R.parent.GetComponentsInChildren<Renderer>())
+                if (r.name == "bollard" && r.enabled && r.transform.position.y < 1f) { r.enabled = false; On("bollard", new Vector3(r.transform.position.x, 0, r.transform.position.z), 0, 1f); }
             On("rope", new Vector3(-24.6f, 0, -1.6f), 40, 1f);
             On("wreck", new Vector3(-40, 0, -14), 115, 0.8f, true);
             On("cableWaste", new Vector3(-34, 0, -22), 30, 1f);
@@ -176,7 +179,7 @@ namespace PortBoss
             for (int i = 0; i < 4; i++)
             {
                 // Rust streaks and oil on the concrete.
-                var st = Art.Prim(PrimitiveType.Cylinder, R, new Vector3(-20 + i * 13, 0.014f, -26 + (i % 2) * 9), Quaternion.Euler(0, i * 50, 0), new Vector3(2.4f, 0.004f, 1.2f), i % 2 == 0 ? Art.Hex("#7a4a2c") : Art.Hex("#3c3833"), false, "stain");
+                var st = Art.Prim(PrimitiveType.Cylinder, R, new Vector3(-20 + i * 13, 0.014f, -26 + (i % 2) * 9), Quaternion.Euler(0, i * 50, 0), new Vector3(2.4f, 0.004f, 1.2f), i % 2 == 0 ? Art.Hex("#7a4a2c") : Art.Hex("#6e655a"), false, "stain");
                 st.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             }
             // A sagging, gappy chain-link fence along the back and the east side of our plot.
@@ -300,8 +303,44 @@ namespace PortBoss
             Top("extinguisher", new Vector3(o.x + 2.3f, 1.7f, o.z + 2.65f), 0, Vector3.one);
             Top("powerbox2", new Vector3(o.x + 3.15f, 2.0f, o.z - 0.8f), 90, Vector3.one);
             Top("lamp", new Vector3(o.x, 3.45f, o.z), 0, Vector3.one);
+            // The fish buyer's corner: his stock of empty boxes and a bin bag.
+            var by = World.BuyerPos;
+            On("boxB", new Vector3(by.x - 2.4f, 0, by.z - 1.2f), 20, 1f);
+            On("box", new Vector3(by.x - 2.5f, 0, by.z + 0.1f), -12, 1f);
+            On("bag", new Vector3(by.x + 2.1f, 0, by.z - 1.4f), 70, 1f);
             On("box", new Vector3(o.x + 2.2f, 0, o.z - 1.9f), 15, 1f);
             On("boxB", new Vector3(o.x + 2.3f, 0, o.z - 0.9f), -10, 1f);
+        }
+
+        // A pack piece stretched to fill a box (centre, size), e.g. our stall's parts.
+        static GameObject Fit(string n, Vector3 center, Vector3 size, float yaw = 0)
+        {
+            var g = Art.Place(Skin.Get(n), R, center, yaw, 1f);
+            if (g == null) return null;
+            var b = Art.Bounds(g);
+            var s = g.transform.localScale;
+            var local = Quaternion.Inverse(g.transform.rotation) * b.size; local = new Vector3(Mathf.Abs(local.x), Mathf.Abs(local.y), Mathf.Abs(local.z));
+            var want = Quaternion.Inverse(g.transform.rotation) * size; want = new Vector3(Mathf.Abs(want.x), Mathf.Abs(want.y), Mathf.Abs(want.z));
+            g.transform.localScale = new Vector3(s.x * want.x / Mathf.Max(local.x, 0.01f), s.y * want.y / Mathf.Max(local.y, 0.01f), s.z * want.z / Mathf.Max(local.z, 0.01f));
+            g.transform.position += center - Art.Bounds(g).center;
+            return g;
+        }
+
+        // The fish buyer's stall from pack pieces: a counter of big crates, steel poles, a corrugated roof (our table keeps its colliders).
+        static void Stall(Transform stall)
+        {
+            if (stall == null || Skin.Get("crateBig") == null) return;
+            var top = stall.Find("table_top");
+            if (top == null) return;
+            foreach (var r in stall.GetComponentsInChildren<MeshRenderer>())
+                if (r.GetComponentInParent<Animator>() == null && (r.name == "table_top" || r.name == "lip" || r.name == "leg" || r.name == "pole" || r.name == "awning")) r.enabled = false;
+            var c = top.position; float y = top.GetComponent<Renderer>().bounds.max.y;
+            Fit("crateBig", new Vector3(c.x - 0.66f, y / 2, c.z), new Vector3(1.28f, y, 1.36f), 0);
+            Fit("crateBig", new Vector3(c.x + 0.66f, y / 2, c.z), new Vector3(1.28f, y, 1.36f), 90);
+            foreach (var dx in new[] { -1.45f, 1.45f })
+                Fit("mpole", new Vector3(c.x + dx, 1.35f, c.z - 1.35f), new Vector3(0.12f, 2.7f, 0.12f));
+            var roof = Fit("roofSheet", new Vector3(c.x, 2.75f, c.z - 0.75f), new Vector3(3.3f, 0.35f, 2.2f));
+            if (roof != null) roof.transform.rotation = Quaternion.Euler(-10, 0, 0) * roof.transform.rotation;
         }
 
         // Road tiles (12 m, lane markings and kerbs) along a polyline, top flush with the slabs.
@@ -330,7 +369,7 @@ namespace PortBoss
             {
                 bool east = i % 2 == 0;
                 var p = east ? new Vector3(80 + (float)rng.NextDouble() * 160, 0.015f, -50 + (float)rng.NextDouble() * 160) : new Vector3(-235 + (float)rng.NextDouble() * 170, 0.015f, (float)rng.NextDouble() * 220);
-                var st = Art.Prim(PrimitiveType.Cylinder, R, p, Quaternion.Euler(0, (float)rng.NextDouble() * 180, 0), new Vector3(1 + (float)rng.NextDouble() * 3, 0.004f, 0.8f + (float)rng.NextDouble() * 2), i % 3 == 0 ? Art.Hex("#5c6670") : Art.Hex("#4a443c"), false, "stain");
+                var st = Art.Prim(PrimitiveType.Cylinder, R, p, Quaternion.Euler(0, (float)rng.NextDouble() * 180, 0), new Vector3(1 + (float)rng.NextDouble() * 3, 0.004f, 0.8f + (float)rng.NextDouble() * 2), i % 3 == 0 ? Art.Hex("#93a6b2") : Art.Hex("#6e655a"), false, "stain");
                 st.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             }
             for (int i = 0; i < 24; i++)

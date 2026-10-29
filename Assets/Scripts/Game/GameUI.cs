@@ -71,7 +71,7 @@ namespace PortBoss
                     wm.SetFloat("_DistortionAmount1", 0.5f); wm.SetFloat("_DistortionAmount2", 0.3f); wm.SetFloat("_DepthFadeDistance", 1.2f);
                     // Fresnel ~1 everywhere: the surface is sky reflection + colour, never the refracted screen (it smeared the quay into the water).
                     wm.SetFloat("_FresnelPower", 0.02f);
-                    wm.SetColor("_MainColor", new Color(0.0f, 0.045f, 0.11f)); // + the sky reflection = deep harbour blue
+                    wm.SetColor("_MainColor", new Color(0.0f, 0.075f, 0.13f)); // + the sky reflection = deep harbour blue
                     Art.WaterMat = wm;
                 }
             }
@@ -582,8 +582,8 @@ namespace PortBoss
 
             float pw = 640 * S, rowH = 52 * S, ph = 210 * S + rowH * list.Count;
             var r = new Rect(W - pw - 40 * S, (H - ph) / 2, pw, ph);
-            GUI.Box(r, "", panel);
-            Label(new Rect(r.x, r.y + 14 * S, pw, 50 * S), "THE BUYER", mid, new Color(1f, 0.85f, 0.55f));
+            SteelPanel(r);
+            Label(new Rect(r.x, r.y + 24 * S, pw, 50 * S), "THE BUYER", mid, new Color(1f, 0.85f, 0.55f));
             Label(new Rect(r.x, r.y + 56 * S, pw, 30 * S), BuyerLine(list), new GUIStyle(small) { alignment = TextAnchor.UpperCenter, fontStyle = FontStyle.Italic }, new Color(1, 1, 1, 0.85f));
             var st = new GUIStyle(mid) { alignment = TextAnchor.MiddleLeft, fontStyle = FontStyle.Normal, fontSize = Mathf.RoundToInt(24 * S) };
             float y = r.y + 100 * S;
@@ -618,8 +618,8 @@ namespace PortBoss
             var g = PortGame.I;
             float pw = 720 * S, ph = 780 * S, bw = 520 * S;
             var r = new Rect((W - pw - bw - 30 * S) / 2, (H - ph) / 2, pw, ph);
-            GUI.Box(r, "", panel);
-            Label(new Rect(r.x, r.y + 20 * S, pw, 70 * S), $"End of Day {g.DayNum.Value}", new GUIStyle(big) { fontSize = Mathf.RoundToInt(52 * S) }, new Color(1f, 0.9f, 0.7f));
+            SteelPanel(r);
+            Label(new Rect(r.x, r.y + 26 * S, pw, 70 * S), $"End of Day {g.DayNum.Value}", new GUIStyle(big) { fontSize = Mathf.RoundToInt(52 * S) }, new Color(1f, 0.9f, 0.7f));
             Label(new Rect(r.x + 30 * S, r.y + 84 * S, pw - 60 * S, 34 * S), g.DayVerdict(), new GUIStyle(small) { alignment = TextAnchor.UpperCenter, fontStyle = FontStyle.Italic, fontSize = Mathf.RoundToInt(21 * S) }, new Color(1f, 0.92f, 0.8f, 0.9f));
             DrawContracts(new Rect(r.xMax + 30 * S, r.y, bw, ph));
             var st = new GUIStyle(mid) { alignment = TextAnchor.MiddleLeft, fontStyle = FontStyle.Normal };
@@ -658,8 +658,8 @@ namespace PortBoss
         void DrawContracts(Rect r)
         {
             var g = PortGame.I;
-            GUI.Box(r, "", panel);
-            Label(new Rect(r.x, r.y + 20 * S, r.width, 50 * S), "CONTRACT BOARD", mid, new Color(1f, 0.8f, 0.5f));
+            SteelPanel(r);
+            Label(new Rect(r.x, r.y + 26 * S, r.width, 50 * S), "CONTRACT BOARD", mid, new Color(1f, 0.8f, 0.5f));
             Label(new Rect(r.x, r.y + 64 * S, r.width, 30 * S), "Who brings the fish tomorrow?", new GUIStyle(small) { alignment = TextAnchor.UpperCenter }, new Color(1, 1, 1, 0.7f));
             float y = r.y + 110 * S;
             bool host = NetworkManager.Singleton.IsServer;

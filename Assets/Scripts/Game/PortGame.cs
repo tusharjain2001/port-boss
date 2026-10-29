@@ -120,6 +120,7 @@ namespace PortBoss
             {
                 var b = Instantiate(GameUI.I.BoatPrefab).GetComponent<Boat>();
                 b.Berth.Value = sched[nextBoat].berth;
+                if (nextBoat == 0) b.HeadStart = 20f;
                 b.CargoCount = Mathf.RoundToInt((8 + nextBoat * 3 + (DayNum.Value - 1) * 2) * Today.Cargo);
                 b.NetworkObject.Spawn(true);
                 activeBoats++; nextBoat++;

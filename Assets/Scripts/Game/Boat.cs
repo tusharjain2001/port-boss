@@ -15,6 +15,7 @@ namespace PortBoss
         public NetworkVariable<St> State = new(St.Arriving);
         public NetworkVariable<short> SecondsLeft = new(-1); // while docked
         public NetworkVariable<byte> Berth = new(0);          // set by the spawner before Spawn
+        public float HeadStart; // server: seconds of the sail already done at spawn
         public const float DeckY = 1.6f, HalfW = 2.3f, HalfL = 6f, DockSeconds = 120f, SailSeconds = 34f;
         public static readonly Vector3 DockPos = new(7.6f, 0, 16f), DockPosLeft = new(-7.6f, 0, 16f);
         public Vector3 BerthPos => Berth.Value == 0 ? DockPos : DockPosLeft;
@@ -127,9 +128,12 @@ namespace PortBoss
             OnState(State.Value);
             if (!IsServer) return;
             // Teleport first: MovePosition from the spawn point (the origin, on the quay) would sweep the hull through the crates there.
-            transform.position = rb.position = Bezier(InPath, 0);
+            // The day's first boat starts partway in (the harbour is big; nobody should wait 40 s for work).
+            t = HeadStart;
+            float u0 = Mathf.SmoothStep(0, 1, Mathf.Clamp01(t / SailSeconds));
+            transform.position = rb.position = Bezier(InPath, u0);
             Physics.SyncTransforms();
-            Pose(Bezier(InPath, 0), Tangent(InPath, 0));
+            Pose(Bezier(InPath, u0), Tangent(InPath, u0));
             // Cargo rides in stacked on deck, parented (not simulated) until we dock.
             for (int i = 0; i < CargoCount; i++)
             {

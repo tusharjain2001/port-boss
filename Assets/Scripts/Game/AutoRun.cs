@@ -73,6 +73,7 @@ namespace PortBoss
             if (Arg("-pb-carrytest") != null) StartCoroutine(CarryTest(Arg("-pb-carrytest")));
             if (Arg("-pb-mapshots") != null) StartCoroutine(MapShots(Arg("-pb-mapshots")));
             if (Arg("-pb-uishots") != null) StartCoroutine(UiShots(Arg("-pb-uishots")));
+            if (Arg("-pb-film") != null) StartCoroutine(Film(Arg("-pb-film")));
             if (float.TryParse(Arg("-pb-weather"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var wsev)) StartCoroutine(ForceWeatherSoon(wsev));
             if (Has("-pb-forklifttest")) StartCoroutine(ForkliftTest());
         }
@@ -258,6 +259,37 @@ namespace PortBoss
                 if ((q - headC).sqrMagnitude < 0.19f * 0.19f) return false;            // head + hard hat
             }
             return true;
+        }
+
+        // Trailer frames (windowed, so the menu and HUD are in): fixed 30 fps game time, every frame saved as a JPEG.
+        // Title flyover (berth, then the whole harbour), then a bot shift; the weather turns rough near the end.
+        IEnumerator Film(string dir)
+        {
+            Directory.CreateDirectory(dir);
+            int n = 0;
+            IEnumerator Frame()
+            {
+                yield return new WaitForEndOfFrame();
+                var tex = ScreenCapture.CaptureScreenshotAsTexture();
+                File.WriteAllBytes(Path.Combine(dir, $"f_{n++:00000}.jpg"), tex.EncodeToJPG(90));
+                Destroy(tex);
+            }
+            yield return new WaitForSecondsRealtime(3f);
+            Time.captureFramerate = 30;
+            foreach (var (from, secs) in new[] { (1f, 7f), (43f, 6f) })
+                for (int f = 0; f < secs * 30; f++) { GameUI.TitleTime = from + f / 30f; yield return Frame(); }
+            GameUI.TitleTime = -1;
+            ui.Play();
+            while (PortGame.I == null || Player.Local == null) yield return Frame();
+            bot = new Bot(); Player.BotInput = bot.Tick;
+            for (int f = 0; f < 62 * 30; f++)
+            {
+                if (f == 44 * 30) PortGame.I.ForceWeather(0.85f);
+                yield return Frame();
+            }
+            Time.captureFramerate = 0;
+            Debug.Log($"[PB] film done: {n} frames");
+            Application.Quit();
         }
 
         // The front door: each title shot (camera only in batchmode; with the menu drawn when windowed), the logo texture,
