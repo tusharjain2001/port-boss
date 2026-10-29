@@ -19,7 +19,7 @@ namespace PortBoss
         static readonly Vector3 PreviewAt = new(0, -700, 0);
         static readonly System.Random lookDice = new();
 
-        public RenderTexture PreviewRT => previewRT;
+        public RenderTexture RenderPreview() { if (previewCam != null) previewCam.Render(); return previewRT; } // tests: grab a frame now
         public void DebugLook(Look l) { charLook = l; previewYaw = -25f; previewSpin = 0; if (preview != null) { preview.Apply(l); preview.transform.parent.rotation = Quaternion.Euler(0, previewYaw, 0); } }
 
         int LookSlot => Player.Local != null ? (int)Player.Local.OwnerClientId : 0;
@@ -59,6 +59,11 @@ namespace PortBoss
             preview = Worker.Make(Skin.I.Worker, root);
             var an = preview.GetComponentInChildren<Animator>();
             if (an != null) an.gameObject.AddComponent<CharAnim>().Init(an, Skin.I);
+            // A studio key light of its own (short range: nothing else is near), so the preview reads at any time of day.
+            var key = new GameObject("PreviewKey").AddComponent<Light>();
+            key.type = LightType.Point; key.range = 9; key.intensity = 6f; key.color = new Color(1f, 0.95f, 0.88f); key.shadows = LightShadows.None;
+            key.transform.SetParent(root, false); key.transform.position = PreviewAt + new Vector3(-1.6f, 2.6f, 2.6f);
+            key.transform.SetParent(null, true); // stays put while the worker turns
             foreach (var t in root.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = PreviewLayer;
             previewRT = new RenderTexture(720, 1000, 24) { antiAliasing = 4, name = "CharacterPreview" };
             previewCam = new GameObject("PreviewCam").AddComponent<Camera>();

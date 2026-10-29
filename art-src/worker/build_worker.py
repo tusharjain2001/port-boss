@@ -164,17 +164,19 @@ def subset(src, name, keep, offset=0.0, rim=0.0, slot='skin', paint=None, cuts=(
     bmesh.ops.delete(bm, geom=loose, context='VERTS')
     for v in bm.verts: v.co += nrm[v] * offset
     bm.normal_update()
-    if rim > 0: fold_rim(bm, rim)
+    if rim > 0: fold_rim(bm, rim, nrm)
     me = bpy.data.meshes.new(name); ob = bpy.data.objects.new(name, me); bpy.context.scene.collection.objects.link(ob)
     bm_put(bm, ob)
     set_slots(ob, slot, paint)
     return ob
 
 
-def fold_rim(bm, depth):
+def fold_rim(bm, depth, body_nrm=None):
+    """Turn the open edges in towards the body (along the body's own normals when known: the edge normals of a cut
+    shell lean sideways, and a hem folded along them comes out ragged)."""
     edges = [e for e in bm.edges if e.is_boundary]
     if not edges: return
-    nrm = {v: v.normal.copy() for e in edges for v in e.verts}
+    nrm = {v: (body_nrm[v] if body_nrm and v in body_nrm else v.normal).copy() for e in edges for v in e.verts}
     res = bmesh.ops.extrude_edge_only(bm, edges=edges)
     for g in res['geom']:
         if isinstance(g, bmesh.types.BMVert):
@@ -686,7 +688,7 @@ def build_all(full=True):
     for o in hairs + beards + hats: rigid(o, rig, 'Head')
     hand_l = build_hand(); hand_r = mirror_x(hand_l, 'Hand_R')
     glove_l = subset(hand_l, 'Gloves_L', lambda c, n: True, 0.005, 0.0, 'gloves')
-    cuff = Geo().tube((0.735, 0, 1.38), (0.785, 0, 1.38), 0.06, 0.058, flat=0.85).obj('Gloves_Cuff_L'); solidify(cuff, 0.0025, 110, 2, 1); set_slots(cuff, 'gloves')
+    cuff = Geo().tube((0.735, 0, 1.38), (0.785, 0, 1.38), 0.06, 0.058, flat=0.85).obj('Gloves_Cuff_L'); solidify(cuff, 0.0025, 180, 2, 1); set_slots(cuff, 'gloves')
     gl = join([glove_l, cuff], 'Gloves_L'); glove_r = mirror_x(gl, 'Gloves_R')
     for o, s in ((hand_l, 'Left'), (hand_r, 'Right'), (gl, 'Left'), (glove_r, 'Right')):
         names = [s + 'ForeArm', s + 'Hand'] + [f'{s}Hand{f}{j}' for f in ('Index', 'Middle', 'Ring', 'Pinky', 'Thumb') for j in (1, 2, 3)]

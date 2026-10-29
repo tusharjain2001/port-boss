@@ -73,6 +73,9 @@ Add `-batchmode` to run without a window (shots still render the camera; IMGUI m
 | `-pb-mapshots <dir>` | fixed-camera map shots (`map-demo-angle.png`...) + the map check |
 | `-pb-uishots <dir>` | title flyover shots, logo, Join, Settings, Pause (menus drawn only when windowed) |
 | `-pb-crateshots <dir>` / `-pb-charshots <dir>` | crate / character close-ups |
+| `-pb-lookshots <dir>` | opens the character editor and runs 10 looks: `look-N.png` preview renders (headless too) + `editor-N.png` full screen (windowed only) |
+| `-pb-randomlook` | this process's player wears a random look (not saved); every peer logs `[PB] look pN ...` (co-op sync check) |
+| `-pb-laddershot <dir>` | swims to the first ladder, grabs it and shoots the climb out from the side (`ladder-0..2.png`) |
 | `-pb-film <dir>` | the trailer frames (windowed only, see `capture.sh`) |
 | `-pb-ownart` | ignore the Toon Harbor skin even if it is built in |
 | `-pb-bevel`, `-pb-oldwater`, `-pb-oldfog`, `-pb-noclouds` | look experiments / A/B switches |

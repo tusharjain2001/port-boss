@@ -136,6 +136,7 @@ namespace PortBoss
                 // Our own dock worker, dressed as the player chose (the slot's default until the look arrives).
                 worker = Worker.Make(Skin.I.Worker, m);
                 worker.Apply(LookNet.Value.Set != 0 ? LookNet.Value : Look.Default(id));
+                Debug.Log($"[PB] look p{OwnerClientId} on spawn {worker.Current}");
                 g = worker.gameObject;
             }
             else
@@ -653,6 +654,7 @@ namespace PortBoss
         // ---------- swimming ----------
         public const float SwimDepth = 1.3f; // feet this far below the surface: head + shoulders out
         public bool Swimming => swimming;
+        public bool Climbing => climbT >= 0;
         public bool Towing => TowedId.Value != 0;
         public NetworkVariable<ulong> TowedId = new(0); // server writes: the floating crate being towed
         bool swimming;
