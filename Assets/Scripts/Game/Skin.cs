@@ -18,7 +18,7 @@ namespace PortBoss
         [Header("People")]
         public GameObject[] Players;   // one per player slot
         public GameObject Buyer;
-        public AnimationClip Idle, Walk, Run, Jump, Swim, SwimIdle, Drive, Push;
+        public AnimationClip Idle, Walk, Run, Jump, Swim, SwimIdle, Drive, Push, Sprint;
         [Header("Props")]
         public GameObject Crate;
         public GameObject[] Barrels, Pallets, BigCrates, Dinghies;

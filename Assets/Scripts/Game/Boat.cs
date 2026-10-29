@@ -34,6 +34,9 @@ namespace PortBoss
         Vector3[] OutPath => OutPaths[Berth.Value];
 
         [HideInInspector] public int CargoCount = 8; // set by spawner before Spawn
+        // How fast the boat is going (every peer): a boat under way shoves people out of its path (Player.BoatPush).
+        public Vector3 Velocity { get; private set; }
+        Vector3 lastPos;
         Rigidbody rb;
         float t, countdown;
         int shoutIdx;
@@ -80,6 +83,13 @@ namespace PortBoss
             Rail(new Vector3(0, 0, HalfL - 0.06f), new Vector3(HalfW * 2, 0.45f, 0.1f));
             Rail(new Vector3(0, 0, -HalfL + 0.06f), new Vector3(HalfW * 2, 0.45f, 0.1f));
             if (Skin.On && Skin.Get("tugStern") != null) TugLook(v);
+            lastPos = transform.position;
+        }
+
+        void Update()
+        {
+            if (Time.deltaTime > 0) Velocity = Vector3.Lerp(Velocity, (transform.position - lastPos) / Time.deltaTime, 0.25f);
+            lastPos = transform.position;
         }
 
         // Toon Harbor look: a small tug built from the pack's modular parts around our own colliders and deck.
@@ -109,7 +119,8 @@ namespace PortBoss
             foreach (var c in stern.GetComponentsInChildren<Collider>()) DestroyImmediate(c); // now: we are still at the origin, on the quay crates
             foreach (var c in bow.GetComponentsInChildren<Collider>()) DestroyImmediate(c);
             // Bridge on the stern deck, a pack worker as the captain.
-            var br = Art.Place(Skin.Get("tugBridge"), v, Vector3.zero, 0, k);
+            // The bridge keeps the pack's collision mesh: it is wider than our wheelhouse box, and you shouldn't walk through it.
+            var br = Art.Place(Skin.Get("tugBridge"), v, Vector3.zero, 0, k, true);
             if (br != null) { var b2 = Art.Bounds(br); br.transform.position += new Vector3(transform.position.x - b2.center.x, transform.position.y + DeckY - b2.min.y, (transform.position.z - HalfL + 2.0f) - b2.center.z); }
             if (Skin.I.Buyer != null)
             {

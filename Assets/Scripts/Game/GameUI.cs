@@ -13,7 +13,7 @@ namespace PortBoss
     {
         public static GameUI I;
         public GameObject CratePrefab, BoatPrefab, TrolleyPrefab, PortGamePrefab, ForkliftPrefab, PalletPrefab;
-        public Material LitMat, EmissiveMat, ParticleMat, WaterMat, CloudMat;
+        public Material LitMat, EmissiveMat, ParticleMat, WaterMat, CloudMat, LandMat;
         public Skin Skin; // Toon Harbor slots (empty = own art)
         public GameObject[] Models; public int[] ModelKit; public Material[] KitMats;
         public Font TitleFont;
@@ -46,7 +46,7 @@ namespace PortBoss
         public static void OpenBuyer() { if (I == null) return; I.buyerOpen = true; I.buyerOpenedAt = Time.unscaledTime; Sfx.Play2D("click", 0.5f); }
         public static void CloseBuyer() { if (I != null) I.buyerOpen = false; }
 
-        public static bool InputBlocked => I == null || I.screen != Screen.Playing || I.paused || I.buyerOpen
+        public static bool InputBlocked => I == null || I.screen != Screen.Playing || I.paused || I.buyerOpen || I.statsOpen
             || (PortGame.I != null && PortGame.I.Phase.Value == PortGame.Ph.Night);
 
         void Awake()
@@ -59,21 +59,12 @@ namespace PortBoss
             if (Arg("-pb-oldwater")) { var w = new Material(LitMat); w.SetColor("_BaseColor", new Color(0.13f, 0.3f, 0.36f)); w.SetFloat("_Smoothness", 0.88f); WaterMat = w; }
             oldFog = Arg("-pb-oldfog");
             if (Arg("-pb-noclouds")) CloudMat = null;
-            Art.Lit = LitMat; Art.Emissive = EmissiveMat; Art.Particle = ParticleMat; Art.WaterMat = WaterMat; Art.Cloud = CloudMat;
+            Art.Lit = LitMat; Art.Emissive = EmissiveMat; Art.Particle = ParticleMat; Art.WaterMat = WaterMat; Art.Cloud = CloudMat; Art.Land = LandMat;
             Skin.I = Skin;
             if (Skin.On && !Arg("-pb-ownart"))
             {
                 Art.Toon = Skin.Toon;
-                if (Skin.ToonWater != null)
-                {
-                    // The pack water, a touch calmer in pattern and more opaque near the surface (swimmers sit chest-deep in it).
-                    var wm = new Material(Skin.ToonWater);
-                    wm.SetFloat("_DistortionAmount1", 0.5f); wm.SetFloat("_DistortionAmount2", 0.3f); wm.SetFloat("_DepthFadeDistance", 1.2f);
-                    // Fresnel ~1 everywhere: the surface is sky reflection + colour, never the refracted screen (it smeared the quay into the water).
-                    wm.SetFloat("_FresnelPower", 0.02f);
-                    wm.SetColor("_MainColor", new Color(0.0f, 0.075f, 0.13f)); // + the sky reflection = deep harbour blue
-                    Art.WaterMat = wm;
-                }
+                // (The sea is our own toon water, PortBoss/Water: the pack's tiled normal map shimmered in the distance.)
             }
             else Skin.I = null; // -pb-ownart: the pre-pack look, for A/B shots
             Application.targetFrameRate = 144;
@@ -203,6 +194,7 @@ namespace PortBoss
             else ApplyLight(0.8f, false); // the title scene sits in golden hour
             ApplyStormLight();
             UpdatePunch();
+            NightTick();
             amb.volume = 0.35f * (1f + Storm.Level * 1.3f) * Settings.Ambience; // the sea gets louder as it gets rougher
             SettingsKeyCapture();
             music.Play(MusicSlot(g));
@@ -211,7 +203,8 @@ namespace PortBoss
             if (screen == Screen.Playing && k != null)
             {
                 var grabKey = Settings.KeyFor("grab");
-                if (buyerOpen && (k.escapeKey.wasPressedThisFrame || (grabKey != Key.None && k[grabKey].wasPressedThisFrame))) CloseBuyer();
+                if (statsOpen && k.escapeKey.wasPressedThisFrame) statsOpen = false;
+                else if (buyerOpen && (k.escapeKey.wasPressedThisFrame || (grabKey != Key.None && k[grabKey].wasPressedThisFrame))) CloseBuyer();
                 else if (k.escapeKey.wasPressedThisFrame || Gamepad.current?.startButton.wasPressedThisFrame == true) SetPaused(!paused);
                 if (k.hKey.wasPressedThisFrame) { showHelp = !showHelp; Settings.ControlsHint = showHelp; }
                 // Debug (host): F9 cycles the weather: random → calm → rain → storm → random.
@@ -415,9 +408,10 @@ namespace PortBoss
             else
             {
                 DrawHud(W, H);
-                if (PortGame.I != null && PortGame.I.Phase.Value == PortGame.Ph.Night) DrawNight(W, H);
+                if (PortGame.I != null && PortGame.I.Phase.Value == PortGame.Ph.Night) { if (!statsOpen) DrawNight(W, H); }
                 else if (buyerOpen) DrawBuyer(W, H);
-                if (paused) { if (settingsFromPause) DrawSettings(W, H); else DrawPause(W, H); }
+                if (paused) { if (settingsFromPause) DrawSettings(W, H); else if (!statsOpen) DrawPause(W, H); }
+                if (statsOpen) DrawStats(W, H);
             }
             if (!string.IsNullOrEmpty(Session.Status) && screen == Screen.Join) // the menu has its own Steam note
                 Label(new Rect(0, H - 80 * S, W, 50 * S), Session.Status, mid, new Color(1f, 0.8f, 0.6f));
@@ -520,6 +514,7 @@ namespace PortBoss
             }
 
             var pl = Player.Local;
+            if (pl != null && !nightCard && Settings.Hud) DrawCrateRings(H, pl);
             if (pl != null && g != null && !nightCard && Settings.Hud) DrawObjective(W, H, g, pl);
             if (pl != null && !InputBlocked)
             {
@@ -551,11 +546,11 @@ namespace PortBoss
                 if (pl.Carrying > 0) Label(new Rect(0, H - 150 * S, W, 40 * S), $"Carrying {pl.Carrying}/{Player.MaxStack}   ·   Q put down   ·   Left click throw", mid, new Color(1, 1, 1, 0.85f));
                 if (pl.Swimming || pl.Stamina < 0.999f)
                 {
-                    // Breath: drains while swimming, refills on land. Low = slow; empty = fished out.
+                    // Stamina: drains while swimming, refills on land. Low = slow; empty = fished out.
                     float st = pl.Stamina, bw = 320 * S;
                     var br = new Rect((W - bw) / 2, H - 196 * S, bw, 16 * S);
-                    Pill(new Rect(br.x - 92 * S, br.y - 10 * S, bw + 104 * S, 36 * S));
-                    Label(new Rect(br.x - 88 * S, br.y - 9 * S, 84 * S, 34 * S), "BREATH", new GUIStyle(small) { fontSize = Mathf.RoundToInt(17 * S), fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft }, new Color(0.8f, 0.92f, 1f));
+                    Pill(new Rect(br.x - 112 * S, br.y - 10 * S, bw + 124 * S, 36 * S));
+                    Label(new Rect(br.x - 106 * S, br.y - 9 * S, 100 * S, 34 * S), "STAMINA", new GUIStyle(small) { fontSize = Mathf.RoundToInt(17 * S), fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft }, new Color(0.8f, 0.92f, 1f));
                     GUI.DrawTexture(br, Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(0, 0, 0, 0.45f), 0, 5 * S);
                     var col = st > 0.5f ? new Color(0.45f, 0.8f, 1f) : st > 0.25f ? new Color(1f, 0.8f, 0.3f) : new Color(1f, 0.35f, 0.3f, 0.7f + 0.3f * Mathf.Sin(Time.unscaledTime * 14f));
                     GUI.DrawTexture(new Rect(br.x, br.y, Mathf.Max(6 * S, br.width * st), br.height), Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, col, 0, 5 * S);
@@ -573,6 +568,65 @@ namespace PortBoss
         }
 
         void Pill(Rect r) => GUI.DrawTexture(r, Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(0.03f, 0.05f, 0.08f, 0.5f), 0, 10 * S);
+
+        // Freshness rings over the crates near you: the ring drains as the fish goes off and empties as the crate drops
+        // a grade (green fresh $15 → amber okay $12 → red spoiled $4), so a nearly empty ring means sell it now. The buyer's
+        // price is in the middle; red pips under it = knocks (-25% each). Carried crates show theirs beside the stack.
+        static Texture2D[] ringTex;
+        const int RingSteps = 48;
+        static Texture2D RingTex(int step)
+        {
+            ringTex ??= new Texture2D[RingSteps + 1];
+            if (ringTex[step] != null) return ringTex[step];
+            const int n = 64;
+            var t = new Texture2D(n, n, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
+            float fill = step / (float)RingSteps;
+            var px = new Color32[n * n];
+            for (int y = 0; y < n; y++)
+                for (int x = 0; x < n; x++)
+                {
+                    float dx = x + 0.5f - n / 2f, dy = y + 0.5f - n / 2f, d = Mathf.Sqrt(dx * dx + dy * dy) / (n / 2f);
+                    float band = Mathf.Clamp01(1f - Mathf.Abs(d - 0.8f) / 0.16f * 1.0f) * 3f; // soft-edged ring
+                    float ang = Mathf.Repeat(Mathf.Atan2(dx, dy) / (2 * Mathf.PI), 1f);    // 0 at 12 o'clock, clockwise
+                    float a = ang <= fill ? Mathf.Clamp01(band) : 0f;
+                    px[y * n + x] = new Color32(255, 255, 255, (byte)(a * 255));
+                }
+            t.SetPixels32(px); t.Apply();
+            return ringTex[step] = t;
+        }
+
+        void DrawCrateRings(float H, Player pl)
+        {
+            var cam = Camera.main;
+            if (cam == null) return;
+            var price = new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
+            foreach (var c in Crate.All)
+            {
+                if (c == null || !c.IsSpawned) continue;
+                bool mine = c.transform.parent == pl.transform;
+                var at = c.transform.position + (mine ? cam.transform.right * 0.5f : Vector3.up * 0.5f);
+                float d = Vector3.Distance(cam.transform.position, at), near = mine ? 99f : 11f;
+                if (!mine && Vector3.Distance(pl.transform.position, c.transform.position) > near) continue;
+                var sp = cam.WorldToScreenPoint(at);
+                if (sp.z < 0.3f) continue;
+                float f = c.Fresh.Value, k, alpha = mine ? 1f : Mathf.Clamp01((near - Vector3.Distance(pl.transform.position, c.transform.position)) / 3f);
+                Color col;
+                if (f >= Crate.FreshAt) { k = (f - Crate.FreshAt) / (1f - Crate.FreshAt); col = new Color(0.45f, 0.95f, 0.45f); }
+                else if (f >= Crate.Spoiled) { k = (f - Crate.Spoiled) / (Crate.FreshAt - Crate.Spoiled); col = new Color(1f, 0.75f, 0.25f); }
+                else { k = 1f; col = new Color(1f, 0.32f, 0.28f); }
+                // About to drop a grade: the ring blinks.
+                if (f >= Crate.Spoiled && k < 0.15f) alpha *= 0.55f + 0.45f * Mathf.Sin(Time.unscaledTime * 10f);
+                float size = Mathf.Clamp(46f * S * 6f / Mathf.Max(d, 1f), 26f * S, 50f * S);
+                var r = new Rect(sp.x - size / 2, H - sp.y - size / 2, size, size);
+                GUI.DrawTexture(new Rect(r.x - 2 * S, r.y - 2 * S, r.width + 4 * S, r.height + 4 * S), Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(0.02f, 0.04f, 0.06f, 0.55f * alpha), 0, size);
+                GUI.DrawTexture(r, RingTex(RingSteps), ScaleMode.StretchToFill, true, 0, new Color(1, 1, 1, 0.16f * alpha), 0, 0);
+                GUI.DrawTexture(r, RingTex(Mathf.Clamp(Mathf.CeilToInt(k * RingSteps), 0, RingSteps)), ScaleMode.StretchToFill, true, 0, new Color(col.r, col.g, col.b, alpha), 0, 0);
+                price.fontSize = Mathf.RoundToInt(size * 0.34f);
+                Label(r, "$" + PortGame.I?.PriceFor(c), price, new Color(1, 1, 1, alpha));
+                for (int i = 0; i < c.Damage.Value; i++)
+                    GUI.DrawTexture(new Rect(sp.x - (c.Damage.Value * 9f * S) / 2 + i * 9f * S, r.yMax + 2 * S, 6 * S, 6 * S), Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(1f, 0.3f, 0.25f, alpha), 0, 3 * S);
+            }
+        }
 
         // First day only: one line saying what to do next, and a bobbing marker over where to do it.
         void DrawObjective(float W, float H, PortGame g, Player pl)
@@ -649,50 +703,169 @@ namespace PortBoss
             return "\"Decent. Standard rate.\"";
         }
 
+        // ---- End of day: the card slides up, the report plays in a row at a time (numbers count up, the money
+        // lands with a ka-ching, the crew tin fills toward the next stage), then the night shop. A click skips ahead.
+        int nightDay = -1, nightLanded;
+        float nightAt, nightSkip, nightTickAt;
+        bool statsOpen;
+        const float RowsStart = 0.7f, RowGap = 0.45f, RowCount = 0.75f, NightRows = 5;
+        float NightT => Time.unscaledTime - nightAt + nightSkip;
+        float NightDone => RowsStart + (NightRows - 1) * RowGap + RowCount;
+        static float EaseOut(float x) { x = Mathf.Clamp01(x); return 1 - (1 - x) * (1 - x) * (1 - x); }
+        static float EaseBack(float x) { x = Mathf.Clamp01(x); const float c = 1.6f; return 1 + (c + 1) * Mathf.Pow(x - 1, 3) + c * Mathf.Pow(x - 1, 2); }
+
+        // Every frame (sounds live here, not in OnGUI, which runs several times a frame).
+        void NightTick()
+        {
+            var g = PortGame.I;
+            if (g == null || g.Phase.Value != PortGame.Ph.Night) { if (g != null && g.Phase.Value == PortGame.Ph.Day) nightDay = -1; return; }
+            if (nightDay != g.DayNum.Value)
+            {
+                nightDay = g.DayNum.Value; nightAt = Time.unscaledTime; nightSkip = 0; nightLanded = 0;
+                Stats.DayDone(g);
+                Sfx.Play2D("whoosh", 0.6f);
+            }
+            float t = NightT;
+            while (nightLanded < NightRows && t >= RowsStart + nightLanded * RowGap + RowCount)
+            {
+                Sfx.Play2D(nightLanded == 0 || nightLanded == 4 ? "kaching" : "place", nightLanded == 0 ? 0.55f : 0.4f);
+                nightLanded++;
+            }
+            // Ticks while a number is counting up.
+            float into = t - RowsStart - nightLanded * RowGap;
+            if (nightLanded < NightRows && into > 0 && into < RowCount && Time.unscaledTime > nightTickAt)
+            {
+                nightTickAt = Time.unscaledTime + 0.065f;
+                Sfx.Play2D("tick", 0.25f);
+            }
+        }
+
         void DrawNight(float W, float H)
         {
             var g = PortGame.I;
-            float pw = 720 * S, ph = 780 * S, bw = 520 * S;
+            float t = NightT, pw = 720 * S, ph = 780 * S, bw = 520 * S;
             var r = new Rect((W - pw - bw - 30 * S) / 2, (H - ph) / 2, pw, ph);
+            float enter = EaseBack(t / 0.55f), fade = Mathf.Clamp01(t / 0.3f);
+            r.y += (1 - enter) * 140 * S;
+            bool done = t >= NightDone;
+            // Click on the card while it plays: skip to the end.
+            if (!done && Event.current.type == EventType.MouseDown && r.Contains(Event.current.mousePosition)) { nightSkip += NightDone + 1; Event.current.Use(); }
+
+            GUI.color = new Color(1, 1, 1, fade);
             SteelPanel(r);
             Label(new Rect(r.x, r.y + 26 * S, pw, 70 * S), $"End of Day {g.DayNum.Value}", new GUIStyle(big) { fontSize = Mathf.RoundToInt(52 * S) }, new Color(1f, 0.9f, 0.7f));
-            Label(new Rect(r.x + 30 * S, r.y + 84 * S, pw - 60 * S, 34 * S), g.DayVerdict(), new GUIStyle(small) { alignment = TextAnchor.UpperCenter, fontStyle = FontStyle.Italic, fontSize = Mathf.RoundToInt(21 * S) }, new Color(1f, 0.92f, 0.8f, 0.9f));
-            DrawContracts(new Rect(r.xMax + 30 * S, r.y, bw, ph));
+            // The verdict types itself out.
+            var verdict = g.DayVerdict();
+            int chars = Mathf.Clamp(Mathf.FloorToInt((t - 0.35f) * 70f), 0, verdict.Length);
+            Label(new Rect(r.x + 30 * S, r.y + 84 * S, pw - 60 * S, 34 * S), verdict.Substring(0, chars), new GUIStyle(small) { alignment = TextAnchor.UpperCenter, fontStyle = FontStyle.Italic, fontSize = Mathf.RoundToInt(21 * S) }, new Color(1f, 0.92f, 0.8f, 0.9f));
+
+            // The contract board slides in from the right a moment later.
+            float cIn = EaseOut((t - 0.25f) / 0.6f);
+            GUI.color = new Color(1, 1, 1, cIn * fade);
+            DrawContracts(new Rect(r.xMax + 30 * S + (1 - cIn) * 160 * S, (H - ph) / 2, bw, ph), done);
+            GUI.color = new Color(1, 1, 1, fade);
+
             var st = new GUIStyle(mid) { alignment = TextAnchor.MiddleLeft, fontStyle = FontStyle.Normal };
             float y = r.y + 136 * S, x = r.x + 70 * S, lh = 46 * S;
-            Label(new Rect(x, y, pw, lh), $"Money earned:  ${g.Earned.Value}", st, Color.white); y += lh;
-            Label(new Rect(x, y, pw, lh), $"Crates sold:  {g.Sold.Value}" + (g.SpoiledSold.Value > 0 ? $"  ({g.SpoiledSold.Value} spoiled)" : ""), st, Color.white); y += lh;
-            Label(new Rect(x, y, pw, lh), $"Crates in the sea:  {g.InSea.Value}", st, new Color(0.7f, 0.9f, 1f)); y += lh;
-            Label(new Rect(x, y, pw, lh), $"Went back out on the boats:  {g.LeftAboard.Value}", st, Color.white); y += lh;
-            Label(new Rect(x, y, pw, lh), $"Crew tin:  ${g.Money.Value}" + (Player.All.Count > 1 ? $"  (shared, same for all {Player.All.Count})" : ""), st, new Color(1f, 0.88f, 0.4f)); y += lh;
-            var note = new GUIStyle(small) { alignment = TextAnchor.MiddleLeft, fontSize = Mathf.RoundToInt(20 * S) };
-            var tm = g.Tomorrow;
-            Label(new Rect(x, y, pw - 80 * S, 30 * S), $"Saving for: {g.NextStageName}  ${g.Money.Value} / ${g.NextStageCost}", note, new Color(1f, 0.92f, 0.75f, 0.9f)); y += 30 * S;
-            Label(new Rect(x, y, pw - 80 * S, 30 * S), $"Tomorrow: Captain {g.NextCaptain[0]}{g.NextCaptain.Substring(1).ToLowerInvariant()}, {tm.boats} boats, first one at {Mathf.FloorToInt(tm.first / 60)}:{Mathf.FloorToInt(tm.first % 60):00}", note, new Color(1f, 0.92f, 0.75f, 0.9f)); y += 30 * S * 1.4f;
+            int row = 0;
+            // One report line: slides in from the left, its number counts up.
+            void Line(string label, int value, string extra, Color c, bool money = false)
+            {
+                float t0 = RowsStart + row * RowGap, a = Mathf.Clamp01((t - t0) / 0.25f);
+                row++;
+                if (a > 0)
+                {
+                    int shown = Mathf.RoundToInt(value * EaseOut((t - t0) / RowCount));
+                    bool landed = t >= t0 + RowCount;
+                    var col = new Color(c.r, c.g, c.b, a);
+                    // A little pop as the number lands.
+                    float pop = landed ? Mathf.Clamp01(1 - (t - t0 - RowCount) / 0.25f) : 0;
+                    var lst = pop > 0 ? new GUIStyle(st) { fontSize = Mathf.RoundToInt(st.fontSize * (1 + 0.12f * pop)) } : st;
+                    Label(new Rect(x - (1 - a) * 40 * S, y, pw, lh), $"{label}:  {(money ? "$" : "")}{shown}" + (landed ? extra : ""), lst, col);
+                }
+                y += lh;
+            }
+            Line("Money earned", g.Earned.Value, "", Color.white, true);
+            Line("Crates sold", g.Sold.Value, g.SpoiledSold.Value > 0 ? $"  ({g.SpoiledSold.Value} spoiled)" : "", Color.white);
+            Line("Crates in the sea", g.InSea.Value, "", new Color(0.7f, 0.9f, 1f));
+            Line("Went back out on the boats", g.LeftAboard.Value, "", Color.white);
+            Line("Crew tin", g.Money.Value, Player.All.Count > 1 ? $"  (shared, same for all {Player.All.Count})" : "", new Color(1f, 0.88f, 0.4f), true);
 
-            Label(new Rect(r.x, y, pw, lh), "NIGHT SHOP", mid, new Color(1f, 0.8f, 0.5f)); y += lh * 1.1f;
+            // Crew tin → next stage: a bar that fills with the last line.
+            var note = new GUIStyle(small) { alignment = TextAnchor.MiddleLeft, fontSize = Mathf.RoundToInt(20 * S) };
+            float barIn = EaseOut((t - (RowsStart + 4 * RowGap)) / (RowCount + 0.3f));
+            var bar = new Rect(x, y + 6 * S, pw - 140 * S, 14 * S);
+            GUI.DrawTexture(bar, Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(0, 0, 0, 0.45f * fade), 0, 6 * S);
+            float fill = Mathf.Clamp01(g.Money.Value / (float)Mathf.Max(1, g.NextStageCost)) * barIn;
+            if (fill > 0) GUI.DrawTexture(new Rect(bar.x, bar.y, Mathf.Max(10 * S, bar.width * fill), bar.height), Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(1f, 0.78f, 0.25f, fade), 0, 6 * S);
+            y += 26 * S;
+            var tm = g.Tomorrow;
+            Label(new Rect(x, y, pw - 80 * S, 30 * S), $"Saving for: {g.NextStageName}  ${Mathf.RoundToInt(g.Money.Value * barIn)} / ${g.NextStageCost}", note, new Color(1f, 0.92f, 0.75f, 0.9f)); y += 30 * S;
+            Label(new Rect(x, y, pw - 80 * S, 30 * S), $"Tomorrow: Captain {g.NextCaptain[0]}{g.NextCaptain.Substring(1).ToLowerInvariant()}, {tm.boats} boats, first one at {Mathf.FloorToInt(tm.first / 60)}:{Mathf.FloorToInt(tm.first % 60):00}", note, new Color(1f, 0.92f, 0.75f, 0.9f)); y += 30 * S * 1.3f;
+
+            // The shop and the buttons come up once the report has played.
+            float shopIn = EaseOut((t - NightDone) / 0.4f);
+            if (!done)
+            {
+                Label(new Rect(r.x, r.yMax - 60 * S, pw, 30 * S), "click to skip", new GUIStyle(small) { alignment = TextAnchor.UpperCenter }, new Color(1, 1, 1, 0.45f * (0.6f + 0.4f * Mathf.Sin(Time.unscaledTime * 4f))));
+                GUI.color = Color.white;
+                return;
+            }
+            GUI.color = new Color(1, 1, 1, shopIn);
+            y += (1 - shopIn) * 30 * S;
+            Label(new Rect(r.x, y, pw, lh), "NIGHT SHOP", mid, new Color(1f, 0.8f, 0.5f)); y += lh * 1.05f;
             // One row per item: label left of the Buy button, never under it.
             float lw = r.xMax - 250 * S - x;
             void Row(bool owned, string ownedText, string forSale, int price, System.Action buy)
             {
                 Label(new Rect(x, y, lw, lh), owned ? ownedText : forSale, st, owned ? new Color(0.7f, 1f, 0.7f) : Color.white);
                 if (!owned && Button(new Rect(r.xMax - 236 * S, y + (lh - 46 * S) / 2, 190 * S, 46 * S), $"Buy ${price}", g.Money.Value >= price)) buy();
-                y += lh * 1.25f;
+                y += lh * 1.2f;
             }
             Row(g.HasTrolley.Value, "Hand trolley: owned", "Hand trolley (6 crates)", PortGame.TrolleyPrice, g.BuyTrolleyRpc);
             if (!Skin.On) Row(g.PierRepaired.Value, "Pier: repaired", "Repair the pier", PortGame.RepairPrice, g.BuyRepairRpc);
             if (g.ForkliftForSale) Row(g.HasForklift.Value, "Forklift: in the yard", "Forklift + 2 pallets", PortGame.ForkliftPrice, g.BuyForkliftRpc);
             Row(g.Stage.Value >= 2, "Concrete quay: built", "Concrete quay", PortGame.QuayCost, g.BuyStageRpc);
-            y += lh * 1.6f;
+            var foot = new Rect(r.x + 40 * S, r.yMax - 90 * S, pw - 80 * S, 64 * S);
+            if (Button(new Rect(foot.x, foot.y, 220 * S, foot.height), "Stats")) statsOpen = true;
             if (NetworkManager.Singleton.IsServer)
             {
-                if (Button(new Rect(r.x + (pw - 360 * S) / 2, r.yMax - 90 * S, 360 * S, 64 * S), $"Start Day {g.DayNum.Value + 1}")) g.NextDayRpc();
+                if (Button(new Rect(foot.xMax - 360 * S, foot.y, 360 * S, foot.height), $"Start Day {g.DayNum.Value + 1}")) g.NextDayRpc();
             }
-            else Label(new Rect(r.x, r.yMax - 90 * S, pw, 60 * S), "Waiting for the host to start the next day…", st, Color.white);
+            else Label(new Rect(foot.x + 240 * S, foot.y, foot.width - 240 * S, foot.height), "Waiting for the host to start the next day…", new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontSize = Mathf.RoundToInt(21 * S) }, Color.white);
+            GUI.color = Color.white;
+        }
+
+        // Career stats: this run next to all time (kept on this PC). From the night card or the pause menu.
+        void DrawStats(float W, float H)
+        {
+            ThemeTextures();
+            GUI.DrawTexture(new Rect(0, 0, W, H), dimTex);
+            float pw = 860 * S, lh = 40 * S, ph = 250 * S + Stats.Rows.Length * lh;
+            var r = new Rect((W - pw) / 2, (H - ph) / 2, pw, ph);
+            SteelPanel(r);
+            Label(new Rect(r.x, r.y + 26 * S, pw, 60 * S), "Career Stats", new GUIStyle(big) { fontSize = Mathf.RoundToInt(48 * S) }, new Color(1f, 0.9f, 0.7f));
+            var head = new GUIStyle(small) { alignment = TextAnchor.MiddleRight, fontSize = Mathf.RoundToInt(20 * S), fontStyle = FontStyle.Bold };
+            var name = new GUIStyle(small) { alignment = TextAnchor.MiddleLeft, fontSize = Mathf.RoundToInt(23 * S) };
+            var val = new GUIStyle(name) { alignment = TextAnchor.MiddleRight, fontStyle = FontStyle.Bold };
+            float x = r.x + 50 * S, c1 = r.xMax - 330 * S, c2 = r.xMax - 170 * S, cw = 120 * S, y = r.y + 100 * S;
+            Label(new Rect(c1, y, cw, 30 * S), "THIS RUN", head, new Color(1f, 0.8f, 0.5f));
+            Label(new Rect(c2, y, cw, 30 * S), "ALL TIME", head, new Color(1f, 0.8f, 0.5f));
+            y += 40 * S;
+            for (int i = 0; i < Stats.Rows.Length; i++)
+            {
+                var (key, label, unit) = Stats.Rows[i];
+                if (i % 2 == 0) GUI.DrawTexture(new Rect(x - 16 * S, y, pw - 68 * S, lh), Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(0, 0, 0, 0.18f), 0, 6 * S);
+                Label(new Rect(x, y, c1 - x, lh), label, name, Color.white);
+                Label(new Rect(c1, y, cw, lh), Stats.Show(key, unit, Stats.Run(key)), val, Color.white);
+                Label(new Rect(c2, y, cw, lh), Stats.Show(key, unit, Stats.AllTime(key)), val, new Color(1f, 0.88f, 0.4f));
+                y += lh;
+            }
+            if (Button(new Rect(r.x + (pw - 240 * S) / 2, r.yMax - 84 * S, 240 * S, 60 * S), "Close")) statsOpen = false;
         }
 
         // The contract board (it hangs on the shed wall): pick tomorrow's captain. Host decides.
-        void DrawContracts(Rect r)
+        void DrawContracts(Rect r, bool live)
         {
             var g = PortGame.I;
             SteelPanel(r);
@@ -711,7 +884,7 @@ namespace PortBoss
                 Label(new Rect(card.x + 20 * S, card.y + 14 * S, card.width, 44 * S), "Captain " + c.Captain[0] + c.Captain.Substring(1).ToLowerInvariant(), new GUIStyle(mid) { alignment = TextAnchor.UpperLeft }, chosen ? new Color(1f, 0.85f, 0.5f) : Color.white);
                 Label(new Rect(card.x + 20 * S, card.y + 64 * S, card.width - 40 * S, 90 * S), c.Pitch, new GUIStyle(small) { fontSize = Mathf.RoundToInt(21 * S), wordWrap = true }, new Color(1, 1, 1, 0.85f));
                 if (chosen) Label(new Rect(card.x + 20 * S, card.yMax - 58 * S, card.width, 44 * S), "✓ Booked for tomorrow", new GUIStyle(small) { fontSize = Mathf.RoundToInt(21 * S), fontStyle = FontStyle.Bold }, new Color(0.7f, 1f, 0.7f));
-                else if (host && Button(new Rect(card.xMax - 190 * S, card.yMax - 62 * S, 170 * S, 48 * S), "Book")) g.ChooseContractRpc((byte)i);
+                else if (host && live && Button(new Rect(card.xMax - 190 * S, card.yMax - 62 * S, 170 * S, 48 * S), "Book")) g.ChooseContractRpc((byte)i);
                 y += 250 * S;
             }
             if (!host) Label(new Rect(r.x, r.yMax - 50 * S, r.width, 30 * S), "The host books the boats.", new GUIStyle(small) { alignment = TextAnchor.UpperCenter }, new Color(1, 1, 1, 0.6f));

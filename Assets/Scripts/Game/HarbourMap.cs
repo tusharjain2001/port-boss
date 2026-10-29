@@ -108,8 +108,9 @@ namespace PortBoss
             Tile(World.YardX0, World.YardX1, World.RoadZ + 6, World.YardZ0, 5); // pavement between our wall and the road
             Tile(World.YardX0, World.YardX1, World.BackZ0, World.RoadZ - 6, 6); // the market's plaza across the road
             // Hinterland to the horizon behind the port and along the coast either side (flat concrete-coloured land, no seams).
-            Art.Box(R, new Vector3(0, -0.6f, -667.5f), new Vector3(3000, 1, 1335), Art.Hex("#9a9184"), false, "hinterland");
-            Art.Box(R, new Vector3(-900, -0.6f, 300), new Vector3(1300, 1, 900), Art.Hex("#9a9184"), false, "hinterland_w");
+            // (Beyond this strip the generated landscape takes over: Scenery.)
+            Art.Box(R, new Vector3((Scenery.FlatX0 + 1700) / 2, -0.6f, Scenery.FlatZ0 / 2), new Vector3(1700 - Scenery.FlatX0, 1, -Scenery.FlatZ0), Art.Hex("#9a9184"), false, "hinterland");
+            Scenery.Build(R, Art.Land);
         }
 
         // 12 m quay-wall blocks along every edge that meets the water (top flush with the slabs).
@@ -557,7 +558,7 @@ namespace PortBoss
             Road("road", new Vector3(-RoadTraffic.Half, 0, World.RoadZ), new Vector3(RoadTraffic.Half, 0, World.RoadZ));
             var traffic = new GameObject("RoadTraffic").AddComponent<RoadTraffic>();
             traffic.transform.SetParent(R, false);
-            for (int t = 0; t < 6; t++)
+            for (int t = 0; t < 14; t++)
             {
                 // A cab pulling a trailer (some loaded with a container), built round the hitch, facing +z.
                 var rig = new GameObject("lorry" + t).transform;
@@ -565,27 +566,21 @@ namespace PortBoss
                 Art.Place(Skin.Get(t % 2 == 0 ? "truck" : "truckB"), rig, Vector3.zero, 0, 1f);
                 var trailer = Art.Place(Skin.Get("trailer"), rig, Vector3.zero, 0, 1f);
                 if (trailer != null && t % 3 != 2) Art.Place(Skin.Get("cont" + t % 6), rig, new Vector3(0, Art.Bounds(trailer).max.y - 0.35f, -4.6f), 0, 0.95f);
-                traffic.Add(rig, t % 2 == 0 ? 1 : -1, t / 2 * RoadTraffic.Half * 2 / 3f + t * 37f, t % 2 == 0 ? 10f : 9f); // one speed per lane: no driving through each other
+                // Seven a lane spread round the loop, the same start on every peer (the host keeps them in step after that).
+                traffic.Add(rig, t % 2 == 0 ? 1 : -1, t / 2 * RoadTraffic.Half * 2 / 7f + t * 11f, t % 2 == 0 ? 10f : 9f);
             }
         }
 
-        // Behind the port: rows of city blocks, then hills, fading into the fog.
+        // Behind the port: rows of city blocks (the countryside and the mountains beyond are Scenery's).
         static void Hinterland()
         {
             var rng = new System.Random(41);
             for (int r = 0; r < 3; r++)
-                for (float x = -420 + r * 14; x < 640; x += 34 + (float)rng.NextDouble() * 12)
+                for (float x = Scenery.FlatX0 + 12 + r * 14; x < 640; x += 34 + (float)rng.NextDouble() * 12)
                 {
                     var b = On("city" + rng.Next(6), new Vector3(x, -0.1f, -150 - r * 46 - (float)rng.NextDouble() * 8), 180, 1.1f + r * 0.25f + (float)rng.NextDouble() * 0.4f);
                     if (b != null) foreach (var rr in b.GetComponentsInChildren<Renderer>()) rr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 }
-            void Hill(Vector3 c, Vector3 s, string col)
-            {
-                var h = Art.Prim(PrimitiveType.Sphere, R, c, Quaternion.identity, s, Art.Hex(col), false, "hill");
-                h.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            }
-            for (int i = 0; i < 12; i++) Hill(new Vector3(-900 + i * 200, -30, -520 - (float)rng.NextDouble() * 160), new Vector3(380, 140 + (float)rng.NextDouble() * 110, 240), i % 2 == 0 ? "#7f8c66" : "#8a9572");
-            for (int i = 0; i < 5; i++) Hill(new Vector3(-560 - (i % 2) * 90, -30, -40 + i * 170), new Vector3(300, 110 + i * 15, 220), "#84906a");
         }
 
         // Tetrapods across the harbour mouth, a gap for the channel, a lighthouse on each pier head.
@@ -638,79 +633,183 @@ namespace PortBoss
         }
     }
 
-    // Lorries on the road behind our gate, on a timetable of server time so every peer sees each one in the same
-    // place: crossing to the fish market means looking both ways. Drive on the right; they honk at people in the road,
-    // and one that catches you knocks you flat (Player checks HitBy for itself).
+    // Lorries on the road behind our gate. Every peer drives them (start points fixed per session) and the host
+    // sends its positions twice a second, so everyone sees each one in the same place. Drive on the right; they brake
+    // for anything in their lane (people, the trolley, the forklift, crates) and lean on the horn while they wait,
+    // keep their distance from the lorry in front, and no more than MaxQueue line up behind a road-blocker:
+    // the rest wait off the end of the road until the jam clears.
     public class RoadTraffic : MonoBehaviour
     {
         public const float Half = 600f, Lane = 3f; // road half-length; lanes either side of the centre line
-        struct Lorry { public Transform t; public float dir, phase, speed, front, back, hornAt; }
+        public const int MaxQueue = 5;
+        const float Len = Half * 2, Gap = 3.5f, Brake = 9f, Pull = 2.6f, Width = 2.1f;
+        struct Lorry { public Transform t; public float dir, s, v, cruise, front, back, hornAt, corr; public bool held; }
         static readonly System.Collections.Generic.List<Lorry> lorries = new();
+        static readonly System.Collections.Generic.List<(float s, float dir, bool person)> blockers = new();
+        float lastT = -1, sendAt, moanAt;
 
         void Awake() => lorries.Clear(); // a fresh harbour (new session)
 
-        public void Add(Transform rig, float dir, float phase, float speed)
+        public void Add(Transform rig, float dir, float s, float speed)
         {
             var b = Art.Bounds(rig.gameObject);
             var local = rig.InverseTransformPoint(b.max).z; // the cab's nose (built facing +z round the hitch)
-            lorries.Add(new Lorry { t = rig, dir = dir, phase = phase, speed = speed, front = Mathf.Max(5f, local) + 0.4f, back = Mathf.Max(10f, b.size.z - local) + 0.3f });
-            Place(lorries[^1], Water.T);
+            float front = Mathf.Max(5f, local) + 0.4f, back = Mathf.Max(10f, b.size.z - local) + 0.3f;
+            // Solid, so nobody walks through a waiting lorry (kinematic: we move it, not physics).
+            var box = rig.gameObject.AddComponent<BoxCollider>();
+            box.center = new Vector3(0, 1.8f, (front - back) / 2f); box.size = new Vector3(2.5f, 3.6f, front + back - 0.6f);
+            rig.gameObject.AddComponent<Rigidbody>().isKinematic = true;
+            lorries.Add(new Lorry { t = rig, dir = dir, s = Mathf.Repeat(s, Len), v = speed, cruise = speed, front = front, back = back });
+            Place(lorries[^1]);
         }
 
         static float LaneZ(float dir) => World.RoadZ - dir * Lane; // eastbound keeps to the south side
+        static float X(float dir, float s) => dir > 0 ? -Half + s : Half - s;
+        static float S(float dir, float x) => dir > 0 ? x + Half : Half - x;
 
-        static void Place(Lorry l, float now)
+        static void Place(Lorry l)
         {
-            float run = Mathf.Repeat(now * l.speed + l.phase, Half * 2);
-            l.t.SetPositionAndRotation(new Vector3(l.dir > 0 ? -Half + run : Half - run, 0, LaneZ(l.dir)), Quaternion.Euler(0, l.dir > 0 ? 90 : 270, 0));
+            if (l.t.gameObject.activeSelf == l.held) l.t.gameObject.SetActive(!l.held);
+            l.t.SetPositionAndRotation(new Vector3(X(l.dir, l.s), 0, LaneZ(l.dir)), Quaternion.Euler(0, l.dir > 0 ? 90 : 270, 0));
+        }
+
+        static void Blocker(Vector3 p, bool person)
+        {
+            if (p.y > 2.5f) return;
+            for (int d = -1; d <= 1; d += 2)
+                if (Mathf.Abs(p.z - LaneZ(d)) < Width) blockers.Add((S(d, p.x), d, person));
         }
 
         void Update()
         {
-            float now = Water.T;
-            var me = Player.Local != null ? Player.Local.transform.position : new Vector3(0, -99, 0);
+            float now = Water.T, dt = lastT < 0 ? 0 : Mathf.Clamp(now - lastT, 0, 0.1f);
+            lastT = now;
+            blockers.Clear();
+            foreach (var p in Player.All) if (p != null) Blocker(p.transform.position, true);
+            if (Trolley.I != null) Blocker(Trolley.I.transform.position, false);
+            if (Forklift.I != null) Blocker(Forklift.I.transform.position, false);
+            foreach (var c in Crate.All)
+                if (c != null && !c.Attached.Value && !c.Stored && Mathf.Abs(c.transform.position.z - World.RoadZ) < 7f) Blocker(c.transform.position, false);
+
             for (int i = 0; i < lorries.Count; i++)
             {
                 var l = lorries[i];
                 if (l.t == null) continue;
-                Place(l, now);
-                // Honk at us if we're standing in its lane up ahead.
-                float ahead = (me.x - l.t.position.x) * l.dir;
-                if (ahead > 0 && ahead < 32f && Mathf.Abs(me.z - LaneZ(l.dir)) < 2.6f && Time.time > l.hornAt)
+                // Room ahead: to the nearest thing in the lane (anything alongside counts as right there)
+                // and to the tail of the lorry in front (by hitch distance round the loop; ties go by index).
+                float room = float.MaxValue; bool person = false;
+                foreach (var b in blockers)
                 {
-                    l.hornAt = Time.time + 4f; lorries[i] = l;
-                    Sfx.Play("horn", l.t.position + Vector3.up * 2, 0.9f, 1.7f);
+                    if (b.dir != l.dir) continue;
+                    float d = b.s - (l.s + l.front);
+                    if (d > -l.front - l.back && d < room) { room = Mathf.Max(0, d); person = b.person; }
                 }
+                for (int j = 0; j < lorries.Count; j++)
+                {
+                    var o = lorries[j];
+                    if (j == i || o.dir != l.dir || o.held) continue;
+                    float d = Mathf.Repeat(o.s - l.s, Len);
+                    if (d == 0 && j > i) continue;
+                    float r = d - o.back - l.front;
+                    if (r < room) { room = r; person = false; }
+                }
+                if (l.held)
+                {
+                    // Waiting off the end of the road: come on once the jam has room and the entry is clear.
+                    if (QueuedBehindBlock(l.dir) < MaxQueue && room > Gap * 4) l.held = false;
+                    else { l.v = 0; lorries[i] = l; Place(l); continue; }
+                }
+                float want = Mathf.Min(l.cruise, Mathf.Sqrt(2f * Brake * 0.6f * Mathf.Max(0, room - Gap)));
+                l.v = Mathf.MoveTowards(l.v, want, (want < l.v ? (room < 8f ? Brake * 3f : Brake) : Pull) * dt); // somebody stepped out: stand on it
+                if (l.corr != 0) { float k = Mathf.Min(1f, dt * 3f); l.s += l.corr * k; l.corr -= l.corr * k; }
+                l.s += l.v * dt;
+                if (l.s >= Len)
+                {
+                    l.s -= Len;
+                    if (QueuedBehindBlock(l.dir) >= MaxQueue) { l.held = true; l.s = 0; }
+                }
+                // Stopped for somebody: lean on the horn now and then.
+                if (person && l.v < 1.5f && room < 12f && Time.time > l.hornAt)
+                {
+                    l.hornAt = Time.time + Random.Range(2.5f, 4.5f);
+                    Sfx.Play("horn", l.t.position + Vector3.up * 2, 0.9f, Random.Range(1.55f, 1.85f));
+                    var me = Player.Local;
+                    if (me != null && Time.time > moanAt && Vector3.Distance(me.transform.position, l.t.position) < l.front + 8f)
+                    {
+                        moanAt = Time.time + 9f;
+                        Stats.Add("honked");
+                        GameUI.Toast(PortGame.Pick("BEEP BEEP! \"Some of us have deliveries, mate!\"", "HONK! \"Off the road, fish boy!\"",
+                            "HOOONK! \"I'm on a schedule here!\"", "BEEEP! \"Lovely day for standing in the road, is it?\""));
+                    }
+                }
+                lorries[i] = l;
+                Place(l);
+            }
+
+            // Host: everyone else follows our lorries.
+            var nm = Unity.Netcode.NetworkManager.Singleton;
+            if (nm != null && nm.IsServer && nm.ConnectedClientsIds.Count > 1 && PortGame.I != null && Time.time > sendAt)
+            {
+                sendAt = Time.time + 0.5f;
+                var s = new float[lorries.Count]; var v = new float[lorries.Count];
+                for (int i = 0; i < lorries.Count; i++) { s[i] = lorries[i].held ? -1 : lorries[i].s; v[i] = lorries[i].v; }
+                PortGame.I.TrafficRpc(now, s, v);
             }
         }
 
-        // Test hook: a spot in some lorry's lane this far ahead of its nose, on the stretch we can walk (null if none).
+        // How many lorries in this lane are on their way to (or stuck behind) something in the road.
+        static int QueuedBehindBlock(float dir)
+        {
+            float far = -1;
+            foreach (var b in blockers) if (b.dir == dir && b.s > far) far = b.s;
+            if (far < 0) return 0;
+            int n = 0;
+            foreach (var l in lorries) if (l.dir == dir && !l.held && l.s < far) n++;
+            return n;
+        }
+
+        // Client: the host's lorries as of server time t (catch up smoothly; jump if far out).
+        public static void Sync(float t, float[] s, float[] v)
+        {
+            float lag = Mathf.Clamp(Water.T - t, 0, 1f);
+            for (int i = 0; i < lorries.Count && i < s.Length; i++)
+            {
+                var l = lorries[i];
+                if (s[i] < 0) { l.held = true; l.s = 0; l.v = 0; l.corr = 0; }
+                else
+                {
+                    l.held = false; l.v = v[i];
+                    float d = Mathf.Repeat(s[i] + v[i] * lag - l.s + Len / 2, Len) - Len / 2; // shortest way round the loop
+                    if (Mathf.Abs(d) > 8f) { l.s = Mathf.Repeat(l.s + d, Len); l.corr = 0; } else l.corr = d;
+                }
+                lorries[i] = l;
+            }
+        }
+
+        // Test hooks: a spot in some lorry's lane this far ahead of its nose, on the stretch we can walk (null if none),
+        // and how that lane is doing (stopped = standing still within 120 m behind the spot; held = waiting off the road).
         public static Vector3? DebugAhead(float metres)
         {
             foreach (var l in lorries)
             {
+                if (l.held) continue;
                 float x = l.t.position.x + l.dir * (l.front + metres);
                 if (x > World.BackX0 + 10 && x < World.BackX1 - 10) return new Vector3(x, 0.3f, LaneZ(l.dir));
             }
             return null;
         }
-
-        // Is a lorry on top of this spot right now? dir = which way it shoves you.
-        public static bool HitBy(Vector3 p, out Vector3 shove)
+        public static (int stopped, int held, float nearest) DebugLane(Vector3 spot)
         {
-            shove = Vector3.zero;
-            if (p.y > 2f) return false;
+            int stopped = 0, held = 0; float nearest = float.MaxValue;
             foreach (var l in lorries)
             {
-                if (l.t == null) continue;
-                float along = (p.x - l.t.position.x) * l.dir, side = p.z - l.t.position.z;
-                if (along > -l.back && along < l.front && Mathf.Abs(side) < 2.1f)
-                {
-                    shove = (new Vector3(l.dir, 0, 0) * 0.7f + new Vector3(0, 0, Mathf.Sign(side == 0 ? 1 : side)) * 0.7f).normalized;
-                    return true;
-                }
+                if (Mathf.Abs(spot.z - LaneZ(l.dir)) > Width) continue;
+                if (l.held) { held++; continue; }
+                float gap = (spot.x - l.t.position.x) * l.dir - l.front;
+                if (gap > -l.front && gap < 120f && l.v < 0.5f) stopped++;
+                if (gap > -l.front && gap < nearest) nearest = gap;
             }
-            return false;
+            return (stopped, held, nearest);
         }
     }
 

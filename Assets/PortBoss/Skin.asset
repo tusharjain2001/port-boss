@@ -30,6 +30,7 @@ MonoBehaviour:
   SwimIdle: {fileID: 1532177651469301551, guid: 680e75fc8abe8ec4b9a36f0d86dc4269, type: 3}
   Drive: {fileID: -6540212038565268958, guid: 680e75fc8abe8ec4b9a36f0d86dc4269, type: 3}
   Push: {fileID: 2931362099718132477, guid: 680e75fc8abe8ec4b9a36f0d86dc4269, type: 3}
+  Sprint: {fileID: -4950333804767787469, guid: 680e75fc8abe8ec4b9a36f0d86dc4269, type: 3}
   Crate: {fileID: 8834054657701139789, guid: b956fc2b87fc59040bbf4a510a3a77fe, type: 3}
   Barrels:
   - {fileID: 28106400867909553, guid: b5ed20dc6689a424e97beec066b55e04, type: 3}

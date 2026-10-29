@@ -80,14 +80,14 @@ namespace PortBoss
                 SetRepaired(true);
                 HarbourMap.Build(Root);
             }
-            if (Art.Cloud != null) Clouds();
+            if (Skin.On) Scenery.Clouds(Root, Art.Cloud); else if (Art.Cloud != null) Clouds();
             Speedboat.Create();
             // Sea floor: the transparent toon water needs something below it (else the sky's ground colour shows through).
             if (Skin.On)
             {
                 // Unlit deep blue (lighting must not brighten what the water shows through), at the demo's depth.
                 var bed = Art.Box(Root, new Vector3(0, -24f, 300), new Vector3(3000, 1, 3000), Art.Hex("#123447"), false, "seabed");
-                if (Art.Cloud != null) { var bm = new Material(Art.Cloud); bm.SetColor("_BaseColor", Art.Hex("#0f3550")); bed.GetComponent<Renderer>().sharedMaterial = bm; }
+                if (Art.Cloud != null) { var bm = new Material(Art.Cloud); bm.SetColor("_BaseColor", Art.Hex("#0f3550")); bm.SetColor("_ShadeColor", Color.white); bed.GetComponent<Renderer>().sharedMaterial = bm; }
             }
             WaterRenderers.Clear();
             // With the skin the sea is open all round us, so the waves reach out to Marlowe's port (else the patch's edges show).

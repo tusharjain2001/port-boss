@@ -132,6 +132,7 @@ namespace PortBoss
             anim = a.gameObject.AddComponent<CharAnim>();
             anim.Init(a, Skin.I);
             anim.Facing = transform;
+            anim.Scale = g.transform.localScale.x;
         }
 
         void AnimateWorker(float speed)
@@ -142,10 +143,11 @@ namespace PortBoss
             bool grounded = Mathf.Abs(transform.position.y - lastAnimY) < 0.05f * Mathf.Max(1f, dt * 60f);
             lastAnimY = transform.position.y;
             Ripples(swimming);
-            // Falling in: a second of arm-waving panic (every peer sees it) before they start swimming.
-            if (swimming && !wasSwimmingAnim) flailUntil = Time.time + 1.3f;
+            // Falling in: the body plunges under, then bobs back up (with a second, smaller splash) and starts treading.
+            if (swimming && !wasSwimmingAnim) { dunkT = 0; resurfaced = false; }
             wasSwimmingAnim = swimming;
-            anim.Flail = swimming && (Time.time < flailUntil || OutOfBreath.Value); // just fell in, or going under
+            if (dunkT >= 0 && (!swimming || (dunkT += dt / 1.1f) >= 1)) dunkT = -1;
+            anim.Flail = swimming && OutOfStamina.Value; // going under
             CharAnim.Slot slot;
             if (Driving != null) { slot = CharAnim.Slot.Drive; model.localPosition = new Vector3(0, -0.15f, 0); }
             else if (knockT >= 0)
@@ -166,8 +168,32 @@ namespace PortBoss
                 slot = stroke ? CharAnim.Slot.Swim : CharAnim.Slot.SwimIdle;
                 swimLean = Mathf.MoveTowards(swimLean, stroke ? 1f : 0f, dt * 3f);
                 model.localPosition = new Vector3(0, Mathf.Lerp(SwimModelY, SwimStrokeY, swimLean), 0);
+                if (dunkT >= 0)
+                {
+                    // Down fast (to just over the head), a beat under, then up with a little overshoot; tipped forward on the way in.
+                    float u = dunkT, dip = u < 0.25f ? 1 - (1 - u / 0.25f) * (1 - u / 0.25f) : u < 0.4f ? 1f : 1f - Mathf.SmoothStep(0, 1, (u - 0.4f) / 0.45f);
+                    float pop = u > 0.8f ? Mathf.Sin((u - 0.8f) / 0.2f * Mathf.PI) * 0.12f : 0f;
+                    model.localPosition += new Vector3(0, -1.25f * dip + pop, 0);
+                    model.localRotation = Quaternion.Euler(25f * dip, 0, 0);
+                    slot = CharAnim.Slot.SwimIdle;
+                    if (!resurfaced && u > 0.62f)
+                    {
+                        resurfaced = true;
+                        Fx.Splash(new Vector3(transform.position.x, Water.Height(transform.position), transform.position.z), 0.5f);
+                        Sfx.Play("splash", transform.position + Vector3.up, 0.35f, 1.5f);
+                    }
+                }
             }
-            else slot = !grounded ? CharAnim.Slot.Jump : Pushing ? CharAnim.Slot.Push : speed < 0.3f ? CharAnim.Slot.Idle : speed < 4.6f ? CharAnim.Slot.Walk : CharAnim.Slot.Run;
+            else
+            {
+                slot = !grounded ? CharAnim.Slot.Jump : Pushing ? CharAnim.Slot.Push : CharAnim.Gait(speed);
+                // Lean into the run and bank into turns (less with a stack in your arms).
+                float turn = Mathf.DeltaAngle(lastAnimYaw, transform.eulerAngles.y) / Mathf.Max(dt, 1e-4f);
+                float run = grounded ? Mathf.Clamp01((speed - 2f) / 5f) : 0f, carryK = Carrying > 0 ? 0.4f : 1f;
+                lean = Vector2.Lerp(lean, new Vector2(7f * run * carryK, Mathf.Clamp(-turn * speed * 0.0035f, -12f, 12f) * carryK), 1 - Mathf.Exp(-8f * dt));
+                model.localRotation = Quaternion.Euler(lean.x, 0, lean.y);
+            }
+            lastAnimYaw = transform.eulerAngles.y;
             if (!swimming) swimLean = 0;
             if (throwT >= 0 && (throwT += dt / 0.45f) >= 1) throwT = -1;
             // Picking up / putting down: a quick bend at the waist, arms reaching down to the crate.
@@ -182,7 +208,9 @@ namespace PortBoss
         // The UAL swim clips sit the body ~1 m lower than standing; lifts measured with -pb-swimtest's "swim pose" line.
         const float SwimModelY = 1.24f;  // treading: head out, shoulders at the surface
         const float SwimStrokeY = 1.4f;  // stroke (lies flat): back at the surface, head just out
-        float swimLean;
+        float swimLean, dunkT = -1, lastAnimYaw;
+        Vector2 lean;
+        bool resurfaced;
 
         static Material ringMat;
         static Material RingMat()
@@ -222,7 +250,7 @@ namespace PortBoss
             ripples.transform.position = new Vector3(transform.position.x, Water.Height(transform.position) + 0.04f, transform.position.z);
             if (on && !ripples.isPlaying) ripples.Play(); else if (!on && ripples.isPlaying) ripples.Stop();
         }
-        bool wasSwimmingAnim; float flailUntil; // lifts the swim clip so head and shoulders stay above the surface
+        bool wasSwimmingAnim; // swimming last frame (starts the dunk)
 
         void Animate(float speed)
         {
@@ -358,6 +386,7 @@ namespace PortBoss
             // Every peer counts what this player is carrying (children crates), for visuals and speed.
             int n = 0;
             foreach (Transform c in transform) if (c.TryGetComponent<Crate>(out _)) n++;
+            if (IsOwner && n > Carrying) Stats.Add("carried", n - Carrying);
             Carrying = n;
 
             // Footsteps on every peer, from how far the body moved on the ground.
@@ -368,6 +397,7 @@ namespace PortBoss
             if (stepDist > 1.7f && Mathf.Abs(transform.position.y - World.PierTop) < 1.2f) { stepDist = 0; Sfx.Play("step" + Random.Range(0, 5), transform.position, IsOwner ? 0.35f : 0.25f); }
 
             if (!IsOwner || !IsSpawned) return;
+            if (!swimming && Driving == null && flat.magnitude < 1f) Stats.Walk(flat.magnitude);
             float dt = Time.deltaTime;
             if (Sit()) return;
             var input = GameUI.InputBlocked || Time.time < stunnedUntil ? new In() : ReadInput();
@@ -396,13 +426,13 @@ namespace PortBoss
             if (!swimming && transform.position.y < surface - SwimDepth + 0.3f && vy <= 0 && !Shallow()) EnterWater();
             if (swimming)
             {
-                // Swimming costs breath (sprinting more); tired swimmers slow down; out of breath, they go under
+                // Swimming costs stamina (sprinting more); tired swimmers slow down; out of stamina, they go under
                 // and the harbour master fishes them out onto the nearest ladder.
                 bool spent = exhaustedAt >= 0;
                 if (!spent)
                 {
-                    Stamina -= dt / (sprint ? SprintSwimBreath : SwimBreath);
-                    if (Stamina <= 0) { Stamina = 0; exhaustedAt = Time.time; OutOfBreath.Value = true; if (Towing) TowRpc(default, false); GameUI.Toast("Out of breath...!"); Sfx.Play("splash", transform.position, 0.6f, 0.7f); }
+                    Stamina -= dt / (sprint ? SprintSwimStamina : SwimStamina);
+                    if (Stamina <= 0) { Stamina = 0; exhaustedAt = Time.time; OutOfStamina.Value = true; if (Towing) TowRpc(default, false); GameUI.Toast("Out of stamina...!"); Sfx.Play("splash", transform.position, 0.6f, 0.7f); }
                 }
                 float tired = Mathf.Lerp(0.5f, 1f, Mathf.Clamp01(Stamina / 0.25f));
                 hv = Vector3.MoveTowards(hv, spent ? Vector3.zero : wish * ((sprint ? 3.1f : 2.2f) * tired), 6f * dt);
@@ -415,12 +445,7 @@ namespace PortBoss
             }
             else
             {
-                Stamina = Mathf.Min(1f, Stamina + dt / BreathBack);
-                if (Time.time > truckSafeUntil && RoadTraffic.HitBy(transform.position, out var truckDir))
-                {
-                    truckSafeUntil = Time.time + 2.5f;
-                    KnockedRpc(truckDir * 8f + Vector3.up, Down.Truck);
-                }
+                Stamina = Mathf.Min(1f, Stamina + dt / StaminaBack);
                 float speed = (sprint ? 7.4f : 4.6f) * (1f - 0.07f * Carrying) * (Pushing ? 0.85f : 1f);
                 hv = Vector3.MoveTowards(hv, wish * speed, (cc.isGrounded ? 30f : 18f) * dt);
                 // Jump: a little grace after walking off an edge, and a press just before landing still counts.
@@ -461,11 +486,48 @@ namespace PortBoss
                 }
             }
 
+            BoatPush();
             UpdateSway(dt, sprint);
             if (swimming) SwimInteract(input); else Interact(input);
 
             // Safety net: fell through the world somehow.
             if (transform.position.y < -12f) { swimming = false; Teleport(World.Spawn, 0); }
+        }
+
+        // Boats are solid even when they move into you (a kinematic hull doesn't push a CharacterController by itself):
+        // anyone inside a hull's footprint below its deck is moved out to the nearer side, and if the boat is under
+        // way it shoves them: bowled over on the quay, pushed aside with a splash in the water.
+        float boatBumpAt;
+        void BoatPush()
+        {
+            foreach (var b in Boat.All)
+            {
+                if (b == null || platform == b.transform || (b.transform.position - transform.position).sqrMagnitude > 18f * 18f) continue;
+                var lp = b.transform.InverseTransformPoint(transform.position);
+                if (lp.y > Boat.DeckY - 0.1f || lp.y < -4f) continue;
+                // The footprint: the hull's width, narrowing to the bow.
+                const float r = 0.45f;
+                float half = Boat.HalfW * (lp.z > Boat.HalfL - 1.5f ? Mathf.Clamp01(1 - (lp.z - (Boat.HalfL - 1.5f)) / 3.2f) : 1f) + r;
+                if (Mathf.Abs(lp.x) >= half || lp.z < -Boat.HalfL - r || lp.z > Boat.HalfL + 1.7f + r) continue;
+                float side = lp.x == 0 ? 1 : Mathf.Sign(lp.x);
+                var to = b.transform.TransformPoint(new Vector3(side * (half + 0.05f), lp.y, lp.z));
+                var push = to - transform.position; push.y = 0;
+                cc.enabled = false; transform.position += push; cc.enabled = true;
+                var bv = b.Velocity; bv.y = 0;
+                if (bv.magnitude < 1f || Time.time < boatBumpAt) continue;
+                boatBumpAt = Time.time + 2f;
+                var shove = (b.transform.right * side * 1.2f + bv.normalized * 0.5f).normalized;
+                Debug.Log($"[PB] boat bump: boat at {bv.magnitude:F1} m/s, swimming={swimming}");
+                if (swimming)
+                {
+                    hv = shove * 5f;
+                    Sfx.Play("splash", transform.position + Vector3.up, 0.8f);
+                    Fx.Splash(new Vector3(transform.position.x, Water.Height(transform.position), transform.position.z), 1f);
+                    Shake(0.4f);
+                    GameUI.Toast(PortGame.Pick("Bonk! Boats don't brake, boss.", "Shoved aside by a boat. Rude.", "Mind the hull!"));
+                }
+                else KnockedRpc(shove * 7f + Vector3.up, Down.Boat);
+            }
         }
 
         // ---------- forklift ----------
@@ -498,8 +560,9 @@ namespace PortBoss
 
         // ---------- knocked over ----------
         float stunnedUntil = -1, knockT = -1;
+        public bool Stunned => Time.time < stunnedUntil;
 
-        enum Down : byte { Crate, Shove, Truck, Rescued }
+        enum Down : byte { Crate, Shove, Boat, Rescued }
 
         // Server: a flying crate hit this player.
         public void Knock(Vector3 crateVel)
@@ -540,16 +603,17 @@ namespace PortBoss
             Sfx.Play("thud", transform.position + Vector3.up, 1f, 0.7f);
             if (!IsOwner) return;
             Debug.Log($"[PB] knocked down: {why}");
+            Stats.Add(why == Down.Rescued ? "fishedOut" : "knocked");
             stunnedUntil = Time.time + (why == Down.Rescued ? 1.6f : 1.2f);
             hv = push; vy = why == Down.Rescued ? 0f : 3.5f;
             if (Carrying > 0) DropAllRpc();
             if (Pushing) PushRpc(false);
-            Shake(why == Down.Truck ? 1f : 0.6f);
+            Shake(why == Down.Boat ? 0.9f : 0.6f);
             GameUI.Toast(why switch
             {
                 Down.Shove => PortGame.Pick("Hey! Hands off!", "Shoved! Very professional.", "Oi! Watch it!"),
-                Down.Truck => PortGame.Pick("HONK! Look both ways, boss!", "Flattened by a lorry. Mind the road!", "That truck did NOT brake."),
-                Down.Rescued => PortGame.Pick("Out of breath! The harbour master hauls you out.", "Fished out like a mackerel. Catch your breath, boss."),
+                Down.Boat => PortGame.Pick("Bonk! Boats don't brake, boss.", "Shoved by a boat. Rude.", "Overboard! That boat wasn't stopping."),
+                Down.Rescued => PortGame.Pick("Out of stamina! The harbour master hauls you out.", "Fished out like a mackerel. Catch your breath, boss."),
                 _ => PortGame.Pick("Oof! Right in the crate.", "Ow! Who threw that?!", "Down you go!"),
             });
         }
@@ -570,6 +634,7 @@ namespace PortBoss
         void EnterWater()
         {
             swimming = true;
+            Stats.Add("swims");
             Sfx.Play("splash", transform.position + Vector3.up, 1f);
             Fx.Splash(new Vector3(transform.position.x, Water.Height(transform.position), transform.position.z), 1.2f);
             Shake(0.25f);
@@ -582,17 +647,17 @@ namespace PortBoss
         void LeaveWater()
         {
             swimming = false;
-            exhaustedAt = -1; OutOfBreath.Value = false;
+            exhaustedAt = -1; OutOfStamina.Value = false;
             if (Towing) TowRpc(default, false);
         }
 
-        // ---------- breath (swimming stamina) ----------
-        public const float SwimBreath = 24f, SprintSwimBreath = 13f, BreathBack = 4f; // seconds to empty / to refill on land
+        // ---------- swimming stamina ----------
+        public const float SwimStamina = 24f, SprintSwimStamina = 13f, StaminaBack = 4f; // seconds to empty / to refill on land
         public float Stamina { get; private set; } = 1f; // owner
-        public NetworkVariable<bool> OutOfBreath = new(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
-        float exhaustedAt = -1, truckSafeUntil;
+        public NetworkVariable<bool> OutOfStamina = new(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        float exhaustedAt = -1;
 
-        // Out of breath: hauled up onto the nearest ladder's deck, dazed for a moment.
+        // Out of stamina: hauled up onto the nearest ladder's deck, dazed for a moment.
         void FishedOut()
         {
             var to = World.Spawn; float bd = float.MaxValue;
@@ -659,7 +724,7 @@ namespace PortBoss
             if (climbT >= 1)
             {
                 climbT = -1; swimming = false; vy = 0; hv = Vector3.zero;
-                exhaustedAt = -1; OutOfBreath.Value = false;
+                exhaustedAt = -1; OutOfStamina.Value = false;
                 cc.enabled = true;
             }
         }
@@ -799,7 +864,7 @@ namespace PortBoss
             {
                 var dir = Quaternion.Euler(0, yaw, 0) * Vector3.forward;
                 if (Vector3.Dot(dir, transform.forward) < 0.3f) dir = transform.forward;
-                ThrowRpc(dir);
+                ThrowRpc(dir); Stats.Add("throws");
                 throwT = 0;
                 Sfx.Play("whoosh", transform.position, 0.6f);
             }
@@ -847,8 +912,8 @@ namespace PortBoss
             return best;
         }
 
-        // Carried chest-high and out front; the camera looks over the shoulder so the whole stack stays in view.
-        public static Vector3 HoldPos(int slot) => new(0, 1.4f + slot * (Crate.Size + 0.04f), 0.78f);
+        // Carried at the belly, gripped low on the bottom crate; the camera looks over the shoulder so the whole stack stays in view.
+        public static Vector3 HoldPos(int slot) => new(0, 1.12f + slot * (Crate.Size + 0.04f), 0.6f);
 
         // ---- server ----
         void FixedUpdate()

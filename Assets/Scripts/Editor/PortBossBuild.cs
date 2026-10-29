@@ -49,7 +49,8 @@ namespace PortBoss.EditorTools
             if (waterShader == null) Debug.LogError("[PBBuild] PortBoss/Water shader missing, falling back to Lit");
             var water = waterShader != null ? Mat("Water", waterShader, m => { })
                 : Mat("Water", lit, m => { m.SetColor("_BaseColor", new Color(0.13f, 0.3f, 0.36f)); m.SetFloat("_Smoothness", 0.88f); });
-            var cloud = Mat("Cloud", Shader.Find("Universal Render Pipeline/Unlit"), m => m.SetColor("_BaseColor", Color.white));
+            var cloud = Mat("Cloud", Shader.Find("PortBoss/ToonCloud") ?? Shader.Find("Universal Render Pipeline/Unlit"), m => m.SetColor("_BaseColor", Color.white));
+            var land = Mat("Land", Shader.Find("PortBoss/ToonLand"), m => { });
 
             var crate = Prefab("Crate", g =>
             {
@@ -156,7 +157,7 @@ namespace PortBoss.EditorTools
             ui.TitleFont = AssetDatabase.LoadAssetAtPath<Font>("Assets/Art/Fonts/AlfaSlabOne-Regular.ttf");
             ui.Models = models.ToArray(); ui.ModelKit = kits.ToArray(); ui.KitMats = kitMats.ToArray();
             ui.CratePrefab = crate; ui.BoatPrefab = boat; ui.TrolleyPrefab = trolley; ui.PortGamePrefab = game; ui.ForkliftPrefab = forklift; ui.PalletPrefab = pallet;
-            ui.LitMat = litMat; ui.EmissiveMat = emis; ui.ParticleMat = part; ui.WaterMat = water; ui.CloudMat = cloud;
+            ui.LitMat = litMat; ui.EmissiveMat = emis; ui.ParticleMat = part; ui.WaterMat = water; ui.CloudMat = cloud; ui.LandMat = land;
             ui.Skin = MakeSkin();
             Dir("Assets/Scenes");
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -283,7 +284,7 @@ namespace PortBoss.EditorTools
                         foreach (var w in want) foreach (var c in clips) if (!c.name.StartsWith("__") && c.name.Substring(c.name.LastIndexOf('|') + 1).Equals(w, StringComparison.OrdinalIgnoreCase)) return c;
                         return null;
                     }
-                    k.Idle = C("Idle_Loop"); k.Walk = C("Walk_Loop"); k.Run = C("Jog_Fwd_Loop", "Sprint_Loop");
+                    k.Idle = C("Idle_Loop"); k.Walk = C("Walk_Loop"); k.Run = C("Jog_Fwd_Loop", "Sprint_Loop"); k.Sprint = C("Sprint_Loop", "Jog_Fwd_Loop");
                     k.Jump = C("Jump_Loop"); k.Swim = C("Swim_Fwd_Loop"); k.SwimIdle = C("Swim_Idle_Loop"); k.Drive = C("Driving_Loop"); k.Push = C("Push_Loop");
                     Debug.Log($"[PBBuild] skin clips idle={k.Idle?.name} walk={k.Walk?.name} run={k.Run?.name} jump={k.Jump?.name} swim={k.Swim?.name}");
                 }

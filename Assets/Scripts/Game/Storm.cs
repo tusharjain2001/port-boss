@@ -15,7 +15,7 @@ namespace PortBoss
         public static readonly Vector3 WindDir = new Vector3(1f, 0, 0.25f).normalized; // across the pier: loose crates go over the side
 
         ParticleSystem rain, caps;
-        AudioSource wind;
+        AudioSource wind, rainLoop;
         float nextThunder;
 
         public static void Create()
@@ -29,7 +29,7 @@ namespace PortBoss
             m.startLifetime = 1.1f; m.startSpeed = 26f; m.startSize = 0.025f; m.maxParticles = 6000; // thin, fast streaks
             m.startColor = new Color(0.75f, 0.8f, 0.88f, 0.55f); m.simulationSpace = ParticleSystemSimulationSpace.World;
             var e = I.rain.emission; e.rateOverTime = 0;
-            var sh = I.rain.shape; sh.shapeType = ParticleSystemShapeType.Box; sh.scale = new Vector3(40, 1, 40);
+            var sh = I.rain.shape; sh.shapeType = ParticleSystemShapeType.Box; sh.scale = new Vector3(40, 40, 1); // flat 40x40 m sheet once turned to face down (was 40 m tall: drops started under the sea)
             sh.rotation = new Vector3(90, 0, 0); // emit downwards
             var vel = I.rain.velocityOverLifetime; vel.enabled = true; vel.space = ParticleSystemSimulationSpace.World;
             vel.x = WindDir.x * 6f; vel.y = 0; vel.z = WindDir.z * 6f;
@@ -57,6 +57,9 @@ namespace PortBoss
             I.wind = I.gameObject.AddComponent<AudioSource>();
             I.wind.clip = Sfx.Clip("wind"); I.wind.loop = true; I.wind.spatialBlend = 0; I.wind.volume = 0;
             if (I.wind.clip != null) I.wind.Play();
+            I.rainLoop = I.gameObject.AddComponent<AudioSource>();
+            I.rainLoop.clip = Sfx.Clip("rain"); I.rainLoop.loop = true; I.rainLoop.spatialBlend = 0; I.rainLoop.volume = 0;
+            if (I.rainLoop.clip != null) I.rainLoop.Play();
         }
 
         void Update()
@@ -65,19 +68,23 @@ namespace PortBoss
             float target = g != null ? g.Severity.Value : 0f;
             Level = Mathf.MoveTowards(Level, target, Time.deltaTime / 4f);
             Water.Storm = 1f + Level * Level * Level * 3.5f; // calm stays glassy, rough is choppy, a storm really heaves (x4.5)
+            Shader.SetGlobalFloat("_PB_Storm", Mathf.Clamp01((Level - 0.4f) / 0.6f));
+            Shader.SetGlobalFloat("_PB_WaveScale", Water.Storm);
 
             var cam = Camera.main;
             if (cam != null) transform.position = cam.transform.position + Vector3.up * 14f + WindDir * -6f;
             var e = rain.emission; e.rateOverTime = Rain * 5000f;
+            var rm = rain.main; rm.startLifetime = Mathf.Max(0.3f, (transform.position.y - Water.Level) / 26f); // drops end at the sea surface, not under it
             if (cam != null) caps.transform.position = new Vector3(cam.transform.position.x, Water.Level + 0.35f, cam.transform.position.z) + cam.transform.forward * 30f;
             var ce = caps.emission; ce.rateOverTime = Mathf.Clamp01((Level - 0.35f) / 0.65f) * 260f;
-            if (wind != null) wind.volume = Mathf.Clamp01(Level * 1.2f - 0.1f) * 0.6f * Settings.Ambience;
+            if (wind != null) wind.volume = Mathf.Clamp01(Level * 1.2f - 0.1f) * 0.45f * Settings.Ambience;
+            if (rainLoop != null) rainLoop.volume = Mathf.Sqrt(Rain) * 0.75f * Settings.Ambience;
 
             if (Level > 0.8f && Time.time > nextThunder)
             {
                 nextThunder = Time.time + Random.Range(6f, 14f);
                 Flash = 1;
-                Sfx.Play2D("thunder", 0.8f);
+                Sfx.Play2D("thunder", 0.9f);
             }
             Flash = Mathf.MoveTowards(Flash, 0, Time.deltaTime * 3f);
         }

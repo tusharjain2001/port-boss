@@ -260,7 +260,7 @@ namespace PortBoss
             GUI.DrawTexture(new Rect(0, 0, W, H), dimTex);
             var rows = new System.Collections.Generic.List<(string, string, bool)> { ("Resume", "back to work", true) };
             if (Session.Lobby != null) rows.Add(("Invite friends", "steam", true));
-            rows.Add(("Settings", "", true)); rows.Add(("Quit to menu", "", true)); rows.Add(("Quit game", "clock off", true));
+            rows.Add(("Settings", "", true)); rows.Add(("Stats", "career", true)); rows.Add(("Quit to menu", "", true)); rows.Add(("Quit game", "clock off", true));
             var board = new Rect((W - 520 * S) / 2, H * 0.16f, 520 * S, 120 * S + rows.Count * 74 * S);
             int pick = Clipboard(board, Session.Solo ? "SHIFT ON HOLD" : "SHIFT ON HOLD  ·  THE PORT KEEPS RUNNING", rows.ToArray());
             if (pick < 0) return;
@@ -268,6 +268,7 @@ namespace PortBoss
             if (what == "Resume") SetPaused(false);
             else if (what == "Invite friends") Session.Invite();
             else if (what == "Settings") settingsFromPause = true;
+            else if (what == "Stats") statsOpen = true;
             else if (what == "Quit to menu") BackToMenu();
             else Application.Quit();
         }

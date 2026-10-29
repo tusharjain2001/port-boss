@@ -171,6 +171,10 @@ namespace PortBoss
 
         public void BoatGone() => activeBoats--;
 
+        // The host's lorries (RoadTraffic) for everyone else, twice a second.
+        [Rpc(SendTo.NotServer, Delivery = RpcDelivery.Unreliable)]
+        public void TrafficRpc(float t, float[] s, float[] v) => RoadTraffic.Sync(t, s, v);
+
         // Mostly calm or breezy, sometimes rain, now and then a storm. Any time, any day; calm can break through a storm.
         float PickSeverity()
         {

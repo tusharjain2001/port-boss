@@ -7,7 +7,7 @@ namespace PortBoss
     // everything else is a tinted copy.
     public static class Art
     {
-        public static Material Lit, Emissive, Particle, WaterMat, Cloud;
+        public static Material Lit, Emissive, Particle, WaterMat, Cloud, Land;
         public static Material Toon; // Toon Harbor's toon material when the skin is on: our colours share its shading ramp
         static readonly Dictionary<(Color, float), Material> cache = new();
         static readonly Dictionary<Material, Color> colorOf = new();

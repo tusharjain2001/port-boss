@@ -8,14 +8,16 @@ namespace PortBoss
     // arms on top for carrying and throwing. Clips come from the skin (CC0 UAL1, retargeted onto Toon Harbor workers).
     public class CharAnim : MonoBehaviour
     {
-        public enum Slot { Idle, Walk, Run, Jump, Swim, SwimIdle, Drive, Push }
+        public enum Slot { Idle, Walk, Run, Jump, Swim, SwimIdle, Drive, Push, Sprint }
 
         PlayableGraph graph;
         AnimationMixerPlayable mixer;
         AnimationClipPlayable[] plays;
         float[] w;
         Animator animator;
-        Transform armLU, armLL, armLH, armRU, armRL, armRH;
+        Transform armLU, armLL, armLH, armRU, armRL, armRH, spine;
+        Slot last;
+        public float Scale = 1f;      // the model's scale: a bigger worker takes longer strides
         public bool Carry;            // set by Player each frame
         public Transform Facing;      // the player (the model itself is turned to face the pack's way)
         public float Throw01 = -1;
@@ -28,8 +30,8 @@ namespace PortBoss
         {
             animator = a;
             a.runtimeAnimatorController = null; a.applyRootMotion = false; a.cullingMode = AnimatorCullingMode.AlwaysAnimate;
-            var clips = new[] { k.Idle, k.Walk, k.Run, k.Jump, k.Swim, k.SwimIdle, k.Drive, k.Push };
-            for (int i = 0; i < clips.Length; i++) if (clips[i] == null) clips[i] = clips[i == (int)Slot.Run ? (int)Slot.Walk : i == (int)Slot.SwimIdle ? (int)Slot.Swim : 0];
+            var clips = new[] { k.Idle, k.Walk, k.Run, k.Jump, k.Swim, k.SwimIdle, k.Drive, k.Push, k.Sprint };
+            for (int i = 0; i < clips.Length; i++) if (clips[i] == null) clips[i] = clips[i == (int)Slot.Run || i == (int)Slot.Sprint ? (int)Slot.Walk : i == (int)Slot.SwimIdle ? (int)Slot.Swim : 0];
             graph = PlayableGraph.Create("char");
             graph.SetTimeUpdateMode(DirectorUpdateMode.GameTime);
             AnimationPlayableOutput.Create(graph, "anim", a).SetSourcePlayable(mixer = AnimationMixerPlayable.Create(graph, clips.Length));
@@ -45,22 +47,39 @@ namespace PortBoss
             graph.Play();
             armLU = a.GetBoneTransform(HumanBodyBones.LeftUpperArm); armLL = a.GetBoneTransform(HumanBodyBones.LeftLowerArm); armLH = a.GetBoneTransform(HumanBodyBones.LeftHand);
             armRU = a.GetBoneTransform(HumanBodyBones.RightUpperArm); armRL = a.GetBoneTransform(HumanBodyBones.RightLowerArm); armRH = a.GetBoneTransform(HumanBodyBones.RightHand);
+            spine = a.GetBoneTransform(HumanBodyBones.Spine);
         }
 
-        // speed: horizontal m/s; the clips are authored around 1.4 m/s walk and 3.5 m/s jog.
+        // Ground speeds the UAL1 clips are authored at (measured from the planted foot): playing a clip at any other
+        // speed makes the feet slide, so each gait only covers the speeds near its own and plays at the matching rate.
+        const float WalkSpeed = 1.1f, JogSpeed = 3.8f, SprintSpeed = 6.2f;
+        public static Slot Gait(float speed) => speed < 0.3f ? Slot.Idle : speed < 2.2f ? Slot.Walk : speed < 5.9f ? Slot.Run : Slot.Sprint;
+
         public void Tick(Slot want, float speed)
         {
             if (!graph.IsValid()) return;
+            // Changing gait: start the new clip at the same point of the stride, so the feet don't skip.
+            if (want != last && IsGait(want) && IsGait(last) && plays[(int)last].IsValid() && plays[(int)want].IsValid())
+            {
+                var from = plays[(int)last]; var to = plays[(int)want];
+                float phase = Mathf.Repeat((float)from.GetTime() / from.GetAnimationClip().length, 1f);
+                to.SetTime(phase * to.GetAnimationClip().length);
+            }
+            last = want;
             float k = 1 - Mathf.Exp(-10f * Time.deltaTime);
             for (int i = 0; i < w.Length; i++)
             {
                 w[i] = Mathf.Lerp(w[i], i == (int)want ? 1f : 0f, k);
                 if (plays[i].IsValid()) mixer.SetInputWeight(i, w[i]);
             }
-            if (plays[(int)Slot.Walk].IsValid()) plays[(int)Slot.Walk].SetSpeed(Mathf.Clamp(speed / 1.6f, 0.7f, 2.2f));
-            if (plays[(int)Slot.Run].IsValid()) plays[(int)Slot.Run].SetSpeed(Mathf.Clamp(speed / 4f, 0.8f, 1.8f));
-            if (plays[(int)Slot.Push].IsValid()) plays[(int)Slot.Push].SetSpeed(Mathf.Clamp(speed / 1.5f, 0.5f, 1.8f));
+            Rate(Slot.Walk, speed / (WalkSpeed * Scale), 0.6f, 1.9f);
+            Rate(Slot.Run, speed / (JogSpeed * Scale), 0.7f, 1.5f);
+            Rate(Slot.Sprint, speed / (SprintSpeed * Scale), 0.85f, 1.4f);
+            Rate(Slot.Push, speed / 1.5f, 0.5f, 1.8f);
         }
+
+        static bool IsGait(Slot s) => s == Slot.Walk || s == Slot.Run || s == Slot.Sprint;
+        void Rate(Slot s, float r, float lo, float hi) { if (plays[(int)s].IsValid()) plays[(int)s].SetSpeed(Mathf.Clamp(r, lo, hi)); }
 
         // Called after the clips have posed the body: carry = both forearms out front under the stack,
         // throw01 >= 0 = right arm mid-throw (0 wound back over the shoulder, 1 followed through).
@@ -79,11 +98,13 @@ namespace PortBoss
             }
             if (carry)
             {
-                // Hands up under the bottom crate at shoulder height.
-                Aim(armLU, armLL, t.forward * 0.85f - t.up * 0.2f - t.right * 0.15f);
-                Aim(armLL, armLH, t.forward * 0.7f + t.up * 0.5f + t.right * 0.1f);
-                Aim(armRU, armRL, t.forward * 0.85f - t.up * 0.2f + t.right * 0.15f);
-                Aim(armRL, armRH, t.forward * 0.7f + t.up * 0.5f - t.right * 0.1f);
+                // Lean back against the load, elbows bent, hands gripping the bottom crate low on its sides
+                // (it rides at the belly, so the head stays above a single crate).
+                if (spine != null) spine.rotation = Quaternion.AngleAxis(-7f, t.right) * spine.rotation;
+                Aim(armLU, armLL, t.forward * 0.42f - t.up * 0.62f - t.right * 0.2f);
+                Aim(armLL, armLH, t.forward * 0.95f - t.up * 0.08f + t.right * 0.04f);
+                Aim(armRU, armRL, t.forward * 0.42f - t.up * 0.62f + t.right * 0.2f);
+                Aim(armRL, armRH, t.forward * 0.95f - t.up * 0.08f - t.right * 0.04f);
             }
             if (throw01 >= 0)
             {

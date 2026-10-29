@@ -80,6 +80,7 @@ namespace PortBoss
             if (Arg("-pb-handletest") != null) StartCoroutine(HandleTest(Arg("-pb-handletest")));
             if (Has("-pb-staminatest")) StartCoroutine(StaminaTest());
             if (Has("-pb-trucktest")) StartCoroutine(TruckTest());
+            if (Has("-pb-boattest")) StartCoroutine(BoatTest());
         }
 
         // One input for one frame (a key press), then hands off.
@@ -158,7 +159,7 @@ namespace PortBoss
             Debug.Log($"[PB] handle test: {(rackOk && takeOk && trolleyOk && groundOk ? "PASS" : "FAIL")} (rack {rackOk}, take {takeOk}, trolley {trolleyOk}, ground {groundOk})");
         }
 
-        // Swim (sprinting) until out of breath: the harbour master should fish us out onto a ladder.
+        // Swim (sprinting) until out of stamina: the harbour master should fish us out onto a ladder.
         IEnumerator StaminaTest()
         {
             yield return WaitGame();
@@ -168,25 +169,80 @@ namespace PortBoss
             Player.BotInput = () => new Player.In { hasWorldMove = true, worldMove = new Vector3(Mathf.Sin(Time.time * 0.3f), 0, Mathf.Cos(Time.time * 0.3f)), sprint = true };
             while (Time.time - t0 < 40 && (pl.Swimming || Time.time - t0 < 2))
             {
-                if (Time.time > next) { next = Time.time + 3; Debug.Log($"[PB] stamina test: t={Time.time - t0:F0} swimming={pl.Swimming} breath={pl.Stamina:F2}"); }
+                if (Time.time > next) { next = Time.time + 3; Debug.Log($"[PB] stamina test: t={Time.time - t0:F0} swimming={pl.Swimming} stamina={pl.Stamina:F2}"); }
                 yield return null;
             }
             Player.BotInput = () => new Player.In();
             yield return new WaitForSeconds(2f);
             bool onDeck = pl.transform.position.y > -0.5f && !pl.Swimming;
-            Debug.Log($"[PB] stamina test: {(onDeck ? "PASS" : "FAIL")} out of the water after {Time.time - t0:F1}s at {pl.transform.position:F1}, breath {pl.Stamina:F2}");
+            Debug.Log($"[PB] stamina test: {(onDeck ? "PASS" : "FAIL")} out of the water after {Time.time - t0:F1}s at {pl.transform.position:F1}, stamina {pl.Stamina:F2}");
         }
 
-        // Stand in a lorry's lane ahead of it: it honks, then knocks us down.
+        // Stand in a lorry's lane ahead of it: it stops short and honks (never runs us over), at most MaxQueue line up
+        // behind us however long we stand there, and once we step aside they drive on.
         IEnumerator TruckTest()
         {
             yield return WaitGame();
             var pl = Player.Local;
             Vector3? spot = null;
-            while (spot == null) { spot = RoadTraffic.DebugAhead(30f); yield return null; }
+            while (spot == null) { spot = RoadTraffic.DebugAhead(60f); yield return null; }
             pl.DebugTeleport(spot.Value, 90);
             Debug.Log($"[PB] truck test: standing in the road at {spot.Value:F1}");
-            yield return new WaitForSeconds(6f);
+            float t0 = Time.time, minGap = float.MaxValue; int maxStopped = 0; bool knocked = false;
+            Player.BotInput = () => new Player.In();
+            while (Time.time - t0 < 150f)
+            {
+                var (stopped, held, nearest) = RoadTraffic.DebugLane(pl.transform.position);
+                if (nearest < minGap) minGap = nearest;
+                maxStopped = Mathf.Max(maxStopped, stopped);
+                knocked |= pl.Stunned;
+                if (Mathf.Repeat(Time.time - t0, 10f) < Time.deltaTime) Debug.Log($"[PB] truck test: t={Time.time - t0:F0} queued={stopped} held={held} nearestGap={nearest:F1}");
+                yield return null;
+            }
+            var dir = Arg("-pb-shots");
+            if (dir != null)
+            {
+                Player.CamOverride = true;
+                Camera.main.transform.position = pl.transform.position + new Vector3(-14f, 9f, 10f); Camera.main.transform.LookAt(pl.transform.position + new Vector3(-20f, 0, 0));
+                yield return Snap(dir, "truck-queue");
+                Player.CamOverride = false;
+            }
+            pl.DebugTeleport(new Vector3(spot.Value.x, 0.3f, World.RoadZ + 8f), 0); // step off the road
+            yield return new WaitForSeconds(20f);
+            var after = RoadTraffic.DebugLane(spot.Value);
+            bool ok = !knocked && minGap > 0.5f && maxStopped >= 1 && maxStopped <= RoadTraffic.MaxQueue && after.stopped == 0;
+            Debug.Log($"[PB] truck test: {(ok ? "PASS" : "FAIL")} knocked={knocked} closest={minGap:F1}m maxQueue={maxStopped} queuedAfterStepAside={after.stopped}");
+        }
+
+        // Boats are solid: an arriving boat shoves a swimmer in its way aside (never sails through them), and on deck
+        // you can't walk into the bridge.
+        IEnumerator BoatTest()
+        {
+            yield return WaitGame();
+            var pl = Player.Local;
+            Boat b = null;
+            while (b == null) { b = Boat.All.Find(x => x != null && x.State.Value == Boat.St.Arriving); yield return null; }
+            yield return new WaitForSeconds(2f);
+            var ahead = b.transform.position + b.Velocity.normalized * 14f; ahead.y = Water.Level - 1.3f;
+            pl.DebugTeleport(ahead, 0);
+            Player.BotInput = () => new Player.In();
+            float t0 = Time.time, inside = 0;
+            while (Time.time - t0 < 6f)
+            {
+                var lp = b.transform.InverseTransformPoint(pl.transform.position + Vector3.up);
+                if (Mathf.Abs(lp.x) < Boat.HalfW - 0.3f && Mathf.Abs(lp.z) < Boat.HalfL - 0.3f && lp.y < Boat.DeckY) inside += Time.deltaTime;
+                yield return null;
+            }
+            Debug.Log($"[PB] boat test: swimmer inside the hull for {inside:F2}s (0 = shoved aside)");
+            while (b.State.Value != Boat.St.Docked) yield return null;
+            yield return new WaitForSeconds(1f);
+            pl.DebugTeleport(b.transform.TransformPoint(new Vector3(0, Boat.DeckY + 0.3f, 1.5f)), b.transform.eulerAngles.y + 180);
+            var aft = b.transform.TransformDirection(Vector3.back);
+            Player.BotInput = () => new Player.In { hasWorldMove = true, worldMove = aft };
+            yield return new WaitForSeconds(3f);
+            Player.BotInput = () => new Player.In();
+            float z = b.transform.InverseTransformPoint(pl.transform.position).z;
+            Debug.Log($"[PB] boat test: {(inside < 0.3f && z > -2.9f ? "PASS" : "FAIL")} walked aft to local z={z:F2} (the bridge starts about -2.4)");
         }
 
         IEnumerator WaitGame() { while (PortGame.I == null || Player.Local == null) yield return null; yield return new WaitForSeconds(1); }
@@ -613,10 +669,43 @@ namespace PortBoss
             Player.BotInput = () => new Player.In { hasWorldMove = true, worldMove = Vector3.right * 0.6f };
             for (int i = 0; i < 40; i++) { Look(Vector3.forward * -4f + Vector3.up * 0.5f); yield return null; }
             yield return Snap(dir, "char-walking-side");
+            // Jog (normal speed) and sprint, side on, a few frames apart.
+            foreach (var (nm, spr) in new[] { ("jog", false), ("sprint", true) })
+            {
+                pl.DebugTeleport(new Vector3(-40, 0.2f, -30), 90);
+                Player.BotInput = () => new Player.In { hasWorldMove = true, worldMove = Vector3.right, sprint = spr };
+                for (int i = 0; i < 50; i++) { Look(Vector3.forward * -4.5f + Vector3.up * 0.5f); yield return null; }
+                for (int k = 0; k < 3; k++) { for (int i = 0; i < 7; i++) { Look(Vector3.forward * -4.5f + Vector3.up * 0.5f); yield return null; } yield return Snap(dir, $"char-{nm}-{k}"); }
+            }
             Player.BotInput = () => new Player.In();
-            pl.DebugGiveCrates(3);
+            pl.DebugTeleport(new Vector3(-20, 0.2f, -8), 90);
+            yield return new WaitForSeconds(0.5f);
+            pl.DebugGiveCrates(1);
+            yield return new WaitForSeconds(1f);
+            Look(pl.transform.forward * 3.4f - pl.transform.right * 1.6f + Vector3.up * 0.3f); yield return Snap(dir, "char-carry1");
+            pl.DebugGiveCrates(2);
             yield return new WaitForSeconds(1f);
             Look(pl.transform.forward * 4f + Vector3.up * 1.2f); yield return Snap(dir, "char-carrying-front");
+            Look(-pl.transform.right * 3.6f + Vector3.up * 0.6f); yield return Snap(dir, "char-carrying-side");
+            Player.BotInput = () => new Player.In { hasWorldMove = true, worldMove = Vector3.right * 0.8f };
+            for (int i = 0; i < 40; i++) { Look(Vector3.forward * -4.5f + Vector3.up * 0.8f); yield return null; }
+            yield return Snap(dir, "char-carrying-walk");
+            for (int i = 0; i < 10; i++) { cam.transform.position = pl.transform.position - pl.transform.forward * 5f + Vector3.up * 2.6f + pl.transform.right * 0.9f; cam.transform.LookAt(pl.transform.position + Vector3.up * 1.4f + pl.transform.forward * 2f); yield return null; }
+            yield return Snap(dir, "char-carrying-back");
+            Player.BotInput = () => new Player.In();
+            // Falling in off the quay: the dunk.
+            pl.DebugTeleport(new Vector3(-20, 0.2f, -5.2f), 0);
+            Player.BotInput = () => new Player.In { hasWorldMove = true, worldMove = Vector3.forward };
+            float t0 = Time.time, giveUp = Time.time + 15f; int shot = 0;
+            while (Time.time - t0 < 4f && Time.time < giveUp)
+            {
+                var c = pl.transform.position; c.y = Water.Level;
+                cam.transform.position = c + new Vector3(-5f, 2.2f, 1.5f); cam.transform.LookAt(c + Vector3.up * 0.3f);
+                if (pl.Swimming && shot < 5 && Time.time > t0 + 0.2f * shot) { yield return Snap(dir, $"char-dunk-{shot}"); shot++; if (shot == 1) Player.BotInput = () => new Player.In(); continue; }
+                if (!pl.Swimming) t0 = Time.time;
+                yield return null;
+            }
+            Player.BotInput = () => new Player.In();
             Player.CamOverride = false;
         }
 

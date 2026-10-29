@@ -53,14 +53,16 @@ namespace PortBoss
                 case "jump": len = 0.2f; f = t => Env(t, 0.006f, 0.2f, 0.14f) * (0.3f * Mathf.Sin(2 * Mathf.PI * (240 * t + 700 * t * t)) + 0.08f * Mathf.Sin(4 * Mathf.PI * (240 * t + 700 * t * t)) + 0.05f * Noise() * Mathf.Exp(-t * 40)); break;
                 case "land": len = 0.18f; f = t => Mathf.Exp(-t * 26) * (0.55f * Mathf.Sin(2 * Mathf.PI * (105 * t - 120 * t * t)) + 0.2f * Noise() * Mathf.Exp(-t * 60)); break;
                 case "place": len = 0.2f; f = t => Mathf.Exp(-t * 45) * (0.5f * Mathf.Sin(2 * Mathf.PI * 180 * t) + 0.25f * Mathf.Sin(2 * Mathf.PI * 410 * t)) + 0.25f * Noise() * Mathf.Exp(-t * 90); break;
+                case "tick": len = 0.04f; f = t => Mathf.Exp(-t * 160) * (0.5f * Mathf.Sin(2 * Mathf.PI * 1850 * t) + 0.2f * Noise()); break;
                 case "grab": len = 0.12f; f = t => Mathf.Exp(-t * 30) * Mathf.Sin(t * 2 * Mathf.PI * 220) * 0.6f; break;
                 case "buy": len = 0.5f; f = t => Mathf.Exp(-t * 5) * 0.4f * Mathf.Sin(t * 2 * Mathf.PI * (t < 0.12f ? 784 : 1175)); break;
                 case "flies": len = 2f; f = t => 0.15f * Mathf.Sin(t * 2 * Mathf.PI * (210 + 25 * Mathf.Sin(t * 7))) * (0.6f + 0.4f * Mathf.Sin(t * 3.3f)); break;
                 case "creak": len = 0.7f; f = t => Env(t, 0.05f, 0.7f, 0.3f) * 0.35f * Saw(t * (180 + 40 * Mathf.Sin(t * 13))) * (0.6f + 0.4f * Noise()); break;
                 case "engine": len = 1f; f = t => 0.3f * (Saw(t * 96f) * 0.6f + Saw(t * 192.5f) * 0.25f + Noise() * 0.15f) * (0.85f + 0.15f * Mathf.Sin(t * 2 * Mathf.PI * 8)); break;
                 case "siren": len = 3.5f; f = t => Env(t, 0.2f, 3.5f, 0.5f) * 0.35f * Mathf.Sin(2 * Mathf.PI * (520f * t + 90f * Mathf.Sin(t * 2.2f) / 2.2f)); break;
-                case "wind": len = 4f; f = t => 0.35f * Noise() * (0.55f + 0.45f * Mathf.Sin(t * 1.6f) * Mathf.Sin(t * 0.7f + 1f)); break;
-                case "thunder": len = 3f; f = t => Mathf.Exp(-t * 1.4f) * Mathf.Clamp01(t * 20f) * 0.8f * Noise() * (0.6f + 0.4f * Mathf.Sin(t * 37f)); break;
+                case "rain": return Rain();
+                case "wind": return Wind();
+                case "thunder": return Thunder();
                 case "clank": len = 0.3f; f = t => Mathf.Exp(-t * 16) * 0.3f * (Mathf.Sin(t * 2 * Mathf.PI * 523) * 0.5f + Mathf.Sin(t * 2 * Mathf.PI * 1307) * 0.35f + Mathf.Sin(t * 2 * Mathf.PI * 2093) * 0.2f) + (t < 0.008f ? Noise() * 0.3f : 0); break;
                 case "blip": len = 0.3f; f = t => Env(t, 0.01f, 0.3f, 0.12f) * 0.4f * (Saw(t * 233f) * 0.5f + Saw(t * 235.4f) * 0.3f + Saw(t * 466f) * 0.2f); break;
                 case "gull": len = 0.6f; f = t => Env(t, 0.05f, 0.6f, 0.3f) * 0.25f * Mathf.Sin(t * 2 * Mathf.PI * (1400 - 900 * t)); break;
@@ -72,6 +74,101 @@ namespace PortBoss
             var clip = AudioClip.Create(name, n, 1, Rate, false);
             clip.SetData(data, 0);
             return clip;
+        }
+
+        static float[] Normalize(float[] d, float peak)
+        {
+            float m = 1e-6f; foreach (var x in d) m = Mathf.Max(m, Mathf.Abs(x));
+            for (int i = 0; i < d.Length; i++) d[i] *= peak / m;
+            return d;
+        }
+
+        static AudioClip Make(string name, float[] data)
+        {
+            var clip = AudioClip.Create(name, data.Length, 1, Rate, false);
+            clip.SetData(data, 0);
+            return clip;
+        }
+
+        // Loops: render a little extra and fold it back over the start, so the seam can't be heard.
+        static float[] Seamless(float[] d, int fade)
+        {
+            int n = d.Length - fade;
+            var o = new float[n];
+            for (int i = 0; i < n; i++) o[i] = d[i];
+            for (int i = 0; i < fade; i++) { float k = i / (float)fade; o[i] = d[i] * k + d[n + i] * (1 - k); }
+            return o;
+        }
+
+        // Rain: a soft filtered hiss with a slow swell, and thousands of single drops (short bright ticks, some lower plips).
+        static AudioClip Rain()
+        {
+            var rng = new System.Random(77);
+            float Noise() => (float)rng.NextDouble() * 2 - 1;
+            int fade = Rate / 2, n = Rate * 7 + fade;
+            var d = new float[n];
+            float lp = 0, lp2 = 0, hp = 0;
+            for (int i = 0; i < n; i++)
+            {
+                float t = i / (float)Rate, x = Noise();
+                lp += (x - lp) * 0.35f; lp2 += (lp - lp2) * 0.5f; // ~3 kHz roll-off
+                hp += (lp2 - hp) * 0.02f;                            // drop the rumble
+                d[i] = (lp2 - hp) * 0.22f * (0.85f + 0.15f * Mathf.Sin(t * 0.9f) * Mathf.Sin(t * 0.37f + 2f));
+            }
+            int drops = 7 * 260;
+            for (int k = 0; k < drops; k++)
+            {
+                int at = rng.Next(n);
+                bool plip = rng.NextDouble() < 0.12;
+                float fq = plip ? 500f + (float)rng.NextDouble() * 700f : 2200f + (float)rng.NextDouble() * 4200f;
+                float decay = plip ? 90f : 260f + (float)rng.NextDouble() * 400f, amp = (plip ? 0.07f : 0.025f) + (float)rng.NextDouble() * (plip ? 0.06f : 0.05f);
+                for (int i = 0; i < Rate / 20 && at + i < n; i++)
+                {
+                    float t = i / (float)Rate;
+                    d[at + i] += Mathf.Sin(2 * Mathf.PI * fq * t * (plip ? 1f - t * 4f : 1f)) * Mathf.Exp(-t * decay) * amp;
+                }
+            }
+            return Make("rain", Normalize(Seamless(d, fade), 0.6f));
+        }
+
+        // Wind: a whoosh (noise band-passed around a few hundred Hz) that brightens and swells with each gust,
+        // over a low rumble.
+        static AudioClip Wind()
+        {
+            var rng = new System.Random(31);
+            float Noise() => (float)rng.NextDouble() * 2 - 1;
+            int fade = Rate, n = Rate * 9 + fade;
+            var d = new float[n];
+            float br = 0, lp1 = 0, lp2 = 0, hp = 0, lo = 0;
+            for (int i = 0; i < n; i++)
+            {
+                float t = i / (float)Rate, x = Noise();
+                float gust = 0.5f + 0.32f * Mathf.Sin(t * 0.7f) + 0.18f * Mathf.Sin(t * 1.9f + 1f);
+                lp1 += (x - lp1) * (0.03f + 0.07f * gust); lp2 += (lp1 - lp2) * 0.4f; // ~250-700 Hz, up with the gust
+                hp += (lp2 - hp) * 0.012f;
+                br = br * 0.995f + x * 0.06f; lo += (br - lo) * 0.03f;
+                d[i] = ((lp2 - hp) * (0.4f + 0.6f * gust) * 4f + lo * 0.6f) * gust;
+            }
+            return Make("wind", Normalize(Seamless(d, fade), 0.55f));
+        }
+
+        // Thunder: a sharp crack, then a long low rumble that rolls in waves.
+        static AudioClip Thunder()
+        {
+            var rng = new System.Random(13);
+            float Noise() => (float)rng.NextDouble() * 2 - 1;
+            int n = (int)(Rate * 4.5f);
+            var d = new float[n];
+            float lp = 0, lp2 = 0, crack = 0;
+            for (int i = 0; i < n; i++)
+            {
+                float t = i / (float)Rate, x = Noise();
+                lp += (x - lp) * 0.012f; lp2 += (lp - lp2) * 0.03f;
+                crack += (x - crack) * 0.4f;
+                float roll = Mathf.Clamp01(t * 6f) * Mathf.Exp(-t * 0.8f) * (0.6f + 0.4f * Mathf.Sin(t * 5.5f) * Mathf.Sin(t * 2.1f + 0.5f));
+                d[i] = Mathf.Clamp(lp2 * 9f * roll + crack * 0.5f * Mathf.Exp(-t * 14f), -1, 1);
+            }
+            return Make("thunder", Normalize(d, 0.85f));
         }
 
         static float Saw(float x) => 2 * (x - Mathf.Floor(x + 0.5f));
