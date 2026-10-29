@@ -282,9 +282,16 @@ namespace PortBoss
             ui.Play();
             while (PortGame.I == null || Player.Local == null) yield return Frame();
             bot = new Bot(); Player.BotInput = bot.Tick;
-            for (int f = 0; f < 62 * 30; f++)
+            // 62 s of footage; standing around waiting for a boat is cut (time runs on, frames aren't kept).
+            var last = Player.Local.transform.position;
+            for (int kept = 0, f = 0; kept < 62 * 30 && f < 400 * 30; f++)
             {
-                if (f == 44 * 30) PortGame.I.ForceWeather(0.85f);
+                if (kept == 44 * 30) PortGame.I.ForceWeather(0.85f);
+                var p = Player.Local.transform.position;
+                bool idle = (p - last).sqrMagnitude < 0.0004f && Player.Local.Carrying == 0 && !Boat.All.Exists(b => b.State.Value == Boat.St.Docked);
+                last = p;
+                if (idle) { yield return null; continue; }
+                kept++;
                 yield return Frame();
             }
             Time.captureFramerate = 0;
