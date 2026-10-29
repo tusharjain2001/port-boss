@@ -96,12 +96,13 @@ namespace PortBoss
         {
             void Tile(float x0, float x1, float z0, float z1, int seed)
             {
+                // Exactly the plot: n tiles of ~12 m stretched to fit, never past a quay edge (they used to overhang the water).
                 var rng = new System.Random(seed);
-                for (float x = x0 + 6; x < x1 + 6; x += 12)
-                    for (float z = z0 + 6; z < z1 + 6; z += 12)
-                    {
-                        Top("tile1", new Vector3(x, 0.0f, z), 90 * rng.Next(4), Vector3.one);
-                    }
+                int nx = Mathf.CeilToInt((x1 - x0) / 12f), nz = Mathf.CeilToInt((z1 - z0) / 12f);
+                float cx = (x1 - x0) / nx, cz = (z1 - z0) / nz;
+                for (int i = 0; i < nx; i++)
+                    for (int j = 0; j < nz; j++)
+                        Top("tile1", new Vector3(x0 + (i + 0.5f) * cx, 0.0f, z0 + (j + 0.5f) * cz), 180 * rng.Next(2), new Vector3(cx / 12f, 1, cz / 12f));
             }
             Tile(-70, 250, -64, 0, 1);    // our yard, the beach end and the East Terminal's back lot
             Tile(60, 250, 0, 30, 2);      // East Terminal, south strip
