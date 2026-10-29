@@ -197,6 +197,7 @@ namespace PortBoss
                 }
                 found.Add((slot, m.speed > 0.2f ? m.speed * scale : fallback * Scale, m.strike));
             }
+            if (legLF != null && armLU != null) Debug.Log($"[PB] rig {animator.avatar?.name}: arm {ArmLen:F2} m, leg {LegLen:F2} m, shoulder {ShoulderY:F2} m");
             found.Sort((a, b) => a.speed.CompareTo(b.speed));
             foreach (var f in found)
             {
