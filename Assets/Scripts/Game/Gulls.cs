@@ -17,6 +17,7 @@ namespace PortBoss
         enum St { Circle, Glide, Land, Perched, TakeOff }
         St st;
         Transform wingL, wingR;
+        bool toon;
         Quaternion baseL, baseR;
         Vector3 axisL, axisR;
         Vector3 center, perch, vel;
@@ -43,14 +44,38 @@ namespace PortBoss
             for (int i = 0; i < n; i++)
             {
                 var g = new GameObject("Gull").AddComponent<Gull>();
-                var m = Art.Model("gull", g.transform, Vector3.zero, 0, 0.95f);
+                var m = Skin.On ? ToonGull(g.transform) : Art.Model("gull", g.transform, Vector3.zero, 0, 0.95f);
                 if (m == null) { Destroy(g.gameObject); return; }
+                g.toon = Skin.On;
                 g.wingL = FindDeep(m.transform, "Wing_L");
                 g.wingR = FindDeep(m.transform, "Wing_R");
                 g.Init(i);
                 if (g.wingL != null) { g.baseL = g.wingL.localRotation; g.axisL = g.wingL.parent.InverseTransformDirection(g.transform.forward); }
                 if (g.wingR != null) { g.baseR = g.wingR.localRotation; g.axisR = g.wingR.parent.InverseTransformDirection(g.transform.forward); }
             }
+        }
+
+        // A rounder gull in the pack's toon style: egg body, round head, hooked yellow beak, grey wings with black tips
+        // on Wing_L / Wing_R pivots (the flap code finds them by name).
+        static GameObject ToonGull(Transform parent)
+        {
+            var m = new GameObject("gullModel").transform;
+            m.SetParent(parent, false);
+            Color white = Art.Hex("#f4f4f0"), grey = Art.Hex("#9aa3ab"), black = Art.Hex("#262626"), yellow = Art.Hex("#f2c230");
+            Art.Prim(PrimitiveType.Sphere, m, Vector3.zero, Quaternion.identity, new Vector3(0.19f, 0.17f, 0.44f), white, false, "body");
+            Art.Prim(PrimitiveType.Sphere, m, new Vector3(0, 0.08f, 0.2f), Quaternion.identity, new Vector3(0.14f, 0.13f, 0.15f), white, false, "head");
+            Art.Prim(PrimitiveType.Capsule, m, new Vector3(0, 0.065f, 0.3f), Quaternion.Euler(100, 0, 0), new Vector3(0.035f, 0.05f, 0.03f), yellow, false, "beak");
+            foreach (var x in new[] { -0.05f, 0.05f })
+                Art.Prim(PrimitiveType.Sphere, m, new Vector3(x, 0.11f, 0.255f), Quaternion.identity, Vector3.one * 0.024f, black, false, "eye");
+            Art.Prim(PrimitiveType.Cube, m, new Vector3(0, 0.03f, -0.24f), Quaternion.Euler(-8, 0, 0), new Vector3(0.11f, 0.025f, 0.12f), grey, false, "tail");
+            foreach (var side in new[] { -1f, 1f })
+            {
+                var w = new GameObject(side < 0 ? "Wing_L" : "Wing_R").transform;
+                w.SetParent(m, false); w.localPosition = new Vector3(side * 0.07f, 0.05f, 0.02f);
+                Art.Prim(PrimitiveType.Cube, w, new Vector3(side * 0.22f, 0, 0), Quaternion.Euler(0, side * -8f, 0), new Vector3(0.42f, 0.022f, 0.16f), grey, false, "wing");
+                Art.Prim(PrimitiveType.Cube, w, new Vector3(side * 0.47f, -0.005f, -0.035f), Quaternion.Euler(0, side * -18f, 0), new Vector3(0.15f, 0.02f, 0.1f), black, false, "wingtip");
+            }
+            return m.gameObject;
         }
 
         static Transform FindDeep(Transform t, string name)
@@ -137,8 +162,17 @@ namespace PortBoss
             // Wings: flap when climbing/landing, hold out when gliding, fold when perched.
             flap += dt * (flapping ? 11f : 0f);
             float a = st == St.Perched ? 70f : flapping ? Mathf.Sin(flap) * 38f : 6f;
-            if (wingL != null) wingL.localRotation = Quaternion.AngleAxis(-a, axisL) * baseL;
-            if (wingR != null) wingR.localRotation = Quaternion.AngleAxis(a, axisR) * baseR;
+            if (toon && st == St.Perched)
+            {
+                // Folded: swept back along the body.
+                if (wingL != null) { wingL.localRotation = Quaternion.AngleAxis(-84f, Vector3.up) * baseL; wingL.localScale = new Vector3(0.62f, 1, 1); }
+                if (wingR != null) { wingR.localRotation = Quaternion.AngleAxis(84f, Vector3.up) * baseR; wingR.localScale = new Vector3(0.62f, 1, 1); }
+            }
+            else
+            {
+                if (wingL != null) { wingL.localRotation = Quaternion.AngleAxis(-a, axisL) * baseL; wingL.localScale = Vector3.one; }
+                if (wingR != null) { wingR.localRotation = Quaternion.AngleAxis(a, axisR) * baseR; wingR.localScale = Vector3.one; }
+            }
 
             if (st != St.Perched && Random.value < dt / 25f) Sfx.Play("gull", transform.position, 0.45f, Random.Range(0.9f, 1.15f), true);
         }
