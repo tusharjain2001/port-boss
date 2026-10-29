@@ -477,7 +477,10 @@ namespace PortBoss
                 // Between boats (after the day-1 JOB line is gone): when the next one comes.
                 bool firstDayJob = g.DayNum.Value == 1 && g.Sold.Value < 10;
                 if (!firstDayJob && g.Phase.Value == PortGame.Ph.Day && g.NextBoatIn > 0 && !Boat.All.Exists(b => b.State.Value != Boat.St.Leaving))
-                    Label(new Rect(24 * S, 66 * S, 600 * S, 30 * S), $"next boat in {(int)g.NextBoatIn / 60}:{(int)g.NextBoatIn % 60:00}", new GUIStyle(small) { fontSize = Mathf.RoundToInt(20 * S), alignment = TextAnchor.UpperLeft }, new Color(1f, 0.92f, 0.7f, 0.85f));
+                {
+                    Pill(new Rect(18 * S, 64 * S, 200 * S, 30 * S));
+                    Label(new Rect(28 * S, 68 * S, 600 * S, 30 * S), $"next boat in {(int)g.NextBoatIn / 60}:{(int)g.NextBoatIn % 60:00}", new GUIStyle(small) { fontSize = Mathf.RoundToInt(20 * S), alignment = TextAnchor.UpperLeft }, new Color(1f, 0.92f, 0.7f));
+                }
             }
             else Label(new Rect(0, H * 0.45f, W, 60 * S), "Connecting…", mid, Color.white);
 
