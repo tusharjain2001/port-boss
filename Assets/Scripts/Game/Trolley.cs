@@ -17,6 +17,7 @@ namespace PortBoss
         public NetworkVariable<ulong> PusherId = new(ulong.MaxValue);
 
         public Vector3 Handle => transform.TransformPoint(new Vector3(0, 1.05f, -0.8f));
+        public static readonly Vector3 GripL = new(-0.24f, 1.06f, -0.84f), GripR = new(0.24f, 1.06f, -0.84f); // the pusher's hands on the black grip
 
         Rigidbody rb;
         Player pusher;
