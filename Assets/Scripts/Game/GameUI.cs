@@ -647,17 +647,17 @@ namespace PortBoss
 
             Label(new Rect(r.x, y, pw, lh), "NIGHT SHOP", mid, new Color(1f, 0.8f, 0.5f)); y += lh * 1.1f;
             // One row per item: label left of the Buy button, never under it.
-            float lw = r.xMax - 230 * S - x;
+            float lw = r.xMax - 250 * S - x;
             void Row(bool owned, string ownedText, string forSale, int price, System.Action buy)
             {
                 Label(new Rect(x, y, lw, lh), owned ? ownedText : forSale, st, owned ? new Color(0.7f, 1f, 0.7f) : Color.white);
-                if (!owned && Button(new Rect(r.xMax - 210 * S, y + (lh - 46 * S) / 2, 160 * S, 46 * S), $"Buy ${price}", g.Money.Value >= price)) buy();
+                if (!owned && Button(new Rect(r.xMax - 236 * S, y + (lh - 46 * S) / 2, 190 * S, 46 * S), $"Buy ${price}", g.Money.Value >= price)) buy();
                 y += lh * 1.25f;
             }
             Row(g.HasTrolley.Value, "Hand trolley: owned", "Hand trolley (6 crates)", PortGame.TrolleyPrice, g.BuyTrolleyRpc);
             if (!Skin.On) Row(g.PierRepaired.Value, "Pier: repaired", "Repair the pier", PortGame.RepairPrice, g.BuyRepairRpc);
             if (g.ForkliftForSale) Row(g.HasForklift.Value, "Forklift: in the yard", "Forklift + 2 pallets", PortGame.ForkliftPrice, g.BuyForkliftRpc);
-            Row(g.Stage.Value >= 2, "Concrete quay: built (+30% catch)", "BUILD: Concrete quay (+30% catch)", PortGame.QuayCost, g.BuyStageRpc);
+            Row(g.Stage.Value >= 2, "Concrete quay: built", "Concrete quay", PortGame.QuayCost, g.BuyStageRpc);
             y += lh * 1.6f;
             if (NetworkManager.Singleton.IsServer)
             {
