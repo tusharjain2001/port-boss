@@ -245,7 +245,10 @@ namespace PortBoss.Net
         {
             var result = connection.Accept();
             if (result != Result.OK)
+            {
                 Debug.LogWarning($"{Tag} Accept {info.Identity} failed: {result}");
+                connection.Close(); // Steam keeps the handle until we close it
+            }
         }
 
         void ISocketManager.OnConnected(Connection connection, ConnectionInfo info)
@@ -258,6 +261,7 @@ namespace PortBoss.Net
         {
             Debug.Log($"{Tag} Client {info.Identity} disconnected: {info.State} / {info.EndReason}.");
             Enqueue(NetworkEvent.Disconnect, connection.Id);
+            connection.Close(); // Facepunch: "must call Close on the connection" (Dispatch only needs the id)
         }
 
         void ISocketManager.OnMessage(Connection connection, NetIdentity identity, IntPtr data, int size, long messageNum, long recvTime, int channel) =>

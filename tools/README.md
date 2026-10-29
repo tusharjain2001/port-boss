@@ -68,7 +68,7 @@ Add `-batchmode` to run without a window (shots still render the camera; IMGUI m
 | `-pb-carrytest <dir>` | carries 1/3/5 crates, checks every carried crate is drawn in place and in view: `PASS`/`FAIL` |
 | `-pb-stagetest <dir>` | buys stage 2 (Concrete quay) and checks money, shed, bigger cargo |
 | `-pb-shovehost` + `-pb-shovetest` | two processes over LAN: the client shoves the carrying host |
-| `-pb-shop` | with `-pb-night`: buys the trolley at the night card |
+| `-pb-shop` | with `-pb-night`: buys the trolley once the night card is up, then starts the next day (the shop itself works any time) |
 | `-pb-settings <tab>` | open the settings page on tab n (for shots) |
 | `-pb-mapshots <dir>` | fixed-camera map shots (`map-demo-angle.png`...) + the map check |
 | `-pb-uishots <dir>` | title flyover shots, logo, Join, Settings, Pause (menus drawn only when windowed) |

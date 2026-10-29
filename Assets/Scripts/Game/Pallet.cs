@@ -72,11 +72,22 @@ namespace PortBoss
         public bool Put(Crate c)
         {
             if (load.Count >= Capacity) return false;
-            int i = load.Count;
-            c.Attach(NetworkObject, new Vector3(-0.6f + (i % 3) * 0.6f, H + Crate.Size / 2 + 0.01f, i < 3 ? -0.3f : 0.3f), -1);
+            c.Attach(NetworkObject, DeckSlot(FreeSlot()), -1);
             load.Add(c);
             return true;
         }
+
+        static Vector3 DeckSlot(int i) => new(-0.6f + (i % 3) * 0.6f, H + Crate.Size / 2 + 0.01f, i < 3 ? -0.3f : 0.3f);
+
+        // The first deck slot no crate sits in (one taken from the middle leaves a gap; load.Count would land on a crate).
+        int FreeSlot()
+        {
+            for (int i = 0; i < Capacity; i++)
+                if (!load.Exists(c => c != null && (c.transform.localPosition - DeckSlot(i)).sqrMagnitude < 0.01f)) return i;
+            return load.Count;
+        }
+
+        static readonly Collider[] hits = new Collider[16];
 
         void FixedUpdate()
         {
@@ -84,11 +95,11 @@ namespace PortBoss
             // Crates set down on the deck get stacked into a 3 x 2 grid.
             if (load.Count < Capacity)
             {
-                var hits = Physics.OverlapBox(transform.TransformPoint(new Vector3(0, H + 0.3f, 0)), new Vector3(W / 2, 0.3f, D / 2), transform.rotation, ~0, QueryTriggerInteraction.Ignore);
-                foreach (var h in hits)
+                int n = Physics.OverlapBoxNonAlloc(transform.TransformPoint(new Vector3(0, H + 0.3f, 0)), new Vector3(W / 2, 0.3f, D / 2), hits, transform.rotation, ~0, QueryTriggerInteraction.Ignore);
+                for (int i = 0; i < n; i++)
                 {
                     if (load.Count >= Capacity) break;
-                    var c = h.GetComponent<Crate>();
+                    var c = hits[i].GetComponent<Crate>();
                     if (c == null || c.Attached.Value || c.Stored || load.Contains(c)) continue;
                     Put(c);
                 }

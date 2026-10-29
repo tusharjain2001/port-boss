@@ -57,7 +57,10 @@ namespace PortBoss
             Art.Box(ropes.transform, Vector3.zero, new Vector3(s * 1.04f, s * 1.04f, 0.05f), Art.Hex("#c9b07a"), false, "rope");
             Art.Box(ropes.transform, Vector3.zero, new Vector3(0.05f, s * 1.04f, s * 1.04f), Art.Hex("#c9b07a"), false, "rope");
             ropes.SetActive(false);
+            foreach (Transform ch in vis) if (ch.name == "slat") slats.Add(ch.gameObject);
         }
+        readonly List<GameObject> slats = new(); // cached: reading .name every frame allocates a string per child
+        static readonly Color IceRot = Art.Hex("#9a9a88");
 
         public override void OnNetworkSpawn()
         {
@@ -221,13 +224,11 @@ namespace PortBoss
             for (int i = 0; i < spoilers.Length; i++)
             {
                 var baseC = Art.ColorOf(spoilers[i].sharedMaterial);
-                Art.Tint(spoilers[i], mpb, i == 0 ? Color.Lerp(Art.Hex("#9a9a88"), baseC, fresh01) : Color.Lerp(Art.Rot, baseC, fresh01));
+                Art.Tint(spoilers[i], mpb, i == 0 ? Color.Lerp(IceRot, baseC, fresh01) : Color.Lerp(Art.Rot, baseC, fresh01));
             }
 
             // Broken slats show the damage.
-            int broken = 0;
-            foreach (Transform ch in vis)
-                if (ch.name == "slat") ch.gameObject.SetActive(broken++ >= Damage.Value * 3);
+            for (int i = 0; i < slats.Count; i++) slats[i].SetActive(i >= Damage.Value * 3);
 
             bool spoiled = f < Spoiled;
             if (spoiled && flies == null) flies = MakeFlies();

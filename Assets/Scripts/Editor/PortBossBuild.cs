@@ -346,7 +346,9 @@ namespace PortBoss.EditorTools
             UnityEngine.Object.DestroyImmediate(g);
             // NetworkObject hashes come from OnValidate on the asset; make sure it ran.
             var no = asset.GetComponent<NetworkObject>();
-            typeof(NetworkObject).GetMethod("OnValidate", BindingFlags.Instance | BindingFlags.NonPublic)?.Invoke(no, null);
+            var validate = typeof(NetworkObject).GetMethod("OnValidate", BindingFlags.Instance | BindingFlags.NonPublic);
+            if (validate == null) Debug.LogError("[PBBuild] NetworkObject.OnValidate not found (NGO changed?): prefab hashes may stay 0 and host/client won't match");
+            validate?.Invoke(no, null);
             EditorUtility.SetDirty(asset);
             AssetDatabase.SaveAssets();
             return asset;

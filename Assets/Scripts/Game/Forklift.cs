@@ -70,7 +70,12 @@ namespace PortBoss
             t.rotation = rot;
         }
 
-        public override void OnNetworkSpawn() => I = this;
+        public override void OnNetworkSpawn()
+        {
+            I = this;
+            // A driver who disconnects owns us: without this NGO would despawn the forklift with them (HasForklift stays true).
+            if (IsServer) NetworkObject.DontDestroyWithOwner = true;
+        }
         public override void OnNetworkDespawn() { if (I == this) I = null; }
 
         void Update()
@@ -138,6 +143,7 @@ namespace PortBoss
         void HostUpdate()
         {
             if (!IsSpawned) return;
+            if (DriverId.Value != NoDriver && !NetworkManager.ConnectedClients.ContainsKey(DriverId.Value)) DriverId.Value = NoDriver; // the driver left
             var vel = (transform.position - lastPos) / Time.fixedDeltaTime;
             lastPos = transform.position;
             var forkWorld = transform.TransformPoint(new Vector3(0, Mast.Value, ForkZ));

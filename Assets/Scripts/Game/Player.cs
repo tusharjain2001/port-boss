@@ -951,8 +951,8 @@ namespace PortBoss
             var parentTrolley = c.transform.parent != null ? c.transform.parent.GetComponent<Trolley>() : null;
             var parentPallet = c.transform.parent != null ? c.transform.parent.GetComponent<Pallet>() : null;
             if (c.Attached.Value && parentTrolley == null && parentPallet == null) return;
-            if (parentPallet != null) parentPallet.Remove(c);
             if (Vector3.Distance(c.transform.position, transform.position) > 3.6f) return;
+            if (parentPallet != null) parentPallet.Remove(c);
             if (parentTrolley != null) parentTrolley.Remove(c);
             c.Attach(NetworkObject, HoldPos(stack.Count), stack.Count);
             stack.Add(c);

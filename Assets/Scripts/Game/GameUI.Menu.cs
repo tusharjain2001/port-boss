@@ -61,7 +61,8 @@ namespace PortBoss
 
         public RenderTexture Logo()
         {
-            if (logoRT != null || !Skin.On || TitleFont == null) return logoRT;
+            if (logoCam != null) logoCam.enabled = true; // off while playing (GameUI.Update): a 2048 px 8x MSAA render every frame
+            if (logoRT != null || !Skin.On || TitleFont == null || Skin.Get("cont1") == null) return logoRT; // (no container: don't build a root every OnGUI event)
             var root = new GameObject("Logo").transform;
             root.position = new Vector3(0, -400, 0);
             var c = Art.Place(Skin.Get("cont1"), root, Vector3.zero, 90, 1f);

@@ -26,7 +26,7 @@ namespace PortBoss
         public static float ViewDistance { get => F("gfx.view", 1200f); set => S("gfx.view", value); }
         public static bool VSync { get => B("gfx.vsync", true); set => S("gfx.vsync", value); }
         public static readonly int[] FpsCaps = { 30, 60, 120, 144, 0 };
-        public static int FpsCap { get => I("gfx.fps", 3); set => S("gfx.fps", value); }              // index into FpsCaps (0 = unlimited)
+        public static int FpsCap { get => I("gfx.fps", 3); set => S("gfx.fps", value); }              // index into FpsCaps (the last one, 0, = unlimited)
         public static float Fov { get => F("gfx.fov", 62f); set => S("gfx.fov", value); }
 
         // ---- display ----
@@ -83,7 +83,10 @@ namespace PortBoss
 
         public static void ResetAll()
         {
+            // DeleteAll would also wipe the all-time career stats (Stats, "pb.stat.*"): keep those.
+            var stats = System.Array.ConvertAll(Stats.Rows, r => Stats.AllTime(r.key));
             PlayerPrefs.DeleteAll();
+            for (int i = 0; i < stats.Length; i++) if (stats[i] != 0) PlayerPrefs.SetInt("pb.stat." + Stats.Rows[i].key, stats[i]);
             ApplyPreset(AutoPreset());
             PlayerPrefs.Save();
         }

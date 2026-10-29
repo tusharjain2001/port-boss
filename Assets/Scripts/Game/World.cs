@@ -4,7 +4,7 @@ using UnityEngine;
 namespace PortBoss
 {
     // Static scenery, built identically on every peer (no networking needed).
-    // Layout: shore z<0, pier x∈[-3,3] z∈[0,30], boat docks at x≈7.2 z≈16, slipway x∈[-14,-6], rival port z≈230.
+    // Layout: shore z<0, pier x∈[-3,3] z∈[0,30], boat docks at x≈7.6 z≈16, slipway x∈[-14,-6]; (own-art only) rival port z≈240.
     public static class World
     {
         public static readonly Vector3 Spawn = new(0, 0.4f, -3f);
@@ -411,30 +411,12 @@ namespace PortBoss
             }
         }
 
-        // Marlowe's port in Toon Harbor pieces: container stacks, harbour cranes, a freighter alongside, sheds behind.
-        static void RivalPortSkinned(Transform r)
-        {
-            var rng = new System.Random(7);
-            for (int x = -66; x < 66; x += 7)
-                for (int row = 0; row < 3; row++)
-                {
-                    int h = 1 + rng.Next(3);
-                    for (int k = 0; k < h; k++)
-                        Art.Place(Skin.Pick(Skin.I.Containers, rng.Next(99)), r, new Vector3(x, 2 + k * 3f, 4 + row * 3.3f), 90, 1f);
-                }
-            for (int i = 0; i < 3; i++) Art.Place(Skin.Pick(Skin.I.Cranes, i), r, new Vector3(-48 + i * 42, 2, -4), 180, 1f);
-            Art.Place(Skin.Pick(Skin.I.Freighters, 0), r, new Vector3(-8, Water.Level - 0.3f, -24), 90, 1f);
-            Art.Place(Skin.Pick(Skin.I.Freighters, 2), r, new Vector3(48, Water.Level - 0.2f, -30), 200, 1f);
-            for (int i = 0; i < 3; i++) Art.Place(Skin.Pick(Skin.I.Warehouses, i), r, new Vector3(-50 + i * 45, 2, 24), 90, 1f);
-        }
-
         static void RivalPort()
         {
             var r = new GameObject("RivalPort").transform;
             r.SetParent(Root, false);
             r.position = new Vector3(10, 0, 240);
             Art.Box(r, new Vector3(0, -1, 10), new Vector3(170, 6, 40), Art.Concrete, true, "rival_quay");
-            if (Skin.On) { RivalPortSkinned(r); return; }
             var cols = new[] { Art.Red, Art.Navy, Art.Hex("#c9a13a"), Art.Hex("#3f7a5a"), Art.Hex("#d0d0cc"), Art.Rust };
             var rng = new System.Random(7);
             for (int x = -70; x < 70; x += 7)

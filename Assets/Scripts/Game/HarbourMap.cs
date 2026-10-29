@@ -263,10 +263,12 @@ namespace PortBoss
         // shelves) under a tin roof on poles, a painted CRATE STORE board, odds and ends on the top shelves.
         // Rebuilt as it's upgraded: more racks under a longer roof, then the cold store (chiller unit, frost, mist).
         static Transform store;
+        static RenderTexture storeSign;
         public static void BuildCrateStore()
         {
             if (R == null) return;
             if (store != null) Object.Destroy(store.gameObject);
+            if (storeSign != null) { storeSign.Release(); Object.Destroy(storeSign); } // the old sign's texture goes with it
             var keep = R;
             store = R = new GameObject("CrateStoreDressing").transform; R.SetParent(keep, false);
             bool cold = Storage.Cold;
@@ -287,7 +289,7 @@ namespace PortBoss
             if (roof != null) roof.transform.rotation = Quaternion.Euler(8, 0, 0) * roof.transform.rotation;
             Color board = cold ? Art.Hex("#3f8fb5") : Art.Hex("#2f5d6e");
             Art.Box(R, new Vector3(ctr.x, 4.55f, front + 0.25f), new Vector3(3.6f, 0.6f, 0.06f), board, false, "store_sign");
-            var tex = SignTexture(cold ? "COLD STORE" : "CRATE STORE", board, new Color(1f, 0.97f, 0.9f), 3.6f / 0.6f);
+            var tex = storeSign = SignTexture(cold ? "COLD STORE" : "CRATE STORE", board, new Color(1f, 0.97f, 0.9f), 3.6f / 0.6f);
             if (tex != null)
                 foreach (var fr in new[] { true, false })
                 {
@@ -417,7 +419,7 @@ namespace PortBoss
             R = keep;
         }
 
-        // Port stage 2 (bought at night): a proper metal shed and a marked forklift yard on our plot.
+        // Port stage 2 (bought in the shop): a proper metal shed and a marked forklift yard on our plot.
         static GameObject stage2;
         public static void SetStage(int s)
         {
@@ -505,7 +507,7 @@ namespace PortBoss
             // Seen from far off: resolve into a mipmapped copy so the lettering stays legible instead of shimmering.
             var m = new RenderTexture(rt.width, rt.height, 0) { useMipMap = true, autoGenerateMips = true, anisoLevel = 8 };
             Graphics.Blit(rt, m);
-            rt.Release();
+            rt.Release(); Object.Destroy(rt);
             return m;
         }
 
@@ -616,7 +618,7 @@ namespace PortBoss
                 Art.Place(Skin.Get(t % 2 == 0 ? "truck" : "truckB"), rig, Vector3.zero, 0, 1f);
                 var trailer = Art.Place(Skin.Get("trailer"), rig, Vector3.zero, 0, 1f);
                 if (trailer != null && t % 3 != 2) Art.Place(Skin.Get("cont" + t % 6), rig, new Vector3(0, Art.Bounds(trailer).max.y - 0.35f, -4.6f), 0, 0.95f);
-                // Seven a lane spread round the loop, the same start on every peer (the host keeps them in step after that).
+                // Seven a lane spread round the loop, the same layout on every peer; each peer drives them on its own clock until the host's first sync (TrafficRpc) snaps them in step.
                 traffic.Add(rig, t % 2 == 0 ? 1 : -1, t / 2 * RoadTraffic.Half * 2 / 7f + t * 11f, t % 2 == 0 ? 10f : 9f);
             }
         }
@@ -653,7 +655,7 @@ namespace PortBoss
         }
     }
 
-    // Moves along a loop of points (trucks, tugs, gantries); FloatY rides the waves instead of the ground.
+    // Moves along a loop of points (tugs, gantries, yard cranes; lorries are RoadTraffic); FloatY rides the waves instead of the ground.
     public class Mover : MonoBehaviour
     {
         public Vector3[] Pts;
@@ -820,8 +822,12 @@ namespace PortBoss
         }
 
         // Client: the host's lorries as of server time t (catch up smoothly; jump if far out).
+        static float lastSyncT = -1;
         public static void Sync(float t, float[] s, float[] v)
         {
+            // Unreliable: a late, older packet would pull the lorries back (and the next one push them on again).
+            if (t <= lastSyncT && lastSyncT - t < 1f) return; // (a big jump back = a new session)
+            lastSyncT = t;
             float lag = Mathf.Clamp(Water.T - t, 0, 1f);
             for (int i = 0; i < lorries.Count && i < s.Length; i++)
             {
@@ -873,7 +879,7 @@ namespace PortBoss
 
         struct Ship { public Transform t; public GameObject empty, loaded; public float x, phase; public bool docked; }
         Ship[] ships;
-        float berthZ;
+        float berthZ, lastNow;
         bool primed;
 
         public void Init(Transform parent, float z, float[] berths, (string empty, string loaded)[] models)
@@ -893,6 +899,9 @@ namespace PortBoss
         {
             if (ships == null) return;
             float now = Water.T;
+            // The clock jumps (Time.time -> server time) when a session starts or ends: a ship skipped into its stay isn't news.
+            if (Mathf.Abs(now - lastNow) > 2f) primed = false;
+            lastNow = now;
             for (int i = 0; i < ships.Length; i++)
             {
                 ref var s = ref ships[i];

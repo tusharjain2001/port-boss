@@ -21,8 +21,8 @@ namespace PortBoss
         (float t, byte berth)[] Schedule => Schedules[Mathf.Clamp(DayNum.Value - 1, 0, Schedules.Length - 1)];
         // Seconds until the next boat sets off for us (-1: none left today). Works on clients: schedule + DayT are shared.
         public float NextBoatIn { get { foreach (var e in Schedule) if (e.t > DayT.Value) return e.t - DayT.Value; return -1; } }
-        // Tomorrow, for the end-of-shift recap: how many boats, and when the first one comes in.
-        public (int boats, float first) Tomorrow { get { var s = Schedules[Mathf.Clamp(DayNum.Value, 0, Schedules.Length - 1)]; return (s.Length, s[0].t); } }
+        // Tomorrow, for the end-of-shift recap: how many boats.
+        public int BoatsTomorrow => Schedules[Mathf.Clamp(DayNum.Value, 0, Schedules.Length - 1)].Length;
         public Contract Next => Contracts[CaptainFor(DayNum.Value + 1)];
 
         // The goalpost: the crew saves toward the next port stage (docs/PORT-STAGES.md). Stage 2 can be built; later ones are goals.
@@ -60,7 +60,6 @@ namespace PortBoss
         public NetworkVariable<int> DayNum = new(1), Money = new(0), Earned = new(0), Sold = new(0), InSea = new(0), LeftAboard = new(0), SpoiledSold = new(0);
         public NetworkVariable<float> DayT = new(0);
         public NetworkVariable<bool> HasTrolley = new(false);
-        public NetworkVariable<byte> ContractId = new(0);
         public NetworkVariable<bool> PierRepaired = new(false);
         public NetworkVariable<float> PierSag = new(0); // degrees the old pier end hangs down (host computes)
         public const int RepairPrice = 80, ForkliftPrice = 350;
@@ -71,7 +70,8 @@ namespace PortBoss
         // seeded per session. Nothing announces it; you read it from the sky and the sea.
         public NetworkVariable<float> Severity = new(0f);
         System.Random wx;
-        float wxTarget, wxRate, wxNextPick, forcedSeverity = -1f, worstToday;
+        float wxTarget, wxRate, wxNextPick, forcedSeverity = -1f;
+        public NetworkVariable<float> WorstToday = new(0f); // roughest weather today (host writes; the day verdict reads it on every peer)
         public float ForcedSeverity => forcedSeverity;
         Crate raided; float raidPenaltyAt;
 
@@ -84,7 +84,7 @@ namespace PortBoss
         };
         public static int CaptainFor(int day) => day >= 3 && day % 2 == 1 ? 1 : 0;
         public static string Title(string captain) => "Captain " + captain[0] + captain.Substring(1).ToLowerInvariant();
-        public Contract Today => Contracts[Mathf.Clamp(ContractId.Value, 0, Contracts.Length - 1)];
+        public Contract Today => Contracts[CaptainFor(DayNum.Value)];
         public string CaptainName => "CAPTAIN " + Today.Captain;
 
         // What the buyer pays for this crate under today's contract.
@@ -126,9 +126,8 @@ namespace PortBoss
 
         void StartDay(int n)
         {
-            worstToday = 0;
+            WorstToday.Value = 0;
             DayNum.Value = n; DayT.Value = 0; nextBoat = 0;
-            ContractId.Value = (byte)CaptainFor(n);
             Earned.Value = Sold.Value = InSea.Value = LeftAboard.Value = SpoiledSold.Value = 0;
             Phase.Value = Ph.Day;
             if (n == 1)
@@ -213,7 +212,7 @@ namespace PortBoss
                 s = Mathf.MoveTowards(s, wxTarget, wxRate * Time.deltaTime);
             }
             if (Mathf.Abs(s - Severity.Value) > 0.004f) Severity.Value = s; // don't sync every tick
-            if (Phase.Value == Ph.Day) worstToday = Mathf.Max(worstToday, s);
+            if (Phase.Value == Ph.Day && s > WorstToday.Value) WorstToday.Value = s;
         }
 
         // Debug (host): force a severity, or < 0 to hand it back to the random weather.
@@ -374,7 +373,7 @@ namespace PortBoss
         {
             int sold = Sold.Value, sea = InSea.Value, left = LeftAboard.Value, spoiled = SpoiledSold.Value;
             if (sold == 0) return "The buyer waited all day. He brought sandwiches.";
-            if (worstToday > 0.75f && sea >= 4) return $"The storm took {sea} crates. The shed was RIGHT THERE.";
+            if (WorstToday.Value > 0.75f && sea >= 4) return $"The storm took {sea} crates. The shed was RIGHT THERE.";
             if (sea >= 5 && sea >= sold) return "More fish went in the sea than in the buyer's van. The gulls send their thanks.";
             if (left >= 10) return $"Captain {Today.Captain} sailed home with {left} crates. Tonight, they eat well.";
             if (spoiled >= 4) return "The flies have started calling you 'boss' too.";

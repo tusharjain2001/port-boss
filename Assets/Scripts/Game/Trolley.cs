@@ -143,10 +143,18 @@ namespace PortBoss
         public bool Put(Crate c)
         {
             if (load.Count >= Capacity || lost) return false;
-            c.Attach(NetworkObject, BedSlot(load.Count), -1);
+            c.Attach(NetworkObject, BedSlot(FreeSlot()), -1);
             load.Add(c);
             ClunkRpc(c.transform.position);
             return true;
+        }
+
+        // The first bed slot no crate sits in (one taken from the middle leaves a gap; load.Count would land on a crate).
+        int FreeSlot()
+        {
+            for (int i = 0; i < Capacity; i++)
+                if (!load.Exists(c => c != null && (c.transform.localPosition - BedSlot(i)).sqrMagnitude < 0.01f)) return i;
+            return load.Count;
         }
 
         // Every peer, every frame: a pushed trolley is drawn in its held pose from the pusher as this peer sees them.
@@ -177,11 +185,11 @@ namespace PortBoss
             // Pick up crates that land in the bed.
             if (load.Count < Capacity)
             {
-                var hits = Physics.OverlapBox(transform.TransformPoint(BedCenter), BedHalf, transform.rotation, ~0, QueryTriggerInteraction.Ignore);
-                foreach (var h in hits)
+                int n = Physics.OverlapBoxNonAlloc(transform.TransformPoint(BedCenter), BedHalf, cols, transform.rotation, ~0, QueryTriggerInteraction.Ignore);
+                for (int i = 0; i < n; i++)
                 {
                     if (load.Count >= Capacity) break;
-                    var c = h.GetComponent<Crate>();
+                    var c = cols[i].GetComponent<Crate>();
                     if (c == null || c.Attached.Value || c.Stored || load.Contains(c)) continue;
                     Put(c);
                 }

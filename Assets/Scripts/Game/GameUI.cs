@@ -8,7 +8,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace PortBoss
 {
-    // Bootstrap + all UI (IMGUI): main menu, pause, HUD, shouts, money popups, end-of-day card, night shop.
+    // Bootstrap + all UI (IMGUI): main menu, pause, HUD, shouts, money popups, end-of-day card, shop, stats.
     public partial class GameUI : MonoBehaviour
     {
         public static GameUI I;
@@ -37,14 +37,16 @@ namespace PortBoss
         GameObject menuBoat;
         Screen settingsReturn = Screen.Menu;
         bool settingsFromPause;
-        string hovered;
+        string hovered; Rect hoveredRect;
         Camera cam;
-        float lastEarned;
 
         public static bool BuyerOpen => I != null && I.buyerOpen;
         bool buyerOpen; float buyerOpenedAt;
-        public static void OpenBuyer() { if (I == null) return; I.buyerOpen = true; I.buyerOpenedAt = Time.unscaledTime; Sfx.Play2D("click", 0.5f); }
-        public static void CloseBuyer() { if (I != null) I.buyerOpen = false; }
+        // The same E press opens the buyer (Player.Update) and closes it (our Update); whichever runs first, one press
+        // must not do both, so neither acts in the frame the other did.
+        int buyerFrame = -1;
+        public static void OpenBuyer() { if (I == null || I.buyerFrame == Time.frameCount) return; I.buyerOpen = true; I.buyerFrame = Time.frameCount; I.buyerOpenedAt = Time.unscaledTime; Sfx.Play2D("click", 0.5f); }
+        public static void CloseBuyer() { if (I == null || I.buyerFrame == Time.frameCount) return; I.buyerOpen = false; I.buyerFrame = Time.frameCount; }
 
         public static bool InputBlocked => I == null || I.screen != Screen.Playing || I.paused || I.buyerOpen || I.statsOpen || I.shopOpen || Intro.Playing
             || (PortGame.I != null && PortGame.I.Phase.Value == PortGame.Ph.Night);
@@ -101,7 +103,7 @@ namespace PortBoss
             cam = Camera.main;
             if (cam == null) { cam = new GameObject("Main Camera", typeof(Camera), typeof(AudioListener)).GetComponent<Camera>(); cam.tag = "MainCamera"; }
             cam.farClipPlane = 1500; cam.fieldOfView = 62;
-            var data = cam.GetComponent<UniversalAdditionalCameraData>() ?? cam.gameObject.AddComponent<UniversalAdditionalCameraData>();
+            if (!cam.TryGetComponent<UniversalAdditionalCameraData>(out var data)) data = cam.gameObject.AddComponent<UniversalAdditionalCameraData>(); // (?? doesn't see Unity's fake-null)
             data.renderPostProcessing = true;
             data.antialiasing = AntialiasingMode.SubpixelMorphologicalAntiAliasing;
 
@@ -194,6 +196,7 @@ namespace PortBoss
             else ApplyLight(0.8f, false); // the title scene sits in golden hour
             ApplyStormLight();
             UpdatePunch();
+            if (logoCam != null && screen != Screen.Menu) logoCam.enabled = false; // DrawMenu turns it back on
             NightTick();
             amb.volume = 0.35f * (1f + Storm.Level * 1.3f) * Settings.Ambience; // the sea gets louder as it gets rougher
             SettingsKeyCapture();
@@ -307,6 +310,7 @@ namespace PortBoss
         void SetPaused(bool p)
         {
             paused = p;
+            if (!p) settingsFromPause = false; // Esc out of pause > Settings: the next Esc opens the pause menu again
             if (Session.Solo) Time.timeScale = p ? 0 : 1;
         }
 
@@ -329,7 +333,7 @@ namespace PortBoss
         public static void Shout(string who, string s, float secs) { shoutWho = who; shout = s; shoutUntil = Time.unscaledTime + secs; }
         public static void Toast(string s) { toast = s; toastUntil = Time.unscaledTime + 2.5f; }
 
-        // A beat on a big splash: the camera punches in for ~1.4 s; solo play also slows time a moment (in co-op
+        // A beat on a big splash: the camera punches in for ~1.4 s; a host playing alone also slows time a moment (in co-op
         // that would slow everyone, so it's camera-only). Three splashes inside 2 s = a wipeout, the bigger beat.
         static float punchT = -1, punchStrength, lastPunch = -99, splashWindow, savedTimeScale = 1;
         static int splashCount;
@@ -350,7 +354,7 @@ namespace PortBoss
             if (punchT < 0 || cam == null) return;
             punchT += Time.unscaledDeltaTime / 1.4f;
             cam.fieldOfView = Settings.Fov - 10f * punchStrength * Mathf.Sin(Mathf.Clamp01(punchT) * Mathf.PI);
-            if (punchT >= 1) { punchT = -1; cam.fieldOfView = Settings.Fov; if (Time.timeScale < savedTimeScale) Time.timeScale = savedTimeScale; }
+            if (punchT >= 1) { punchT = -1; cam.fieldOfView = Settings.Fov; if (!paused && Time.timeScale < savedTimeScale) Time.timeScale = savedTimeScale; }
         }
         public static void Popup(Vector3 p, string s, Color c) => pops.Add(new Pop { p = p, s = s, c = c, t0 = Time.unscaledTime });
 
@@ -422,8 +426,9 @@ namespace PortBoss
         void Hover(Rect r, string id, bool enabled)
         {
             if (Event.current.type != EventType.Repaint) return;
-            if (enabled && r.Contains(Event.current.mousePosition)) { if (hovered != id) { hovered = id; Sfx.Play2D("clank", 0.35f); } }
-            else if (hovered == id) hovered = null;
+            // Keyed on the rect too: two buttons with the same label ("Buy", "Sell") would otherwise retrigger every repaint.
+            if (enabled && r.Contains(Event.current.mousePosition)) { if (hovered != id || hoveredRect != r) { hovered = id; hoveredRect = r; Sfx.Play2D("clank", 0.35f); } }
+            else if (hovered == id && hoveredRect == r) hovered = null;
         }
 
         void OnGUI()
@@ -1013,8 +1018,8 @@ namespace PortBoss
                 float fill = Mathf.Clamp01(g.Money.Value / (float)Mathf.Max(1, g.NextStageCost)) * rest;
                 if (fill > 0) GUI.DrawTexture(new Rect(bar.x, bar.y, Mathf.Max(12 * S, bar.width * fill), bar.height), Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(1f, 0.78f, 0.25f), 0, 7 * S);
                 y = bar.yMax + 14 * S;
-                var tm = g.Tomorrow; var nx = g.Next;
-                var tomorrow = $"Tomorrow: {PortGame.Title(nx.Captain)} ({(nx.Cargo > 1 ? "big catch, short stay" : "steady boats")}), {tm.boats} boats";
+                var nx = g.Next;
+                var tomorrow = $"Tomorrow: {PortGame.Title(nx.Captain)} ({(nx.Cargo > 1 ? "big catch, short stay" : "steady boats")}), {g.BoatsTomorrow} boats";
                 Label(new Rect(x, y, xr - x, 30 * S), tomorrow, OneLine(new GUIStyle(note) { alignment = TextAnchor.MiddleCenter }, tomorrow, xr - x), new Color(1f, 0.93f, 0.8f, 0.9f));
 
                 var foot = new Rect(r.x + 36 * S, r.yMax - 92 * S, pw - 72 * S, 62 * S);
@@ -1041,7 +1046,7 @@ namespace PortBoss
             int lvl = g.StoreLevel.Value;
             if (lvl < 2) items.Add(("Bigger crate store", "A third rack under the store roof: room for 18 crates (now 12).", PortGame.StorePrice[2], "", g.BuyStoreRpc));
             else items.Add(("Cold store", "A fourth rack (24 crates) and a chiller: fish on the racks stays fresh much longer.", PortGame.StorePrice[3], lvl >= 3 ? "Owned" : "", g.BuyStoreRpc));
-            items.Add(("Forklift + 2 pallets", "Lifts a whole pallet of crates at once. Drive with W/S, lift with E.", PortGame.ForkliftPrice,
+            items.Add(("Forklift + 2 pallets", "Lifts a whole pallet of crates at once. Drive with WASD, lift with Shift, lower with Q, E to get out.", PortGame.ForkliftPrice,
                 g.HasForklift.Value ? "Owned" : !g.ForkliftForSale ? "From day 3" : "", g.BuyForkliftRpc));
             if (!Skin.On) items.Add(("Pier repair", "Fix the old pier end so it holds more weight.", PortGame.RepairPrice, g.PierRepaired.Value ? "Owned" : "", g.BuyRepairRpc));
             items.Add(("Concrete quay", "Port stage 2: a proper shed, a forklift yard, and the boats bring bigger catches.", PortGame.QuayCost,

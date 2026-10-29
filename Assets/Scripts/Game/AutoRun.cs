@@ -22,20 +22,24 @@ namespace PortBoss
 
         public static void Begin(GameUI ui)
         {
-            if (!System.Array.Exists(System.Environment.GetCommandLineArgs(), x => x.StartsWith("-pb-"))) return;
+            // Look / transport switches alone don't make a test run (test mode auto-sells, skips the intro, frees the cursor).
+            if (!System.Array.Exists(System.Environment.GetCommandLineArgs(), x => x.StartsWith("-pb-") && System.Array.IndexOf(LookSwitches, x) < 0)) return;
             Active = true;
             new GameObject("AutoRun").AddComponent<AutoRun>().ui = ui;
         }
 
         public static bool Active;
+        static readonly string[] LookSwitches = { "-pb-ownart", "-pb-bevel", "-pb-oldwater", "-pb-oldfog", "-pb-noclouds", "-pb-force-steam" };
+        // Numbers on the command line use '.' whatever the PC's locale ("0.5" is 5 on a de-DE machine otherwise).
+        static bool ArgF(string name, out float v, int k = 1) => float.TryParse(Arg(name, k), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out v);
         GameUI ui;
         float quitAt = -1, nextLog;
         Bot bot;
 
         IEnumerator Start()
         {
-            if (float.TryParse(Arg("-pb-quit"), out var q)) quitAt = q;
-            if (float.TryParse(Arg("-pb-timescale"), out var ts)) Time.timeScale = ts;
+            if (ArgF("-pb-quit", out var q)) quitAt = q;
+            if (ArgF("-pb-timescale", out var ts)) Time.timeScale = ts;
             yield return null;
             if (Has("-pb-solo")) ui.Play();
             else if (Has("-pb-host-lan")) ui.Host(true);
@@ -54,8 +58,8 @@ namespace PortBoss
             }
             if (Has("-pb-bot")) { bot = new Bot(); Player.BotInput = bot.Tick; }
             var dir = Arg("-pb-shots");
-            if (dir != null) StartCoroutine(Shots(dir, float.TryParse(Arg("-pb-shots", 2), out var iv) ? iv : 5f));
-            if (float.TryParse(Arg("-pb-night"), out var n)) StartCoroutine(ForceNight(n));
+            if (dir != null) StartCoroutine(Shots(dir, ArgF("-pb-shots", out var iv, 2) ? iv : 5f));
+            if (ArgF("-pb-night", out var n)) StartCoroutine(ForceNight(n));
             if (Has("-pb-trolleytest")) StartCoroutine(TrolleyTest());
             if (Has("-pb-wobbletest")) StartCoroutine(WobbleTest());
             if (Arg("-pb-charshots") != null) StartCoroutine(CharShots(Arg("-pb-charshots")));
@@ -348,6 +352,7 @@ namespace PortBoss
             g.DebugGrantKit();
             yield return new WaitForSeconds(2f);
             var t = Trolley.I;
+            if (t == null) { Debug.Log("[PB] push test: FAIL no trolley"); yield break; }
             for (int k = 0; k < 4; k++) g.SpawnCrate(t.transform.position + new Vector3(0, 1.4f + k * 0.7f, 0), 1f);
             yield return new WaitForSeconds(2.5f);
             Player.CamOverride = true;
@@ -544,8 +549,7 @@ namespace PortBoss
             Camera.main.transform.position = new Vector3(14, 3, 24); Camera.main.transform.LookAt(new Vector3(0, 0, 24));
         }
 
-        // Throw a crate at the local player.
-        // Stage 2: earn it, end the day, build the quay at night, check the shed is up and tomorrow's boat is bigger.
+        // Stage 2: earn it, end the day, build the quay, check the shed is up and tomorrow's boat is bigger.
         IEnumerator StageTest(string dir)
         {
             Directory.CreateDirectory(dir);
@@ -604,12 +608,11 @@ namespace PortBoss
             Debug.Log($"[PB] knock test: carrying after hit={pl.Carrying} (was 2)");
         }
 
-        // Book Bjorn at night, start day 2, check the countdown.
+        // Captains take turns: day 3 is Bjorn's (big catch, short stay). Start day 3, check the captain and the countdown.
         IEnumerator ContractTest()
         {
             yield return WaitGame();
             var g = PortGame.I;
-            g.EndDayNow();
             yield return new WaitForSeconds(1);
             g.DebugStartDay(3);
             yield return new WaitForSeconds(1);
@@ -618,9 +621,10 @@ namespace PortBoss
             for (int i = 0; i < 80 && (b = Boat.DockedAt[0]) == null; i++) yield return new WaitForSeconds(0.5f);
             yield return new WaitForSeconds(1);
             Debug.Log($"[PB] contract test: boat docked={b != null} secondsLeft={(b ? b.SecondsLeft.Value : -1)}");
+            bool ok = g.Today.Captain == "BJORN" && b != null && b.SecondsLeft.Value > 0 && b.SecondsLeft.Value <= g.Today.DockSeconds;
+            Debug.Log($"[PB] contract test: {(ok ? "PASS" : "FAIL")} (day 3 captain {g.Today.Captain}, dock {g.Today.DockSeconds} s)");
         }
 
-        // Storm warning now, storm 90 s later (use -pb-timescale to speed it up); crates on the pier get blown.
         // Carried stacks must be visible from the real gameplay camera: carry 1, 3, 5 and count the crates the
         // camera can see (line of sight to any corner of each crate, the carrier's body counts as blocking).
         IEnumerator CarryTest(string dir)
@@ -1033,7 +1037,7 @@ namespace PortBoss
                 if (t == null || !t.IsSpawned) break;
                 Debug.Log($"[PB] trolley test: rolling at {t.transform.position:F2} v={rb.linearVelocity.magnitude:F1}");
             }
-            Debug.Log($"[PB] trolley test end: hasTrolley={g.HasTrolley.Value} inSea={g.InSea.Value}");
+            Debug.Log($"[PB] trolley test end: trolley spawned={t != null && t.IsSpawned} inSea={g.InSea.Value}"); // (spawned straight from the prefab: HasTrolley isn't set)
         }
 
         IEnumerator ForceNight(float after)
@@ -1041,7 +1045,7 @@ namespace PortBoss
             yield return new WaitForSeconds(after);
             var g = PortGame.I;
             if (g != null && g.IsServer) g.EndDayNow();
-            if (!Has("-pb-shop")) yield break;
+            if (!Has("-pb-shop") || g == null || !g.IsServer) yield break;
             yield return new WaitForSeconds(3);
             g.Money.Value = Mathf.Max(g.Money.Value, PortGame.TrolleyPrice);
             g.BuyTrolleyRpc();
@@ -1083,7 +1087,7 @@ namespace PortBoss
             tex.Apply();
             RenderTexture.active = null;
             File.WriteAllBytes(path, tex.EncodeToPNG());
-            Destroy(tex); rt.Release();
+            Destroy(tex); rt.Release(); Destroy(rt);
         }
 
         IEnumerator Shots(string dir, float every)

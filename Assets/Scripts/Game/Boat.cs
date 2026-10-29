@@ -42,6 +42,7 @@ namespace PortBoss
         int shoutIdx;
         readonly List<Crate> cargo = new();
         CharAnim captain; // the pack worker at the wheelhouse (skin only)
+        Quaternion captainRest; // his local rotation at the wheel (two throws at once must not leave him turned)
         readonly Dictionary<ulong, float> evicted = new(); // server: player -> when we last threw them off
         float evictCheck;
 
@@ -129,7 +130,7 @@ namespace PortBoss
             {
                 var cap = Art.Place(Skin.I.Buyer, v, new Vector3(-1.2f, DeckY, -1.6f), 90, 1f);
                 var an = cap.GetComponentInChildren<Animator>();
-                if (an != null) (captain = an.gameObject.AddComponent<CharAnim>()).Init(an, Skin.I);
+                if (an != null) { (captain = an.gameObject.AddComponent<CharAnim>()).Init(an, Skin.I); captainRest = captain.transform.localRotation; }
             }
         }
 
@@ -289,13 +290,12 @@ namespace PortBoss
         System.Collections.IEnumerator Heave(Vector3 at)
         {
             var body = captain.transform;
-            var was = body.rotation;
             var d = at - body.position; d.y = 0;
             if (d.sqrMagnitude > 0.01f) body.rotation = Quaternion.LookRotation(d);
             for (float u = 0; u < 1; u += Time.deltaTime / 0.45f) { captain.Throw01 = u; yield return null; }
             captain.Throw01 = -1;
             yield return new WaitForSeconds(1.2f);
-            if (captain != null) body.rotation = was;
+            if (captain != null) body.localRotation = captainRest;
         }
 
         // Crates still on deck get lashed down and sail away with us.
