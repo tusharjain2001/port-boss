@@ -177,7 +177,7 @@ namespace PortBoss
             var clip = new Rect(r.center.x - 95 * S, r.y + 8 * S, 190 * S, 50 * S);
             GUI.DrawTexture(clip, Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(0.62f, 0.64f, 0.66f), 0, 10 * S);
             GUI.DrawTexture(new Rect(clip.x + 14 * S, clip.y + 10 * S, clip.width - 28 * S, 14 * S), Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(0.38f, 0.4f, 0.42f), 0, 7 * S);
-            var hs = new GUIStyle(small) { fontSize = Mathf.RoundToInt(19 * S), fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft };
+            var hs = new GUIStyle(small) { fontSize = Mathf.RoundToInt(19 * S), font = TitleFont, alignment = TextAnchor.MiddleLeft };
             hs.normal.textColor = new Color(0.55f, 0.18f, 0.12f);
             GUI.Label(new Rect(paper.x + 22 * S, paper.y + 30 * S, paper.width, 30 * S), header, hs);
             GUI.DrawTexture(new Rect(paper.x + 18 * S, paper.y + 64 * S, paper.width - 36 * S, 2 * S), Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(0.55f, 0.18f, 0.12f, 0.6f), 0, 0);

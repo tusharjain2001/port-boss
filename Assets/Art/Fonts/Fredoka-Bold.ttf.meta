@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 9b5f7227ea3ac9941a4af1185b449788
+guid: 315d22c0be5fe9c4f88fb33b218e0963
 TrueTypeFontImporter:
   externalObjects: {}
   serializedVersion: 4
@@ -9,7 +9,7 @@ TrueTypeFontImporter:
   characterPadding: 1
   includeFontData: 1
   fontNames:
-  - Alfa Slab One
+  - Fredoka
   fallbackFontReferences: []
   customCharacters: 
   fontRenderingMode: 0

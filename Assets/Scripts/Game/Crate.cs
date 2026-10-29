@@ -9,7 +9,7 @@ namespace PortBoss
     public class Crate : NetworkBehaviour
     {
         // (Spoil time sized for the long haul to the fish market across the road; stored crates spoil slower.)
-        public const float Size = 0.55f, Spoiled = 0.35f, SpoilSeconds = 450f, StoredSpoilRate = 0.4f;
+        public const float Size = 0.55f, Spoiled = 0.35f, SpoilSeconds = 450f;
         public static readonly List<Crate> All = new();
 
         public NetworkVariable<float> Fresh = new(1f);
@@ -182,7 +182,7 @@ namespace PortBoss
             if (game != null && game.Phase.Value == PortGame.Ph.Day)
             {
                 // Quantised so 30 crates don't sync a float every tick.
-                fresh = Mathf.Min(fresh, Fresh.Value) - Time.fixedDeltaTime / SpoilSeconds * (Stored ? StoredSpoilRate : 1f);
+                fresh = Mathf.Min(fresh, Fresh.Value) - Time.fixedDeltaTime / SpoilSeconds * (Stored ? Storage.SpoilRate : 1f);
                 float q = Mathf.Max(0, Mathf.Ceil(fresh * 40) / 40);
                 if (q < Fresh.Value) Fresh.Value = q;
             }

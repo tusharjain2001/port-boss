@@ -25,7 +25,7 @@ namespace PortBoss
             Coast();
             Breakwater();
             Shelter(root.Find("Shed"));
-            CrateStore();
+            BuildCrateStore();
             Market(root.Find("Buyer"));
             Roads();
             Hinterland();
@@ -261,22 +261,33 @@ namespace PortBoss
 
         // The crate store at the foot of the jetty: the pack's orange shelving (stretched so a crate fits between
         // shelves) under a tin roof on poles, a painted CRATE STORE board, odds and ends on the top shelves.
-        static void CrateStore()
+        // Rebuilt as it's upgraded: more racks under a longer roof, then the cold store (chiller unit, frost, mist).
+        static Transform store;
+        public static void BuildCrateStore()
         {
-            foreach (var c in Storage.Racks)
+            if (R == null) return;
+            if (store != null) Object.Destroy(store.gameObject);
+            var keep = R;
+            store = R = new GameObject("CrateStoreDressing").transform; R.SetParent(keep, false);
+            bool cold = Storage.Cold;
+            for (int k = 0; k < Storage.RackCount; k++)
             {
+                var c = Storage.Rack(k);
                 var s = Art.Place(Skin.Get("shelves"), R, c + new Vector3(0, 0, -0.05f), 0, 1f);
                 if (s != null) s.transform.localScale = new Vector3(1.15f, 1.4f, 1.15f);
-                for (int i = 0; i < 3; i++) Top(i % 2 == 0 ? "box" : "boxB", c + new Vector3(-0.8f + i * 0.8f, 2.1f + 0.35f, -0.1f), i * 30, Vector3.one); // the 4th shelf
+                for (int i = 0; i < 3; i++) Top(i % 2 == 0 ? "box" : "boxB", c + new Vector3(-0.8f + i * 0.8f, 2.1f + 0.35f, -0.1f), i * 30 + k * 50, Vector3.one); // the 4th shelf
+                if (cold) Art.Box(R, c + new Vector3(0, 3.02f, -0.05f), new Vector3(Storage.RackW - 0.1f, 0.06f, Storage.RackD - 0.1f), Art.Hex("#eef7ff"), false, "frost");
             }
-            var ctr = Storage.Center; float w = Storage.Racks[^1].x - Storage.Racks[0].x + Storage.RackW + 1.2f, front = ctr.z + 1.1f, back = ctr.z - 1.2f;
-            foreach (var x in new[] { ctr.x - w / 2, ctr.x + w / 2 })
+            var ctr = Storage.Center; float w = Storage.MaxX - Storage.MinX + 1.2f, front = ctr.z + 1.1f, back = ctr.z - 1.2f;
+            int bays = Mathf.CeilToInt(w / 6.5f);
+            for (int i = 0; i <= bays; i++)
                 foreach (var z in new[] { front, back })
-                    Fit("mpole", new Vector3(x, 1.95f, z), new Vector3(0.14f, 3.9f, 0.14f));
+                    Fit("mpole", new Vector3(ctr.x - w / 2 + w * i / bays, 1.95f, z), new Vector3(0.14f, 3.9f, 0.14f));
             var roof = Fit("roofSheet", new Vector3(ctr.x, 4.0f, ctr.z - 0.05f), new Vector3(w + 0.6f, 0.3f, 3f));
             if (roof != null) roof.transform.rotation = Quaternion.Euler(8, 0, 0) * roof.transform.rotation;
-            Art.Box(R, new Vector3(ctr.x, 4.55f, front + 0.25f), new Vector3(3.6f, 0.6f, 0.06f), Art.Hex("#2f5d6e"), false, "store_sign");
-            var tex = SignTexture("CRATE STORE", Art.Hex("#2f5d6e"), new Color(1f, 0.93f, 0.8f), 3.6f / 0.6f);
+            Color board = cold ? Art.Hex("#3f8fb5") : Art.Hex("#2f5d6e");
+            Art.Box(R, new Vector3(ctr.x, 4.55f, front + 0.25f), new Vector3(3.6f, 0.6f, 0.06f), board, false, "store_sign");
+            var tex = SignTexture(cold ? "COLD STORE" : "CRATE STORE", board, new Color(1f, 0.97f, 0.9f), 3.6f / 0.6f);
             if (tex != null)
                 foreach (var fr in new[] { true, false })
                 {
@@ -284,6 +295,43 @@ namespace PortBoss
                     var mpb = new MaterialPropertyBlock(); mpb.SetTexture("_TextureSample", tex);
                     q.GetComponent<Renderer>().SetPropertyBlock(mpb);
                 }
+            if (cold) ColdStore(ctr, w, front);
+            R = keep;
+        }
+
+        // The cold store's kit: a big white chiller unit at the west end (fan grille, blue light, a pipe up to the
+        // roof), icicles along the roof edge, and a low cold mist drifting out over the floor.
+        static void ColdStore(Vector3 ctr, float w, float front)
+        {
+            var u = new Vector3(Storage.MinX - 1.55f, 0, ctr.z - 0.1f); // clear of the roof's corner pole
+            Art.Box(R, u + new Vector3(0, 0.9f, 0), new Vector3(1.3f, 1.8f, 1.5f), Art.Hex("#e9eef2"), true, "chiller");
+            Art.Box(R, u + new Vector3(0, 1.82f, 0), new Vector3(1.38f, 0.08f, 1.58f), Art.Hex("#9fb3c2"), false, "chiller_lid");
+            Art.Box(R, u + new Vector3(0, 0.12f, 0), new Vector3(1.4f, 0.24f, 1.6f), Art.Hex("#4b5d6b"), false, "chiller_base");
+            Art.Prim(PrimitiveType.Cylinder, R, u + new Vector3(0, 1.0f, 0.76f), Quaternion.Euler(90, 0, 0), new Vector3(1.0f, 0.02f, 1.0f), Art.Hex("#3a4650"), false, "chiller_fan");
+            Art.Prim(PrimitiveType.Cylinder, R, u + new Vector3(0, 1.0f, 0.78f), Quaternion.Euler(90, 0, 0), new Vector3(0.25f, 0.02f, 0.25f), Art.Hex("#c9d3da"), false, "chiller_hub");
+            for (int i = 0; i < 3; i++)
+                Art.Box(R, u + new Vector3(0, 1.0f, 0.79f), new Vector3(0.9f, 0.08f, 0.01f), Art.Hex("#c9d3da"), false, "chiller_blade").transform.localRotation = Quaternion.Euler(0, 0, i * 60);
+            Art.Box(R, u + new Vector3(0.45f, 1.55f, 0.76f), new Vector3(0.14f, 0.14f, 0.02f), Art.Hex("#7fd4ff"), false, "chiller_light", 0.9f);
+            Art.Prim(PrimitiveType.Cylinder, R, u + new Vector3(0.5f, 2.9f, -0.4f), Quaternion.identity, new Vector3(0.14f, 1.1f, 0.14f), Art.Hex("#b8c4cc"), false, "chiller_pipe");
+            for (float x = ctr.x - w / 2; x <= ctr.x + w / 2; x += 0.45f)
+            {
+                float len = 0.12f + 0.16f * Mathf.PerlinNoise(x * 1.7f, 3.1f);
+                Art.Box(R, new Vector3(x, 3.66f - len / 2, front + 0.3f), new Vector3(0.06f, len, 0.06f), Art.Hex("#e8f6ff"), false, "icicle");
+            }
+            // Cold mist: slow, low and faint.
+            var g = new GameObject("cold_mist"); g.transform.SetParent(R, false); g.transform.position = new Vector3(ctr.x, 0.15f, ctr.z + 0.2f);
+            var ps = g.AddComponent<ParticleSystem>(); ps.Stop();
+            var m = ps.main; m.loop = true; m.startLifetime = 5f; m.startSpeed = 0.15f; m.startSize = new ParticleSystem.MinMaxCurve(1.2f, 2f);
+            m.startColor = new Color(0.95f, 0.98f, 1f, 0.12f); m.maxParticles = 60; m.simulationSpace = ParticleSystemSimulationSpace.World;
+            var e = ps.emission; e.rateOverTime = 8f;
+            var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Box; sh.scale = new Vector3(w - 1f, 0.1f, 1.2f);
+            var vel = ps.velocityOverLifetime; vel.enabled = true; vel.space = ParticleSystemSimulationSpace.World;
+            vel.x = new ParticleSystem.MinMaxCurve(-0.05f, 0.05f); vel.y = new ParticleSystem.MinMaxCurve(0.02f, 0.06f); vel.z = new ParticleSystem.MinMaxCurve(0.15f, 0.3f);
+            var col = ps.colorOverLifetime; col.enabled = true;
+            var grad = new Gradient(); grad.SetKeys(new[] { new GradientColorKey(Color.white, 0), new GradientColorKey(Color.white, 1) }, new[] { new GradientAlphaKey(0, 0), new GradientAlphaKey(1, 0.3f), new GradientAlphaKey(0, 1) });
+            col.color = grad;
+            var r = g.GetComponent<ParticleSystemRenderer>(); r.sharedMaterial = Art.Particle; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            ps.Play();
         }
 
         // Neat blocks of 8 bays x 5 rows (6 m boxes end to end), heights in steps of 1-4, straight 12 m lanes between,

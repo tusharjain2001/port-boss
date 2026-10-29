@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace PortBoss
 {
-    // Host-side game state: day clock, boats, money, selling, the night shop. Spawned by the host.
+    // Host-side game state: day clock, boats, money, selling, the shop. Spawned by the host.
     public class PortGame : NetworkBehaviour
     {
         public enum Ph : byte { Day, Night }
@@ -23,7 +23,7 @@ namespace PortBoss
         public float NextBoatIn { get { foreach (var e in Schedule) if (e.t > DayT.Value) return e.t - DayT.Value; return -1; } }
         // Tomorrow, for the end-of-shift recap: how many boats, and when the first one comes in.
         public (int boats, float first) Tomorrow { get { var s = Schedules[Mathf.Clamp(DayNum.Value, 0, Schedules.Length - 1)]; return (s.Length, s[0].t); } }
-        public string NextCaptain => Contracts[Mathf.Clamp(NextContractId.Value, 0, Contracts.Length - 1)].Captain;
+        public Contract Next => Contracts[CaptainFor(DayNum.Value + 1)];
 
         // The goalpost: the crew saves toward the next port stage (docs/PORT-STAGES.md). Stage 2 can be built; later ones are goals.
         public NetworkVariable<byte> Stage = new(1);
@@ -35,23 +35,37 @@ namespace PortBoss
         [Rpc(SendTo.Server)]
         public void BuyStageRpc()
         {
-            if (Phase.Value != Ph.Night || Stage.Value != 1 || Money.Value < QuayCost) return;
+            if (Stage.Value != 1 || Money.Value < QuayCost) return;
             Money.Value -= QuayCost;
             Stage.Value = 2;
-            BoughtRpc();
+            BoughtRpc("Concrete quay built! A proper shed and a forklift yard.");
             Shout("BUYER", "A proper shed and a forklift yard! Look at us, boss.", 4f);
+        }
+
+        // The crate store: 1 = two racks (12 crates), 2 = three racks (18), 3 = cold store, four racks (24) and a chiller.
+        public NetworkVariable<byte> StoreLevel = new(1);
+        public static readonly int[] StorePrice = { 0, 0, 250, 600 }; // by the level it buys
+
+        [Rpc(SendTo.Server)]
+        public void BuyStoreRpc()
+        {
+            int next = StoreLevel.Value + 1;
+            if (next > Storage.MaxLevel || Money.Value < StorePrice[next]) return;
+            Money.Value -= StorePrice[next];
+            StoreLevel.Value = (byte)next;
+            BoughtRpc(next == 2 ? "Crate store: a third rack! Room for 18 crates." : "Cold store! 24 crates, and stored fish stays fresh far longer.");
         }
 
         public NetworkVariable<Ph> Phase = new(Ph.Day);
         public NetworkVariable<int> DayNum = new(1), Money = new(0), Earned = new(0), Sold = new(0), InSea = new(0), LeftAboard = new(0), SpoiledSold = new(0);
         public NetworkVariable<float> DayT = new(0);
         public NetworkVariable<bool> HasTrolley = new(false);
-        public NetworkVariable<byte> ContractId = new(0), NextContractId = new(0);
+        public NetworkVariable<byte> ContractId = new(0);
         public NetworkVariable<bool> PierRepaired = new(false);
         public NetworkVariable<float> PierSag = new(0); // degrees the old pier end hangs down (host computes)
         public const int RepairPrice = 80, ForkliftPrice = 350;
         public NetworkVariable<bool> HasForklift = new(false);
-        public bool ForkliftForSale => DayNum.Value >= 2; // unlocks for day 3
+        public bool ForkliftForSale => DayNum.Value >= 3 || (DayNum.Value == 2 && Phase.Value == Ph.Night); // for day 3
         float loadCheck, raidTimer = 30f;
         // Weather: one 0..1 severity (calm → breezy → overcast → rain → storm), host-driven by a random process
         // seeded per session. Nothing announces it; you read it from the sky and the sea.
@@ -61,13 +75,15 @@ namespace PortBoss
         public float ForcedSeverity => forcedSeverity;
         Crate raided; float raidPenaltyAt;
 
-        // The contract board on the shed wall: who brings the fish tomorrow.
+        // Who brings the fish: the captains take turns. Mags the first two days, then Bjorn every other day.
         public struct Contract { public string Captain, Pitch; public float Cargo, Price, DockSeconds; }
         public static readonly Contract[] Contracts =
         {
-            new() { Captain = "MAGS", Pitch = "Steady boats, relaxed captain.\n2:00 at the pier, normal prices.", Cargo = 1f, Price = 1f, DockSeconds = 120f },
-            new() { Captain = "BJORN", Pitch = "Big catches, tight tides.\n1:30 at the pier, +50% crates, +25% price.", Cargo = 1.5f, Price = 1.25f, DockSeconds = 90f },
+            new() { Captain = "MAGS", Pitch = "steady boats, two minutes at the pier", Cargo = 1f, Price = 1f, DockSeconds = 120f },
+            new() { Captain = "BJORN", Pitch = "big catches, better prices, only 90 seconds at the pier", Cargo = 1.5f, Price = 1.25f, DockSeconds = 90f },
         };
+        public static int CaptainFor(int day) => day >= 3 && day % 2 == 1 ? 1 : 0;
+        public static string Title(string captain) => "Captain " + captain[0] + captain.Substring(1).ToLowerInvariant();
         public Contract Today => Contracts[Mathf.Clamp(ContractId.Value, 0, Contracts.Length - 1)];
         public string CaptainName => "CAPTAIN " + Today.Captain;
 
@@ -82,6 +98,8 @@ namespace PortBoss
             I = this;
             PierRepaired.OnValueChanged += (_, on) => World.SetRepaired(on);
             Stage.OnValueChanged += (_, s) => HarbourMap.SetStage(s);
+            StoreLevel.OnValueChanged += (_, l) => Storage.SetLevel(l);
+            Storage.SetLevel(StoreLevel.Value);
             HarbourMap.SetStage(Stage.Value);
             World.SetRepaired(PierRepaired.Value);
             if (IsServer)
@@ -110,7 +128,7 @@ namespace PortBoss
         {
             worstToday = 0;
             DayNum.Value = n; DayT.Value = 0; nextBoat = 0;
-            ContractId.Value = NextContractId.Value;
+            ContractId.Value = (byte)CaptainFor(n);
             Earned.Value = Sold.Value = InSea.Value = LeftAboard.Value = SpoiledSold.Value = 0;
             Phase.Value = Ph.Day;
             if (n == 1)
@@ -119,7 +137,7 @@ namespace PortBoss
                 for (int i = 0; i < 3; i++) SpawnCrate(new Vector3(-0.8f + i * 0.8f, 0.6f, 3.5f), 1f);
                 Shout("BUYER", "Morning, boss! Bring me fish, I pay cash. Fresh pays best.", 5f);
             }
-            else Shout("BUYER", Pick($"Day {n}. Same deal: fresh fish, fresh cash.", $"Day {n}! My customers are hungry, boss.", $"Day {n}. Let's see if the pier holds up."), 4f);
+            else Shout("BUYER", $"Day {n}! {Title(Today.Captain)} today: {Today.Pitch}.", 5f);
         }
 
         public Crate SpawnCrate(Vector3 p, float fresh)
@@ -299,10 +317,10 @@ namespace PortBoss
         [Rpc(SendTo.Server)]
         public void BuyTrolleyRpc()
         {
-            if (Phase.Value != Ph.Night || HasTrolley.Value || Money.Value < TrolleyPrice) return;
+            if (HasTrolley.Value || Money.Value < TrolleyPrice) return;
             Money.Value -= TrolleyPrice;
             SpawnTrolley();
-            BoughtRpc();
+            BoughtRpc("Hand trolley bought! It's waiting by the shelter.");
         }
 
         void SpawnTrolley()
@@ -315,15 +333,15 @@ namespace PortBoss
         public void DebugGrantKit() { if (!HasTrolley.Value) SpawnTrolley(); if (!HasForklift.Value) SpawnForklift(); }
 
         [Rpc(SendTo.ClientsAndHost)]
-        void BoughtRpc() => Sfx.Play2D("buy");
+        void BoughtRpc(string what) { Sfx.Play2D("buy"); GameUI.Toast(what); }
 
         [Rpc(SendTo.Server)]
         public void BuyForkliftRpc()
         {
-            if (Phase.Value != Ph.Night || HasForklift.Value || !ForkliftForSale || Money.Value < ForkliftPrice) return;
+            if (HasForklift.Value || !ForkliftForSale || Money.Value < ForkliftPrice) return;
             Money.Value -= ForkliftPrice;
             SpawnForklift();
-            BoughtRpc();
+            BoughtRpc("Forklift bought! It's in the yard, pallets by the jetty.");
         }
 
         void SpawnForklift()
@@ -345,16 +363,10 @@ namespace PortBoss
         [Rpc(SendTo.Server)]
         public void BuyRepairRpc()
         {
-            if (Phase.Value != Ph.Night || PierRepaired.Value || Money.Value < RepairPrice) return;
+            if (PierRepaired.Value || Money.Value < RepairPrice) return;
             Money.Value -= RepairPrice;
             PierRepaired.Value = true;
-            BoughtRpc();
-        }
-
-        [Rpc(SendTo.Server)]
-        public void ChooseContractRpc(byte id)
-        {
-            if (Phase.Value == Ph.Night && id < Contracts.Length) NextContractId.Value = id;
+            BoughtRpc("Pier repaired!");
         }
 
         // One line for the end-of-day card, picked from how the day went.

@@ -446,31 +446,42 @@ namespace PortBoss
             else
             {
                 Stamina = Mathf.Min(1f, Stamina + dt / StaminaBack);
-                float speed = (sprint ? 7.4f : 4.6f) * (1f - 0.07f * Carrying) * (Pushing ? 0.85f : 1f);
-                hv = Vector3.MoveTowards(hv, wish * speed, (cc.isGrounded ? 30f : 18f) * dt);
-                // Jump: a little grace after walking off an edge, and a press just before landing still counts.
-                if (input.jump) jumpBufferedUntil = Time.time + JumpGrace;
-                if (cc.isGrounded)
+                if (flung) Fly(dt);
+                else
                 {
-                    if (vy < -4f) Sfx.Play("land", transform.position, Mathf.Clamp01(-vy / 12f), Random.Range(0.9f, 1.1f));
-                    vy = -2f; groundedUntil = Time.time + JumpGrace;
+                    float speed = (sprint ? 7.4f : 4.6f) * (1f - 0.07f * Carrying) * (Pushing ? 0.85f : 1f);
+                    hv = Vector3.MoveTowards(hv, wish * speed, (cc.isGrounded ? 30f : 18f) * dt);
+                    // Jump: a little grace after walking off an edge, and a press just before landing still counts.
+                    if (input.jump) jumpBufferedUntil = Time.time + JumpGrace;
+                    if (cc.isGrounded)
+                    {
+                        if (vy < -4f) Sfx.Play("land", transform.position, Mathf.Clamp01(-vy / 12f), Random.Range(0.9f, 1.1f));
+                        vy = -2f; groundedUntil = Time.time + JumpGrace;
+                    }
+                    if (Time.time < jumpBufferedUntil && Time.time < groundedUntil && !Pushing)
+                    {
+                        vy = JumpSpeed * (1f - 0.06f * Carrying); // a full stack is heavy
+                        jumpBufferedUntil = groundedUntil = 0;
+                        Sfx.Play("jump", transform.position, 0.55f);
+                    }
+                    // Snappy arc: floaty on the way up while the button is held, quick on the way down (and on a short tap).
+                    vy -= (vy > 0 && input.jumpHeld ? RiseGravity : FallGravity) * dt;
+                    var wind = Storm.WindDir * (1.1f * Storm.Gust);
+                    if (Pushing) { hv = TrolleyClear(hv, dt); wind = TrolleyClear(wind, dt); }
+                    cc.Move((hv + Vector3.up * vy + wind) * dt);
                 }
-                if (Time.time < jumpBufferedUntil && Time.time < groundedUntil && !Pushing)
-                {
-                    vy = JumpSpeed * (1f - 0.06f * Carrying); // a full stack is heavy
-                    jumpBufferedUntil = groundedUntil = 0;
-                    Sfx.Play("jump", transform.position, 0.55f);
-                }
-                // Snappy arc: floaty on the way up while the button is held, quick on the way down (and on a short tap).
-                vy -= (vy > 0 && input.jumpHeld ? RiseGravity : FallGravity) * dt;
-                cc.Move((hv + Vector3.up * vy + Storm.WindDir * (1.1f * Storm.Gust)) * dt);
             }
 
-            if (wish.sqrMagnitude > 0.01f)
+            if (wish.sqrMagnitude > 0.01f && !flung)
             {
                 var face = Quaternion.LookRotation(wish);
-                transform.rotation = Quaternion.RotateTowards(transform.rotation, face, (Pushing ? 160f : 720f) * dt);
+                var turned = Quaternion.RotateTowards(transform.rotation, face, (Pushing ? 160f : 720f) * dt);
+                // Pushing: the trolley swings round in front of us, so we only turn where it has room.
+                var t = Trolley.I;
+                if (!Pushing || t == null || t.Fits(this, transform.position, turned.eulerAngles.y) || !t.Fits(this, transform.position, transform.eulerAngles.y))
+                    transform.rotation = turned;
             }
+            if (Pushing != wasPushing) { wasPushing = Pushing; PushChanged(Pushing); }
 
             // Ground probe for moving platforms.
             platform = null;
@@ -635,7 +646,7 @@ namespace PortBoss
 
         void EnterWater()
         {
-            swimming = true;
+            swimming = true; flung = false;
             Stats.Add("swims");
             Sfx.Play("splash", transform.position + Vector3.up, 1f);
             Fx.Splash(new Vector3(transform.position.x, Water.Height(transform.position), transform.position.z), 1.2f);
@@ -1023,6 +1034,75 @@ namespace PortBoss
         {
             Crate c;
             while ((c = PopTop()) != null) c.Release(c.transform.position, v + Random.insideUnitSphere, Random.insideUnitSphere);
+        }
+
+        // Pushing: we only go where the trolley in front of us fits (walls, crates, people, the water's edge),
+        // sliding along whatever stops it. (If it's already wedged, don't trap us.)
+        Vector3 TrolleyClear(Vector3 v, float dt)
+        {
+            var t = Trolley.I;
+            if (t == null || v.sqrMagnitude < 1e-6f) return v;
+            var p = transform.position; float y = transform.eulerAngles.y;
+            if (t.Fits(this, p + v * dt, y) || !t.Fits(this, p, y)) return v;
+            var vx = new Vector3(v.x, 0, 0); if (t.Fits(this, p + vx * dt, y)) return vx;
+            var vz = new Vector3(0, 0, v.z); if (t.Fits(this, p + vz * dt, y)) return vz;
+            return Vector3.zero;
+        }
+
+        // Took hold of the trolley (or let go): step in behind the push bar, and don't collide with it meanwhile.
+        bool wasPushing;
+        void PushChanged(bool on)
+        {
+            var t = Trolley.I;
+            if (t == null) return;
+            foreach (var c in t.GetComponents<Collider>()) Physics.IgnoreCollision(cc, c, on);
+            if (!on) return;
+            var f = t.transform.forward; f.y = 0;
+            if (f.sqrMagnitude < 0.01f) return;
+            f.Normalize();
+            var spot = t.transform.position - f * Trolley.HoldDist; spot.y = transform.position.y;
+            var bottom = spot + Vector3.up * (cc.radius + 0.1f); var top = spot + Vector3.up * (cc.height - cc.radius);
+            foreach (var c in Physics.OverlapCapsule(bottom, top, cc.radius * 0.9f, ~0, QueryTriggerInteraction.Ignore))
+                if (c.GetComponentInParent<Player>() != this && !c.transform.IsChildOf(t.transform)) { PushRpc(false); GameUI.Toast("No room to get behind the trolley's handle."); return; }
+            cc.enabled = false;
+            transform.SetPositionAndRotation(spot, Quaternion.LookRotation(f));
+            cc.enabled = true;
+            hv = Vector3.zero;
+        }
+
+        // ---------- thrown off a boat ----------
+        // The captain doesn't take passengers: anyone still aboard when she sails is slung back onto the jetty
+        // (or over the side, once she's out). A ballistic flight to `target`; whatever we carry comes with us.
+        const float FlingGravity = 24f;
+        bool flung;
+        [Rpc(SendTo.Everyone)]
+        public void ThrownOffRpc(Vector3 target)
+        {
+            knockT = 0;
+            Sfx.Play("whoosh", transform.position + Vector3.up, 1f, 0.8f);
+            if (!IsOwner) return;
+            var d = target - transform.position;
+            float flat = new Vector2(d.x, d.z).magnitude, T = Mathf.Clamp(0.75f + flat * 0.045f, 0.8f, 1.4f);
+            hv = new Vector3(d.x, 0, d.z) / T; vy = d.y / T + 0.5f * FlingGravity * T;
+            flung = true; platform = null;
+            stunnedUntil = Time.time + T + 0.4f;
+            if (Pushing) PushRpc(false);
+            Debug.Log($"[PB] thrown off a boat: {transform.position:F1} -> {target:F1}");
+            Stats.Add("thrownOff");
+            Shake(0.5f);
+            GameUI.Toast(PortGame.Pick("Thrown off the boat! No stowaways.", "Yeeted by the captain. Fair enough.", "The captain doesn't do passengers."));
+        }
+
+        void Fly(float dt)
+        {
+            vy -= FlingGravity * dt;
+            cc.Move((hv + Vector3.up * vy) * dt);
+            if (cc.isGrounded && vy < 0)
+            {
+                flung = false; hv *= 0.2f; vy = -2f;
+                Sfx.Play("land", transform.position, 1f, 0.85f);
+                Shake(0.35f);
+            }
         }
 
         [Rpc(SendTo.Server)]

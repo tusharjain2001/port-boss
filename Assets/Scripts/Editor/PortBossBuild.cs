@@ -73,15 +73,15 @@ namespace PortBoss.EditorTools
                 Net(g, NetworkTransform.AuthorityModes.Server, false);
                 var rb = g.AddComponent<Rigidbody>(); rb.mass = 30f; rb.linearDamping = 0.35f; rb.angularDamping = 1.5f; rb.centerOfMass = new Vector3(0, 0.25f, 0);
                 rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
-                Box(g, new Vector3(0, 0.36f, 0.05f), new Vector3(1.2f, 0.1f, 1.3f));
-                Box(g, new Vector3(0.62f, 0.5f, 0.05f), new Vector3(0.05f, 0.25f, 1.3f));
-                Box(g, new Vector3(-0.62f, 0.5f, 0.05f), new Vector3(0.05f, 0.25f, 1.3f));
-                Box(g, new Vector3(0, 0.5f, 0.72f), new Vector3(1.25f, 0.25f, 0.05f));
-                Box(g, new Vector3(0, 0.9f, -0.7f), new Vector3(1.2f, 0.5f, 0.08f));
-                foreach (var x in new[] { -0.55f, 0.55f })
-                    foreach (var z in new[] { -0.5f, 0.55f })
+                Box(g, new Vector3(0, 0.37f, 0.02f), new Vector3(1.22f, 0.12f, 1.38f));
+                Box(g, new Vector3(0.6f, 0.62f, 0.02f), new Vector3(0.06f, 0.38f, 1.38f));
+                Box(g, new Vector3(-0.6f, 0.62f, 0.02f), new Vector3(0.06f, 0.38f, 1.38f));
+                Box(g, new Vector3(0, 0.62f, 0.68f), new Vector3(1.22f, 0.38f, 0.06f));
+                Box(g, new Vector3(0, 0.85f, -0.76f), new Vector3(1.2f, 0.5f, 0.08f));
+                foreach (var x in new[] { -0.5f, 0.5f })
+                    foreach (var z in new[] { -0.5f, 0.52f })
                     {
-                        var s = g.AddComponent<SphereCollider>(); s.center = new Vector3(x, 0.18f, z); s.radius = 0.18f; s.sharedMaterial = wheelMat;
+                        var s = g.AddComponent<SphereCollider>(); s.center = new Vector3(x, 0.17f, z); s.radius = 0.17f; s.sharedMaterial = wheelMat;
                     }
                 g.AddComponent<Trolley>();
             });
@@ -155,7 +155,8 @@ namespace PortBoss.EditorTools
             }
             var ui = new GameObject("Game").AddComponent<GameUI>();
 
-            ui.TitleFont = AssetDatabase.LoadAssetAtPath<Font>("Assets/Art/Fonts/AlfaSlabOne-Regular.ttf");
+            ui.TitleFont = AssetDatabase.LoadAssetAtPath<Font>("Assets/Art/Fonts/Fredoka-Bold.ttf");
+            ui.BodyFont = AssetDatabase.LoadAssetAtPath<Font>("Assets/Art/Fonts/Fredoka-SemiBold.ttf");
             ui.Models = models.ToArray(); ui.ModelKit = kits.ToArray(); ui.KitMats = kitMats.ToArray();
             ui.CratePrefab = crate; ui.BoatPrefab = boat; ui.TrolleyPrefab = trolley; ui.PortGamePrefab = game; ui.ForkliftPrefab = forklift; ui.PalletPrefab = pallet;
             ui.LitMat = litMat; ui.EmissiveMat = emis; ui.ParticleMat = part; ui.WaterMat = water; ui.CloudMat = cloud; ui.LandMat = land; ui.SparkMat = spark;

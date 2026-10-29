@@ -39,7 +39,7 @@ namespace PortBoss
             Shore();
             Pier();
             BuyerTable();
-            Racks();
+            BuildRacks();
             Shed();
             Bay();
             Ladders.Clear();
@@ -279,12 +279,18 @@ namespace PortBoss
 
         // The crate store's shelving (Storage): solid racks; the crates sit kinematic on their shelves.
         // With the skin, HarbourMap dresses them as the pack's orange shelving under a tin roof.
-        static void Racks()
+        // Rebuilt when the store is upgraded (more racks).
+        static Transform racks;
+        public static bool RacksBuilt => racks != null;
+        public static void BuildRacks()
         {
-            var r = new GameObject("CrateStore").transform;
+            if (Root == null) return;
+            if (racks != null) Object.Destroy(racks.gameObject);
+            var r = racks = new GameObject("CrateStore").transform;
             r.SetParent(Root, false);
-            foreach (var c in Storage.Racks)
+            for (int i = 0; i < Storage.RackCount; i++)
             {
+                var c = Storage.Rack(i);
                 var col = Art.Box(r, c + new Vector3(0, Storage.RackH / 2, -0.05f), new Vector3(Storage.RackW, Storage.RackH, Storage.RackD), Art.Steel, true, "rack");
                 col.GetComponent<Renderer>().enabled = false;
                 if (Skin.On) continue;
@@ -311,7 +317,7 @@ namespace PortBoss
             var roof = Art.Box(s, o + new Vector3(0, 3.7f, 0), new Vector3(6.6f, 0.15f, 5.8f), Art.Rust, true, "roof");
             roof.transform.localRotation = Quaternion.Euler(-6, 0, 0);
             Art.Box(s, o + new Vector3(-2.2f, 0.5f, -1.8f), new Vector3(1.2f, 1f, 0.9f), Art.WoodDark, true, "workbench");
-            // Contract board with two notices pinned on it.
+            // Notice board with two notices pinned on it.
             Art.Box(s, o + new Vector3(-1.9f, 1.9f, 2.6f), new Vector3(1.6f, 1.1f, 0.06f), Art.WoodDark, false, "board");
             Art.Box(s, o + new Vector3(-2.25f, 1.95f, 2.64f), new Vector3(0.55f, 0.7f, 0.02f), Art.Cream, false, "notice");
             Art.Box(s, o + new Vector3(-1.55f, 1.9f, 2.64f), new Vector3(0.55f, 0.75f, 0.02f), Art.Hex("#f0d9a8"), false, "notice");

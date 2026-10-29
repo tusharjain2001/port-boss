@@ -41,6 +41,9 @@ namespace PortBoss
         float t, countdown;
         int shoutIdx;
         readonly List<Crate> cargo = new();
+        CharAnim captain; // the pack worker at the wheelhouse (skin only)
+        readonly Dictionary<ulong, float> evicted = new(); // server: player -> when we last threw them off
+        float evictCheck;
 
         void Awake()
         {
@@ -126,7 +129,7 @@ namespace PortBoss
             {
                 var cap = Art.Place(Skin.I.Buyer, v, new Vector3(-1.2f, DeckY, -1.6f), 90, 1f);
                 var an = cap.GetComponentInChildren<Animator>();
-                if (an != null) an.gameObject.AddComponent<CharAnim>().Init(an, Skin.I);
+                if (an != null) (captain = an.gameObject.AddComponent<CharAnim>()).Init(an, Skin.I);
             }
         }
 
@@ -216,6 +219,7 @@ namespace PortBoss
                 }
                 case St.Leaving:
                 {
+                    Evict(game);
                     float u = Mathf.SmoothStep(0, 1, Mathf.Clamp01(t / SailSeconds));
                     var heading = Vector3.Slerp(Vector3.back, Tangent(OutPath, Mathf.Max(u, 0.005f)).normalized, Mathf.Clamp01(u / 0.3f));
                     Pose(Bezier(OutPath, u), heading);
@@ -251,6 +255,48 @@ namespace PortBoss
             new[] { "Thirty seconds! I can feel the tide turning!", "Half a minute! Move those legs!", "Thirty! Why is nobody running?!" },
             new[] { "Ten! Untying the ropes!", "Ten seconds! Mind the gangplank!", "TEN! Off my boat or come fishing!" },
         };
+
+        // Test hook (host): cast off now.
+        public void DebugLeaveNow() => countdown = 0;
+
+        // Server: nobody rides along. Anyone aboard once she's casting off gets slung back onto the jetty by the
+        // captain, or, if she's already well out, over the side into the sea.
+        void Evict(PortGame game)
+        {
+            if (Time.time < evictCheck) return;
+            evictCheck = Time.time + 0.2f;
+            foreach (var p in Player.All)
+            {
+                if (evicted.TryGetValue(p.OwnerClientId, out var at) && Time.time - at < 2.5f) continue;
+                var l = transform.InverseTransformPoint(p.transform.position);
+                if (Mathf.Abs(l.x) > HalfW + 0.3f || l.z < -HalfL - 0.3f || l.z > HalfL + 2.2f || l.y < DeckY - 0.6f || l.y > DeckY + 3.5f) continue;
+                var pos = p.transform.position;
+                var target = new Vector3(Mathf.Sign(BerthPos.x) * 1.3f, World.PierTop, Mathf.Clamp(pos.z, 3f, 28f));
+                if (new Vector2(target.x - pos.x, target.z - pos.z).magnitude > 14f) // too far out: over the side
+                    target = pos + transform.right * (Mathf.Sign(l.x == 0 ? 1 : l.x) * 5.5f) + Vector3.down * (pos.y - Water.Level);
+                evicted[p.OwnerClientId] = Time.time;
+                Debug.Log($"[PB] captain throws player {p.OwnerClientId} off the boat -> {target:F1}");
+                p.ThrownOffRpc(target);
+                CaptainThrowRpc(pos);
+                game?.Shout(game.CaptainName, PortGame.Pick("No stowaways on my boat! OFF you get!", "Oi! Got a ticket? No? OVERBOARD!", "This is a fishing boat, not a ferry! HUP!", "Back to work, you! And STAY off!"), 3.5f);
+            }
+        }
+
+        // Every peer: the captain turns on the stowaway and gives them the old heave-ho.
+        [Rpc(SendTo.ClientsAndHost)]
+        void CaptainThrowRpc(Vector3 at) { if (captain != null) StartCoroutine(Heave(at)); }
+
+        System.Collections.IEnumerator Heave(Vector3 at)
+        {
+            var body = captain.transform;
+            var was = body.rotation;
+            var d = at - body.position; d.y = 0;
+            if (d.sqrMagnitude > 0.01f) body.rotation = Quaternion.LookRotation(d);
+            for (float u = 0; u < 1; u += Time.deltaTime / 0.45f) { captain.Throw01 = u; yield return null; }
+            captain.Throw01 = -1;
+            yield return new WaitForSeconds(1.2f);
+            if (captain != null) body.rotation = was;
+        }
 
         // Crates still on deck get lashed down and sail away with us.
         int TakeAboard()

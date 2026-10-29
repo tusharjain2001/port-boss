@@ -82,6 +82,9 @@ namespace PortBoss
             if (Has("-pb-trucktest")) StartCoroutine(TruckTest());
             if (Has("-pb-boattest")) StartCoroutine(BoatTest());
             if (Has("-pb-boardtest")) StartCoroutine(BoardTest());
+            if (Has("-pb-evicttest")) StartCoroutine(EvictTest());
+            if (Arg("-pb-storeshots") != null) StartCoroutine(StoreShots(Arg("-pb-storeshots")));
+            if (Arg("-pb-pushtest") != null) StartCoroutine(PushTest(Arg("-pb-pushtest")));
             if (Arg("-pb-intro") != null) StartCoroutine(IntroShots(Arg("-pb-intro")));
             if (Arg("-pb-rivalshots") != null) StartCoroutine(RivalShots(Arg("-pb-rivalshots")));
         }
@@ -283,6 +286,123 @@ namespace PortBoss
             }
             Player.BotInput = () => new Player.In();
             Debug.Log($"[PB] board test: {(ok ? "PASS" : "FAIL")}");
+        }
+
+        // Stay aboard as the boat casts off: the captain throws us back onto the jetty (and we land on it, dry).
+        IEnumerator EvictTest()
+        {
+            yield return WaitGame();
+            var pl = Player.Local;
+            Boat b = null;
+            while (b == null) { b = Boat.DockedAt[0]; yield return null; }
+            yield return new WaitForSeconds(1.5f);
+            pl.DebugGiveCrates(2);
+            pl.DebugTeleport(b.transform.TransformPoint(new Vector3(0.5f, Boat.DeckY + 0.1f, 1f)), 0);
+            yield return new WaitForSeconds(0.5f);
+            Debug.Log($"[PB] evict test: aboard at {pl.transform.position:F1}");
+            b.DebugLeaveNow();
+            float t0 = Time.time, maxY = 0;
+            while (Time.time - t0 < 4f) { maxY = Mathf.Max(maxY, pl.transform.position.y); yield return null; }
+            var p = pl.transform.position;
+            bool onJetty = Mathf.Abs(p.x) < 3f && p.y > World.PierTop - 0.2f && !pl.Swimming;
+            Debug.Log($"[PB] evict test: landed at {p:F1} (peak y {maxY:F1}), swimming={pl.Swimming}, carrying={pl.Carrying}, boat at {b.transform.position:F1}: {(onJetty ? "PASS" : "FAIL")}");
+        }
+
+        // The crate store at each level (shop buys, any time of day), with crates on the racks across the upgrade.
+        IEnumerator StoreShots(string dir)
+        {
+            Directory.CreateDirectory(dir);
+            yield return WaitGame();
+            var g = PortGame.I; var pl = Player.Local;
+            PortGame.I.ForceWeather(0);
+            g.Money.Value = 2000;
+            for (int i = 0; i < 4; i++) { var c = g.SpawnCrate(Storage.Center + new Vector3(0, 1, 3), 1f); yield return null; Storage.Put(c, Storage.SlotPos(i)); }
+            pl.DebugTeleport(Storage.Center + new Vector3(4f, 0.2f, 6f), 200);
+            Player.CamOverride = true;
+            var cam = Camera.main;
+            for (int lvl = 1; lvl <= 3; lvl++)
+            {
+                if (lvl > 1) { g.BuyStoreRpc(); yield return new WaitForSeconds(1f); }
+                var ctr = Storage.Center;
+                cam.transform.position = ctr + new Vector3(3f, 3.2f, 9.5f); cam.transform.LookAt(ctr + Vector3.up * 1.6f);
+                yield return new WaitForSeconds(0.5f);
+                Debug.Log($"[PB] store test: level {Storage.Level} racks={Storage.RackCount} slots={Storage.Slots} stored={Storage.Count} cold={Storage.Cold} money={g.Money.Value} near(-15)={Storage.Near(new Vector3(-15, 0, -6))}");
+                yield return Snap(dir, $"store-{lvl}");
+            }
+            // Fill a slot on the new west rack.
+            var c2 = g.SpawnCrate(Storage.Center + new Vector3(0, 1, 3), 1f); yield return null;
+            Debug.Log($"[PB] store test: put on rack 4: {Storage.Put(c2, Storage.SlotPos(20))} at {c2.transform.position:F1}");
+            g.BuyTrolleyRpc(); yield return new WaitForSeconds(1.5f);
+            Debug.Log($"[PB] store test: trolley bought by day: {Trolley.I != null} money={g.Money.Value}");
+            Player.CamOverride = false;
+        }
+
+        // The trolley: shots of the new cart, then push it into a wall (stops), to the jetty edge (stops, stays dry),
+        // turn it beside a wall (doesn't swing through), and push it along freely; held pose stays in front of the hands.
+        IEnumerator PushTest(string dir)
+        {
+            Directory.CreateDirectory(dir);
+            yield return WaitGame();
+            var g = PortGame.I; var pl = Player.Local;
+            g.ForceWeather(0);
+            g.DebugGrantKit();
+            yield return new WaitForSeconds(2f);
+            var t = Trolley.I;
+            for (int k = 0; k < 4; k++) g.SpawnCrate(t.transform.position + new Vector3(0, 1.4f + k * 0.7f, 0), 1f);
+            yield return new WaitForSeconds(2.5f);
+            Player.CamOverride = true;
+            var cam = Camera.main;
+            foreach (var (nm, off) in new[] { ("trolley-front", new Vector3(2.2f, 1.6f, 2.4f)), ("trolley-back", new Vector3(-2.4f, 1.9f, -2.2f)) })
+            {
+                var tp = t.transform.position;
+                cam.transform.position = tp + t.transform.rotation * off; cam.transform.LookAt(tp + Vector3.up * 0.6f);
+                yield return Snap(dir, nm);
+            }
+            Player.CamOverride = false;
+            Debug.Log($"[PB] push test: load={t.Load} at {t.transform.position:F2}");
+            bool ok = true;
+            // Take hold: we step in behind the handle.
+            pl.DebugTeleport(t.Handle - t.transform.forward * 0.6f + Vector3.down * t.Handle.y + Vector3.up * 0.1f, t.transform.eulerAngles.y);
+            yield return new WaitForSeconds(0.3f);
+            t.SetPusher(pl);
+            yield return new WaitForSeconds(0.4f);
+            float gap = Vector3.Distance(Vector3.ProjectOnPlane(t.transform.position - pl.transform.position, Vector3.up), Vector3.zero);
+            Debug.Log($"[PB] push test: holding, trolley {gap:F2} m ahead (want {Trolley.HoldDist})");
+            ok &= Mathf.Abs(gap - Trolley.HoldDist) < 0.15f;
+            // Drive it, in turn: east into the shelter wall (x 6), north to the quay edge (z -6 by the slipway, x -20), and a free run.
+            IEnumerator Drive(string name, Vector3 at, Vector3 way, float secs)
+            {
+                if (at != Vector3.zero) { t.SetPusher(null); yield return null; var rb = t.GetComponent<Rigidbody>(); rb.position = at - way * 0.0f; rb.rotation = Quaternion.LookRotation(way); rb.linearVelocity = Vector3.zero; t.transform.SetPositionAndRotation(at, Quaternion.LookRotation(way)); yield return new WaitForSeconds(0.3f); pl.DebugTeleport(at - way * Trolley.HoldDist + Vector3.up * 0.1f, Quaternion.LookRotation(way).eulerAngles.y); yield return new WaitForSeconds(0.2f); t.SetPusher(pl); yield return new WaitForSeconds(0.3f); }
+                Player.BotInput = () => new Player.In { hasWorldMove = true, worldMove = way };
+                float t0 = Time.time; var start = t.transform.position;
+                while (Time.time - t0 < secs) yield return null;
+                Player.BotInput = () => new Player.In();
+                yield return new WaitForSeconds(0.3f);
+                var tp = t.transform.position; var pp = pl.transform.position;
+                Debug.Log($"[PB] push test {name}: trolley {start:F2} -> {tp:F2} (moved {Vector3.Distance(start, tp):F1}), player {pp:F2}, tilt={Vector3.Angle(t.transform.up, Vector3.up):0}, load={t.Load}, pushing={pl.Pushing}, lost={(g.HasTrolley.Value ? "no" : "YES")}");
+                cam.transform.position = tp + new Vector3(-3.5f, 3f, -3.5f); Player.CamOverride = true; cam.transform.LookAt(tp);
+                yield return Snap(dir, "push-" + name);
+                Player.CamOverride = false;
+            }
+            yield return Drive("free", Vector3.zero, Vector3.left, 2.5f);
+            var free = t.transform.position;
+            yield return Drive("wall", new Vector3(2.5f, 0, -9f), Vector3.right, 3f);
+            float wallX = t.transform.position.x;
+            ok &= wallX < 6.1f - 0.6f + 0.15f; // the bed's front edge stops at the shelter wall
+            yield return Drive("edge", new Vector3(-24f, 0, -9f), Vector3.forward, 3f);
+            float edgeZ = t.transform.position.z;
+            ok &= g.HasTrolley.Value && edgeZ + 0.72f < 0.3f; // stopped at the quay edge (z 0 here), not in the sea
+            // Turn on the spot beside the wall: it may only swing where it fits.
+            yield return Drive("turn", new Vector3(3.6f, 0, -9f), Vector3.forward, 0.01f);
+            Player.BotInput = () => new Player.In { hasWorldMove = true, worldMove = Vector3.right * 0.2f };
+            yield return new WaitForSeconds(1.5f);
+            Player.BotInput = () => new Player.In();
+            bool inWall = false;
+            foreach (var c in Physics.OverlapBox(t.transform.position + t.transform.rotation * new Vector3(0, 0.68f, 0.02f), new Vector3(0.55f, 0.22f, 0.62f), t.transform.rotation, ~0, QueryTriggerInteraction.Ignore))
+                inWall |= !c.transform.IsChildOf(t.transform) && c.GetComponentInParent<Player>() == null;
+            Debug.Log($"[PB] push test turn: yaw {t.transform.eulerAngles.y:0} at {t.transform.position:F2}, overlapping={inWall}");
+            ok &= !inWall;
+            Debug.Log($"[PB] push test: free run moved to {free:F1}, wall stop x={wallX:F2}, edge stop z={edgeZ:F2}: {(ok ? "PASS" : "FAIL")}");
         }
 
         // The intro flythrough at a few moments (captions are IMGUI: not in batchmode shots), and the clock held meanwhile.
@@ -491,9 +611,7 @@ namespace PortBoss
             var g = PortGame.I;
             g.EndDayNow();
             yield return new WaitForSeconds(1);
-            g.ChooseContractRpc(1);
-            yield return new WaitForSeconds(1);
-            g.NextDayRpc();
+            g.DebugStartDay(3);
             yield return new WaitForSeconds(1);
             Debug.Log($"[PB] contract test: day={g.DayNum.Value} contract={g.Today.Captain} dock={g.Today.DockSeconds}");
             Boat b = null;
