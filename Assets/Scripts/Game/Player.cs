@@ -992,8 +992,9 @@ namespace PortBoss
             return best;
         }
 
-        // Carried at the belly, gripped low on the bottom crate; the camera looks over the shoulder so the whole stack stays in view.
-        public static Vector3 HoldPos(int slot) => new(0, 1.12f + slot * (Crate.Size + 0.04f), 0.6f);
+        // Carried against the belly, hands under the bottom crate's sides: close enough in for the arms to reach under it,
+        // clear of a stocky worker's belly (0.19 m); the camera looks over the shoulder so the whole stack stays in view.
+        public static Vector3 HoldPos(int slot) => new(0, 1.2f + slot * (Crate.Size + 0.04f), 0.5f);
 
         // ---- server ----
         void FixedUpdate()
