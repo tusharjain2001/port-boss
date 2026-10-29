@@ -94,7 +94,11 @@ namespace PortBoss
             AutoRun.Begin(this);
         }
 
-        void OnApplicationQuit() { Session.Leave(); Session.ShutdownSteam(); }
+        void OnApplicationQuit()
+        {
+            Session.Leave(); Session.ShutdownSteam();
+            if (glows != null) foreach (var (m, e) in glows) if (m != null) m.SetColor("_EmissionColor", e); // shared pack materials (editor play)
+        }
 
         void SetupCameraAndLight()
         {
@@ -128,6 +132,9 @@ namespace PortBoss
                 var tp = Instantiate(Skin.I.Post);
                 if (tp.TryGet(out DepthOfField dof)) dof.active = false;
                 if (tp.TryGet(out ChromaticAberration chr)) chr.active = false;
+                // The demo's bloom (threshold 1, fast filter) made every small bright bulb, glint and foam speck flare up
+                // and drop out from frame to frame: the port glittered. Higher threshold, gentler, high-quality filter.
+                if (tp.TryGet(out Bloom tbl)) { tbl.threshold.Override(1.25f); tbl.intensity.Override(0.45f); tbl.highQualityFiltering.Override(true); }
                 if (!tp.TryGet(out ColorAdjustments tca)) tca = tp.Add<ColorAdjustments>();
                 tca.postExposure.Override(0f); colorAdj = tca; exposureBase = 0f;
                 vol.profile = tp;
@@ -169,10 +176,13 @@ namespace PortBoss
         // Toon Harbor demo lighting (white sun, warm trilight, blue linear fog), warming a little towards sunset.
         void ApplyToonLight(float u, bool night)
         {
-            float elev = night ? -14f : Mathf.Lerp(48f, 14f, u);
-            sun.transform.rotation = Quaternion.Euler(elev, Mathf.Lerp(110f, 125f, u), 0);
-            sun.color = Color.Lerp(Color.white, new Color(1f, 0.8f, 0.62f), u * u);
-            sun.intensity = night ? 0f : Mathf.Lerp(1.05f, 0.9f, u);
+            // Night: a dim blue moon high in the west instead of no light at all (the toon shading only lights from the
+            // main light, so with the sun gone the port behind the night card was black).
+            float elev = night ? 38f : Mathf.Lerp(48f, 14f, u);
+            sun.transform.rotation = Quaternion.Euler(elev, night ? 290f : Mathf.Lerp(110f, 125f, u), 0);
+            sun.color = night ? new Color(0.55f, 0.66f, 0.95f) : Color.Lerp(Color.white, new Color(1f, 0.8f, 0.62f), u * u);
+            sun.intensity = night ? 0.32f : Mathf.Lerp(1.05f, 0.9f, u);
+            SetGlow(night ? 1f : Mathf.Lerp(0.35f, 1f, Mathf.SmoothStep(0, 1, (u - 0.8f) / 0.2f)));
             RenderSettings.ambientSkyColor = night ? new Color(0.22f, 0.28f, 0.45f) : Color.Lerp(new Color(1f, 0.941f, 0.825f), new Color(1f, 0.8f, 0.66f), u * u);
             RenderSettings.ambientEquatorColor = night ? new Color(0.14f, 0.16f, 0.24f) : Color.Lerp(new Color(0.689f, 0.49f, 0.387f), new Color(0.72f, 0.46f, 0.36f), u * u);
             RenderSettings.ambientGroundColor = night ? new Color(0.05f, 0.05f, 0.08f) : new Color(0.292f, 0.276f, 0.244f);
@@ -268,6 +278,29 @@ namespace PortBoss
                 sk.SetColor("_SkyTint", Color.Lerp(Skin.I.Sky.GetColor("_SkyTint"), new Color(0.32f, 0.34f, 0.37f), L));
                 sk.SetFloat("_Exposure", sk.GetFloat("_Exposure") * (1f - 0.45f * L));
             }
+            // Below the horizon the sky shows past the far clip (a grey band under distant things): make it the haze.
+            if (sk != null && sk.HasProperty("_GroundColor")) sk.SetColor("_GroundColor", RenderSettings.fogColor);
+        }
+
+        // Lit bulbs, windows and beacons (the pack's light atlas, our Art.Glow) at full strength only from dusk; in
+        // daylight they stay under the bloom threshold instead of sparkling all over the port.
+        static List<(Material m, Color e)> glows;
+        static float glowK = -1;
+        static void SetGlow(float k)
+        {
+            if (glows == null)
+            {
+                if (World.Root == null) return; // the map isn't built yet
+                glows = new();
+                var seen = new HashSet<Material>();
+                foreach (var r in FindObjectsByType<Renderer>(FindObjectsSortMode.None))
+                    foreach (var m in r.sharedMaterials)
+                        if (m != null && seen.Add(m) && m.IsKeywordEnabled("_EMISSION") && m.HasProperty("_EmissionColor") && m.GetColor("_EmissionColor").maxColorComponent > 1f)
+                            glows.Add((m, m.GetColor("_EmissionColor")));
+            }
+            if (Mathf.Abs(k - glowK) < 0.01f) return;
+            glowK = k;
+            foreach (var (m, e) in glows) if (m != null) m.SetColor("_EmissionColor", e * k);
         }
 
         string MusicSlot(PortGame g)
