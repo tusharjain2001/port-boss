@@ -305,6 +305,7 @@ namespace PortBoss
             if (s < 2) { if (stage2 != null) Object.Destroy(stage2); stage2 = null; return; } // a new session starts at stage 1
             if (stage2 != null || R == null || !Skin.On) return;
             stage2 = new GameObject("Stage2");
+            Debug.Log("[PB] stage 2 built: shed + forklift yard");
             var keep = R; R = stage2.transform; R.SetParent(keep, false);
             On("shed07", new Vector3(30, 0, -39), 180, 0.8f, true);
             for (int i = 0; i < 5; i++) // yellow bay lines

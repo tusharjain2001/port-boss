@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &1304707927434847719
+--- !u!1 &8125804005625577198
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,12 +8,12 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 5173392337115868815}
-  - component: {fileID: 8165085076749920909}
-  - component: {fileID: 8354766348196016093}
-  - component: {fileID: 2130276490078864339}
-  - component: {fileID: 4298897769651020433}
-  - component: {fileID: 3049515517685684854}
+  - component: {fileID: 3776425240723657956}
+  - component: {fileID: 6308375633147378534}
+  - component: {fileID: 7176436254818269794}
+  - component: {fileID: 5800153643409308128}
+  - component: {fileID: 5423926256675173713}
+  - component: {fileID: 6565638214685979089}
   m_Layer: 0
   m_Name: Pallet
   m_TagString: Untagged
@@ -21,13 +21,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &5173392337115868815
+--- !u!4 &3776425240723657956
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1304707927434847719}
+  m_GameObject: {fileID: 8125804005625577198}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -36,19 +36,19 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &8165085076749920909
+--- !u!114 &6308375633147378534
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1304707927434847719}
+  m_GameObject: {fileID: 8125804005625577198}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 349311969
+  GlobalObjectIdHash: 757845557
   InScenePlacedSourceGlobalObjectIdHash: 0
   m_InScenePlacedDisabledByDefault: 0
   DeferredDespawnTick: 0
@@ -63,13 +63,13 @@ MonoBehaviour:
   AutoObjectParentSync: 1
   SyncOwnerTransformWhenParented: 1
   AllowOwnerToParent: 0
---- !u!114 &8354766348196016093
+--- !u!114 &7176436254818269794
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1304707927434847719}
+  m_GameObject: {fileID: 8125804005625577198}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e96cb6065543e43c4a752faaa1468eb1, type: 3}
@@ -109,13 +109,13 @@ MonoBehaviour:
   SwitchTransformSpaceWhenParented: 1
   Interpolate: 1
   SlerpPosition: 0
---- !u!54 &2130276490078864339
+--- !u!54 &5800153643409308128
 Rigidbody:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1304707927434847719}
+  m_GameObject: {fileID: 8125804005625577198}
   serializedVersion: 5
   m_Mass: 25
   m_LinearDamping: 0
@@ -136,13 +136,13 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 2
---- !u!65 &4298897769651020433
+--- !u!65 &5423926256675173713
 BoxCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1304707927434847719}
+  m_GameObject: {fileID: 8125804005625577198}
   m_Material: {fileID: 0}
   m_IncludeLayers:
     serializedVersion: 2
@@ -157,13 +157,13 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1.8, y: 0.14, z: 1.2}
   m_Center: {x: 0, y: 0.07, z: 0}
---- !u!114 &3049515517685684854
+--- !u!114 &6565638214685979089
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1304707927434847719}
+  m_GameObject: {fileID: 8125804005625577198}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f88acf51d51844047b3841e5d7249b4e, type: 3}
