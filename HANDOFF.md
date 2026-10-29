@@ -29,10 +29,12 @@ Feature freeze **09:00**. 09:00–09:45 fixes + release into `Desktop/Port Boss/
 - `docs/PORT-STAGES.md` (5 stages → pack prefabs). Proof: `Desktop/Port Boss/proof/overnight/toon-harbor/`.
 
 ## Next
-Done tonight after the map: menu (t-6f6de594), milestone B (JOB line, jetty-hole fix, HUD pills, sounds), milestone C (spawns,
-camera, day-3 kit), #7 shove (LAN-tested). Latest release `builds/20261029-0512`.
-1. (in progress) Pack art for our leftovers: forklift model (`TH_Forklift_01*`, mast code-driven), the shelter, the buyer stall.
-2. 09:00 freeze → MORNING release (`builds/<stamp>-MORNING/` + HOW-TO-PLAY + 5 shots + 60–90 s capture from batchmode frames) → report_done all.
+Done tonight after the map: menu, milestone B, milestone C, #7 shove, pack forklift, pack shelter panels, pack stall, Kufu's vault notes
+(water/puddles/ground tiles/bollards/logo), first-boat head start. Latest release `builds/20261029-0550`.
+1. (in progress) Life in the harbour: pack dock workers walking terminal routes.
+2. 09:00 freeze → MORNING release: `release.sh`, rename to `<stamp>-MORNING`, 5 shots (`-pb-uishots`, `-pb-mapshots`, HUD),
+   capture: windowed `-pb-film <dir>` (30 fps fixed, menu + HUD, ~75 s) → `ffmpeg -framerate 30 -i f_%05d.jpg -c:v libx264 -crf 20
+   -pix_fmt yuv420p`; then report_done every open task.
 
 ## Later (not tonight)
 - Ideas rejected for tonight: #1 hazard-modifier vote, #2 special crates (live/fragile), #4 storm warning tell (no warnings by design), #5 tipping plank.
