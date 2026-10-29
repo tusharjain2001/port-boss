@@ -44,11 +44,12 @@ namespace PortBoss
             I.caps = fc.gameObject.AddComponent<ParticleSystem>();
             I.caps.Stop();
             var cm = I.caps.main;
-            // Streaks of foam lying along the wind (round blobs read as white polka dots on the sea).
+            // Soft foam patches drawn out a little along the wind (round blobs read as white polka dots on the sea; thin
+            // streaks as lines).
             cm.startLifetime = new ParticleSystem.MinMaxCurve(1.6f, 3f); cm.startSpeed = 0f;
-            cm.startSize3D = true; cm.startSizeX = new ParticleSystem.MinMaxCurve(3f, 7f); cm.startSizeY = new ParticleSystem.MinMaxCurve(0.6f, 1.3f); cm.startSizeZ = 1f;
+            cm.startSize3D = true; cm.startSizeX = new ParticleSystem.MinMaxCurve(3f, 6f); cm.startSizeY = new ParticleSystem.MinMaxCurve(1.5f, 3f); cm.startSizeZ = 1f;
             cm.startRotation = Mathf.Atan2(WindDir.z, WindDir.x);
-            cm.startColor = new Color(0.95f, 0.97f, 1f, 0.45f); cm.simulationSpace = ParticleSystemSimulationSpace.World; cm.maxParticles = 900;
+            cm.startColor = new Color(0.95f, 0.97f, 1f, 0.32f); cm.simulationSpace = ParticleSystemSimulationSpace.World; cm.maxParticles = 900;
             var ce = I.caps.emission; ce.rateOverTime = 0;
             var cs = I.caps.shape; cs.shapeType = ParticleSystemShapeType.Box; cs.scale = new Vector3(90, 0.1f, 90);
             var cv = I.caps.velocityOverLifetime; cv.enabled = true; cv.space = ParticleSystemSimulationSpace.World; cv.x = WindDir.x * 3f; cv.y = 0; cv.z = WindDir.z * 3f;

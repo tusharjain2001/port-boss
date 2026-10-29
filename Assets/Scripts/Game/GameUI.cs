@@ -539,7 +539,7 @@ namespace PortBoss
                 if (!firstDayJob && g.Phase.Value == PortGame.Ph.Day && g.NextBoatIn > 0 && !Boat.All.Exists(b => b.State.Value != Boat.St.Leaving))
                 {
                     Pill(new Rect(18 * S, 64 * S, 200 * S, 30 * S));
-                    Label(new Rect(28 * S, 68 * S, 600 * S, 30 * S), $"next boat in {(int)g.NextBoatIn / 60}:{(int)g.NextBoatIn % 60:00}", new GUIStyle(small) { fontSize = Mathf.RoundToInt(20 * S), alignment = TextAnchor.UpperLeft }, new Color(1f, 0.92f, 0.7f));
+                    Label(new Rect(28 * S, 68 * S, 600 * S, 30 * S), $"next boat in {Mathf.CeilToInt(g.NextBoatIn) / 60}:{Mathf.CeilToInt(g.NextBoatIn) % 60:00}", new GUIStyle(small) { fontSize = Mathf.RoundToInt(20 * S), alignment = TextAnchor.UpperLeft }, new Color(1f, 0.92f, 0.7f));
                 }
             }
             else Label(new Rect(0, H * 0.45f, W, 60 * S), "Connecting…", mid, Color.white);
@@ -826,7 +826,7 @@ namespace PortBoss
             else if (near != null) { job = "Unload the boat: walk up to a fish crate and press E"; at = near.transform.position + Vector3.up * 1.6f; }
             else if (Storage.Count > 0) { job = "Fetch fish from the rack (E) and sell it at the FISH MARKET"; at = Storage.Center + Vector3.up * 4.2f; }
             else if (boat != null && boat.State.Value == Boat.St.Arriving) { job = "A boat is coming in: meet it at the end of the jetty"; at = boat.BerthPos + Vector3.up * 2.5f; }
-            else job = g.NextBoatIn > 0 ? $"Next boat in {(int)g.NextBoatIn / 60}:{(int)g.NextBoatIn % 60:00}: wait at the jetty" : "That was the last boat today";
+            else job = g.NextBoatIn > 0 ? $"Next boat in {Mathf.CeilToInt(g.NextBoatIn) / 60}:{Mathf.CeilToInt(g.NextBoatIn) % 60:00}: wait at the jetty" : "That was the last boat today";
             ThemeTextures();
             var r = new Rect(24 * S, 74 * S, 640 * S, 34 * S);
             var jt = OneLine(new GUIStyle(small) { fontSize = Mathf.RoundToInt(22 * S), font = TitleFont, alignment = TextAnchor.MiddleLeft }, job, W - r.x - 72 * S - 30 * S);
