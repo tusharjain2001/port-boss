@@ -305,6 +305,9 @@ namespace PortBoss.EditorTools
                     ("woodStack", "Construction Materials/TH_Wood_Stack_02A"), ("cageBarrels", "Cargo/TH_Cage_Barrels_01A"), ("canopy", "Metal Structures/TH_Metal_Structure_Kit_Building_18B"),
                 };
                 for (int c = 0; c < 6; c++) lib.Add(("cont" + c, "Cargo/TH_Shipping_Container_02" + (char)('A' + c)));
+                foreach (var (npc, v) in new[] { ("npc0", "Male_Character_01C"), ("npc1", "Male_Character_02B"), ("npc2", "Female_Character_01A"), ("npc3", "Male_Character_03A"),
+                                               ("npc4", "Male_Character_01D"), ("npc5", "Female_Character_02A"), ("npc6", "Male_Character_02C"), ("npc7", "Male_Character_03C") })
+                    lib.Add((npc, "Characters Variants/TH_" + v));
                 for (int c = 0; c < 6; c++) lib.Add(("city" + c, "Concrete Buildings/TH_Concrete_Building_Kit_" + new[] { "02A", "04A", "05A", "06A", "08A", "09A" }[c]));
                 lib.AddRange(new[] {
                     ("road", "Road System/TH_Industrial_Road_Straight_01A"), ("rail", "Road System/TH_Industrial_Road_Tracks_01A"), ("barrier", "Road System/TH_Road_Barrier_01A"),

@@ -112,6 +112,14 @@ MonoBehaviour:
   - cont3
   - cont4
   - cont5
+  - npc0
+  - npc1
+  - npc2
+  - npc3
+  - npc4
+  - npc5
+  - npc6
+  - npc7
   - city0
   - city1
   - city2
@@ -198,6 +206,14 @@ MonoBehaviour:
   - {fileID: 3247649777707758480, guid: 83e735e49dbf2034b9ef390e405e0c27, type: 3}
   - {fileID: 859419222383163694, guid: 84af850c39a7dc04c873d98b81807026, type: 3}
   - {fileID: 840024985540208883, guid: 64b01c27d1def664c8af014c746b7175, type: 3}
+  - {fileID: 9218406719574383122, guid: 05aa47c9034b5d543a548a81dea1c465, type: 3}
+  - {fileID: 1690268473271975790, guid: 6d0910d3d0fb4ae43bd22e57dad07c0b, type: 3}
+  - {fileID: 4936434147077801208, guid: db0ae690f3163084a9aae3af85c6507e, type: 3}
+  - {fileID: 3696328144751532536, guid: 1bd52d1b4c980454e874944754d236bc, type: 3}
+  - {fileID: 10542116339830467, guid: 2f7edb96619e6ea4f8acfb06efc2dd38, type: 3}
+  - {fileID: 131086945609287482, guid: 7e31d096af52bcf459dfbe0c4af5887c, type: 3}
+  - {fileID: 3480862436417591021, guid: 42c88a06dd15de943a72a69e091b8216, type: 3}
+  - {fileID: 1961410851935625947, guid: 79fd69e83dd530349bffb362e3c72825, type: 3}
   - {fileID: 7427652211153850709, guid: f40c7e00fc710694388c47b4b4e8f8f9, type: 3}
   - {fileID: 6071986803630615551, guid: 4efaf4bf02dd9224a95f216de8946b26, type: 3}
   - {fileID: 4039127888370226688, guid: 1fb38e85f7679b6499f04dd622159f91, type: 3}

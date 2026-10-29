@@ -28,6 +28,7 @@ namespace PortBoss
             Roads();
             Industry();
             Hinterland();
+            Workers();
             Check();
         }
 
@@ -353,7 +354,8 @@ namespace PortBoss
             {
                 var d = pts[i + 1] - pts[i]; int n = Mathf.Max(1, Mathf.RoundToInt(d.magnitude / 12f));
                 float yaw = Mathf.Atan2(d.x, d.z) * Mathf.Rad2Deg;
-                for (int k = 0; k < n; k++) Top(tile, pts[i] + d * ((k + 0.5f) / n) + Vector3.up * 0.04f, yaw, new Vector3(1, 1, d.magnitude / n / 12f));
+                // Squashed so the kerbs stand a few cm proud and the asphalt sits just above the ground tiles (full height buried it).
+                for (int k = 0; k < n; k++) Top(tile, pts[i] + d * ((k + 0.5f) / n) + Vector3.up * (tile == "rail" ? 0.12f : 0.08f), yaw, new Vector3(1, 0.35f, d.magnitude / n / 12f));
             }
         }
 
@@ -399,6 +401,45 @@ namespace PortBoss
             foreach (var (n, x, z, yaw) in new[] { ("trailer", 92f, -36f, 0f), ("trailer", 95.5f, -36f, 0f), ("trailer", 99f, -36f, 0f), ("truck", 232f, 60f, 0f), ("forklift", 128f, -38f, 20f), ("forklift", -96f, 100f, 200f), ("trailer", -96f, 40f, 0f), ("truckB", -168f, 40f, 0f), ("forklift", 200f, 18f, 90f) })
                 On(n, new Vector3(x, 0, z), yaw, 1f, true);
             Run("cfence", new Vector3(240, 0, -62), new Vector3(240, 0, 108));
+            // The lot between our fence and the East Terminal: trailers parked with boxes on, a cab, a light tower.
+            for (int i = 0; i < 5; i++)
+            {
+                var tr = On("trailer", new Vector3(62 + i * 4.6f, 0, -50), 0, 1f, true);
+                if (tr != null && i != 2 && On("cont" + (i + 2) % 6, new Vector3(62 + i * 4.6f, Art.Bounds(tr).max.y - 0.35f, -49), 0, 0.95f) != null)
+                    placed.RemoveAt(placed.Count - 1); // riding a trailer, not standing on the ground
+            }
+            On("truck", new Vector3(80, 0, -24), 200, 1f, true);
+            On("streetlight", new Vector3(74, 0, -36), 45, 2f);
+            On("cageBarrels", new Vector3(64, 0, -30), 30, 0.8f, true);
+        }
+
+        // Dock workers walking their beats in the terminals (pack characters, our CC0 walk cycle), so the harbour feels busy.
+        static void Workers()
+        {
+            if (Skin.I == null || Skin.I.Walk == null) return;
+            var beats = new[] {
+                new[] { new Vector3(70, 0, -30), new Vector3(70, 0, 105) },            // East quay, under the gantries
+                new[] { new Vector3(100, 0, -41), new Vector3(225, 0, -41) },          // East, along the pipe run
+                new[] { new Vector3(150, 0, 12), new Vector3(150, 0, 100) },           // East, between the yard blocks
+                new[] { new Vector3(-66, 0, 5), new Vector3(-66, 0, 215) },            // West quay
+                new[] { new Vector3(-162, 0, 8), new Vector3(-104, 0, 8) },            // West, past the tank farm
+                new[] { new Vector3(-95, 0, 45), new Vector3(-95, 0, 185) },           // West yard lane
+                new[] { new Vector3(53, 0, -50), new Vector3(53, 0, -10) },            // the neighbours, over our fence
+                new[] { new Vector3(-50, 0, -20), new Vector3(-50, 0, -55) },          // the West road gate
+            };
+            for (int i = 0; i < beats.Length; i++)
+            {
+                var w = new GameObject("worker" + i).transform;
+                w.SetParent(R, false);
+                w.position = Vector3.Lerp(beats[i][0], beats[i][1], (i * 0.37f) % 1f);
+                var m = Art.Place(Skin.Get("npc" + i), w, Vector3.zero, 180, 1f); // pack people face -Z
+                if (m == null) continue;
+                var an = m.GetComponentInChildren<Animator>();
+                if (an == null) continue;
+                var ca = an.gameObject.AddComponent<CharAnim>(); ca.Init(an, Skin.I);
+                var mv = w.gameObject.AddComponent<Mover>(); mv.Pts = beats[i]; mv.Speed = 1.3f + (i % 3) * 0.15f; mv.Index = i % 2;
+                w.gameObject.AddComponent<Walker>().Set(ca, mv.Speed);
+            }
         }
 
         // Behind the port: rows of city blocks, then hills, fading into the fog.
@@ -468,6 +509,14 @@ namespace PortBoss
             p.y = float.IsNaN(FloatY) ? y0 : Water.Height(p) + (FloatY - Water.Level) ;
             transform.position = p;
         }
+    }
+
+    // Keeps a background worker's walk cycle running.
+    public class Walker : MonoBehaviour
+    {
+        CharAnim a; float speed;
+        public void Set(CharAnim anim, float s) { a = anim; speed = s; }
+        void Update() { if (a != null) a.Tick(CharAnim.Slot.Walk, speed); }
     }
 
     // A crane swinging its boom back and forth.
