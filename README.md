@@ -1,6 +1,6 @@
 # Port Boss
 
-New here? Start with `HANDOVER-TUSHAR.md` (state, setup, the paid-pack rule). Headless build/test scripts: `tools/` (`tools/README.md`).
+New here? Start with `HANDOVER-TUSHAR.md` (setup, the paid-pack rule), then `HANDOVER-MANAN.md` (everything changed in the five playtest rounds since). Headless build/test scripts: `tools/` (`tools/README.md`).
 
 Co-op port game (1–4 players, Steam). Plan: `C:/Users/asus/Desktop/Port Boss/plan/`.
 

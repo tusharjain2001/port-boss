@@ -56,6 +56,15 @@ Add `-batchmode` to run without a window (shots still render the camera; IMGUI m
 | `-pb-night <s>` | jump to the night card after s seconds |
 | `-pb-weather <0..1>` / `-pb-storm` | force weather severity / storm test (shots at 0, 0.5, 1 as `weather-*.png`) |
 | `-pb-wobbletest`, `-pb-trolleytest`, `-pb-swimtest`, `-pb-piertest`, `-pb-knocktest`, `-pb-contracttest`, `-pb-forklifttest`, `-pb-settingstest` | scripted feature tests, results as `[PB]` log lines |
+| `-pb-handletest <dir>` | crate handling: rack (Q / hold Q), take back (E / hold E), into the trolley, set down upright: `PASS`/`FAIL` |
+| `-pb-staminatest` | swim until out of stamina, fished out onto a ladder |
+| `-pb-trucktest` | lorries stop short of a player in the road, queue at most 5, clear after stepping aside |
+| `-pb-boattest` / `-pb-boardtest` | boats are solid (swimmer pushed out, bridge blocks on deck) / walking up the gangplank never sticks |
+| `-pb-evicttest` | stay aboard as the boat casts off: the captain throws you back onto the jetty (`PASS`/`FAIL`) |
+| `-pb-storeshots <dir>` | buys crate store levels 2 and 3 by day, shots of each, crates kept on the racks |
+| `-pb-pushtest <dir>` | trolley shots; held pushing stops at a wall and at the quay edge, turns without overlapping (`PASS`/`FAIL`) |
+| `-pb-intro <dir>` | play the story intro in a test run, shots along it, checks the day clock waits |
+| `-pb-rivalshots <dir>` | Marlowe's drive-by (splash, gloat) and fireworks over his port |
 | `-pb-carrytest <dir>` | carries 1/3/5 crates, checks every carried crate is drawn in place and in view: `PASS`/`FAIL` |
 | `-pb-stagetest <dir>` | buys stage 2 (Concrete quay) and checks money, shed, bigger cargo |
 | `-pb-shovehost` + `-pb-shovetest` | two processes over LAN: the client shoves the carrying host |
