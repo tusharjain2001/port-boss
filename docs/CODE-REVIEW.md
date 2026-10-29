@@ -134,3 +134,27 @@ Two areas are being rewritten by other workers, so their findings are listed her
 
 - **No file splits:** see Structure. Three other workers are editing `Player.cs`, `GameUI.cs` and `AutoRun.cs` right now.
 - **No gameplay or tuning changes:** the stack bob, the first-run preset, mid-day building, lorry `held` on clients and joiner intros are listed above for Manan to decide.
+
+## How the fixes were tested
+
+The Toon Harbor pack isn't on this PC (not in the main repo either), so every build here runs in the own-art fallback
+(`[PBBuild] skin: Toon Harbor not in the project, using own art`). The comparison is therefore baseline main
+(4cf4ed8, built from the same worktree) against this branch, both in the fallback:
+
+| Check | Baseline main | Branch (last batch, a5dff85) |
+|---|---|---|
+| `tools/cc.sh` | ok | ok |
+| build (`ubuild.sh -pbDev`) | ok, 0 errors | ok, 0 errors |
+| reg2 exceptions (all runs) | 0 | 0 |
+| reg2 solo bot sales | 0: the bot gets stuck at (-2.5, -23.6) on the way to the market in the fallback map | 0: same spot |
+| reg2 LAN co-op | client joined, then stopped getting updates at t≈31 s and timed out at 61 s (no error logged) | host clients=2 to the end, client in step at 146 s |
+| `-pb-handletest`, `-pb-pushtest`, `-pb-evicttest` | PASS | PASS |
+| `-pb-contracttest` | logs only | PASS (day 3 = Bjorn, 90 s) |
+| `-pb-trolleytest`, `-pb-forklifttest`, `-pb-storeshots` | values | same values |
+
+Open observations for whoever has the pack:
+- Re-run reg2 with the pack in. The "solo ~6 / co-op ~9 crates" numbers can't be reproduced in the fallback.
+- The baseline co-op stall at t≈31 s happened once on main and not on this branch's runs. It may be CPU contention (three
+  workers testing at once). Worth one more look if it shows up again.
+- `-pb-solo` binds 127.0.0.1:7777 and the LAN host binds 0.0.0.0:7777. Two worktrees testing at the same time make the
+  co-op step fail with "address already in use". That's a test-environment collision, not a game bug.
