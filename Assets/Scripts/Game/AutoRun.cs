@@ -73,6 +73,7 @@ namespace PortBoss
             if (Has("-pb-storm")) StartCoroutine(StormTest());
             if (Arg("-pb-carrytest") != null) StartCoroutine(CarryTest(Arg("-pb-carrytest")));
             if (Arg("-pb-mapshots") != null) StartCoroutine(MapShots(Arg("-pb-mapshots")));
+            if (Arg("-pb-areashots") != null) StartCoroutine(AreaShots(Arg("-pb-areashots")));
             if (Arg("-pb-uishots") != null) StartCoroutine(UiShots(Arg("-pb-uishots")));
             if (Arg("-pb-film") != null) StartCoroutine(Film(Arg("-pb-film")));
             if (float.TryParse(Arg("-pb-weather"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var wsev)) StartCoroutine(ForceWeatherSoon(wsev));
@@ -800,6 +801,57 @@ namespace PortBoss
             Player.CamOverride = false;
         }
 
+        // Same cameras on every area in day, dusk, rain, storm and night (before/after look checks). The first two
+        // views also get a 6-frame burst 0.1 s apart with the camera drifting 1 cm a frame, to measure shimmer (aliased
+        // or sparkling pixels flip on and off; a clean picture just slides).
+        static readonly (string name, Vector3 pos, Vector3 look)[] Areas =
+        {
+            ("jetty", new Vector3(-12, 3, 14), new Vector3(10, -0.5f, -2)),
+            ("berth", new Vector3(-14, 9, -24), new Vector3(10, 0, 20)),
+            ("boat", new Vector3(1.5f, 4.5f, 9f), new Vector3(7.6f, 1.6f, 16f)),
+            ("store", new Vector3(-2f, 3f, 1f), new Vector3(-8.5f, 1.5f, -7.6f)),
+            ("yard", new Vector3(-40, 70, -90), new Vector3(30, 0, 90)),
+            ("gate", new Vector3(-6f, 3f, -70f), new Vector3(-6, 3, -100)),
+            ("road", new Vector3(-30f, 6f, -84f), new Vector3(10, 0, -105)),
+            ("market", new Vector3(10f, 7f, -98f), new Vector3(-6, 2f, -117)),
+            ("sea", new Vector3(30, 18, 120), new Vector3(190, 0, 300)),
+            ("marlowe", new Vector3(0, 30, 250), new Vector3(0, 20, 620)),
+            ("lamps", new Vector3(80f, 12f, -10f), new Vector3(20, 0, -80)),
+            ("deck", new Vector3(3.4f, 2.5f, 15.5f), new Vector3(7.6f, 1.8f, 15.5f)),
+            ("decktop", new Vector3(7.6f, 9f, 11f), new Vector3(7.6f, 1.6f, 16f)),
+        };
+
+        IEnumerator AreaShots(string dir)
+        {
+            Directory.CreateDirectory(dir);
+            yield return WaitGame();
+            var g = PortGame.I;
+            g.ForceWeather(0);
+            while (!Boat.All.Exists(b => b.State.Value == Boat.St.Docked)) yield return null;
+            yield return new WaitForSeconds(2f);
+            Player.CamOverride = true;
+            var cam = Camera.main;
+            foreach (var (cond, sev, dayT) in new[] { ("day", 0f, 72f), ("rain", 0.65f, 72f), ("storm", 1f, 72f), ("dusk", 0f, 445f), ("night", 0f, -1f) })
+            {
+                g.ForceWeather(sev);
+                if (dayT < 0) g.EndDayNow(); else g.DayT.Value = dayT;
+                while (Mathf.Abs(Storm.Level - sev) > 0.02f) { if (dayT >= 0) g.DayT.Value = dayT; yield return null; }
+                yield return new WaitForSeconds(1f);
+                foreach (var (name, pos, look) in Areas)
+                {
+                    if (dayT >= 0) g.DayT.Value = dayT;
+                    cam.transform.position = pos; cam.transform.LookAt(look);
+                    yield return new WaitForSeconds(1.2f);
+                    yield return Snap(dir, $"{name}-{cond}");
+                    if (cond == "day" && (name == "jetty" || name == "berth" || name == "lamps"))
+                        for (int k = 0; k < 6; k++) { cam.transform.position += cam.transform.right * 0.01f; yield return new WaitForSeconds(0.1f); yield return Snap(dir, $"{name}-burst{k}"); }
+                }
+            }
+            Player.CamOverride = false;
+            Debug.Log("[PB] area shots done");
+            Application.Quit();
+        }
+
         IEnumerator ForceWeatherSoon(float s) { yield return WaitGame(); PortGame.I.ForceWeather(s); }
 
         IEnumerator StormTest()
@@ -1073,7 +1125,8 @@ namespace PortBoss
         {
             if (!Application.isBatchMode) { ScreenCapture.CaptureScreenshot(path); return; }
             var cam = Camera.main;
-            var rt = new RenderTexture(1600, 900, 24);
+            var urp = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline as UnityEngine.Rendering.Universal.UniversalRenderPipelineAsset;
+            var rt = new RenderTexture(1600, 900, 24) { antiAliasing = urp != null ? Mathf.Max(1, urp.msaaSampleCount) : 1 }; // as the game window draws it
             cam.targetTexture = rt;
             cam.Render();
             cam.targetTexture = null;
