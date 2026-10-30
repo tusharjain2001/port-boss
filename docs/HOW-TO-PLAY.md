@@ -2,6 +2,8 @@
 
 Double-click **PortBoss.exe**. It opens windowed (drag the edge to resize, or pick a window mode in Settings). Have Steam running for co-op; solo works without it.
 
+Before your first game you make your **dock worker**: skin tone, face, hair, beard, headwear, top and colours (Randomise for a quick one). Change it any time from **Character** on the title menu or the pause menu; your mates see your look in co-op.
+
 ## The goal
 Every game opens with the story (Space / Esc / click skips it): Grandpa's old fish pier is the last one on the coast that Marlowe doesn't own, and it's yours now.
 
