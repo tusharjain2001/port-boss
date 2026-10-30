@@ -244,9 +244,20 @@ namespace PortBoss
             clip = "water-entry-tread"; n = 0; Directory.CreateDirectory(Path.Combine(dir, clip));
             Player.BotInput = () => Move(Vector3.forward);
             while (!pl.Swimming && n < 120) yield return Frame();
-            for (int f = 0; f < 6; f++) yield return Frame();
-            Player.BotInput = () => new Player.In();
-            for (int f = 0; f < 75; f++) yield return Frame();
+            // Players stay at the surface: the head (its bone, about eye level) should be under only for a moment.
+            var head = pl.GetComponentInChildren<Animator>()?.GetBoneTransform(HumanBodyBones.Head);
+            int under = 0, deepest = 0;
+            for (int f = 0; f < 81; f++)
+            {
+                if (f == 6) Player.BotInput = () => new Player.In();
+                yield return Frame();
+                if (head == null) continue;
+                float d = Water.Height(head.position) - head.position.y;
+                if (d > 0) under++;
+                deepest = Mathf.Max(deepest, Mathf.RoundToInt(d * 100));
+                if (f < 45) Debug.Log($"[PB] animfilm water-entry f{f}: body y {pl.transform.position.y - Water.Height(pl.transform.position):F2} head {-d:F2} m above the surface");
+            }
+            Debug.Log($"[PB] animfilm water-entry: head under for {under / 30f:F2} s, at most {deepest} cm");
             Side(1, 3.6f, 1.3f);
             yield return Film("swim-side", 2.5f, Move(Vector3.right, 0.8f));
 
