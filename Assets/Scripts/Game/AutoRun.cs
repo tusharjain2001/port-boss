@@ -120,21 +120,28 @@ namespace PortBoss
                 clip = name; n = 0;
                 Directory.CreateDirectory(Path.Combine(dir, name));
                 Player.BotInput = () => input;
-                // Foot sliding: how fast the planted foot (the lower one, on the ground) moves over the ground; ~0 is right.
+                // Foot sliding: while a foot is planted (within 3 cm of the lowest it gets) it should stay put on the
+                // ground; logged as its mean ground speed then, against the body's speed.
                 var an = pl.GetComponentInChildren<Animator>();
-                Transform fl = an != null ? an.GetBoneTransform(HumanBodyBones.LeftFoot) : null, fr = an != null ? an.GetBoneTransform(HumanBodyBones.RightFoot) : null;
-                Vector3 lastFoot = default, lastRoot = default; Transform lastPlanted = null; float slide = 0, moved = 0; int samples = 0;
+                var feet = an != null ? new[] { an.GetBoneTransform(HumanBodyBones.LeftFoot), an.GetBoneTransform(HumanBodyBones.RightFoot) } : null;
+                var track = new List<(Vector3 l, Vector3 r, Vector3 root)>();
                 for (int f = 0; f < secs * 30; f++)
                 {
                     yield return Frame();
-                    if (fl == null) continue;
-                    var planted = fl.position.y < fr.position.y ? fl : fr;
-                    if (planted == lastPlanted && planted.position.y < pl.transform.position.y + 0.15f)
+                    if (feet != null && feet[0] != null) track.Add((feet[0].position, feet[1].position, pl.transform.position));
+                }
+                float slide = 0, moved = 0; int samples = 0;
+                for (int k = 0; k < 2 && track.Count > 1; k++)
+                {
+                    float lo = float.MaxValue;
+                    foreach (var q in track) lo = Mathf.Min(lo, k == 0 ? q.l.y : q.r.y);
+                    for (int i = 1; i < track.Count; i++)
                     {
-                        var d = planted.position - lastFoot; d.y = 0; slide += d.magnitude;
-                        var m = pl.transform.position - lastRoot; m.y = 0; moved += m.magnitude; samples++;
+                        Vector3 a = k == 0 ? track[i - 1].l : track[i - 1].r, b = k == 0 ? track[i].l : track[i].r;
+                        if (a.y > lo + 0.03f || b.y > lo + 0.03f) continue;
+                        var d = b - a; d.y = 0; slide += d.magnitude;
+                        var m = track[i].root - track[i - 1].root; m.y = 0; moved += m.magnitude; samples++;
                     }
-                    lastPlanted = planted; lastFoot = planted.position; lastRoot = pl.transform.position;
                 }
                 Debug.Log($"[PB] animfilm {name}: {n} frames" + (samples > 0 ? $", body {moved / samples * 30:F2} m/s, planted foot slides {slide / samples * 30:F2} m/s" : ""));
             }

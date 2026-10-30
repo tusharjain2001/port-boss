@@ -227,7 +227,7 @@ namespace PortBoss
             }
             else
             {
-                slot = !grounded ? CharAnim.Slot.Jump : Pushing ? CharAnim.Slot.Push : CharAnim.Slot.Idle; // Idle = on foot: CharAnim blends the gaits by speed
+                slot = !grounded ? CharAnim.Slot.Jump : CharAnim.Slot.Idle; // Idle = on foot: CharAnim blends the gaits by speed (pushing too: legs at the trolley's speed, hands on its grip)
                 // Lean into the run and bank into turns (less with a stack in your arms).
                 float turn = Mathf.DeltaAngle(lastAnimYaw, transform.eulerAngles.y) / Mathf.Max(dt, 1e-4f);
                 float run = grounded ? Mathf.Clamp01((speed - 2f) / 5f) : 0f, carryK = Carrying > 0 ? 0.4f : 1f;

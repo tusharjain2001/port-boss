@@ -294,7 +294,10 @@ namespace PortBoss
                 Hands(t, boxL, boxR, boxW, -t.up * 0.6f - t.forward * 0.15f, t.forward + t.up * 0.1f);
             }
             if (gripW > 0.01f && Grip != null)
+            {
+                if (spine != null) spine.rotation = Quaternion.AngleAxis(14f * gripW, t.right) * spine.rotation; // leaning into the push
                 Hands(t, Grip.TransformPoint(GripL), Grip.TransformPoint(GripR), gripW, -t.up * 0.7f - t.forward * 0.1f, t.forward - t.up * 0.2f);
+            }
             if (waterW > 0.01f && armLU != null)
             {
                 // Treading water: hands low out in front, sculling in small circles, always under the surface.
