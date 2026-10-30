@@ -154,6 +154,14 @@ namespace PortBoss
             anim.Init(a, Skin.I);
             anim.Facing = transform;
             anim.Scale = g.transform.localScale.x;
+            // How far this body sticks out in front (belly, boots), measured upright and unturned, decides where it holds
+            // the stack; every peer builds the same body, so they all draw the crates in the same place.
+            var rot = transform.rotation; transform.rotation = Quaternion.identity;
+            float front = Mathf.Clamp(Art.Bounds(g).max.z - transform.position.z, 0.1f, 0.3f);
+            transform.rotation = rot;
+            var at = anim.CarryAt(Crate.Size / 2, front);
+            HoldShift = new Vector3(0, at.x, at.y) - HoldPos(0);
+            Debug.Log($"[PB] carry p{OwnerClientId}: body front {front:F2} m, stack at height {at.x:F2} m, {at.y:F2} m ahead");
         }
 
         void AnimateWorker(float speed)
@@ -165,12 +173,23 @@ namespace PortBoss
             lastAnimY = transform.position.y;
             Ripples(swimming);
             // Falling in: the body plunges under, then bobs back up (with a second, smaller splash) and starts treading.
-            if (swimming && !wasSwimmingAnim) { dunkT = 0; resurfaced = false; }
-            wasSwimmingAnim = swimming;
+            // (Not when climbing down a ladder into the water.)
+            bool climbing = Climbing.Value;
+            if (swimming && !wasSwimmingAnim && !wasClimbingAnim) { dunkT = 0; resurfaced = false; }
+            wasSwimmingAnim = swimming; wasClimbingAnim = climbing;
             if (dunkT >= 0 && (!swimming || (dunkT += dt / 1.1f) >= 1)) dunkT = -1;
             anim.Flail = swimming && OutOfStamina.Value; // going under
             CharAnim.Slot slot;
+            anim.Ladder = null; anim.WaterY = float.NaN;
             if (Driving != null) { slot = CharAnim.Slot.Drive; model.localPosition = new Vector3(0, -0.15f, 0); }
+            else if (climbing)
+            {
+                // On a ladder: hands and feet put on the rungs by CharAnim; eased off while stepping on and off.
+                slot = CharAnim.Slot.Climb;
+                var l = LadderAt(transform.position);
+                var line = l.Edge - l.In * ClimbOut; var off = transform.position - line; off.y = 0;
+                anim.Ladder = l; anim.LadderW = 1f - Mathf.Clamp01((off.magnitude - 0.1f) / 0.6f);
+            }
             else if (knockT >= 0)
             {
                 // Knocked over: tip backwards, lie there a moment, scramble up.
@@ -181,14 +200,14 @@ namespace PortBoss
                 slot = CharAnim.Slot.Idle;
                 if (knockT >= 1) knockT = -1;
             }
-            else if (anim.Flail) { slot = CharAnim.Slot.SwimIdle; model.localPosition = new Vector3(0, SwimModelY + 0.25f + Mathf.Abs(Mathf.Sin(Time.time * 9f)) * 0.15f, 0); }
+            else if (anim.Flail) { slot = CharAnim.Slot.SwimIdle; model.localPosition = new Vector3(0, anim.WaterLift(false, SwimDepth) + 0.25f + Mathf.Abs(Mathf.Sin(Time.time * 9f)) * 0.15f, 0); }
             else if (swimming)
             {
                 // Breaststroke when moving (body tipped forward along the surface), treading water when still.
                 bool stroke = speed > 0.6f;
                 slot = stroke ? CharAnim.Slot.Swim : CharAnim.Slot.SwimIdle;
                 swimLean = Mathf.MoveTowards(swimLean, stroke ? 1f : 0f, dt * 3f);
-                model.localPosition = new Vector3(0, Mathf.Lerp(SwimModelY, SwimStrokeY, swimLean), 0);
+                model.localPosition = new Vector3(0, Mathf.Lerp(anim.WaterLift(false, SwimDepth), anim.WaterLift(true, SwimDepth), swimLean), 0);
                 if (dunkT >= 0)
                 {
                     // Down fast (to just over the head), a beat under, then up with a little overshoot; tipped forward on the way in.
@@ -197,6 +216,7 @@ namespace PortBoss
                     model.localPosition += new Vector3(0, -1.25f * dip + pop, 0);
                     model.localRotation = Quaternion.Euler(25f * dip, 0, 0);
                     slot = CharAnim.Slot.SwimIdle;
+                    stroke = false;
                     if (!resurfaced && u > 0.62f)
                     {
                         resurfaced = true;
@@ -204,10 +224,11 @@ namespace PortBoss
                         Sfx.Play("splash", transform.position + Vector3.up, 0.35f, 1.5f);
                     }
                 }
+                if (!stroke) anim.WaterY = Water.Height(transform.position); // treading: arms down in the water
             }
             else
             {
-                slot = !grounded ? CharAnim.Slot.Jump : Pushing ? CharAnim.Slot.Push : CharAnim.Gait(speed);
+                slot = !grounded ? CharAnim.Slot.Jump : CharAnim.Slot.Idle; // Idle = on foot: CharAnim blends the gaits by speed (pushing too: legs at the trolley's speed, hands on its grip)
                 // Lean into the run and bank into turns (less with a stack in your arms).
                 float turn = Mathf.DeltaAngle(lastAnimYaw, transform.eulerAngles.y) / Mathf.Max(dt, 1e-4f);
                 float run = grounded ? Mathf.Clamp01((speed - 2f) / 5f) : 0f, carryK = Carrying > 0 ? 0.4f : 1f;
@@ -217,18 +238,24 @@ namespace PortBoss
             lastAnimYaw = transform.eulerAngles.y;
             if (!swimming) swimLean = 0;
             if (throwT >= 0 && (throwT += dt / 0.45f) >= 1) throwT = -1;
-            // Picking up / putting down: a quick bend at the waist, arms reaching down to the crate.
-            if (reachT >= 0 && (reachT += dt / 0.35f) >= 1) reachT = -1;
-            float reach = reachT >= 0 && !swimming && Driving == null && knockT < 0 ? Mathf.Sin(reachT * Mathf.PI) : 0f;
-            if (reach > 0) { model.localPosition += new Vector3(0, -0.16f * reach, 0.06f * reach); model.localRotation *= Quaternion.Euler(16f * reach, 0, 0); }
-            anim.Reach = reach;
-            anim.Carry = Carrying > 0 && !swimming && Driving == null && knockT < 0;
+            // Hands under the bottom crate of the stack. Picking one up, the hands go to it where it lies (it waits a
+            // moment there, so we squat to it); after setting the last one down they stay on it until it has landed.
+            Crate bottom = null;
+            if (Carrying > 0) foreach (Transform c in transform) if (c.TryGetComponent<Crate>(out var cr) && (bottom == null || cr.Slot.Value < bottom.Slot.Value)) bottom = cr;
+            if (bottom != null) { held = bottom; letGoT = 0; }
+            else if (held != null && ((letGoT += dt) > 0.45f || !held.IsSpawned || (held.transform.position - transform.position).sqrMagnitude > 2.5f * 2.5f)) held = null;
+            bool hands = !swimming && !climbing && Driving == null && knockT < 0;
+            anim.Box = hands && held != null ? held.Vis : null;
+            anim.BoxHalf = Crate.Size / 2;
+            anim.BoxW = letGoT < 0.25f ? 1f : 1f - (letGoT - 0.25f) / 0.2f;
+            // Pushing: both hands on the trolley's grip.
+            var tr = Trolley.I;
+            anim.Grip = hands && Pushing && tr != null ? tr.transform : null;
+            anim.GripL = Trolley.GripL; anim.GripR = Trolley.GripR;
             anim.Throw01 = throwT;
             anim.Tick(slot, speed);
         }
-        // The UAL swim clips sit the body ~1 m lower than standing; lifts measured with -pb-swimtest's "swim pose" line.
-        const float SwimModelY = 1.24f;  // treading: head out, shoulders at the surface
-        const float SwimStrokeY = 1.4f;  // stroke (lies flat): back at the surface, head just out
+        Crate held; float letGoT;
         float swimLean, dunkT = -1, lastAnimYaw;
         Vector2 lean;
         bool resurfaced;
@@ -271,7 +298,7 @@ namespace PortBoss
             ripples.transform.position = new Vector3(transform.position.x, Water.Height(transform.position) + 0.04f, transform.position.z);
             if (on && !ripples.isPlaying) ripples.Play(); else if (!on && ripples.isPlaying) ripples.Stop();
         }
-        bool wasSwimmingAnim; // swimming last frame (starts the dunk)
+        bool wasSwimmingAnim, wasClimbingAnim; // last frame (falling in starts the dunk)
 
         void Animate(float speed)
         {
@@ -347,6 +374,7 @@ namespace PortBoss
 
         void Teleport(Vector3 pos, float newYaw, bool viaNet = true)
         {
+            EndClimb();
             yaw = newYaw; hv = Vector3.zero; vy = 0; platform = null;
             cc.enabled = false;
             transform.SetPositionAndRotation(pos, Quaternion.Euler(0, newYaw, 0));
@@ -442,7 +470,7 @@ namespace PortBoss
             wish = Vector3.ClampMagnitude(wish, 1f);
             bool sprint = input.sprint && wish.sqrMagnitude > 0.1f;
 
-            if (climbT >= 0) { Climb(dt); return; }
+            if (climbAt >= 0) { Climb(dt); return; }
             float surface = Water.Height(transform.position);
             if (!swimming && transform.position.y < surface - SwimDepth + 0.3f && vy <= 0 && !Shallow()) EnterWater();
             if (swimming)
@@ -655,12 +683,10 @@ namespace PortBoss
         // ---------- swimming ----------
         public const float SwimDepth = 1.3f; // feet this far below the surface: head + shoulders out
         public bool Swimming => swimming;
-        public bool Climbing => climbT >= 0;
         public bool Towing => TowedId.Value != 0;
         public NetworkVariable<ulong> TowedId = new(0); // server writes: the floating crate being towed
         bool swimming;
-        float climbT = -1;
-        Vector3 climbFrom, climbTo;
+        public NetworkVariable<bool> Climbing = new(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
         // Ground close enough to stand on? Measured against the mean sea level so waves don't flip it back and forth.
         bool Shallow() => Physics.Raycast(transform.position + Vector3.up, Vector3.down, out var gh, 2.8f, ~0, QueryTriggerInteraction.Ignore)
@@ -692,17 +718,34 @@ namespace PortBoss
         public NetworkVariable<bool> OutOfStamina = new(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
         float exhaustedAt = -1;
 
-        // Out of stamina: hauled up onto the nearest ladder's deck, dazed for a moment.
+        // Out of stamina: the harbour master hauls you to the nearest ladder; you drag yourself up it, then lie on the
+        // deck a moment catching your breath.
         void FishedOut()
         {
-            var to = World.Spawn; float bd = float.MaxValue;
-            foreach (var l in World.Ladders) { float d = (l.Bottom - transform.position).sqrMagnitude; if (d < bd) { bd = d; to = l.Top; } }
-            Debug.Log($"[PB] fished out at {transform.position:F1} -> {to:F1}");
-            LeaveWater();
+            var l = LadderAt(transform.position);
+            Debug.Log($"[PB] fished out at {transform.position:F1} -> ladder at {l.Top:F1}");
             Stamina = 0.35f;
-            Teleport(to, yaw);
-            Sfx.Play("splash", to, 0.7f, 1.3f);
-            KnockedRpc(Vector3.zero, Down.Rescued);
+            Teleport(l.Bottom, yaw);
+            Sfx.Play("splash", l.Bottom, 0.7f, 1.3f);
+            StartClimb(l, false, true);
+        }
+
+        public static World.Ladder LadderAt(Vector3 p)
+        {
+            var best = World.Ladders[0]; float bd = float.MaxValue;
+            foreach (var l in World.Ladders) { var d = l.Edge - p; d.y = 0; if (d.sqrMagnitude < bd) { bd = d.sqrMagnitude; best = l; } }
+            return best;
+        }
+
+        // On the deck at the top of a ladder (E climbs down to the water, e.g. to fetch a floating crate).
+        public World.Ladder? LadderTopNear()
+        {
+            foreach (var l in World.Ladders)
+            {
+                var d = l.Top - transform.position;
+                if (Mathf.Abs(d.y) < 0.6f && new Vector2(d.x, d.z).sqrMagnitude < 1.1f * 1.1f) return l;
+            }
+            return null;
         }
 
         public World.Ladder? NearLadder()
@@ -736,10 +779,8 @@ namespace PortBoss
                 var l = NearLadder();
                 if (l != null)
                 {
-                    // Climb out: up the ladder and onto the deck.
                     if (Towing) TowRpc(default, false);
-                    climbT = 0; climbFrom = transform.position; climbTo = l.Value.Top;
-                    cc.enabled = false;
+                    StartClimb(l.Value, false);
                     Sfx.Play("splash", transform.position, 0.5f, 1.4f);
                 }
                 else if (Towing) TowRpc(default, false);
@@ -748,20 +789,50 @@ namespace PortBoss
             if (input.drop && Towing) TowRpc(default, false);
         }
 
+        // Climbing a ladder (owner): along a path at the speed the climb animation steps at (CharAnim puts hands and
+        // feet on the rungs from our height). Up: to the ladder, up the rungs, over onto the deck. Down: the reverse,
+        // ending in the water.
+        const float ClimbSpeed = 1.5f, ClimbOut = 0.42f; // m/s; how far out from the quay face the body hangs
+        readonly List<Vector3> climbPath = new();
+        float climbAt = -1; // metres along climbPath, < 0 = not climbing
+        bool climbDown, climbRescued;
+
+        void StartClimb(World.Ladder l, bool down, bool rescued = false)
+        {
+            var line = l.Edge - l.In * ClimbOut;
+            // lip: feet on the top rungs, hands on the deck; from there a step up and over onto it (or back down onto them).
+            Vector3 foot = new(line.x, l.Bottom.y, line.z), lip = new(line.x, l.TopY - 0.4f, line.z);
+            climbPath.Clear();
+            climbPath.Add(transform.position);
+            if (down) { climbPath.Add(lip); climbPath.Add(foot); }
+            else { climbPath.Add(foot); climbPath.Add(lip); climbPath.Add(l.Top); }
+            climbAt = 0; climbDown = down; climbRescued = rescued;
+            Climbing.Value = true;
+            if (Carrying > 0) DropAllRpc();
+            cc.enabled = false; hv = Vector3.zero; vy = 0;
+            transform.rotation = Quaternion.LookRotation(l.In);
+        }
+
         void Climb(float dt)
         {
-            climbT += dt / 0.9f;
-            float u = Mathf.Clamp01(climbT);
-            // Up the ladder first, then step over onto the deck.
-            var up = new Vector3(climbFrom.x, Mathf.Lerp(climbFrom.y, climbTo.y + 0.3f, Mathf.SmoothStep(0, 1, Mathf.Min(1, u / 0.75f))), climbFrom.z);
-            var p = u < 0.75f ? up : Vector3.Lerp(up, climbTo, (u - 0.75f) / 0.25f);
-            transform.position = p;
-            if (climbT >= 1)
-            {
-                climbT = -1; swimming = false; vy = 0; hv = Vector3.zero;
-                exhaustedAt = -1; OutOfStamina.Value = false;
-                cc.enabled = true;
-            }
+            climbAt += dt * ClimbSpeed * (climbRescued ? 0.7f : 1f);
+            float d = climbAt; int i = 0;
+            while (i < climbPath.Count - 2 && d > Vector3.Distance(climbPath[i], climbPath[i + 1])) { d -= Vector3.Distance(climbPath[i], climbPath[i + 1]); i++; }
+            var seg = climbPath[i + 1] - climbPath[i];
+            transform.position = climbPath[i] + seg.normalized * Mathf.Min(d, seg.magnitude);
+            if (i < climbPath.Count - 2 || d < seg.magnitude) return;
+            EndClimb();
+            if (climbDown) { swimming = true; Stats.Add("swims"); return; }
+            swimming = false; exhaustedAt = -1; OutOfStamina.Value = false;
+            if (climbRescued) KnockedRpc(Vector3.zero, Down.Rescued);
+        }
+
+        void EndClimb()
+        {
+            if (climbAt < 0) return;
+            climbAt = -1; Climbing.Value = false;
+            vy = 0; hv = Vector3.zero;
+            cc.enabled = true;
         }
 
         [Rpc(SendTo.Server)]
@@ -893,6 +964,7 @@ namespace PortBoss
             {
                 var c = FindCrate();
                 if (c != null) GrabRpc(c.NetworkObject);
+                else if (input.grab && Carrying == 0 && LadderTopNear() is World.Ladder l) StartClimb(l, true);
             }
             if (Repeat(input.drop, input.dropHeld, ref dropNextAt) && Carrying > 0) PutDownRpc();
             if (input.throwP && Carrying > 0)
@@ -947,8 +1019,10 @@ namespace PortBoss
             return best;
         }
 
-        // Carried at the belly, gripped low on the bottom crate; the camera looks over the shoulder so the whole stack stays in view.
-        public static Vector3 HoldPos(int slot) => new(0, 1.12f + slot * (Crate.Size + 0.04f), 0.6f);
+        // Carried at the belly; the camera looks over the shoulder so the whole stack stays in view. HoldShift moves the
+        // crates' visuals to where this player's body holds them (CharAnim.CarryAt: arm length, belly).
+        public static Vector3 HoldPos(int slot) => new(0, 1.2f + slot * (Crate.Size + 0.04f), 0.5f);
+        public Vector3 HoldShift { get; private set; }
 
         // ---- server ----
         void FixedUpdate()
@@ -1140,9 +1214,7 @@ namespace PortBoss
         void FxRpc(string sfx, Vector3 p)
         {
             Sfx.Play(sfx, p, 0.7f);
-            if (sfx == "grab" || sfx == "place") reachT = 0; // bend and reach (every peer sees it)
         }
-        float reachT = -1;
 
         // ---- camera (owner) ----
         public static bool CamOverride; // test shots drive the camera themselves

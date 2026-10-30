@@ -97,6 +97,204 @@ namespace PortBoss
             if (Arg("-pb-pushtest") != null) StartCoroutine(PushTest(Arg("-pb-pushtest")));
             if (Arg("-pb-intro") != null) StartCoroutine(IntroShots(Arg("-pb-intro")));
             if (Arg("-pb-rivalshots") != null) StartCoroutine(RivalShots(Arg("-pb-rivalshots")));
+            if (Arg("-pb-animfilm") != null) StartCoroutine(AnimFilm(Arg("-pb-animfilm")));
+        }
+
+        // The player's animations filmed at a fixed 30 fps, one folder of frames per clip (tools/animfilm.sh joins them
+        // into MP4s and frame sheets): gaits side and front, carrying 1/3/5, pick up / put down, a jump, falling into the
+        // sea, treading and swimming, the ladder up and down, pushing the trolley.
+        IEnumerator AnimFilm(string dir)
+        {
+            yield return WaitGame();
+            var g = PortGame.I; var pl = Player.Local; var cam = Camera.main;
+            g.ForceWeather(0);
+            g.DebugGrantKit();
+            yield return new WaitForSeconds(2f);
+            Player.CamOverride = true;
+            Time.captureFramerate = 30;
+            var rt = new RenderTexture(960, 540, 24); var tex = new Texture2D(960, 540, TextureFormat.RGB24, false);
+            string clip = null; int n = 0;
+            // side: camera off the player's right (+1) or left (-1); 0 = in front; height and distance.
+            System.Action look = null;
+            void Side(float side, float dist = 3.6f, float h = 1.0f) => look = () =>
+            {
+                var t = pl.transform; var c = t.position + Vector3.up * h;
+                var off = side == 0 ? t.forward * dist : t.right * side * dist;
+                cam.transform.position = c + off + Vector3.up * 0.3f; cam.transform.LookAt(c);
+            };
+            IEnumerator Film(string name, float secs, Player.In input)
+            {
+                clip = name; n = 0;
+                Directory.CreateDirectory(Path.Combine(dir, name));
+                Player.BotInput = () => input;
+                // Foot sliding: while a foot (its ball) is planted (within 3 cm of the lowest it gets) it should stay put on the
+                // ground; logged as its mean ground speed then, against the body's speed.
+                var an = pl.GetComponentInChildren<Animator>();
+                var feet = an != null ? new[] { an.GetBoneTransform(HumanBodyBones.LeftToes) ?? an.GetBoneTransform(HumanBodyBones.LeftFoot), an.GetBoneTransform(HumanBodyBones.RightToes) ?? an.GetBoneTransform(HumanBodyBones.RightFoot) } : null;
+                var track = new List<(Vector3 l, Vector3 r, Vector3 root)>();
+                for (int f = 0; f < secs * 30; f++)
+                {
+                    yield return Frame();
+                    if (feet != null && feet[0] != null) track.Add((feet[0].position, feet[1].position, pl.transform.position));
+                }
+                float slide = 0, moved = 0; int samples = 0;
+                for (int k = 0; k < 2 && track.Count > 1; k++)
+                {
+                    float lo = float.MaxValue;
+                    foreach (var q in track) lo = Mathf.Min(lo, k == 0 ? q.l.y : q.r.y);
+                    for (int i = 1; i < track.Count; i++)
+                    {
+                        Vector3 a = k == 0 ? track[i - 1].l : track[i - 1].r, b = k == 0 ? track[i].l : track[i].r;
+                        if (a.y > lo + 0.03f || b.y > lo + 0.03f) continue;
+                        var d = b - a; d.y = 0; slide += d.magnitude;
+                        var m = track[i].root - track[i - 1].root; m.y = 0; moved += m.magnitude; samples++;
+                    }
+                }
+                Debug.Log($"[PB] animfilm {name}: {n} frames" + (samples > 0 ? $", body {moved / samples * 30:F2} m/s, planted foot slides {slide / samples * 30:F2} m/s" : ""));
+            }
+            IEnumerator Frame()
+            {
+                yield return new WaitForEndOfFrame();
+                look?.Invoke();
+                cam.targetTexture = rt; cam.Render(); cam.targetTexture = null;
+                RenderTexture.active = rt; tex.ReadPixels(new Rect(0, 0, 960, 540), 0, 0); tex.Apply(); RenderTexture.active = null;
+                File.WriteAllBytes(Path.Combine(dir, clip, $"f_{n++:0000}.jpg"), tex.EncodeToJPG(88));
+            }
+            Player.In Move(Vector3 way, float k = 1f, bool sprint = false) => new Player.In { hasWorldMove = true, worldMove = way * k, sprint = sprint };
+            var open = new Vector3(-40, 0.2f, -30);
+
+            // Gaits: walk, jog, sprint (side), jog (front), and a stop-go-sprint-stop run through the blend.
+            foreach (var (nm, k, spr, side) in new[] { ("walk-side", 0.25f, false, 1f), ("jog-side", 1f, false, 1f), ("sprint-side", 1f, true, 1f), ("jog-front", 1f, false, 0f), ("sprint-front", 1f, true, 0f) })
+            {
+                pl.DebugTeleport(open, 90); Player.BotInput = () => new Player.In(); yield return new WaitForSeconds(0.3f);
+                Side(side);
+                Player.BotInput = () => Move(Vector3.right, k, spr);
+                for (int f = 0; f < 20; f++) yield return null; // up to speed
+                yield return Film(nm, 2.5f, Move(Vector3.right, k, spr));
+            }
+            pl.DebugTeleport(open, 90); Player.BotInput = () => new Player.In(); yield return new WaitForSeconds(0.3f);
+            Side(1, 4.5f);
+            yield return Film("blend-idle-walk-jog-sprint", 0.6f, new Player.In());
+            foreach (var (k, spr, secs) in new[] { (0.25f, false, 1.2f), (0.6f, false, 1f), (1f, false, 1f), (1f, true, 1.4f) })
+            {
+                Player.BotInput = () => Move(Vector3.right, k, spr);
+                for (int f = 0; f < secs * 30; f++) yield return Frame();
+            }
+            Player.BotInput = () => new Player.In();
+            for (int f = 0; f < 30; f++) yield return Frame();
+
+            // Jump on the spot and while running.
+            pl.DebugTeleport(open, 90); yield return new WaitForSeconds(0.3f);
+            Side(1, 4f);
+            clip = "jump"; n = 0; Directory.CreateDirectory(Path.Combine(dir, clip));
+            Player.BotInput = () => new Player.In { jump = true, jumpHeld = true }; yield return Frame();
+            Player.BotInput = () => new Player.In { jumpHeld = true };
+            for (int f = 0; f < 36; f++) yield return Frame();
+            Player.BotInput = () => Move(Vector3.right);
+            for (int f = 0; f < 15; f++) yield return Frame();
+            Player.BotInput = () => { var i = Move(Vector3.right); i.jump = true; i.jumpHeld = true; return i; }; yield return Frame();
+            Player.BotInput = () => { var i = Move(Vector3.right); i.jumpHeld = true; return i; };
+            for (int f = 0; f < 40; f++) yield return Frame();
+
+            // Carrying 1, 3, 5: walking side on, and front.
+            foreach (int c in new[] { 1, 3, 5 })
+            {
+                pl.DebugTeleport(open, 90); Player.BotInput = () => new Player.In(); yield return new WaitForSeconds(0.3f);
+                pl.DebugGiveCrates(c - pl.Carrying);
+                yield return new WaitForSeconds(0.8f);
+                Side(-1, 3.6f, 1.2f);
+                yield return Film($"carry{c}-idle-side", 1f, new Player.In());
+                Side(1, 3.6f, 1.2f);
+                yield return Film($"carry{c}-walk-side", 2f, Move(Vector3.right, 0.6f));
+                Side(0, 3.8f, 1.3f);
+                pl.DebugTeleport(open, 90); yield return null;
+                yield return Film($"carry{c}-front", 1.6f, Move(Vector3.right, 0.6f));
+            }
+            // Pick up / put down: one crate on the ground ahead, E; walk a step; Q (set down on open ground); then three.
+            pl.DebugTeleport(open, 90); Player.BotInput = () => new Player.In(); yield return new WaitForSeconds(0.3f);
+            while (pl.Carrying > 0) { yield return Press(new Player.In { drop = true }, 0.5f); }
+            var spot = open + new Vector3(0, 0, -12f); // clear of the crates just set down
+            pl.DebugTeleport(spot, 90); yield return new WaitForSeconds(0.3f);
+            g.SpawnCrate(spot + new Vector3(1.05f, 0.4f, 0), 1f);
+            yield return new WaitForSeconds(1.2f);
+            Side(-1, 3.4f, 0.8f);
+            clip = "pickup-putdown"; n = 0; Directory.CreateDirectory(Path.Combine(dir, clip));
+            for (int f = 0; f < 10; f++) yield return Frame();
+            Player.BotInput = () => new Player.In { grab = true }; yield return Frame();
+            Player.BotInput = () => new Player.In();
+            for (int f = 0; f < 40; f++) yield return Frame();
+            Player.BotInput = () => new Player.In { drop = true }; yield return Frame();
+            Player.BotInput = () => new Player.In();
+            for (int f = 0; f < 40; f++) yield return Frame();
+            Debug.Log($"[PB] animfilm pickup-putdown: {n} frames, carrying {pl.Carrying}");
+            // Throwing a crate off the stack.
+            pl.DebugGiveCrates(2); yield return new WaitForSeconds(0.8f);
+            Side(-1, 4f, 1.2f);
+            clip = "throw"; n = 0; Directory.CreateDirectory(Path.Combine(dir, clip));
+            for (int f = 0; f < 8; f++) yield return Frame();
+            Player.BotInput = () => new Player.In { throwP = true }; yield return Frame();
+            Player.BotInput = () => new Player.In();
+            for (int f = 0; f < 40; f++) yield return Frame();
+            Debug.Log($"[PB] animfilm throw: {n} frames, carrying {pl.Carrying}");
+            while (pl.Carrying > 0) yield return Press(new Player.In { drop = true }, 0.5f);
+
+            // Off the quay into the sea at a jog: fall, dunk, tread water, then swim along.
+            pl.DebugTeleport(new Vector3(-20, 0.2f, -3.5f), 0); Player.BotInput = () => new Player.In(); yield return new WaitForSeconds(0.4f);
+            look = () => { var c = pl.transform.position; c.y = Mathf.Max(c.y, Water.Level) + 0.6f; cam.transform.position = new Vector3(c.x - 2.8f, Water.Level + 1.1f, c.z - 0.6f); cam.transform.LookAt(c); };
+            clip = "water-entry-tread"; n = 0; Directory.CreateDirectory(Path.Combine(dir, clip));
+            Player.BotInput = () => Move(Vector3.forward);
+            while (!pl.Swimming && n < 120) yield return Frame();
+            for (int f = 0; f < 6; f++) yield return Frame();
+            Player.BotInput = () => new Player.In();
+            for (int f = 0; f < 75; f++) yield return Frame();
+            Side(1, 3.6f, 1.3f);
+            yield return Film("swim-side", 2.5f, Move(Vector3.right, 0.8f));
+
+            // The ladder on the quay front at x 20: climb out, then back down.
+            var lad = World.Ladders.Find(l => l.In == Vector3.back && Mathf.Abs(l.Edge.x - 20) < 1);
+            pl.DebugTeleport(lad.Bottom + Vector3.forward * 0.3f, 180); yield return new WaitForSeconds(1.2f);
+            for (float t0 = Time.time; Time.time - t0 < 6 && pl.NearLadder() == null;)
+            {
+                var to = lad.Bottom - pl.transform.position; to.y = 0;
+                Player.BotInput = () => new Player.In { hasWorldMove = true, worldMove = to.normalized * 0.6f };
+                yield return null;
+            }
+            look = () => { var c = new Vector3(lad.Edge.x, Mathf.Clamp(pl.transform.position.y + 1f, -1.8f, 1.2f), lad.Edge.z); cam.transform.position = c + new Vector3(3.6f, 0.3f, 2.4f); cam.transform.LookAt(c + Vector3.forward * 0.3f); };
+            clip = "ladder-up"; n = 0; Directory.CreateDirectory(Path.Combine(dir, clip));
+            while (!pl.Climbing.Value && n < 30) { Player.BotInput = () => new Player.In { grab = true }; yield return Frame(); Player.BotInput = () => new Player.In(); yield return Frame(); }
+            Player.BotInput = () => new Player.In();
+            for (int f = 0; f < 30 * 4.5f; f++) yield return Frame();
+            Debug.Log($"[PB] animfilm ladder-up: {n} frames, swimming={pl.Swimming} at {pl.transform.position:F2}");
+            clip = "ladder-down"; n = 0; Directory.CreateDirectory(Path.Combine(dir, clip));
+            pl.DebugTeleport(lad.Top, 0); Player.BotInput = () => new Player.In(); for (int f = 0; f < 10; f++) yield return Frame();
+            Player.BotInput = () => new Player.In { grab = true }; yield return Frame();
+            Player.BotInput = () => new Player.In();
+            for (int f = 0; f < 30 * 3.5f; f++) yield return Frame();
+            Debug.Log($"[PB] animfilm ladder-down: {n} frames, swimming={pl.Swimming} at {pl.transform.position:F2}");
+
+            // Pushing the trolley across open ground.
+            var t = Trolley.I;
+            if (t != null)
+            {
+                var at = new Vector3(-40, 0, -40);
+                t.SetPusher(null); yield return null;
+                var rb = t.GetComponent<Rigidbody>(); rb.position = at; rb.rotation = Quaternion.LookRotation(Vector3.right); rb.linearVelocity = Vector3.zero;
+                t.transform.SetPositionAndRotation(at, Quaternion.LookRotation(Vector3.right));
+                yield return new WaitForSeconds(0.3f);
+                pl.DebugTeleport(at - Vector3.right * Trolley.HoldDist + Vector3.up * 0.1f, 90); yield return new WaitForSeconds(0.2f);
+                t.SetPusher(pl); yield return new WaitForSeconds(0.4f);
+                Side(-1, 4f, 1f);
+                yield return Film("trolley-push-side", 2.5f, Move(Vector3.right));
+                Side(1, 4f, 1.4f);
+                yield return Film("trolley-push-side2", 1.5f, Move(Vector3.right));
+                t.SetPusher(null);
+            }
+            Player.BotInput = () => new Player.In();
+            Time.captureFramerate = 0;
+            Player.CamOverride = false;
+            rt.Release(); Destroy(tex);
+            Debug.Log("[PB] animfilm done");
+            Application.Quit();
         }
 
         // One input for one frame (a key press), then hands off.
@@ -1165,7 +1363,7 @@ namespace PortBoss
             for (int i = 0; i < 60 && !pl.Swimming; i++) yield return new WaitForSeconds(0.1f);
             yield return new WaitForSeconds(1.5f);
             float t0 = Time.time;
-            while (Time.time - t0 < 8 && !pl.Climbing)
+            while (Time.time - t0 < 8 && !pl.Climbing.Value)
             {
                 var to = l.Bottom - pl.transform.position; to.y = 0;
                 bool near = pl.NearLadder() != null;
@@ -1183,7 +1381,7 @@ namespace PortBoss
                 yield return Snap(dir, "ladder-" + k);
             }
             Player.CamOverride = false;
-            Debug.Log($"[PB] ladder shot: climbing={pl.Climbing} swimming={pl.Swimming}");
+            Debug.Log($"[PB] ladder shot: climbing={pl.Climbing.Value} swimming={pl.Swimming}");
         }
 
         // Co-op look sync test: this process's player wears a random look (not saved); every peer logs what it sees.

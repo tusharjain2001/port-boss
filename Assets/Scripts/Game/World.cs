@@ -23,7 +23,14 @@ namespace PortBoss
         public const float Gangway = 16f; // z where the gangplanks land on the jetty (Boat.DockPos)
 
         public static Transform Root;
-        public struct Ladder { public Vector3 Bottom, Top; }
+        // Bottom: where a swimmer climbs on; Top: where they step off onto the deck. Edge: the ladder's foot at the quay
+        // face (rungs every RungStep from FirstRung up to TopY); In: from the sea onto the deck.
+        public struct Ladder
+        {
+            public Vector3 Bottom, Top, Edge, In;
+            public float FirstRung, TopY;
+            public const float RungStep = 0.32f;
+        }
         public static readonly List<Ladder> Ladders = new();
         public static readonly List<Renderer> WaterRenderers = new();
         // Floating labels drawn by GameUI (hidden when something is in the way).
@@ -172,9 +179,10 @@ namespace PortBoss
             float bottom = Water.Level - 1.6f, h = top + 0.9f - bottom;
             foreach (var x in new[] { -0.28f, 0.28f })
                 Art.Box(l, new Vector3(x, bottom + h / 2, 0), new Vector3(0.06f, h, 0.06f), steel, false, "rail", 0.5f);
-            for (float y = bottom + 0.2f; y < top; y += 0.32f)
+            for (float y = bottom + 0.2f; y < top; y += Ladder.RungStep)
                 Art.Box(l, new Vector3(0, y, 0), new Vector3(0.56f, 0.05f, 0.05f), steel, false, "rung", 0.5f);
-            Ladders.Add(new Ladder { Bottom = edge - inward * 0.5f + Vector3.up * (Water.Level - 1.3f), Top = edge + inward * 0.9f + Vector3.up * (top + 0.05f) });
+            Ladders.Add(new Ladder { Bottom = edge - inward * 0.5f + Vector3.up * (Water.Level - 1.3f), Top = edge + inward * 0.9f + Vector3.up * (top + 0.05f),
+                Edge = new Vector3(edge.x, 0, edge.z), In = inward, FirstRung = bottom + 0.2f, TopY = top });
         }
 
         static void Lamp(Transform t, Vector3 p)

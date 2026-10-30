@@ -80,6 +80,8 @@ Add `-batchmode` to run without a window (shots still render the camera; IMGUI m
 | `-pb-laddershot <dir>` | swims to the first ladder, grabs it and shoots the climb out from the side (`ladder-0..2.png`) |
 | `-pb-film <dir>` | the trailer frames (windowed only, see `capture.sh`) |
 | `-pb-ownart` | ignore the Toon Harbor skin even if it is built in |
+| `-pb-packworker` | players are the pack's workers instead of our own dock worker (animation A/B) |
+| `-pb-animfilm <dir>` | films every player animation at 30 fps, a folder of frames per clip; `tools/animfilm.sh [outdir] [exe] [extra args]` turns them into MP4 / GIF / frame sheets |
 | `-pb-bevel`, `-pb-oldwater`, `-pb-oldfog`, `-pb-noclouds` | look experiments / A/B switches |
 
 Build-side arguments (Unity `-executeMethod PortBoss.EditorTools.PortBossBuild.SetupAndBuild`): `-pbOut <dir>`, `-pbDev`.

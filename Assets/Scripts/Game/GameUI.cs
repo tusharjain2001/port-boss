@@ -69,6 +69,7 @@ namespace PortBoss
                 // (The sea is our own toon water, PortBoss/Water: the pack's tiled normal map shimmered in the distance.)
             }
             else Skin.I = null; // -pb-ownart: the pre-pack look, for A/B shots
+            if (Skin.I != null && Arg("-pb-packworker")) Skin.I.Worker = null; // the pack's workers instead of ours (animation A/B)
             Application.targetFrameRate = 144;
             World.Build();
             Storm.Create();
@@ -599,6 +600,7 @@ namespace PortBoss
                 string hint = null;
                 var fk = Forklift.I;
                 if (pl.Driving != null) hint = "WASD drive · Shift raise forks · Q lower · E get out";
+                else if (pl.Climbing.Value) hint = null;
                 else if (fk != null && fk.Free && pl.Carrying == 0 && Vector3.Distance(fk.Seat, pl.transform.position + Vector3.up) < 2.4f) hint = "E  drive the forklift";
                 else if (pl.Swimming) hint = pl.NearLadder() != null ? "E  climb out" : pl.Towing ? "Q  let go of the crate" : pl.FloatingCrateNear() != null ? "E  tow this crate" : "Swim to a ladder or the slipway";
                 else if (pl.NearBuyer && pl.SellableCrates().Count > 0) hint = "E  sell to the buyer";
@@ -616,6 +618,7 @@ namespace PortBoss
                     if (sp.z > 0) Label(new Rect(sp.x - 20 * S, H - sp.y - 20 * S, 40 * S, 40 * S), "▼", new GUIStyle(GUI.skin.label) { fontSize = Mathf.RoundToInt(26 * S), alignment = TextAnchor.MiddleCenter }, new Color(1f, 0.92f, 0.6f, 0.9f));
                 }
                 else if (pl.Carrying == 0 && Trolley.I != null && Vector3.Distance(Trolley.I.Handle, pl.transform.position + Vector3.up) < 2.2f) hint = "F  push trolley";
+                else if (pl.Carrying == 0 && pl.LadderTopNear() != null) hint = "E  climb down the ladder";
                 if (pl.Carrying >= 2 && pl.Teeter > Player.TeeterAt)
                 {
                     float a = 0.6f + 0.4f * Mathf.Sin(Time.unscaledTime * 18f);

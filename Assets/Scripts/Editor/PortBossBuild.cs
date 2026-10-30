@@ -230,6 +230,68 @@ namespace PortBoss.EditorTools
 
         static BoxCollider Box(GameObject g, Vector3 c, Vector3 s) { var b = g.AddComponent<BoxCollider>(); b.center = c; b.size = s; return b; }
 
+        // Clip root settings: rotation and height stay baked into the pose, but forward travel is NOT baked (it would
+        // carry the body ahead of the player and snap it back every loop); it becomes root motion, which the game ignores,
+        // so every clip plays in place under the player.
+        // Mixamo clips take over from UAL1 when they are in the project: Manan downloads them (plan/mixamo-list.md, FBX for
+        // Unity, without skin, In Place) into Assets/ThirdParty/Mixamo, gitignored like the pack. Found by Mixamo's file
+        // names; each is set up as Humanoid with the root baked into the pose.
+        const string Mixamo = "Assets/ThirdParty/Mixamo";
+        static void MixamoClips(Skin k)
+        {
+            if (!AssetDatabase.IsValidFolder(Mixamo)) return;
+            var files = System.IO.Directory.GetFiles(Mixamo, "*.fbx"); System.Array.Sort(files, (a, b) => a.Length.CompareTo(b.Length)); // "Clip.fbx" before "Clip (1).fbx"
+            // One avatar for every clip, from Mixamo's character in its T-pose ("X Bot.fbx", with skin): a "without skin"
+            // clip has no rest pose, and an avatar made from its first frame can get the body's facing backwards (the
+            // worker ran and idled facing away from where he was going).
+            Avatar rig = null;
+            var rigPath = System.Array.Find(files, f => !System.IO.Path.GetFileName(f).Contains("@"))?.Replace('\\', '/');
+            if (rigPath != null && AssetImporter.GetAtPath(rigPath) is ModelImporter ri)
+            {
+                if (ri.animationType != ModelImporterAnimationType.Human) { ri.animationType = ModelImporterAnimationType.Human; ri.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel; ri.SaveAndReimport(); }
+                rig = AssetDatabase.LoadAssetAtPath<Avatar>(rigPath);
+            }
+            Debug.Log($"[PBBuild] mixamo rig: {(rig != null ? rig.name + (rig.isHuman ? " (human)" : " (NOT human)") : "none, each clip makes its own avatar")}");
+            AnimationClip M(string name, bool loop)
+            {
+                // "X Bot@Standard Walk.fbx" (Mixamo puts the character's name in front), "Standard Walk.fbx", or
+                // "... (1).fbx" for a second take; the first match wins, so the plain take is picked over "(1)".
+                foreach (var f in files)
+                {
+                    var n = System.IO.Path.GetFileNameWithoutExtension(f);
+                    n = n.Substring(n.LastIndexOf('@') + 1);
+                    if (!n.Equals(name, StringComparison.OrdinalIgnoreCase) && !n.StartsWith(name + " (", StringComparison.OrdinalIgnoreCase)) continue;
+                    var path = f.Replace('\\', '/');
+                    if (AssetImporter.GetAtPath(path) is not ModelImporter mi) continue;
+                    mi.animationType = ModelImporterAnimationType.Human;
+                    if (rig != null) { mi.avatarSetup = ModelImporterAvatarSetup.CopyFromOther; mi.sourceAvatar = rig; }
+                    else mi.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
+                    mi.materialImportMode = ModelImporterMaterialImportMode.None; mi.importCameras = false; mi.importLights = false;
+                    var takes = mi.defaultClipAnimations;
+                    // Facing: our people are all turned 180 degrees under the player (the pack's face -Z, ours is exported the
+                    // same way). The UAL1 clips are authored facing -Z too, so they cancel out; Mixamo's face +Z, so they
+                    // take the body's facing turned round (the worker ran, carried and idled facing backwards before).
+                    foreach (var c in takes) { c.loopTime = loop; c.lockRootRotation = c.lockRootHeightY = true; c.lockRootPositionXZ = false; c.keepOriginalOrientation = false; c.rotationOffset = 180f; c.keepOriginalPositionY = true; }
+                    mi.clipAnimations = takes; mi.SaveAndReimport();
+                    foreach (var a in AssetDatabase.LoadAllAssetsAtPath(path)) if (a is AnimationClip clip && !clip.name.StartsWith("__")) return clip;
+                }
+                return null;
+            }
+            k.Idle = M("Breathing Idle", true) ?? k.Idle;
+            k.Walk = M("Standard Walk", true) ?? k.Walk;
+            // (Mixamo's "Jogging" isn't used: a 1.3 m/s shuffle, no faster than the walk, three strides to the clip.)
+            k.Run = M("Standard Run", true) ?? k.Run;
+            k.Sprint = M("Sprint", true) ?? M("Fast Run", true) ?? k.Sprint;
+            k.Jump = M("Falling Idle", true) ?? k.Jump;
+            k.Land = M("Falling To Landing", false) ?? k.Land;
+            k.SwimIdle = M("Treading Water", true) ?? k.SwimIdle;
+            k.Swim = M("Swimming", true) ?? k.Swim;
+            k.Push = M("Pushing", true) ?? k.Push;
+            k.Drive = M("Driving", true) ?? k.Drive;
+            k.Climb = M("Climbing Ladder", true) ?? k.Climb;
+            k.Carry = M("Box Idle", true) ?? k.Carry;
+        }
+
         // The Toon Harbor skin: filled only when the (paid, gitignored) pack is in the project; empty slots = our own art.
         const string TH = "Assets/ThirdParty/ToonHarbor";
         static Skin MakeSkin()
@@ -277,7 +339,7 @@ namespace PortBoss.EditorTools
                         mi.SaveAndReimport();
                     }
                     var takes = mi.defaultClipAnimations;
-                    foreach (var c in takes) { c.loopTime = c.name.ToLower().Contains("loop") || c.name.ToLower().Contains("idle") || c.name.ToLower().Contains("walk") || c.name.ToLower().Contains("jog") || c.name.ToLower().Contains("sprint") || c.name.ToLower().Contains("swim"); c.lockRootRotation = c.lockRootHeightY = c.lockRootPositionXZ = true; c.keepOriginalOrientation = c.keepOriginalPositionY = c.keepOriginalPositionXZ = true; }
+                    foreach (var c in takes) { c.loopTime = c.name.ToLower().Contains("loop") || c.name.ToLower().Contains("idle") || c.name.ToLower().Contains("walk") || c.name.ToLower().Contains("jog") || c.name.ToLower().Contains("sprint") || c.name.ToLower().Contains("swim"); c.lockRootRotation = c.lockRootHeightY = true; c.lockRootPositionXZ = false; c.keepOriginalOrientation = c.keepOriginalPositionY = true; }
                     mi.clipAnimations = takes; mi.SaveAndReimport();
                     var clips = System.Linq.Enumerable.ToArray(System.Linq.Enumerable.OfType<AnimationClip>(AssetDatabase.LoadAllAssetsAtPath(ual)));
                     Debug.Log("[PBBuild] UAL1 clips: " + string.Join(", ", System.Linq.Enumerable.Select(clips, c => c.name)));
@@ -289,8 +351,10 @@ namespace PortBoss.EditorTools
                     }
                     k.Idle = C("Idle_Loop"); k.Walk = C("Walk_Loop"); k.Run = C("Jog_Fwd_Loop", "Sprint_Loop"); k.Sprint = C("Sprint_Loop", "Jog_Fwd_Loop");
                     k.Jump = C("Jump_Loop"); k.Swim = C("Swim_Fwd_Loop"); k.SwimIdle = C("Swim_Idle_Loop"); k.Drive = C("Driving_Loop"); k.Push = C("Push_Loop");
-                    Debug.Log($"[PBBuild] skin clips idle={k.Idle?.name} walk={k.Walk?.name} run={k.Run?.name} jump={k.Jump?.name} swim={k.Swim?.name}");
+                    k.Land = C("Jump_Land");
                 }
+                MixamoClips(k);
+                Debug.Log($"[PBBuild] skin clips idle={k.Idle?.name} walk={k.Walk?.name} jog={k.Jog?.name} run={k.Run?.name} sprint={k.Sprint?.name} jump={k.Jump?.name} land={k.Land?.name} swim={k.Swim?.name} tread={k.SwimIdle?.name} push={k.Push?.name} climb={k.Climb?.name} carry={k.Carry?.name}");
                 // Harbour map library: short name → pack prefab (HarbourMap.cs asks for these by name).
                 var lib = new System.Collections.Generic.List<(string, string)>
                 {

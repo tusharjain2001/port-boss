@@ -248,7 +248,7 @@ namespace PortBoss
                 // (signed: NetworkObjectId is a ulong, and "% 9 - 4" on it underflowed to ~1e17 and flung the crate's visual away)
                 long id = (long)(NetworkObjectId % 1000);
                 float jx = (id * 37 % 9 - 4) * 0.01f, jyaw = (id * 53 % 13 - 6) * 1.2f;
-                vis.localPosition = new Vector3(v.x * 0.075f * i * i + jx * i, 0, v.y * 0.075f * i * i);
+                vis.localPosition = new Vector3(v.x * 0.075f * i * i + jx * i, 0, v.y * 0.075f * i * i) + pl.HoldShift;
                 vis.localRotation = Quaternion.Euler(v.y * 14f * i, jyaw * Mathf.Min(i, 1), -v.x * 14f * i);
             }
             else { vis.localPosition = Vector3.zero; vis.localRotation = Quaternion.identity; }
@@ -257,14 +257,23 @@ namespace PortBoss
 
         // Moving between hands, the ground, a trolley, a pallet or the rack, the crate's visual swings across in a
         // short arc from where it was drawn last frame instead of popping there (every peer, purely visual).
-        const float GlideTime = 0.22f;
+        // Lifted into someone's hands it first waits a moment where it was, while they squat and take hold (CharAnim
+        // puts the hands on it wherever it is drawn), then rises with them.
+        const float GlideTime = 0.22f, LiftWait = 0.15f, LiftTime = 0.3f;
         Vector3 lastVisPos, glideFromPos; Quaternion lastVisRot, glideFromRot;
-        float glide = 1f; bool drawn;
+        float glide = 1f, glideWait, glideTime = GlideTime; bool drawn;
+        Transform lastParent;
+        public Transform Vis => vis;
 
         void BeginGlide()
         {
+            var p = transform.parent;
+            bool lift = p != null && p != lastParent && p.GetComponent<Player>() != null;
+            if (!lift && p == lastParent && glide < 1f) return; // the same hand-over announced twice (state + parent sync)
+            lastParent = p;
             if (!drawn) return;
             glideFromPos = lastVisPos; glideFromRot = lastVisRot; glide = 0;
+            glideWait = lift ? LiftWait : 0f; glideTime = lift ? LiftTime : GlideTime;
         }
 
         void Glide()
@@ -275,7 +284,8 @@ namespace PortBoss
                 if ((to - glideFromPos).sqrMagnitude > 64f) glide = 1f; // a teleport, not a hand-over
                 else
                 {
-                    glide = Mathf.Min(1f, glide + Time.deltaTime / GlideTime);
+                    if (glideWait > 0) glideWait -= Time.deltaTime;
+                    else glide = Mathf.Min(1f, glide + Time.deltaTime / glideTime);
                     float e = Mathf.SmoothStep(0, 1, glide), lift = Mathf.Min(0.3f, Vector3.Distance(glideFromPos, to) * 0.2f);
                     vis.SetPositionAndRotation(Vector3.Lerp(glideFromPos, to, e) + Vector3.up * (Mathf.Sin(e * Mathf.PI) * lift), Quaternion.Slerp(glideFromRot, toRot, e));
                 }
