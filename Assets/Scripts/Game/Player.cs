@@ -177,7 +177,7 @@ namespace PortBoss
             bool climbing = Climbing.Value;
             if (swimming && !wasSwimmingAnim && !wasClimbingAnim) { dunkT = 0; resurfaced = false; }
             wasSwimmingAnim = swimming; wasClimbingAnim = climbing;
-            if (dunkT >= 0 && (!swimming || (dunkT += dt / 0.7f) >= 1)) dunkT = -1;
+            if (dunkT >= 0 && (!swimming || (dunkT += dt / 0.6f) >= 1)) dunkT = -1;
             anim.Flail = swimming && OutOfStamina.Value; // going under
             CharAnim.Slot slot;
             anim.Ladder = null; anim.WaterY = float.NaN;
@@ -210,11 +210,11 @@ namespace PortBoss
                 model.localPosition = new Vector3(0, Mathf.Lerp(anim.WaterLift(false, SwimDepth), anim.WaterLift(true, SwimDepth), swimLean), 0);
                 if (dunkT >= 0)
                 {
-                    // A short, shallow dip (players stay at the surface: the head is under for ~0.3 s at most), then up
+                    // A short, shallow dip (players stay at the surface: the eyes are under for ~0.3 s at most), then up
                     // with a little overshoot; tipped forward on the way in.
                     float u = dunkT, dip = u < 0.3f ? 1 - (1 - u / 0.3f) * (1 - u / 0.3f) : 1f - Mathf.SmoothStep(0, 1, (u - 0.3f) / 0.55f);
                     float pop = u > 0.8f ? Mathf.Sin((u - 0.8f) / 0.2f * Mathf.PI) * 0.1f : 0f;
-                    model.localPosition += new Vector3(0, -0.55f * dip + pop, 0);
+                    model.localPosition += new Vector3(0, -0.4f * dip + pop, 0);
                     model.localRotation = Quaternion.Euler(15f * dip, 0, 0);
                     slot = CharAnim.Slot.SwimIdle;
                     stroke = false;
