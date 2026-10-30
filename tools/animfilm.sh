@@ -1,11 +1,11 @@
 #!/bin/bash
 # Films the player's animations (-pb-animfilm, batchmode) and turns each clip into an MP4, a GIF and a frame sheet.
-# Usage: tools/animfilm.sh [outdir] [exe]   (default $PB_LOGS/animfilm, Builds/dev/PortBoss.exe)
+# Usage: tools/animfilm.sh [outdir] [exe] [extra game args, e.g. -pb-packworker]   (default $PB_LOGS/animfilm, Builds/dev/PortBoss.exe)
 . "$(dirname "$0")/env.sh"
-OUT="${1:-$PB_LOGS/animfilm}"; EXE="${2:-$PROJECT/Builds/dev/PortBoss.exe}"
+OUT="${1:-$PB_LOGS/animfilm}"; EXE="${2:-$PROJECT/Builds/dev/PortBoss.exe}"; shift 2 2>/dev/null
 rm -rf "$OUT"; mkdir -p "$OUT"
-"$EXE" -batchmode -pb-solo -pb-animfilm "$(cygpath -w "$OUT")" -pb-quit 400 -logFile "$(cygpath -w "$OUT/log.txt")"
-grep -E "\[PB\] (gait|animfilm)" "$OUT/log.txt"; echo "exceptions: $(grep -c Exception "$OUT/log.txt")"
+"$EXE" -batchmode -pb-solo -pb-animfilm "$(cygpath -w "$OUT")" -pb-quit 400 "$@" -logFile "$(cygpath -w "$OUT/log.txt")"
+grep -E "\[PB\] (gait|rig|carry|animfilm)" "$OUT/log.txt"; echo "exceptions: $(grep -c Exception "$OUT/log.txt")"
 for d in "$OUT"/*/; do
   n=$(basename "$d")
   ffmpeg -loglevel error -y -framerate 30 -i "$d/f_%04d.jpg" -c:v libx264 -pix_fmt yuv420p -crf 20 "$OUT/$n.mp4"

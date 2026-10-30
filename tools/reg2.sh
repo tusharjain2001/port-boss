@@ -14,6 +14,6 @@ run crates 10 -pb-solo -pb-crateshots "$(cygpath -w "$O/crates")"
 SHOT=4 run ab 38 -pb-solo
 SHOT=4 run storm 60 -pb-solo -pb-storm -pb-timescale 3
 # Co-op without Steam: LAN host + direct join on 127.0.0.1.
-C="$O/coop"; mkdir -p "$C"; (timeout 190 "$EXE" -batchmode -pb-host-lan -pb-bot -pb-quit 150 -logFile "$(cygpath -w "$C/host.log")" >/dev/null 2>&1 &); sleep 6
+C="$O/coop"; mkdir -p "$C"; (timeout 190 "$EXE" -batchmode -pb-host-lan -pb-bot -pb-quit 150 -logFile "$(cygpath -w "$C/host.log")" >/dev/null 2>&1 &); sleep 20  # the host needs ~15 s to load headless
 timeout 190 "$EXE" -batchmode -pb-join-lan 127.0.0.1 -pb-bot -pb-quit 142 -logFile "$(cygpath -w "$C/client.log")" >/dev/null 2>&1; sleep 10
 echo "== coop"; grep -hE "\[PB\] (joined|connected|client)" "$C"/*.log | head -4; grep "\[PB\] t=" "$C/host.log" | tail -1; grep "\[PB\] t=" "$C/client.log" | tail -1; grep -c Exception "$C/host.log" "$C/client.log"

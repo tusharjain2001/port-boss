@@ -121,3 +121,6 @@ InitTestScene*.unity*
 # tools/ compile-check project (cc.sh)
 !/tools/cc.csproj
 /tools/obj/
+
+# Blender output scratch of art-src/worker/build_worker.py (Worker.fbx is copied to Assets/Art/Worker, Worker.blend kept)
+/art-src/worker/out/

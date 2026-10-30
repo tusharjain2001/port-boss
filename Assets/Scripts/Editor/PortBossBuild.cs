@@ -296,6 +296,7 @@ namespace PortBoss.EditorTools
                 k.Sky = L<Material>("Skybox/TH_Skybox_01A.mat");
                 k.Post = L<UnityEngine.Rendering.VolumeProfile>("Profiles/TH_Sunny_Day_01.asset");
                 k.Players = Ps("Characters Variants/TH_Male_Character_01A", "Characters Variants/TH_Female_Character_02C", "Characters Variants/TH_Male_Character_01B", "Characters Variants/TH_Female_Character_03B");
+                k.Worker = OurWorker();
                 k.Buyer = P("Characters Variants/TH_Male_Character_02A"); k.Rival = P("Characters Variants/TH_Male_Character_03A");
                 k.Crate = P("Cargo/TH_Shipping_Wooden_Crate_02B");
                 k.BigCrates = Ps("Cargo/TH_Shipping_Wooden_Crate_02A", "Cargo/TH_Shipping_Wooden_Crate_02C", "Cargo/TH_Shipping_Wooden_Crate_01B");
@@ -380,6 +381,22 @@ namespace PortBoss.EditorTools
             else Debug.Log("[PBBuild] skin: Toon Harbor not in the project, using own art");
             AssetDatabase.CreateAsset(k, path);
             return k;
+        }
+
+        // Our own dock worker for the players: a Humanoid (Mixamo bone names) so the same clips drive it as the pack's people.
+        const string WorkerFbx = "Assets/Art/Worker/Worker.fbx";
+        static GameObject OurWorker()
+        {
+            if (AssetImporter.GetAtPath(WorkerFbx) is not ModelImporter mi) { Debug.LogWarning("[PBBuild] no " + WorkerFbx); return null; }
+            if (mi.animationType != ModelImporterAnimationType.Human || mi.materialImportMode != ModelImporterMaterialImportMode.None || mi.importAnimation)
+            {
+                mi.animationType = ModelImporterAnimationType.Human; mi.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
+                mi.materialImportMode = ModelImporterMaterialImportMode.None; mi.importAnimation = false; mi.importCameras = false; mi.importLights = false;
+                mi.importBlendShapes = false; mi.SaveAndReimport();
+            }
+            var avatar = AssetDatabase.LoadAssetAtPath<Avatar>(WorkerFbx);
+            Debug.Log($"[PBBuild] worker avatar valid={avatar != null && avatar.isValid} human={avatar != null && avatar.isHuman}");
+            return AssetDatabase.LoadAssetAtPath<GameObject>(WorkerFbx);
         }
 
         static GameObject Prefab(string name, Action<GameObject> build)
