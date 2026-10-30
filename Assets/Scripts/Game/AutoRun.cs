@@ -120,8 +120,23 @@ namespace PortBoss
                 clip = name; n = 0;
                 Directory.CreateDirectory(Path.Combine(dir, name));
                 Player.BotInput = () => input;
-                for (int f = 0; f < secs * 30; f++) yield return Frame();
-                Debug.Log($"[PB] animfilm {name}: {n} frames");
+                // Foot sliding: how fast the planted foot (the lower one, on the ground) moves over the ground; ~0 is right.
+                var an = pl.GetComponentInChildren<Animator>();
+                Transform fl = an != null ? an.GetBoneTransform(HumanBodyBones.LeftFoot) : null, fr = an != null ? an.GetBoneTransform(HumanBodyBones.RightFoot) : null;
+                Vector3 lastFoot = default, lastRoot = default; Transform lastPlanted = null; float slide = 0, moved = 0; int samples = 0;
+                for (int f = 0; f < secs * 30; f++)
+                {
+                    yield return Frame();
+                    if (fl == null) continue;
+                    var planted = fl.position.y < fr.position.y ? fl : fr;
+                    if (planted == lastPlanted && planted.position.y < pl.transform.position.y + 0.15f)
+                    {
+                        var d = planted.position - lastFoot; d.y = 0; slide += d.magnitude;
+                        var m = pl.transform.position - lastRoot; m.y = 0; moved += m.magnitude; samples++;
+                    }
+                    lastPlanted = planted; lastFoot = planted.position; lastRoot = pl.transform.position;
+                }
+                Debug.Log($"[PB] animfilm {name}: {n} frames" + (samples > 0 ? $", body {moved / samples * 30:F2} m/s, planted foot slides {slide / samples * 30:F2} m/s" : ""));
             }
             IEnumerator Frame()
             {
