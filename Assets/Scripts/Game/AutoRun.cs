@@ -120,10 +120,10 @@ namespace PortBoss
                 clip = name; n = 0;
                 Directory.CreateDirectory(Path.Combine(dir, name));
                 Player.BotInput = () => input;
-                // Foot sliding: while a foot is planted (within 3 cm of the lowest it gets) it should stay put on the
+                // Foot sliding: while a foot (its ball) is planted (within 3 cm of the lowest it gets) it should stay put on the
                 // ground; logged as its mean ground speed then, against the body's speed.
                 var an = pl.GetComponentInChildren<Animator>();
-                var feet = an != null ? new[] { an.GetBoneTransform(HumanBodyBones.LeftFoot), an.GetBoneTransform(HumanBodyBones.RightFoot) } : null;
+                var feet = an != null ? new[] { an.GetBoneTransform(HumanBodyBones.LeftToes) ?? an.GetBoneTransform(HumanBodyBones.LeftFoot), an.GetBoneTransform(HumanBodyBones.RightToes) ?? an.GetBoneTransform(HumanBodyBones.RightFoot) } : null;
                 var track = new List<(Vector3 l, Vector3 r, Vector3 root)>();
                 for (int f = 0; f < secs * 30; f++)
                 {

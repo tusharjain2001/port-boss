@@ -263,7 +263,7 @@ namespace PortBoss.EditorTools
             }
             k.Idle = M("Breathing Idle", true) ?? k.Idle;
             k.Walk = M("Standard Walk", true) ?? k.Walk;
-            k.Jog = M("Jogging", true) ?? k.Jog;
+            // (Mixamo's "Jogging" isn't used: a 1.3 m/s shuffle, no faster than the walk, three strides to the clip.)
             k.Run = M("Standard Run", true) ?? k.Run;
             k.Sprint = M("Sprint", true) ?? M("Fast Run", true) ?? k.Sprint;
             k.Jump = M("Falling Idle", true) ?? k.Jump;

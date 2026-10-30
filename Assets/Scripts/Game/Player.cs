@@ -199,14 +199,14 @@ namespace PortBoss
                 slot = CharAnim.Slot.Idle;
                 if (knockT >= 1) knockT = -1;
             }
-            else if (anim.Flail) { slot = CharAnim.Slot.SwimIdle; model.localPosition = new Vector3(0, SwimModelY + 0.25f + Mathf.Abs(Mathf.Sin(Time.time * 9f)) * 0.15f, 0); }
+            else if (anim.Flail) { slot = CharAnim.Slot.SwimIdle; model.localPosition = new Vector3(0, anim.WaterLift(false, SwimDepth) + 0.25f + Mathf.Abs(Mathf.Sin(Time.time * 9f)) * 0.15f, 0); }
             else if (swimming)
             {
                 // Breaststroke when moving (body tipped forward along the surface), treading water when still.
                 bool stroke = speed > 0.6f;
                 slot = stroke ? CharAnim.Slot.Swim : CharAnim.Slot.SwimIdle;
                 swimLean = Mathf.MoveTowards(swimLean, stroke ? 1f : 0f, dt * 3f);
-                model.localPosition = new Vector3(0, Mathf.Lerp(SwimModelY, SwimStrokeY, swimLean), 0);
+                model.localPosition = new Vector3(0, Mathf.Lerp(anim.WaterLift(false, SwimDepth), anim.WaterLift(true, SwimDepth), swimLean), 0);
                 if (dunkT >= 0)
                 {
                     // Down fast (to just over the head), a beat under, then up with a little overshoot; tipped forward on the way in.
@@ -255,9 +255,6 @@ namespace PortBoss
             anim.Tick(slot, speed);
         }
         Crate held; float letGoT;
-        // The UAL swim clips sit the body ~1 m lower than standing; lifts measured with -pb-swimtest's "swim pose" line.
-        const float SwimModelY = 1.24f;  // treading: head out, shoulders at the surface
-        const float SwimStrokeY = 1.4f;  // stroke (lies flat): back at the surface, head just out
         float swimLean, dunkT = -1, lastAnimYaw;
         Vector2 lean;
         bool resurfaced;
@@ -802,7 +799,8 @@ namespace PortBoss
         void StartClimb(World.Ladder l, bool down, bool rescued = false)
         {
             var line = l.Edge - l.In * ClimbOut;
-            Vector3 foot = new(line.x, l.Bottom.y, line.z), lip = new(line.x, l.TopY + 0.05f, line.z);
+            // lip: feet on the top rungs, hands on the deck; from there a step up and over onto it (or back down onto them).
+            Vector3 foot = new(line.x, l.Bottom.y, line.z), lip = new(line.x, l.TopY - 0.4f, line.z);
             climbPath.Clear();
             climbPath.Add(transform.position);
             if (down) { climbPath.Add(lip); climbPath.Add(foot); }

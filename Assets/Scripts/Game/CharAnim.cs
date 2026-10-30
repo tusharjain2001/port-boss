@@ -198,7 +198,17 @@ namespace PortBoss
                 }
                 found.Add((slot, m.speed > 0.2f ? m.speed * scale : fallback * Scale, m.strike));
             }
-            if (legLF != null && armLU != null) Debug.Log($"[PB] rig {animator.avatar?.name}: arm {ArmLen:F2} m, leg {LegLen:F2} m, shoulder {ShoulderY:F2} m");
+            // How high each swim clip holds the shoulders above the feet (the UAL clips sink the body ~1 m, Mixamo's
+            // treading floats upright): the player raises the model by the difference so the shoulders meet the surface.
+            float Shoulder(Slot s)
+            {
+                if (!plays[(int)s].IsValid() || armLU == null) return 0;
+                for (int i = 0; i < w.Length; i++) if (plays[i].IsValid()) mixer.SetInputWeight(i, i == (int)s ? 1 : 0);
+                plays[(int)s].SetTime(0); graph.Evaluate(0);
+                return armLU.position.y - animator.transform.position.y;
+            }
+            treadShoulder = Shoulder(Slot.SwimIdle); strokeShoulder = Shoulder(Slot.Swim);
+            if (legLF != null && armLU != null) Debug.Log($"[PB] rig {animator.avatar?.name}: arm {ArmLen:F2} m, leg {LegLen:F2} m, shoulder {ShoulderY:F2} m, in the water: treading {treadShoulder:F2} m, stroke {strokeShoulder:F2} m");
             foreach (var f in found)
             {
                 if (gaits.Count > 0 && plays[(int)gaits[gaits.Count - 1]].GetAnimationClip() == plays[(int)f.slot].GetAnimationClip()) continue;
@@ -208,17 +218,25 @@ namespace PortBoss
             for (int i = 0; i < w.Length; i++) if (plays[i].IsValid()) mixer.SetInputWeight(i, saved[i]);
         }
 
+        float treadShoulder, strokeShoulder;
+        // How far to raise the model in the water (its feet `depth` below the surface): treading, shoulders just under the
+        // surface and the head out; swimming (lying along the surface), the back at the surface.
+        public float WaterLift(bool stroke, float depth) => depth - (stroke ? 0.06f + strokeShoulder : 0.02f + treadShoulder);
+
         (float speed, float strike) Sample(AnimationClipPlayable p)
         {
             const int N = 48;
             float len = p.GetAnimationClip().length;
             var root = animator.transform;
             var lf = new Vector3[N]; var rf = new Vector3[N];
+            // The ball of the foot, where the rig has toes: the ankle rolls forward off it as the foot pushes off, so
+            // measured at the ankle a stride looks shorter than it is.
+            Transform pl = animator.GetBoneTransform(HumanBodyBones.LeftToes) ?? legLF, pr = animator.GetBoneTransform(HumanBodyBones.RightToes) ?? legRF;
             for (int s = 0; s < N; s++)
             {
                 p.SetTime(len * s / N);
                 graph.Evaluate(0);
-                lf[s] = root.InverseTransformPoint(legLF.position); rf[s] = root.InverseTransformPoint(legRF.position);
+                lf[s] = root.InverseTransformPoint(pl.position); rf[s] = root.InverseTransformPoint(pr.position);
             }
             Vector3 slide = Vector3.zero; int n = 0;
             foreach (var f in new[] { lf, rf })
