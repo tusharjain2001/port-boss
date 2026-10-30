@@ -270,13 +270,13 @@ def build_body():
 HEAD_C = Vector((0, 0.0, 1.645))
 FACES = {
     # 0 "Bruno": broad square jaw, big nose, heavy brow
-    0: dict(jaw=(0.112, 0.1, 0.088), jaw_z=1.555, corners=0.052, nose=(0.03, 0.03, 0.04), nose_y=-0.118, cheek=0.044, brow=(0.095, 0.034, 0.026), chin=(0.05, 0.04, 0.035)),
+    0: dict(jaw=(0.112, 0.1, 0.088), jaw_z=1.555, corners=0.052, nose=(0.034, 0.032, 0.04), nose_y=-0.118, cheek=0.044, brow=(0.092, 0.026, 0.022), chin=(0.05, 0.04, 0.035)),
     # 1 "Sunny": round cheeks, button nose
-    1: dict(jaw=(0.105, 0.098, 0.09), jaw_z=1.56, corners=0.0, nose=(0.026, 0.028, 0.028), nose_y=-0.116, cheek=0.056, brow=(0.085, 0.028, 0.02), chin=(0.04, 0.035, 0.03)),
+    1: dict(jaw=(0.105, 0.098, 0.09), jaw_z=1.56, corners=0.0, nose=(0.032, 0.03, 0.03), nose_y=-0.116, cheek=0.056, brow=(0.085, 0.022, 0.018), chin=(0.04, 0.035, 0.03)),
     # 2 "Hawk": long face, strong chin, long nose
-    2: dict(jaw=(0.098, 0.095, 0.1), jaw_z=1.545, corners=0.04, nose=(0.024, 0.034, 0.046), nose_y=-0.12, cheek=0.036, brow=(0.09, 0.03, 0.022), chin=(0.045, 0.045, 0.045)),
+    2: dict(jaw=(0.098, 0.095, 0.1), jaw_z=1.545, corners=0.04, nose=(0.028, 0.036, 0.046), nose_y=-0.12, cheek=0.036, brow=(0.088, 0.024, 0.02), chin=(0.045, 0.045, 0.045)),
     # 3 "Old Salt": heavy jowls, bulbous nose, bushy brow
-    3: dict(jaw=(0.115, 0.1, 0.085), jaw_z=1.55, corners=0.058, nose=(0.035, 0.03, 0.035), nose_y=-0.118, cheek=0.05, brow=(0.1, 0.036, 0.028), chin=(0.045, 0.035, 0.03)),
+    3: dict(jaw=(0.115, 0.1, 0.085), jaw_z=1.55, corners=0.058, nose=(0.04, 0.034, 0.038), nose_y=-0.118, cheek=0.05, brow=(0.096, 0.026, 0.024), chin=(0.045, 0.035, 0.03)),
 }
 CRANIUM = ((0, 0.012, 1.665), (0.118, 0.132, 0.128))
 
@@ -289,8 +289,9 @@ def build_head(i):
     if F['corners']: g.ellip((0.068, -0.02, 1.525), (F['corners'],) * 3, mirror=True)
     g.ellip((0, -0.085, 1.505), F['chin'])
     g.ellip((0.062, -0.075, 1.575), (F['cheek'],) * 3, mirror=True)
-    g.ellip((0, F['nose_y'], 1.6), F['nose'])
-    g.ellip((0, -0.098, 1.665), F['brow'])
+    g.ellip((0, F['nose_y'], 1.598), F['nose'])
+    g.ellip((0, F['nose_y'] + 0.012, 1.586), (F['nose'][0] * 0.9, F['nose'][1] * 0.8, F['nose'][2] * 0.7))   # nostril wings: one solid bulb
+    g.ellip((0, -0.09, 1.674), F['brow'])                                  # brow ridge, set back so it doesn't shade the eyes
     g.ellip((0.117, 0.012, 1.615), (0.022, 0.034, 0.044), (0, 0, -0.25), mirror=True)   # ears
     g.tube((0, 0.01, 1.44), (0, 0.005, 1.56), 0.078, 0.078)              # neck stub (sits inside the body's neck)
     head = solidify(g.obj('Head_%d' % i), 0.0028, 650, pre_smooth=14, post_smooth=4)
@@ -306,36 +307,43 @@ def surf(ob, x, z, y0=-0.5):
 
 
 def build_face_bits(head, i):
-    """Eyes, brows and mouth for head i, sat on its surface."""
-    F = FACES[i]
-    whites, pupils = Geo(), Geo()
+    """Toon face for head i, sat on its surface: big eyes (white, pupil, highlight), bold brows, a smiling mouth."""
+    eyes, pupils, shine = Geo(), Geo(), Geo()
     for s in (1, -1):
-        p, n = surf(head, s * 0.042, 1.63)
-        whites.ellip(p - n * 0.002, (0.019, 0.01, 0.024), seg=10)
-        pupils.ellip(p + n * 0.006 + Vector((s * -0.002, 0, -0.002)), (0.0105, 0.006, 0.0145), seg=8)
-    eo = whites.obj('Eyes_%d' % i); set_slots(eo, 'reflect')
+        p, n = surf(head, s * 0.044, 1.634)
+        eyes.ellip(p + n * 0.002, (0.02, 0.012, 0.023), seg=12)
+        q = p + n * 0.011 + Vector((s * -0.003, 0, -0.003))                       # looking slightly in and down: friendly
+        pupils.ellip(q, (0.0125, 0.007, 0.0155), seg=10)
+        shine.ellip(q + n * 0.005 + Vector((s * 0.004, 0, 0.006)), (0.0045, 0.003, 0.0045), seg=6)
+    eo = eyes.obj('Eyes_%d' % i); set_slots(eo, 'reflect')
     po = pupils.obj('Pupils_%d' % i); set_slots(po, 'eye')
-    activate(eo); po.select_set(True); bpy.ops.object.join()
+    so = shine.obj('Shine_%d' % i); set_slots(so, 'reflect')
+    eo = join([eo, po, so], 'Eyes_%d' % i)
     brows = Geo()
-    bz, inner = 1.668, {0: 0.0, 1: 0.006, 2: 0.004, 3: -0.002}[i]
+    bz = 1.672
+    lift = {0: 0.0, 1: 0.007, 2: 0.004, 3: 0.002}[i]                                 # inner end raised = kind, not cross
+    thick = {0: 0.012, 1: 0.01, 2: 0.0105, 3: 0.0145}[i]
     for s in (1, -1):
-        a, na = surf(head, s * 0.02, bz + inner); b, nb = surf(head, s * 0.068, bz - 0.002)
-        brows.tube(a + na * 0.005, b + nb * 0.004, 0.0105 + 0.003 * (i in (0, 3)), 0.008 + 0.004 * (i == 3), flat=0.7)
-    bo = brows.obj('Brows_%d' % i); solidify(bo, 0.0018, 160, 3, 1); set_slots(bo, 'hair')
+        a, na = surf(head, s * 0.017, bz + lift); m, nm = surf(head, s * 0.045, bz + 0.004); b, nb = surf(head, s * 0.072, bz - 0.006)
+        brows.tube(a + na * 0.006, m + nm * 0.007, thick * 0.9, thick, flat=0.6).tube(m + nm * 0.007, b + nb * 0.005, thick, thick * 0.7, flat=0.6)
+    bo = brows.obj('Brows_%d' % i); solidify(bo, 0.0016, 200, 3, 1); set_slots(bo, 'hair')
     mouth = Geo()
-    m0, mn = surf(head, 0.0, 1.528); ml, _ = surf(head, 0.028, 1.534)
-    mouth.tube(Vector((-ml.x, ml.y, ml.z)) + mn * 0.002, m0 + mn * 0.004, 0.006, 0.0065).tube(m0 + mn * 0.004, ml + mn * 0.002, 0.0065, 0.006)
-    mo = mouth.obj('Mouth_%d' % i); solidify(mo, 0.0015, 40, 2, 1); set_slots(mo, 'skin_dark')
+    c0, cn = surf(head, 0.0, 1.526); cl, ln = surf(head, 0.03, 1.535)
+    mouth.tube(Vector((-cl.x, cl.y, cl.z)) + ln * 0.002, c0 + cn * 0.003, 0.0065, 0.0078).tube(c0 + cn * 0.003, cl + ln * 0.002, 0.0078, 0.0065)
+    mo = mouth.obj('Mouth_%d' % i); solidify(mo, 0.0014, 60, 2, 1); set_slots(mo, 'skin_dark')
     return eo, bo, mo
 
 
 # ---------------------------------------------------------------- hair, beards, hats -------------------------------------------
-def hairline(c):
-    """True above the hairline: high at the forehead, down over the temples, low at the nape."""
+def hairline_z(c):
+    """Height of the hairline around the head: high at the forehead, down over the temples, low at the nape,
+    lifted smoothly over the ears."""
     front = math.cos(math.atan2(c.x, -(c.y - 0.01)))   # 1 = straight ahead, -1 = the back of the head
-    z = 1.635 + 0.075 * front
-    if abs(c.x) > 0.095 and -0.04 < c.y < 0.06: z = max(z, 1.665)   # clear of the ears
-    return c.z > z
+    ear = max(0.0, 1 - abs(c.y - 0.01) / 0.07) * max(0.0, min(1.0, (abs(c.x) - 0.07) / 0.03))
+    return 1.635 + 0.075 * front + 0.035 * ear
+
+
+def hairline(c): return c.z > hairline_z(c)
 
 
 def build_hair(kind):
@@ -355,27 +363,44 @@ def build_hair(kind):
     bm = bm_of(ob)
     bmesh.ops.delete(bm, geom=[f for f in bm.faces if not hairline(f.calc_center_median()) or f.normal.z < -0.5], context='FACES')
     bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context='VERTS')
+    # The kept faces end in a saw-tooth; slide the edge vertices onto the hairline itself so it reads as one clean line.
+    edge = {v for e in bm.edges if e.is_boundary for v in e.verts}
+    for v in edge: v.co.z = hairline_z(v.co)
     bm.normal_update(); fold_rim(bm, 0.012 if kind != 'curly' else 0.02)
     bm_put(bm, ob); set_slots(ob, 'hair')
     return ob
 
 
+def moustache(head, g, r=0.015):
+    """Two thick strokes from under the nose out past the mouth corners, tips turned down."""
+    p, n = surf(head, 0.0, 1.562)
+    for s in (1, -1):
+        a = p + n * 0.008 + Vector((s * 0.004, 0, 0.002))
+        m, mn = surf(head, s * 0.026, 1.552); t, tn = surf(head, s * 0.046, 1.53)
+        g.tube(a, m + mn * 0.008, r, r * 0.9).tube(m + mn * 0.008, t + tn * 0.006, r * 0.9, r * 0.5)
+
+
 def build_beard(kind, head, face):
-    g = Geo()
-    if kind in ('full', 'goatee', 'moustache'):
-        p, n = surf(head, 0.0, 1.565)
-        g.tube(p + n * 0.006 + Vector((-0.004, 0, 0.004)), p + n * 0.006 + Vector((-0.045, 0.012, -0.02)), 0.017, 0.012)
-        g.tube(p + n * 0.006 + Vector((0.004, 0, 0.004)), p + n * 0.006 + Vector((0.045, 0.012, -0.02)), 0.017, 0.012)
-    if kind == 'full':
-        for x, z, r in [(0, 1.49, 0.06), (0.05, 1.5, 0.05), (0.085, 1.535, 0.045), (0.1, 1.58, 0.035), (0.03, 1.5, 0.055)]:
-            for s in ((1, -1) if x else (1,)):
-                pp, nn = surf(head, s * x, z)
-                g.ellip(pp + nn * (r * 0.35), (r, r * 0.8, r))
-    if kind == 'goatee':
-        pp, nn = surf(head, 0, 1.495); g.ellip(pp + nn * 0.015, (0.035, 0.028, 0.045))
-    ob = solidify(g.obj('Beard_%s_%d' % (kind, face)), 0.0025, {'full': 500, 'goatee': 240, 'moustache': 160}[kind], 4, 1)
-    set_slots(ob, 'hair')
-    return ob
+    """Beards follow the face they are for: a shell of that head's jaw with a clean cheek line, a hole for the mouth,
+    a fuller chin, and a moustache over it."""
+    name = 'Beard_%s_%d' % (kind, face)
+    cheek = lambda c: c.z < 1.594 + 0.45 * (c.y + 0.06)                     # rises from the mouth corner to the sideburn
+    if kind == 'full': keep = lambda c: cheek(c) and c.y < 0.035 and c.z > 1.44
+    elif kind == 'goatee': keep = lambda c: abs(c.x) < 0.042 and 1.44 < c.z < 1.512 and c.y < -0.02
+    else: keep = None
+    parts = []
+    if keep:
+        cuts = [((0, 0, 1.594 + 0.45 * 0.06), (0, -0.45, 1)), ((0, 0.035, 0), (0, 1, 0)), Z(1.44), Z(1.512)] + X(0.042)
+        sh = subset(head, name + '_s', lambda c, n: keep(c), 0.014, 0.012, 'hair', cuts=cuts)
+        # Volume where a beard has it: fuller and a little pointed at the chin, thin at the sideburns.
+        bm = bm_of(sh); bm.normal_update()
+        for v in bm.verts:
+            w = max(0.0, min(1.0, (1.53 - v.co.z) / 0.07)) * max(0.0, min(1.0, (0.02 - v.co.y) / 0.08))
+            v.co += v.normal * 0.012 * w + Vector((0, -0.01, -0.016)) * w * (1 - min(1.0, abs(v.co.x) / 0.07))
+        bm_put(bm, sh); parts.append(sh)
+    g = Geo(); moustache(head, g, 0.016 if kind != 'goatee' else 0.013)
+    mo = solidify(g.obj(name + '_m'), 0.002, 160, 3, 1); set_slots(mo, 'hair'); parts.append(mo)
+    return join(parts, name)
 
 
 def build_hat(kind):
@@ -406,7 +431,15 @@ def build_hat(kind):
     else:
         cut(ob, [((0, 0, 1.715), (0, 0, 1))]); paint = lambda c, n: 'hat_trim' if c.z < 1.715 else None
     set_slots(ob, 'hat', paint)
+    # Worn up and back on the head, tipped back a little: the brow and the eyes always show.
+    bm = bm_of(ob)
+    bmesh.ops.rotate(bm, verts=bm.verts, cent=(0, 0.06, 1.68), matrix=Matrix.Rotation(math.radians(-7), 3, 'X'))
+    bmesh.ops.translate(bm, verts=bm.verts, vec=HAT_LIFT[kind])
+    bm_put(bm, ob)
     return ob
+
+
+HAT_LIFT = {'cap': (0, 0.012, 0.024), 'beanie': (0, 0.01, 0.026), 'hardhat': (0, 0.014, 0.03)}
 
 
 # ---------------------------------------------------------------- hands, gloves, boots ------------------------------------------
@@ -704,9 +737,11 @@ def build_all(full=True):
 
 
 def join(objs, name):
-    activate(objs[0])
-    for o in objs[1:]: o.select_set(True)
-    bpy.ops.object.join(); objs[0].name = name; objs[0].data.name = name
+    if len(objs) > 1:
+        activate(objs[0])
+        for o in objs[1:]: o.select_set(True)
+        bpy.ops.object.join()
+    objs[0].name = name; objs[0].data.name = name
     return objs[0]
 
 
@@ -722,7 +757,7 @@ def show(objs, o):
     if o['legs'] == 'Legs_Overalls' and o['top'] == 'tee+vest': vis.discard('Vest')
     for k in ('hair', 'beard', 'hat'):
         if o[k]: vis.add(o[k] + ('_%d' % o['face'] if k == 'beard' else ''))
-    if o['hat'] and o['hair']: vis.discard(o['hair'])
+    if o['hat'] and o['hair']: vis.discard(o['hair']); vis.add('Hair_buzz')   # under a hat: cropped hair, not a bald scalp
     vis.add('Gloves' if o['gloves'] else 'Skin_Hands')
     n = 0
     for name, ob in objs.items():
@@ -763,6 +798,19 @@ def main():
     for i, lk in enumerate(looks):
         t = show(objs, lk); print('LOOK', i, 'tris', t)
         shoot(cam, os.path.join(OUT, f'look-{i}.png'), 30)
+    # Face sheet: every face, with and without each headwear and beard, front and three-quarter (clipping check).
+    combos = [dict(hat=None, hair='Hair_quiff', beard='Beard_full', top='tee+vest', yaw=15),
+              dict(hat='Hat_cap', hair='Hair_curly', beard='Beard_moustache', top='tee+vest', yaw=-20),
+              dict(hat='Hat_beanie', hair='Hair_quiff', beard='Beard_goatee', top='tee', legs='Legs_Overalls', yaw=20),
+              dict(hat='Hat_hardhat', hair='Hair_buzz', beard=None, top='tee+vest', yaw=0),
+              dict(hat=None, hair='Hair_curly', beard=None, top='shirt', yaw=-15),
+              dict(hat='Hat_hardhat', hair='Hair_quiff', beard='Beard_full', top='tee+vest', yaw=65)]
+    bpy.context.scene.render.resolution_x, bpy.context.scene.render.resolution_y = 520, 560
+    for f in range(4):
+        for k, c in enumerate(combos):
+            lk = dict(OUTFIT, head='Head_%d' % f, face=f, legs=c.get('legs', 'Legs_Trousers'), gloves=False, **{x: c[x] for x in ('hat', 'hair', 'beard', 'top')})
+            show(objs, lk); shoot(cam, os.path.join(OUT, f'face-{f}-{k}.png'), c['yaw'], dist=1.35, z=1.66, look_z=1.6)
+    bpy.context.scene.render.resolution_x, bpy.context.scene.render.resolution_y = 900, 1200
     lk = dict(looks[3], hat=None)
     print('LOOK curly tris', show(objs, lk)); shoot(cam, os.path.join(OUT, 'look-3-nohat.png'), 25, dist=2.2, z=1.62, look_z=1.6)
     print('LOOK max tris', show(objs, dict(OUTFIT, legs='Legs_Overalls', hair='Hair_curly', hat=None)))

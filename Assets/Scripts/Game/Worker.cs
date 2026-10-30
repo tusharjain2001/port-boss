@@ -139,7 +139,8 @@ namespace PortBoss
                 if (n == "Head_" + l.Face || n == "Eyes_" + l.Face || n == "Brows_" + l.Face || n == "Mouth_" + l.Face) return true;
                 if (BeardParts[l.Beard] != null && n == BeardParts[l.Beard] + "_" + l.Face) return true;
                 if (n == HatParts[l.Hat]) return true;
-                return l.Hat == 0 && n == HairParts[l.Hair]; // hats cover the hair
+                // Under a hat any hair shows as a crop round the rim (the hat sits up off the head).
+                return n == (l.Hat == 0 || l.Hair == 0 ? HairParts[l.Hair] : HairParts[1]);
             }
             foreach (var r in parts) r.enabled = Shown(r.name);
 
