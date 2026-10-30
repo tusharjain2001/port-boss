@@ -47,6 +47,7 @@ namespace PortBoss
         // The player's dock worker, idling on the quay in the opening shot.
         GameObject MenuWorker()
         {
+            if (Skin.I.Worker != null) return OurMenuWorker(new Vector3(-5.2f, 0, -6.5f), 215); // ours faces the other way to the pack's
             var w = Art.Place(Skin.Pick(Skin.I.Players, 0), null, new Vector3(-5.2f, 0, -6.5f), 35, 1f);
             if (w == null) return null;
             var an = w.GetComponentInChildren<Animator>();
@@ -170,18 +171,8 @@ namespace PortBoss
         int Clipboard(Rect r, string header, (string item, string note, bool on)[] rows)
         {
             var ink = new Color(0.13f, 0.15f, 0.2f);
-            GUI.DrawTexture(new Rect(r.x + 10 * S, r.y + 14 * S, r.width, r.height), Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(0, 0, 0, 0.4f), 0, 18 * S);
-            GUI.DrawTexture(r, Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(0.45f, 0.3f, 0.17f), 0, 18 * S);
-            var paper = new Rect(r.x + 20 * S, r.y + 34 * S, r.width - 40 * S, r.height - 54 * S);
-            GUI.DrawTexture(paper, Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(0.97f, 0.94f, 0.85f), 0, 3 * S);
-            // The clip.
-            var clip = new Rect(r.center.x - 95 * S, r.y + 8 * S, 190 * S, 50 * S);
-            GUI.DrawTexture(clip, Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(0.62f, 0.64f, 0.66f), 0, 10 * S);
-            GUI.DrawTexture(new Rect(clip.x + 14 * S, clip.y + 10 * S, clip.width - 28 * S, 14 * S), Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(0.38f, 0.4f, 0.42f), 0, 7 * S);
+            var paper = ClipboardPaper(r, header);
             var hs = new GUIStyle(small) { fontSize = Mathf.RoundToInt(19 * S), font = TitleFont, alignment = TextAnchor.MiddleLeft };
-            hs.normal.textColor = new Color(0.55f, 0.18f, 0.12f);
-            GUI.Label(new Rect(paper.x + 22 * S, paper.y + 30 * S, paper.width, 30 * S), header, hs);
-            GUI.DrawTexture(new Rect(paper.x + 18 * S, paper.y + 64 * S, paper.width - 36 * S, 2 * S), Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(0.55f, 0.18f, 0.12f, 0.6f), 0, 0);
             var it = new GUIStyle(menuItem) { fontSize = Mathf.RoundToInt(36 * S) };
             var no = new GUIStyle(hs) { fontSize = Mathf.RoundToInt(17 * S), fontStyle = FontStyle.Normal, alignment = TextAnchor.MiddleRight };
             int hit = -1;
@@ -203,6 +194,24 @@ namespace PortBoss
                 if (rows[i].on && GUI.Button(row, GUIContent.none, GUIStyle.none)) { Sfx.Play2D("blip", 0.7f); hit = i; }
             }
             return hit;
+        }
+
+        // The clipboard itself (board, paper, clip, red header + rule); returns the paper's rect.
+        Rect ClipboardPaper(Rect r, string header)
+        {
+            GUI.DrawTexture(new Rect(r.x + 10 * S, r.y + 14 * S, r.width, r.height), Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(0, 0, 0, 0.4f), 0, 18 * S);
+            GUI.DrawTexture(r, Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(0.45f, 0.3f, 0.17f), 0, 18 * S);
+            var paper = new Rect(r.x + 20 * S, r.y + 34 * S, r.width - 40 * S, r.height - 54 * S);
+            GUI.DrawTexture(paper, Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(0.97f, 0.94f, 0.85f), 0, 3 * S);
+            // The clip.
+            var clip = new Rect(r.center.x - 95 * S, r.y + 8 * S, 190 * S, 50 * S);
+            GUI.DrawTexture(clip, Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(0.62f, 0.64f, 0.66f), 0, 10 * S);
+            GUI.DrawTexture(new Rect(clip.x + 14 * S, clip.y + 10 * S, clip.width - 28 * S, 14 * S), Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(0.38f, 0.4f, 0.42f), 0, 7 * S);
+            var hs = new GUIStyle(small) { fontSize = Mathf.RoundToInt(19 * S), font = TitleFont, alignment = TextAnchor.MiddleLeft };
+            hs.normal.textColor = new Color(0.55f, 0.18f, 0.12f);
+            GUI.Label(new Rect(paper.x + 22 * S, paper.y + 30 * S, paper.width, 30 * S), header, hs);
+            GUI.DrawTexture(new Rect(paper.x + 18 * S, paper.y + 64 * S, paper.width - 36 * S, 2 * S), Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(0.55f, 0.18f, 0.12f, 0.6f), 0, 0);
+            return paper;
         }
 
         void DrawMenu(float W, float H)
@@ -230,14 +239,16 @@ namespace PortBoss
                 ("Play", "solo shift", true),
                 ("Host co-op", Session.SteamOk ? "steam lobby" : "needs steam", Session.SteamOk),
                 ("Join a friend", "steam / lan", true),
+                ("Character", "your dock worker", true),
                 ("Settings", "", true),
                 ("Quit", "clock off", true) });
             GUI.matrix = m2;
-            if (pick == 0) Play();
-            else if (pick == 1) Host(false);
-            else if (pick == 2) { screen = Screen.Join; Refresh(); }
-            else if (pick == 3) { settingsFromPause = false; screen = Screen.Settings; }
-            else if (pick == 4) Application.Quit();
+            if (pick == 0) FirstLook(Play);
+            else if (pick == 1) FirstLook(() => Host(false));
+            else if (pick == 2) FirstLook(() => { screen = Screen.Join; Refresh(); });
+            else if (pick == 3) OpenCharacter();
+            else if (pick == 4) { settingsFromPause = false; screen = Screen.Settings; }
+            else if (pick == 5) Application.Quit();
             BottomBar(W, H);
             if (titleFade > 0) GUI.DrawTexture(new Rect(0, 0, W, H), Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, new Color(0, 0, 0, titleFade), 0, 0);
         }
@@ -261,13 +272,14 @@ namespace PortBoss
             GUI.DrawTexture(new Rect(0, 0, W, H), dimTex);
             var rows = new System.Collections.Generic.List<(string, string, bool)> { ("Resume", "back to work", true) };
             if (Session.Lobby != null) rows.Add(("Invite friends", "steam", true));
-            rows.Add(("Settings", "", true)); rows.Add(("Stats", "career", true)); rows.Add(("Quit to menu", "", true)); rows.Add(("Quit game", "clock off", true));
+            rows.Add(("Character", "your look", true)); rows.Add(("Settings", "", true)); rows.Add(("Stats", "career", true)); rows.Add(("Quit to menu", "", true)); rows.Add(("Quit game", "clock off", true));
             var board = new Rect((W - 520 * S) / 2, H * 0.16f, 520 * S, 120 * S + rows.Count * 74 * S);
             int pick = Clipboard(board, Session.Solo ? "SHIFT ON HOLD" : "SHIFT ON HOLD  ·  THE PORT KEEPS RUNNING", rows.ToArray());
             if (pick < 0) return;
             string what = rows[pick].Item1;
             if (what == "Resume") SetPaused(false);
             else if (what == "Invite friends") Session.Invite();
+            else if (what == "Character") OpenCharacter();
             else if (what == "Settings") settingsFromPause = true;
             else if (what == "Stats") statsOpen = true;
             else if (what == "Quit to menu") BackToMenu();

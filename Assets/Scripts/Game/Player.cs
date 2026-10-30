@@ -24,6 +24,8 @@ namespace PortBoss
         static readonly Color[] Colors = { Art.Hex("#d8892b"), Art.Hex("#3f86c4"), Art.Hex("#5aa34a"), Art.Hex("#c4473f") };
 
         public NetworkVariable<Vector2> SwayNet = new(default, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        // The look picked in the character editor: the owner asks, the host checks it and sets it for everyone.
+        public NetworkVariable<Look> LookNet = new(default, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
         public Vector2 Sway => IsOwner ? sway : SwayNet.Value;
         public int Carrying { get; private set; }
@@ -57,11 +59,13 @@ namespace PortBoss
             var c = Colors[(int)(OwnerClientId % (ulong)Colors.Length)];
             model = new GameObject("model").transform;
             model.SetParent(transform, false);
-            if (Skin.On && Skin.Pick(Skin.I.Players, 0) != null) BuildWorker(model, (int)OwnerClientId);
+            if (Skin.On && (Skin.I.Worker != null || Skin.Pick(Skin.I.Players, 0) != null)) BuildWorker(model, (int)OwnerClientId);
             else BuildDockhand(model, c, (int)OwnerClientId);
+            LookNet.OnValueChanged += (_, l) => { if (worker != null) worker.Apply(l); Debug.Log($"[PB] look p{OwnerClientId} {l}"); };
             if (IsOwner)
             {
                 Local = this;
+                SetLook(Look.Load((int)OwnerClientId));
                 Teleport(World.Spawn + new Vector3((int)OwnerClientId * 1.2f, 0, 0), 0, false);
                 camPos = transform.position + new Vector3(0, 3, -6);
             }
@@ -121,10 +125,26 @@ namespace PortBoss
 
         // Toon Harbor dock worker (one outfit per player slot), animated by CharAnim.
         CharAnim anim;
+        Worker worker;
+        public void SetLook(Look l) => SetLookRpc(l);
+        [Rpc(SendTo.Server)] void SetLookRpc(Look l) => LookNet.Value = l.Clamped();
+
         void BuildWorker(Transform m, int id)
         {
-            var g = Instantiate(Skin.Pick(Skin.I.Players, id), m, false);
-            g.transform.localRotation = Quaternion.Euler(0, 180, 0); // the pack's people face -Z
+            GameObject g;
+            if (Skin.I.Worker != null)
+            {
+                // Our own dock worker, dressed as the player chose (the slot's default until the look arrives).
+                worker = Worker.Make(Skin.I.Worker, m);
+                worker.Apply(LookNet.Value.Set != 0 ? LookNet.Value : Look.Default(id));
+                Debug.Log($"[PB] look p{OwnerClientId} on spawn {worker.Current}");
+                g = worker.gameObject;
+            }
+            else
+            {
+                g = Instantiate(Skin.Pick(Skin.I.Players, id), m, false);
+                g.transform.localRotation = Quaternion.Euler(0, 180, 0); // the pack's people face -Z
+            }
             foreach (var col in g.GetComponentsInChildren<Collider>()) Destroy(col);
             float h = Art.Bounds(g).size.y;
             if (h > 0.5f) g.transform.localScale = Vector3.one * Mathf.Clamp(1.8f / h, 0.8f, 1.25f);
@@ -635,6 +655,7 @@ namespace PortBoss
         // ---------- swimming ----------
         public const float SwimDepth = 1.3f; // feet this far below the surface: head + shoulders out
         public bool Swimming => swimming;
+        public bool Climbing => climbT >= 0;
         public bool Towing => TowedId.Value != 0;
         public NetworkVariable<ulong> TowedId = new(0); // server writes: the floating crate being towed
         bool swimming;

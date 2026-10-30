@@ -81,6 +81,9 @@ namespace PortBoss
             if (Arg("-pb-fxshots") != null) StartCoroutine(FxShots(Arg("-pb-fxshots")));
             if (Arg("-pb-areashots") != null) StartCoroutine(AreaShots(Arg("-pb-areashots")));
             if (Arg("-pb-uishots") != null) StartCoroutine(UiShots(Arg("-pb-uishots")));
+            if (Arg("-pb-lookshots") != null) StartCoroutine(LookShots(Arg("-pb-lookshots")));
+            if (Has("-pb-randomlook")) StartCoroutine(RandomLook());
+            if (Arg("-pb-laddershot") != null) StartCoroutine(LadderShot(Arg("-pb-laddershot")));
             if (Arg("-pb-film") != null) StartCoroutine(Film(Arg("-pb-film")));
             if (float.TryParse(Arg("-pb-weather"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var wsev)) StartCoroutine(ForceWeatherSoon(wsev));
             if (Has("-pb-forklifttest")) StartCoroutine(ForkliftTest());
@@ -1117,6 +1120,80 @@ namespace PortBoss
             for (float t = 0; t < 40 && (gull = Gull.AnyPerched()) == null; t += 0.5f) yield return new WaitForSeconds(0.5f);
             if (gull != null) { Look(gull.position, new Vector3(1.2f, 0.5f, -1.6f)); yield return Snap(dir, "gull-perched"); }
             Player.CamOverride = false;
+        }
+
+        // Character editor: open it, show a run of looks; each preview render saved (works headless), the whole screen
+        // too (the IMGUI sheet only draws in a window).
+        IEnumerator LookShots(string dir)
+        {
+            Directory.CreateDirectory(dir);
+            yield return new WaitForSecondsRealtime(3f);
+            var ui = GameUI.I;
+            ui.OpenCharacter();
+            var dice = new System.Random(7);
+            for (int i = 0; i < 10; i++)
+            {
+                ui.DebugLook(i < 4 ? Look.Default(i) : Look.Random(dice));
+                yield return new WaitForSecondsRealtime(0.6f);
+                yield return new WaitForEndOfFrame();
+                SaveRT(ui.RenderPreview(), Path.Combine(dir, $"look-{i}.png"));
+                if (!Application.isBatchMode && i < 3) yield return Snap(dir, $"editor-{i}");
+            }
+            Debug.Log("[PB] lookshots done");
+        }
+
+        static void SaveRT(RenderTexture rt, string path)
+        {
+            if (rt == null) return;
+            var flat = RenderTexture.GetTemporary(rt.width, rt.height, 0); // resolve the MSAA target first
+            Graphics.Blit(rt, flat);
+            var old = RenderTexture.active; RenderTexture.active = flat;
+            var t = new Texture2D(rt.width, rt.height, TextureFormat.RGB24, false);
+            t.ReadPixels(new Rect(0, 0, rt.width, rt.height), 0, 0); t.Apply();
+            RenderTexture.active = old; RenderTexture.ReleaseTemporary(flat);
+            File.WriteAllBytes(path, t.EncodeToPNG()); Destroy(t);
+        }
+
+        // In the water by the first ladder, grab it and photograph the climb out from the side.
+        IEnumerator LadderShot(string dir)
+        {
+            Directory.CreateDirectory(dir);
+            yield return WaitGame();
+            var pl = Player.Local; var l = World.Ladders[0];
+            var out_ = l.Top - l.Bottom; out_.y = 0; out_.Normalize();
+            pl.DebugTeleport(l.Bottom - out_ * 1.2f + Vector3.up * 0.5f, Quaternion.LookRotation(out_).eulerAngles.y);
+            for (int i = 0; i < 60 && !pl.Swimming; i++) yield return new WaitForSeconds(0.1f);
+            yield return new WaitForSeconds(1.5f);
+            float t0 = Time.time;
+            while (Time.time - t0 < 8 && !pl.Climbing)
+            {
+                var to = l.Bottom - pl.transform.position; to.y = 0;
+                bool near = pl.NearLadder() != null;
+                Player.BotInput = () => new Player.In { hasWorldMove = true, worldMove = near ? Vector3.zero : to.normalized, grab = near && Time.frameCount % 10 == 0 };
+                yield return null;
+            }
+            Player.BotInput = () => new Player.In();
+            Player.CamOverride = true;
+            var cam = Camera.main; var side = Vector3.Cross(Vector3.up, out_);
+            for (int k = 0; k < 3; k++)
+            {
+                yield return new WaitForSeconds(0.18f);
+                var p = pl.transform.position + Vector3.up * 1f;
+                cam.transform.position = p + side * 3.2f - out_ * 1.6f + Vector3.up * 0.3f; cam.transform.LookAt(p);
+                yield return Snap(dir, "ladder-" + k);
+            }
+            Player.CamOverride = false;
+            Debug.Log($"[PB] ladder shot: climbing={pl.Climbing} swimming={pl.Swimming}");
+        }
+
+        // Co-op look sync test: this process's player wears a random look (not saved); every peer logs what it sees.
+        IEnumerator RandomLook()
+        {
+            while (Player.Local == null) yield return null;
+            yield return new WaitForSeconds(1f);
+            var l = Look.Random(new System.Random(System.Diagnostics.Process.GetCurrentProcess().Id)).Clamped();
+            Player.Local.SetLook(l);
+            Debug.Log($"[PB] look sent p{Player.Local.OwnerClientId} {l}");
         }
 
         IEnumerator Snap(string dir, string name)
