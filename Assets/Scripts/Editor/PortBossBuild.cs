@@ -255,7 +255,9 @@ namespace PortBoss.EditorTools
                     mi.animationType = ModelImporterAnimationType.Human; mi.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
                     mi.materialImportMode = ModelImporterMaterialImportMode.None; mi.importCameras = false; mi.importLights = false;
                     var takes = mi.defaultClipAnimations;
-                    foreach (var c in takes) { c.loopTime = loop; c.lockRootRotation = c.lockRootHeightY = true; c.lockRootPositionXZ = false; c.keepOriginalOrientation = c.keepOriginalPositionY = true; }
+                    // Facing from the body, not "as authored": Mixamo's In Place locomotion comes in turned 180 degrees (the
+                    // worker ran backwards, moonwalking), its idles don't.
+                    foreach (var c in takes) { c.loopTime = loop; c.lockRootRotation = c.lockRootHeightY = true; c.lockRootPositionXZ = false; c.keepOriginalOrientation = false; c.keepOriginalPositionY = true; }
                     mi.clipAnimations = takes; mi.SaveAndReimport();
                     foreach (var a in AssetDatabase.LoadAllAssetsAtPath(path)) if (a is AnimationClip clip && !clip.name.StartsWith("__")) return clip;
                 }

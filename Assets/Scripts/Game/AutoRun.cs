@@ -220,6 +220,16 @@ namespace PortBoss
             Player.BotInput = () => new Player.In();
             for (int f = 0; f < 40; f++) yield return Frame();
             Debug.Log($"[PB] animfilm pickup-putdown: {n} frames, carrying {pl.Carrying}");
+            // Throwing a crate off the stack.
+            pl.DebugGiveCrates(2); yield return new WaitForSeconds(0.8f);
+            Side(-1, 4f, 1.2f);
+            clip = "throw"; n = 0; Directory.CreateDirectory(Path.Combine(dir, clip));
+            for (int f = 0; f < 8; f++) yield return Frame();
+            Player.BotInput = () => new Player.In { throwP = true }; yield return Frame();
+            Player.BotInput = () => new Player.In();
+            for (int f = 0; f < 40; f++) yield return Frame();
+            Debug.Log($"[PB] animfilm throw: {n} frames, carrying {pl.Carrying}");
+            while (pl.Carrying > 0) yield return Press(new Player.In { drop = true }, 0.5f);
 
             // Off the quay into the sea at a jog: fall, dunk, tread water, then swim along.
             pl.DebugTeleport(new Vector3(-20, 0.2f, -3.5f), 0); Player.BotInput = () => new Player.In(); yield return new WaitForSeconds(0.4f);
