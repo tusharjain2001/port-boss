@@ -51,7 +51,7 @@ namespace PortBoss
             cm.startRotation = Mathf.Atan2(WindDir.z, WindDir.x);
             cm.startColor = new Color(0.95f, 0.97f, 1f, 0.32f); cm.simulationSpace = ParticleSystemSimulationSpace.World; cm.maxParticles = 900;
             var ce = I.caps.emission; ce.rateOverTime = 0;
-            var cs = I.caps.shape; cs.shapeType = ParticleSystemShapeType.Box; cs.scale = new Vector3(90, 0.1f, 90);
+            var cs = I.caps.shape; cs.shapeType = ParticleSystemShapeType.Box; cs.scale = new Vector3(90, 0.1f, 60);
             var cv = I.caps.velocityOverLifetime; cv.enabled = true; cv.space = ParticleSystemSimulationSpace.World; cv.x = WindDir.x * 3f; cv.y = 0; cv.z = WindDir.z * 3f;
             var csz = I.caps.sizeOverLifetime; csz.enabled = true; csz.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.EaseInOut(0, 0.3f, 1, 1.4f));
             var cc = I.caps.colorOverLifetime; cc.enabled = true;
@@ -80,7 +80,15 @@ namespace PortBoss
             if (cam != null) transform.position = cam.transform.position + Vector3.up * 14f + WindDir * -6f;
             var e = rain.emission; e.rateOverTime = Rain * 5000f;
             var rm = rain.main; rm.startLifetime = Mathf.Max(0.3f, (transform.position.y - Water.Level) / 26f); // drops end at the sea surface, not under it
-            if (cam != null) caps.transform.position = new Vector3(cam.transform.position.x, Water.Level + 0.35f, cam.transform.position.z) + cam.transform.forward * 30f;
+            // Whitecaps from 25 to 85 m ahead: closer in, a soft foam sprite reads as a blob on the lens (the water shader
+            // draws foam on the near storm crests itself).
+            if (cam != null)
+            {
+                var ahead = Vector3.ProjectOnPlane(cam.transform.forward, Vector3.up);
+                if (ahead.sqrMagnitude < 1e-4f) ahead = cam.transform.up;
+                ahead.Normalize();
+                caps.transform.SetPositionAndRotation(new Vector3(cam.transform.position.x, Water.Level + 0.35f, cam.transform.position.z) + ahead * 55f, Quaternion.LookRotation(ahead));
+            }
             var ce = caps.emission; ce.rateOverTime = Mathf.Clamp01((Level - 0.35f) / 0.65f) * 260f;
             if (wind != null) wind.volume = Mathf.Clamp01(Level * 1.2f - 0.1f) * 0.45f * Settings.Ambience;
             if (rainLoop != null) rainLoop.volume = Mathf.Sqrt(Rain) * 0.75f * Settings.Ambience;

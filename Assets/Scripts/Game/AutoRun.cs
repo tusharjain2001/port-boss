@@ -858,6 +858,7 @@ namespace PortBoss
                 if (ps.particleCount == 0) continue;
                 var parts = new ParticleSystem.Particle[ps.particleCount];
                 int n = ps.GetParticles(parts), shown = 0;
+                float nearest = float.MaxValue;
                 var sb = new System.Text.StringBuilder();
                 bool world = ps.main.simulationSpace == ParticleSystemSimulationSpace.World;
                 for (int i = 0; i < n; i++)
@@ -865,9 +866,10 @@ namespace PortBoss
                     var wp = world ? parts[i].position : ps.transform.TransformPoint(parts[i].position);
                     var sp = cam.WorldToViewportPoint(wp);
                     if (sp.z <= 0 || sp.x < 0 || sp.x > 1 || sp.y < 0 || sp.y > 1) continue;
+                    nearest = Mathf.Min(nearest, Vector3.Distance(cam.transform.position, wp));
                     if (shown++ < 4) sb.Append($" ({sp.x * 1600:0},{(1 - sp.y) * 900:0}) at {wp:F1} size {parts[i].GetCurrentSize(ps):F2}");
                 }
-                if (shown > 0) Debug.Log($"[PB] particles in {shot}: {ps.name} (parent {ps.transform.parent?.name}) x{shown}:{sb}");
+                if (shown > 0) Debug.Log($"[PB] particles in {shot}: {ps.name} (parent {ps.transform.parent?.name}) x{shown}, nearest {nearest:F1} m:{sb}");
             }
         }
 
