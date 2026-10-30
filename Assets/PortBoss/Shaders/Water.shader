@@ -101,9 +101,10 @@ Shader "PortBoss/Water"
 
                 col *= light;
 
-                // Sun glint: one broad, soft path towards the sun, kept under the bloom threshold (a sharp band glittered).
+                // Sun glint: a soft path towards the sun, kept under the bloom threshold (a sharp band glittered). Not wider
+                // than ~13 degrees: with a low evening sun a wider cone reached the water by the camera as a grey smear.
                 float3 r = reflect(-v, n);
-                float glint = smoothstep(0.94, 1.0, dot(r, L.direction));
+                float glint = smoothstep(0.975, 1.0, dot(r, L.direction));
                 col += glint * glint * 0.3 * L.color * shadow * (1 - storm);
 
                 // Storm: grey-green and heavy.
