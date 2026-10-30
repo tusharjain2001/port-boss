@@ -70,6 +70,8 @@ Add `-batchmode` to run without a window (shots still render the camera; IMGUI m
 | `-pb-shovehost` + `-pb-shovetest` | two processes over LAN: the client shoves the carrying host |
 | `-pb-shop` | with `-pb-night`: buys the trolley once the night card is up, then starts the next day (the shop itself works any time) |
 | `-pb-settings <tab>` | open the settings page on tab n (for shots) |
+| `-pb-areashots <dir>` | the same 13 cameras (jetty, berth, boat, boat deck side + top, store, yard, gate, road, market, open sea, Marlowe Port, wall lamps) in day, rain, storm, dusk and night as `<area>-<when>.png`; drifting 6-frame bursts (`jetty/berth/lamps-burstN.png`) for a shimmer check; `[PB] deck check` = crates sunk into the tug's hull; quits when done |
+| `-pb-uiscreens <dir>` | windowed only (IMGUI): HUD with freshness rings, Tab shop, Stats, the end-of-day card at 0.4/1.5/6 s, Stats over the card; quits when done |
 | `-pb-mapshots <dir>` | fixed-camera map shots (`map-demo-angle.png`...) + the map check |
 | `-pb-uishots <dir>` | title flyover shots, logo, Join, Settings, Pause (menus drawn only when windowed) |
 | `-pb-crateshots <dir>` / `-pb-charshots <dir>` | crate / character close-ups |

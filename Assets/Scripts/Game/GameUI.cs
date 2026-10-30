@@ -96,7 +96,11 @@ namespace PortBoss
             AutoRun.Begin(this);
         }
 
-        void OnApplicationQuit() { Session.Leave(); Session.ShutdownSteam(); }
+        void OnApplicationQuit()
+        {
+            Session.Leave(); Session.ShutdownSteam();
+            if (glows != null) foreach (var (m, e) in glows) if (m != null) m.SetColor("_EmissionColor", e); // shared pack materials (editor play)
+        }
 
         void SetupCameraAndLight()
         {
@@ -130,6 +134,9 @@ namespace PortBoss
                 var tp = Instantiate(Skin.I.Post);
                 if (tp.TryGet(out DepthOfField dof)) dof.active = false;
                 if (tp.TryGet(out ChromaticAberration chr)) chr.active = false;
+                // The demo's bloom (threshold 1, fast filter) made every small bright bulb, glint and foam speck flare up
+                // and drop out from frame to frame: the port glittered. Higher threshold, gentler, high-quality filter.
+                if (tp.TryGet(out Bloom tbl)) { tbl.threshold.Override(1.25f); tbl.intensity.Override(0.45f); tbl.highQualityFiltering.Override(true); }
                 if (!tp.TryGet(out ColorAdjustments tca)) tca = tp.Add<ColorAdjustments>();
                 tca.postExposure.Override(0f); colorAdj = tca; exposureBase = 0f;
                 vol.profile = tp;
@@ -171,10 +178,13 @@ namespace PortBoss
         // Toon Harbor demo lighting (white sun, warm trilight, blue linear fog), warming a little towards sunset.
         void ApplyToonLight(float u, bool night)
         {
-            float elev = night ? -14f : Mathf.Lerp(48f, 14f, u);
-            sun.transform.rotation = Quaternion.Euler(elev, Mathf.Lerp(110f, 125f, u), 0);
-            sun.color = Color.Lerp(Color.white, new Color(1f, 0.8f, 0.62f), u * u);
-            sun.intensity = night ? 0f : Mathf.Lerp(1.05f, 0.9f, u);
+            // Night: a dim blue moon high in the west instead of no light at all (the toon shading only lights from the
+            // main light, so with the sun gone the port behind the night card was black).
+            float elev = night ? 38f : Mathf.Lerp(48f, 14f, u);
+            sun.transform.rotation = Quaternion.Euler(elev, night ? 290f : Mathf.Lerp(110f, 125f, u), 0);
+            sun.color = night ? new Color(0.55f, 0.66f, 0.95f) : Color.Lerp(Color.white, new Color(1f, 0.8f, 0.62f), u * u);
+            sun.intensity = night ? 0.32f : Mathf.Lerp(1.05f, 0.9f, u);
+            SetGlow(night ? 1f : Mathf.Lerp(0.35f, 1f, Mathf.SmoothStep(0, 1, (u - 0.8f) / 0.2f)));
             RenderSettings.ambientSkyColor = night ? new Color(0.22f, 0.28f, 0.45f) : Color.Lerp(new Color(1f, 0.941f, 0.825f), new Color(1f, 0.8f, 0.66f), u * u);
             RenderSettings.ambientEquatorColor = night ? new Color(0.14f, 0.16f, 0.24f) : Color.Lerp(new Color(0.689f, 0.49f, 0.387f), new Color(0.72f, 0.46f, 0.36f), u * u);
             RenderSettings.ambientGroundColor = night ? new Color(0.05f, 0.05f, 0.08f) : new Color(0.292f, 0.276f, 0.244f);
@@ -271,6 +281,29 @@ namespace PortBoss
                 sk.SetColor("_SkyTint", Color.Lerp(Skin.I.Sky.GetColor("_SkyTint"), new Color(0.32f, 0.34f, 0.37f), L));
                 sk.SetFloat("_Exposure", sk.GetFloat("_Exposure") * (1f - 0.45f * L));
             }
+            // Below the horizon the sky shows past the far clip (a grey band under distant things): make it the haze.
+            if (sk != null && sk.HasProperty("_GroundColor")) sk.SetColor("_GroundColor", RenderSettings.fogColor);
+        }
+
+        // Lit bulbs, windows and beacons (the pack's light atlas, our Art.Glow) at full strength only from dusk; in
+        // daylight they stay under the bloom threshold instead of sparkling all over the port.
+        static List<(Material m, Color e)> glows;
+        static float glowK = -1;
+        static void SetGlow(float k)
+        {
+            if (glows == null)
+            {
+                if (World.Root == null) return; // the map isn't built yet
+                glows = new();
+                var seen = new HashSet<Material>();
+                foreach (var r in FindObjectsByType<Renderer>(FindObjectsSortMode.None))
+                    foreach (var m in r.sharedMaterials)
+                        if (m != null && seen.Add(m) && m.IsKeywordEnabled("_EMISSION") && m.HasProperty("_EmissionColor") && m.GetColor("_EmissionColor").maxColorComponent > 1f)
+                            glows.Add((m, m.GetColor("_EmissionColor")));
+            }
+            if (Mathf.Abs(k - glowK) < 0.01f) return;
+            glowK = k;
+            foreach (var (m, e) in glows) if (m != null) m.SetColor("_EmissionColor", e * k);
         }
 
         string MusicSlot(PortGame g)
@@ -511,7 +544,7 @@ namespace PortBoss
                 if (!firstDayJob && g.Phase.Value == PortGame.Ph.Day && g.NextBoatIn > 0 && !Boat.All.Exists(b => b.State.Value != Boat.St.Leaving))
                 {
                     Pill(new Rect(18 * S, 64 * S, 200 * S, 30 * S));
-                    Label(new Rect(28 * S, 68 * S, 600 * S, 30 * S), $"next boat in {(int)g.NextBoatIn / 60}:{(int)g.NextBoatIn % 60:00}", new GUIStyle(small) { fontSize = Mathf.RoundToInt(20 * S), alignment = TextAnchor.UpperLeft }, new Color(1f, 0.92f, 0.7f));
+                    Label(new Rect(28 * S, 68 * S, 600 * S, 30 * S), $"next boat in {Mathf.CeilToInt(g.NextBoatIn) / 60}:{Mathf.CeilToInt(g.NextBoatIn) % 60:00}", new GUIStyle(small) { fontSize = Mathf.RoundToInt(20 * S), alignment = TextAnchor.UpperLeft }, new Color(1f, 0.92f, 0.7f));
                 }
             }
             else Label(new Rect(0, H * 0.45f, W, 60 * S), "Connecting…", mid, Color.white);
@@ -519,7 +552,8 @@ namespace PortBoss
             if (Time.unscaledTime < shoutUntil && g?.Phase.Value != PortGame.Ph.Night) // the night card has the floor
             {
                 float a = Mathf.Clamp01((shoutUntil - Time.unscaledTime) * 2);
-                var band = new Rect(W * 0.14f, H * 0.11f, W * 0.72f, 150 * S);
+                float bw = Mathf.Min(W * 0.36f, W / 2 - 350 * S); // centred, clear of the money panel on the right
+                var band = new Rect(W / 2 - bw, H * 0.11f, bw * 2, 150 * S);
                 var old = GUI.color; GUI.color = new Color(1, 1, 1, a * 0.85f);
                 GUI.Box(band, "", panel);
                 GUI.color = old;
@@ -606,7 +640,7 @@ namespace PortBoss
                 }
             }
             if (showHelp && !nightCard)
-                Label(new Rect(24 * S, H - 190 * S, 640 * S, 180 * S),
+                Label(new Rect(24 * S, H - 190 * S, 900 * S, 180 * S), // wide enough that no line wraps
                     "WASD move · Shift sprint · Space jump · Mouse look\nE / Right click: pick up, stack (max 5; hold for more) · E at the buyer: sell\nQ: put down (on the rack / in the trolley when next to it; hold for all)\nLeft click: throw · F: trolley / shove a mate · Tab shop · H hide · Esc menu", small, new Color(1, 1, 1, 0.75f));
         }
 
@@ -797,7 +831,7 @@ namespace PortBoss
             else if (near != null) { job = "Unload the boat: walk up to a fish crate and press E"; at = near.transform.position + Vector3.up * 1.6f; }
             else if (Storage.Count > 0) { job = "Fetch fish from the rack (E) and sell it at the FISH MARKET"; at = Storage.Center + Vector3.up * 4.2f; }
             else if (boat != null && boat.State.Value == Boat.St.Arriving) { job = "A boat is coming in: meet it at the end of the jetty"; at = boat.BerthPos + Vector3.up * 2.5f; }
-            else job = g.NextBoatIn > 0 ? $"Next boat in {(int)g.NextBoatIn / 60}:{(int)g.NextBoatIn % 60:00}: wait at the jetty" : "That was the last boat today";
+            else job = g.NextBoatIn > 0 ? $"Next boat in {Mathf.CeilToInt(g.NextBoatIn) / 60}:{Mathf.CeilToInt(g.NextBoatIn) % 60:00}: wait at the jetty" : "That was the last boat today";
             ThemeTextures();
             var r = new Rect(24 * S, 74 * S, 640 * S, 34 * S);
             var jt = OneLine(new GUIStyle(small) { fontSize = Mathf.RoundToInt(22 * S), font = TitleFont, alignment = TextAnchor.MiddleLeft }, job, W - r.x - 72 * S - 30 * S);
@@ -860,6 +894,7 @@ namespace PortBoss
         int nightDay = -1, nightLanded, nightStars;
         float nightAt, nightSkip, nightTickAt;
         bool statsOpen, shopOpen;
+        public void DebugPanels(bool shop, bool stats) { shopOpen = shop; statsOpen = stats; }
         const float RowsStart = 0.55f, RowGap = 0.4f, RowCount = 0.6f, NightRows = 3, StarsAt = 2.05f, StarGap = 0.32f;
         float NightT => Time.unscaledTime - nightAt + nightSkip;
         float NightDone => StarsAt + 3 * StarGap;

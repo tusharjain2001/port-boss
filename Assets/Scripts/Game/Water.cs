@@ -31,6 +31,7 @@ namespace PortBoss
 
         Mesh mesh;
         Vector3[] verts;
+        float[] cap; // per vertex: highest the sea may rise there (just under the quay/yard above it), else +inf
         int res;
         float size;
 
@@ -74,12 +75,31 @@ namespace PortBoss
             GetComponent<MeshFilter>().sharedMesh = mesh;
         }
 
+        // The sea runs on under the quays and the yard; a storm swell would poke up through the concrete there (white
+        // whitecap "leaves" on the ground). Find what stands over each vertex once, and keep the surface under it.
+        void Start()
+        {
+            Physics.SyncTransforms();
+            cap = new float[verts.Length];
+            var o = transform.position;
+            var hits = new RaycastHit[16];
+            for (int i = 0; i < verts.Length; i++)
+            {
+                cap[i] = float.PositiveInfinity;
+                var top = new Vector3(verts[i].x + o.x, 60f, verts[i].z + o.z);
+                int n = Physics.RaycastNonAlloc(top, Vector3.down, hits, 62f, ~0, QueryTriggerInteraction.Ignore);
+                for (int h = 0; h < n; h++)
+                    if (hits[h].collider.attachedRigidbody == null && hits[h].point.y > Level + 0.05f)
+                        cap[i] = Mathf.Min(cap[i], hits[h].point.y - 0.15f);
+            }
+        }
+
         void Update()
         {
             float t = T;
             var o = transform.position;
             for (int i = 0; i < verts.Length; i++)
-                verts[i].y = Height(verts[i].x + o.x, verts[i].z + o.z, t);
+                verts[i].y = Mathf.Min(Height(verts[i].x + o.x, verts[i].z + o.z, t), cap != null ? cap[i] : float.PositiveInfinity);
             mesh.vertices = verts;
             mesh.RecalculateNormals();
         }

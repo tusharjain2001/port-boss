@@ -43,6 +43,13 @@ namespace PortBoss
         readonly List<Crate> cargo = new();
         CharAnim captain; // the pack worker at the wheelhouse (skin only)
         Quaternion captainRest; // his local rotation at the wheel (two throws at once must not leave him turned)
+        readonly List<Collider> hullMeshes = new(); // the pack hull's own colliders: crates only (skin only)
+
+        // Every peer: people pass through the pack hull meshes (they board over our gangway and box deck).
+        public static void LetThrough(Collider person)
+        {
+            foreach (var b in All) foreach (var c in b.hullMeshes) if (c != null) Physics.IgnoreCollision(person, c);
+        }
         readonly Dictionary<ulong, float> evicted = new(); // server: player -> when we last threw them off
         float evictCheck;
 
@@ -120,8 +127,12 @@ namespace PortBoss
             if (float.IsNaN(deck)) deck = bs.min.y + bs.size.y * 0.55f;
             float dy = (transform.position.y + DeckY) - deck;
             stern.transform.position += Vector3.up * dy; bow.transform.position += Vector3.up * dy;
-            foreach (var c in stern.GetComponentsInChildren<Collider>()) DestroyImmediate(c); // now: we are still at the origin, on the quay crates
-            foreach (var c in bow.GetComponentsInChildren<Collider>()) DestroyImmediate(c);
+            // The pieces keep the pack's collision meshes for the crates: the bow deck is a step higher than the stern's and
+            // the bulwarks stand inside our hull box, so with only our flat box deck, crates slid into the bow and the sides
+            // (they clipped into the boat). People walk on our boxes as before (the bulwark has no gap at the gangway):
+            // LetThrough. The spawner teleports us off the origin before the first physics step.
+            hullMeshes.AddRange(stern.GetComponentsInChildren<Collider>());
+            hullMeshes.AddRange(bow.GetComponentsInChildren<Collider>());
             // Bridge on the stern deck, a pack worker as the captain.
             // The bridge keeps the pack's collision mesh: it is wider than our wheelhouse box, and you shouldn't walk through it.
             var br = Art.Place(Skin.Get("tugBridge"), v, Vector3.zero, 0, k, true);
@@ -139,6 +150,7 @@ namespace PortBoss
         public override void OnNetworkSpawn()
         {
             All.Add(this);
+            foreach (var p in Player.All) foreach (var c in hullMeshes) if (c != null) Physics.IgnoreCollision(p.GetComponent<CharacterController>(), c);
             State.OnValueChanged += (_, s) => OnState(s);
             OnState(State.Value);
             if (!IsServer) return;
@@ -149,16 +161,51 @@ namespace PortBoss
             transform.position = rb.position = Bezier(InPath, u0);
             Physics.SyncTransforms();
             Pose(Bezier(InPath, u0), Tangent(InPath, u0));
-            // Cargo rides in stacked on deck, parented (not simulated) until we dock.
-            for (int i = 0; i < CargoCount; i++)
+            // Cargo rides in stacked on deck, parented (not simulated) until we dock: on the deck you see, in stacks of up to 4 (Bjorn's big days).
+            var slots = CargoSlots();
+            for (int i = 0; i < CargoCount && i < slots.Count * 4; i++)
             {
-                int col = i % 3, row = (i / 3) % 4, layer = i / 12;
-                var at = new Vector3(-1.2f + col * 1.2f, DeckY + Crate.Size / 2 + 0.02f + layer * (Crate.Size + 0.02f), -1.6f + row * 1.3f);
+                var at = slots[i % slots.Count] + Vector3.up * (Crate.Size / 2 + 0.02f + i / slots.Count * (Crate.Size + 0.02f));
                 var c = Instantiate(PortGame.I.CratePrefab, transform.TransformPoint(at), transform.rotation).GetComponent<Crate>();
                 c.NetworkObject.Spawn(true);
                 c.Attach(NetworkObject, at, -1);
                 cargo.Add(c);
             }
+            Debug.Log($"[PB] boat cargo {CargoCount} on {slots.Count} deck spots");
+        }
+
+        // Deck spots (local, on the deck surface) for the cargo: a grid forward of the bridge, each spot checked by casting
+        // down onto our own colliders at its middle and corners. A spot that straddles the bow step, a bulwark, the winch or
+        // a hatch edge (uneven), or the captain's place, is skipped.
+        List<Vector3> CargoSlots()
+        {
+            var list = new List<Vector3>();
+            float h = Crate.Size / 2 + 0.05f;
+            for (float z = -1.6f; z < HalfL - 0.4f; z += 1.3f)
+                foreach (var x in new[] { 0f, -1.2f, 1.2f })
+                {
+                    if (Mathf.Abs(x + 1.2f) < 0.7f && Mathf.Abs(z + 1.6f) < 0.7f) continue; // the captain stands here
+                    float lo = float.MaxValue, hi = float.MinValue;
+                    foreach (var d in new[] { Vector2.zero, new Vector2(-h, -h), new Vector2(h, -h), new Vector2(-h, h), new Vector2(h, h) })
+                    {
+                        float y = DeckAt(x + d.x, z + d.y);
+                        lo = Mathf.Min(lo, y); hi = Mathf.Max(hi, y);
+                    }
+                    if (hi - lo < 0.04f && lo > DeckY - 0.3f && hi < DeckY + 1f) list.Add(new Vector3(x, hi, z));
+                }
+            if (list.Count == 0) list.Add(new Vector3(0, DeckY, 0)); // never: our own hull box is always there
+            return list;
+        }
+
+        // Height (local) of the top of whatever of ours is under this deck point.
+        float DeckAt(float x, float z)
+        {
+            float best = float.MinValue;
+            var from = transform.TransformPoint(new Vector3(x, DeckY + 4f, z));
+            foreach (var hit in Physics.RaycastAll(from, -transform.up, 6f, ~0, QueryTriggerInteraction.Ignore))
+                if (hit.collider.transform.IsChildOf(transform) && hit.collider.GetComponentInParent<Crate>() == null)
+                    best = Mathf.Max(best, transform.InverseTransformPoint(hit.point).y);
+            return best;
         }
 
         public override void OnNetworkDespawn()
@@ -308,7 +355,9 @@ namespace PortBoss
                 var l = transform.InverseTransformPoint(c.transform.position);
                 if (Mathf.Abs(l.x) < HalfW + 0.1f && Mathf.Abs(l.z) < HalfL + 0.1f && l.y > DeckY - 0.3f && l.y < DeckY + 4f)
                 {
+                    var rot = c.transform.rotation;
                     c.Attach(NetworkObject, l, -1);
+                    c.transform.rotation = rot; // as it lies: squaring a tilted crate up would push it into the deck or its neighbour
                     cargo.Add(c);
                     n++;
                 }

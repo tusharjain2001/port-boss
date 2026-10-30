@@ -5,6 +5,21 @@ namespace PortBoss
     // One-shot particle effects (local, cosmetic).
     public static class Fx
     {
+        // Drops of water: drawn out along their flight, shrinking and fading as they fall back. As plain round sprites they
+        // hung over the water as white discs (a big soft one when a drop passed the lens) and then popped out.
+        static void Droplets(ParticleSystem ps, float alpha)
+        {
+            var size = ps.sizeOverLifetime; size.enabled = true; size.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0, 1f, 1, 0.25f));
+            var col = ps.colorOverLifetime; col.enabled = true;
+            var grad = new Gradient();
+            grad.SetKeys(new[] { new GradientColorKey(Color.white, 0), new GradientColorKey(Color.white, 1) }, new[] { new GradientAlphaKey(alpha, 0), new GradientAlphaKey(alpha * 0.8f, 0.5f), new GradientAlphaKey(0, 1) });
+            col.color = grad;
+            var r = ps.GetComponent<ParticleSystemRenderer>();
+            r.sharedMaterial = Art.Particle;
+            r.renderMode = ParticleSystemRenderMode.Stretch; r.velocityScale = 0.04f; r.lengthScale = 1.2f;
+            r.maxParticleSize = 0.012f; // a drop by the lens stays a drop
+        }
+
         public static void Splash(Vector3 p, float size)
         {
             var g = new GameObject("splash");
@@ -22,7 +37,7 @@ namespace PortBoss
             var e = ps.emission; e.rateOverTime = 0; e.SetBursts(new[] { new ParticleSystem.Burst(0, (short)(28 * size)) });
             var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Cone; sh.angle = 28; sh.radius = 0.3f * size;
             sh.rotation = new Vector3(-90, 0, 0);
-            g.GetComponent<ParticleSystemRenderer>().sharedMaterial = Art.Particle;
+            Droplets(ps, 0.9f);
             ps.Play();
             Object.Destroy(g, 2f);
         }
@@ -43,10 +58,7 @@ namespace PortBoss
             m.gravityModifier = 1.4f; m.maxParticles = 600; m.simulationSpace = ParticleSystemSimulationSpace.World;
             var e = ps.emission; e.rateOverTime = 0; e.SetBursts(new[] { new ParticleSystem.Burst(0, (short)(140 * size)), new ParticleSystem.Burst(0.12f, (short)(80 * size)) });
             var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Cone; sh.angle = 38; sh.radius = 1.2f * size;
-            var col = ps.colorOverLifetime; col.enabled = true;
-            var grad = new Gradient(); grad.SetKeys(new[] { new GradientColorKey(Color.white, 0), new GradientColorKey(Color.white, 1) }, new[] { new GradientAlphaKey(0.95f, 0), new GradientAlphaKey(0.8f, 0.6f), new GradientAlphaKey(0, 1) });
-            col.color = grad;
-            g.GetComponent<ParticleSystemRenderer>().sharedMaterial = Art.Particle;
+            Droplets(ps, 0.95f);
             ps.Play();
             Object.Destroy(g, 3f);
         }

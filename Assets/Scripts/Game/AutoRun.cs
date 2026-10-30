@@ -77,6 +77,9 @@ namespace PortBoss
             if (Has("-pb-storm")) StartCoroutine(StormTest());
             if (Arg("-pb-carrytest") != null) StartCoroutine(CarryTest(Arg("-pb-carrytest")));
             if (Arg("-pb-mapshots") != null) StartCoroutine(MapShots(Arg("-pb-mapshots")));
+            if (Arg("-pb-uiscreens") != null) StartCoroutine(UiScreens(Arg("-pb-uiscreens")));
+            if (Arg("-pb-fxshots") != null) StartCoroutine(FxShots(Arg("-pb-fxshots")));
+            if (Arg("-pb-areashots") != null) StartCoroutine(AreaShots(Arg("-pb-areashots")));
             if (Arg("-pb-uishots") != null) StartCoroutine(UiShots(Arg("-pb-uishots")));
             if (Arg("-pb-film") != null) StartCoroutine(Film(Arg("-pb-film")));
             if (float.TryParse(Arg("-pb-weather"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var wsev)) StartCoroutine(ForceWeatherSoon(wsev));
@@ -804,6 +807,152 @@ namespace PortBoss
             Player.CamOverride = false;
         }
 
+        // Same cameras on every area in day, dusk, rain, storm and night (before/after look checks). The first two
+        // views also get a 6-frame burst 0.1 s apart with the camera drifting 1 cm a frame, to measure shimmer (aliased
+        // or sparkling pixels flip on and off; a clean picture just slides).
+        static readonly (string name, Vector3 pos, Vector3 look)[] Areas =
+        {
+            ("jetty", new Vector3(-12, 3, 14), new Vector3(10, -0.5f, -2)),
+            ("berth", new Vector3(-14, 9, -24), new Vector3(10, 0, 20)),
+            ("boat", new Vector3(1.5f, 4.5f, 9f), new Vector3(7.6f, 1.6f, 16f)),
+            ("store", new Vector3(-2f, 3f, 1f), new Vector3(-8.5f, 1.5f, -7.6f)),
+            ("yard", new Vector3(-40, 70, -90), new Vector3(30, 0, 90)),
+            ("gate", new Vector3(-6f, 3f, -70f), new Vector3(-6, 3, -100)),
+            ("road", new Vector3(-30f, 6f, -84f), new Vector3(10, 0, -105)),
+            ("market", new Vector3(10f, 7f, -98f), new Vector3(-6, 2f, -117)),
+            ("sea", new Vector3(30, 18, 120), new Vector3(190, 0, 300)),
+            ("marlowe", new Vector3(0, 30, 250), new Vector3(0, 20, 620)),
+            ("lamps", new Vector3(80f, 12f, -10f), new Vector3(20, 0, -80)),
+            ("deck", new Vector3(3.4f, 2.5f, 15.5f), new Vector3(7.6f, 1.8f, 15.5f)),
+            ("decktop", new Vector3(7.6f, 9f, 11f), new Vector3(7.6f, 1.6f, 16f)),
+        };
+
+        // Splashes where Kufu saw a soft white blob in the dusk jetty shot (pixel 358,817): a crate's, then a person's.
+        IEnumerator FxShots(string dir)
+        {
+            Directory.CreateDirectory(dir);
+            yield return WaitGame();
+            var g = PortGame.I;
+            g.ForceWeather(0);
+            yield return new WaitForSeconds(2f);
+            Player.CamOverride = true;
+            var cam = Camera.main;
+            cam.transform.position = Areas[0].pos; cam.transform.LookAt(Areas[0].look);
+            cam.aspect = 16f / 9f;
+            var ray = cam.ViewportPointToRay(new Vector3(358f / 1600, 1 - 817f / 900, 0));
+            var at = ray.GetPoint((Water.Level - ray.origin.y) / ray.direction.y);
+            Debug.Log($"[PB] fx shots: splash point {at:F1}");
+            foreach (var (size, nm) in new[] { (0.7f, "crate"), (1.2f, "person") })
+            {
+                g.DayT.Value = 445f;
+                yield return new WaitForSeconds(1.5f);
+                Fx.Splash(at, size);
+                foreach (var t in new[] { 0.15f, 0.45f, 0.8f }) { yield return new WaitForSeconds(t == 0.15f ? t : 0.3f); yield return Snap(dir, $"fx-{nm}-splash-{t:0.00}"); }
+            }
+            Player.CamOverride = false;
+            Debug.Log("[PB] fx shots done");
+            Application.Quit();
+        }
+
+        // Every live particle drawn in this frame, by emitter, with where it sits on screen (stray sprites in a shot).
+        static void ParticlesInView(Camera cam, string shot)
+        {
+            foreach (var ps in FindObjectsByType<ParticleSystem>(FindObjectsSortMode.None))
+            {
+                if (ps.particleCount == 0) continue;
+                var parts = new ParticleSystem.Particle[ps.particleCount];
+                int n = ps.GetParticles(parts), shown = 0;
+                float nearest = float.MaxValue;
+                var sb = new System.Text.StringBuilder();
+                bool world = ps.main.simulationSpace == ParticleSystemSimulationSpace.World;
+                for (int i = 0; i < n; i++)
+                {
+                    var wp = world ? parts[i].position : ps.transform.TransformPoint(parts[i].position);
+                    var sp = cam.WorldToViewportPoint(wp);
+                    if (sp.z <= 0 || sp.x < 0 || sp.x > 1 || sp.y < 0 || sp.y > 1) continue;
+                    nearest = Mathf.Min(nearest, Vector3.Distance(cam.transform.position, wp));
+                    if (shown++ < 4) sb.Append($" ({sp.x * 1600:0},{(1 - sp.y) * 900:0}) at {wp:F1} size {parts[i].GetCurrentSize(ps):F2}");
+                }
+                if (shown > 0) Debug.Log($"[PB] particles in {shot}: {ps.name} (parent {ps.transform.parent?.name}) x{shown}, nearest {nearest:F1} m:{sb}");
+            }
+        }
+
+        // Crates on a boat that sink into its hull (the pack meshes) by more than 3 cm.
+        static void DeckCheck(string when)
+        {
+            foreach (var b in Boat.All)
+            {
+                var hull = b.GetComponentsInChildren<MeshCollider>();
+                int aboard = 0, sunk = 0;
+                foreach (var c in Crate.All)
+                {
+                    var l = b.transform.InverseTransformPoint(c.transform.position);
+                    if (Mathf.Abs(l.x) > Boat.HalfW + 0.5f || Mathf.Abs(l.z) > Boat.HalfL + 1f || l.y < Boat.DeckY - 1f || l.y > Boat.DeckY + 4f) continue;
+                    aboard++;
+                    var cc = c.GetComponent<Collider>();
+                    foreach (var h in hull)
+                        if (Physics.ComputePenetration(cc, c.transform.position, c.transform.rotation, h, h.transform.position, h.transform.rotation, out _, out float d) && d > 0.03f) { sunk++; break; }
+                }
+                Debug.Log($"[PB] deck check ({when}): boat {b.State.Value} crates aboard={aboard} sunk into the hull={sunk}");
+            }
+        }
+
+        IEnumerator AreaShots(string dir)
+        {
+            Directory.CreateDirectory(dir);
+            yield return WaitGame();
+            var g = PortGame.I;
+            g.ForceWeather(0);
+            DeckCheck("arriving");
+            while (!Boat.All.Exists(b => b.State.Value == Boat.St.Docked)) yield return null;
+            yield return new WaitForSeconds(2f);
+            DeckCheck("docked");
+            Player.CamOverride = true;
+            var cam = Camera.main;
+            foreach (var (cond, sev, dayT) in new[] { ("day", 0f, 72f), ("rain", 0.65f, 72f), ("storm", 1f, 72f), ("dusk", 0f, 445f), ("night", 0f, -1f) })
+            {
+                g.ForceWeather(sev);
+                if (dayT < 0) g.EndDayNow(); else g.DayT.Value = dayT;
+                while (Mathf.Abs(Storm.Level - sev) > 0.02f) { if (dayT >= 0) g.DayT.Value = dayT; yield return null; }
+                yield return new WaitForSeconds(1f);
+                foreach (var (name, pos, look) in Areas)
+                {
+                    if (dayT >= 0) g.DayT.Value = dayT;
+                    cam.transform.position = pos; cam.transform.LookAt(look);
+                    yield return new WaitForSeconds(1.2f);
+                    yield return Snap(dir, $"{name}-{cond}");
+                    ParticlesInView(cam, $"{name}-{cond}");
+                    if (cond == "day" && (name == "jetty" || name == "berth" || name == "lamps"))
+                        for (int k = 0; k < 6; k++) { cam.transform.position += cam.transform.right * 0.01f; yield return new WaitForSeconds(0.1f); yield return Snap(dir, $"{name}-burst{k}"); }
+                }
+            }
+            Player.CamOverride = false;
+            Debug.Log("[PB] area shots done");
+            Application.Quit();
+        }
+
+        // The IMGUI screens (windowed runs only: batchmode draws no GUI): HUD with freshness rings, Tab shop, Stats, the
+        // end-of-day card as it counts up, and Stats over it.
+        IEnumerator UiScreens(string dir)
+        {
+            Directory.CreateDirectory(dir);
+            yield return WaitGame();
+            var pl = Player.Local;
+            pl.DebugTeleport(new Vector3(1.2f, World.PierTop + 0.1f, 12f), 0);
+            for (int i = 0; i < 4; i++) PortGame.I.SpawnCrate(pl.transform.position + new Vector3(-0.8f + i * 0.6f, 0.5f, 1.6f), 1f - i * 0.25f);
+            yield return new WaitForSeconds(3f);
+            yield return Snap(dir, "ui-hud");
+            ui.DebugPanels(true, false); yield return new WaitForSecondsRealtime(0.8f); yield return Snap(dir, "ui-shop");
+            ui.DebugPanels(false, true); yield return new WaitForSecondsRealtime(0.8f); yield return Snap(dir, "ui-stats");
+            ui.DebugPanels(false, false);
+            PortGame.I.EndDayNow();
+            float shown = 0;
+            foreach (var t in new[] { 0.4f, 1.5f, 6f }) { yield return new WaitForSecondsRealtime(t - shown); shown = t; yield return Snap(dir, $"ui-card-{t:0.0}"); }
+            ui.DebugPanels(false, true); yield return new WaitForSecondsRealtime(0.8f); yield return Snap(dir, "ui-card-stats");
+            Debug.Log("[PB] ui screens done");
+            Application.Quit();
+        }
+
         IEnumerator ForceWeatherSoon(float s) { yield return WaitGame(); PortGame.I.ForceWeather(s); }
 
         IEnumerator StormTest()
@@ -1077,7 +1226,8 @@ namespace PortBoss
         {
             if (!Application.isBatchMode) { ScreenCapture.CaptureScreenshot(path); return; }
             var cam = Camera.main;
-            var rt = new RenderTexture(1600, 900, 24);
+            var urp = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline as UnityEngine.Rendering.Universal.UniversalRenderPipelineAsset;
+            var rt = new RenderTexture(1600, 900, 24) { antiAliasing = urp != null ? Mathf.Max(1, urp.msaaSampleCount) : 1 }; // as the game window draws it
             cam.targetTexture = rt;
             cam.Render();
             cam.targetTexture = null;
