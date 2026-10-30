@@ -290,7 +290,7 @@ namespace PortBoss
             }
             if (boxW > 0.01f && Box != null)
             {
-                Hands(t, boxL, boxR, boxW, t.forward * 0.25f - t.up * 0.55f, Box.up * 0.4f + t.forward);
+                Hands(t, boxL, boxR, boxW, -t.up * 0.6f - t.forward * 0.15f, t.forward + t.up * 0.1f);
             }
             if (gripW > 0.01f && Grip != null)
                 Hands(t, Grip.TransformPoint(GripL), Grip.TransformPoint(GripR), gripW, -t.up * 0.7f - t.forward * 0.1f, t.forward - t.up * 0.2f);
@@ -334,16 +334,27 @@ namespace PortBoss
         float shoulderY;
         static float Dist(Transform a, Transform b) => Vector3.Distance(a.position, b.position);
 
-        // Grip points on a crate: on the pair of sides facing our left and right, a little in from its back edge (the
-        // side nearer us) and just above its bottom, so the fingers curl under it.
+        // Grip points on a crate: underneath it, near the left and right edges (of whichever pair of sides faces our left
+        // and right) and in from the edge nearer us, wrists just below the bottom so the hands are flat under it.
         void BoxGrips(Transform t, out Vector3 l, out Vector3 r)
         {
             var b = Box;
             var ax = Mathf.Abs(Vector3.Dot(b.right, t.right)) >= Mathf.Abs(Vector3.Dot(b.forward, t.right)) ? b.right : b.forward;
             if (Vector3.Dot(ax, t.right) < 0) ax = -ax;
             var back = Vector3.ProjectOnPlane(t.forward, b.up).normalized;
-            var c = b.position - b.up * (BoxHalf - 0.07f) - back * (BoxHalf * 0.3f);
-            l = c - ax * (BoxHalf + 0.035f); r = c + ax * (BoxHalf + 0.035f);
+            var c = b.position - b.up * (BoxHalf + 0.03f) - back * (BoxHalf - GripIn);
+            l = c - ax * (BoxHalf - 0.07f); r = c + ax * (BoxHalf - 0.07f);
+        }
+        const float GripIn = 0.1f; // wrists this far in under the crate from its near edge
+
+        // Where this body carries a crate (its centre, in the player's space: x = height, y = ahead): resting against
+        // the body (`front` = how far the body sticks out ahead of the feet), as high as it has to be for the hands to
+        // reach under it with the elbows a little bent.
+        public Vector2 CarryAt(float half, float front)
+        {
+            float ahead = Mathf.Max(front + half + 0.02f, 0.3f), gripAhead = ahead - half + GripIn, reach = ArmLen * 0.92f;
+            float drop = Mathf.Sqrt(Mathf.Max(0.01f, reach * reach - gripAhead * gripAhead));
+            return new Vector2(Mathf.Clamp(ShoulderY - drop + 0.03f + half, ShoulderY - 0.45f, ShoulderY + 0.05f), ahead);
         }
 
         // Lower the hips by d with both feet left where they were: the knees bend (a squat, not sinking into the ground).

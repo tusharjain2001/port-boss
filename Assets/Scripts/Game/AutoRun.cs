@@ -198,7 +198,7 @@ namespace PortBoss
 
             // Off the quay into the sea at a jog: fall, dunk, tread water, then swim along.
             pl.DebugTeleport(new Vector3(-20, 0.2f, -3.5f), 0); Player.BotInput = () => new Player.In(); yield return new WaitForSeconds(0.4f);
-            look = () => { var c = pl.transform.position; c.y = Mathf.Max(c.y, Water.Level) + 0.6f; cam.transform.position = new Vector3(c.x - 4.5f, Water.Level + 1.6f, c.z - 0.5f); cam.transform.LookAt(c); };
+            look = () => { var c = pl.transform.position; c.y = Mathf.Max(c.y, Water.Level) + 0.6f; cam.transform.position = new Vector3(c.x - 2.8f, Water.Level + 1.1f, c.z - 0.6f); cam.transform.LookAt(c); };
             clip = "water-entry-tread"; n = 0; Directory.CreateDirectory(Path.Combine(dir, clip));
             Player.BotInput = () => Move(Vector3.forward);
             while (!pl.Swimming && n < 120) yield return Frame();
@@ -211,9 +211,15 @@ namespace PortBoss
             // The ladder on the quay front at x 20: climb out, then back down.
             var lad = World.Ladders.Find(l => l.In == Vector3.back && Mathf.Abs(l.Edge.x - 20) < 1);
             pl.DebugTeleport(lad.Bottom + Vector3.forward * 0.3f, 180); yield return new WaitForSeconds(1.2f);
+            for (float t0 = Time.time; Time.time - t0 < 6 && pl.NearLadder() == null;)
+            {
+                var to = lad.Bottom - pl.transform.position; to.y = 0;
+                Player.BotInput = () => new Player.In { hasWorldMove = true, worldMove = to.normalized * 0.6f };
+                yield return null;
+            }
             look = () => { var c = new Vector3(lad.Edge.x, Mathf.Clamp(pl.transform.position.y + 1f, -1.8f, 1.2f), lad.Edge.z); cam.transform.position = c + new Vector3(3.6f, 0.3f, 2.4f); cam.transform.LookAt(c + Vector3.forward * 0.3f); };
             clip = "ladder-up"; n = 0; Directory.CreateDirectory(Path.Combine(dir, clip));
-            Player.BotInput = () => new Player.In { grab = true }; yield return Frame();
+            while (!pl.Climbing.Value && n < 30) { Player.BotInput = () => new Player.In { grab = true }; yield return Frame(); Player.BotInput = () => new Player.In(); yield return Frame(); }
             Player.BotInput = () => new Player.In();
             for (int f = 0; f < 30 * 3.5f; f++) yield return Frame();
             Debug.Log($"[PB] animfilm ladder-up: {n} frames, swimming={pl.Swimming} at {pl.transform.position:F2}");

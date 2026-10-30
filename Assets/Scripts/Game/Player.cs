@@ -133,6 +133,14 @@ namespace PortBoss
             anim.Init(a, Skin.I);
             anim.Facing = transform;
             anim.Scale = g.transform.localScale.x;
+            // How far this body sticks out in front (belly, boots), measured upright and unturned, decides where it holds
+            // the stack; every peer builds the same body, so they all draw the crates in the same place.
+            var rot = transform.rotation; transform.rotation = Quaternion.identity;
+            float front = Mathf.Clamp(Art.Bounds(g).max.z - transform.position.z, 0.1f, 0.3f);
+            transform.rotation = rot;
+            var at = anim.CarryAt(Crate.Size / 2, front);
+            HoldShift = new Vector3(0, at.x, at.y) - HoldPos(0);
+            Debug.Log($"[PB] carry p{OwnerClientId}: body front {front:F2} m, stack at height {at.x:F2} m, {at.y:F2} m ahead");
         }
 
         void AnimateWorker(float speed)
@@ -992,9 +1000,10 @@ namespace PortBoss
             return best;
         }
 
-        // Carried against the belly, hands under the bottom crate's sides: close enough in for the arms to reach under it,
-        // clear of a stocky worker's belly (0.19 m); the camera looks over the shoulder so the whole stack stays in view.
+        // Carried at the belly; the camera looks over the shoulder so the whole stack stays in view. HoldShift moves the
+        // crates' visuals to where this player's body holds them (CharAnim.CarryAt: arm length, belly).
         public static Vector3 HoldPos(int slot) => new(0, 1.2f + slot * (Crate.Size + 0.04f), 0.5f);
+        public Vector3 HoldShift { get; private set; }
 
         // ---- server ----
         void FixedUpdate()

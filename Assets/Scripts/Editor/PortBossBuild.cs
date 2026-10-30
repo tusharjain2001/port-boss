@@ -230,6 +230,9 @@ namespace PortBoss.EditorTools
 
         static BoxCollider Box(GameObject g, Vector3 c, Vector3 s) { var b = g.AddComponent<BoxCollider>(); b.center = c; b.size = s; return b; }
 
+        // Clip root settings: rotation and height stay baked into the pose, but forward travel is NOT baked (it would
+        // carry the body ahead of the player and snap it back every loop); it becomes root motion, which the game ignores,
+        // so every clip plays in place under the player.
         // Mixamo clips take over from UAL1 when they are in the project: Manan downloads them (plan/mixamo-list.md, FBX for
         // Unity, without skin, In Place) into Assets/ThirdParty/Mixamo, gitignored like the pack. Found by Mixamo's file
         // names; each is set up as Humanoid with the root baked into the pose.
@@ -250,7 +253,7 @@ namespace PortBoss.EditorTools
                     mi.animationType = ModelImporterAnimationType.Human; mi.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
                     mi.materialImportMode = ModelImporterMaterialImportMode.None; mi.importCameras = false; mi.importLights = false;
                     var takes = mi.defaultClipAnimations;
-                    foreach (var c in takes) { c.loopTime = loop; c.lockRootRotation = c.lockRootHeightY = c.lockRootPositionXZ = true; c.keepOriginalOrientation = c.keepOriginalPositionY = c.keepOriginalPositionXZ = true; }
+                    foreach (var c in takes) { c.loopTime = loop; c.lockRootRotation = c.lockRootHeightY = true; c.lockRootPositionXZ = false; c.keepOriginalOrientation = c.keepOriginalPositionY = true; }
                     mi.clipAnimations = takes; mi.SaveAndReimport();
                     foreach (var a in AssetDatabase.LoadAllAssetsAtPath(path)) if (a is AnimationClip clip && !clip.name.StartsWith("__")) return clip;
                 }
@@ -317,7 +320,7 @@ namespace PortBoss.EditorTools
                         mi.SaveAndReimport();
                     }
                     var takes = mi.defaultClipAnimations;
-                    foreach (var c in takes) { c.loopTime = c.name.ToLower().Contains("loop") || c.name.ToLower().Contains("idle") || c.name.ToLower().Contains("walk") || c.name.ToLower().Contains("jog") || c.name.ToLower().Contains("sprint") || c.name.ToLower().Contains("swim"); c.lockRootRotation = c.lockRootHeightY = c.lockRootPositionXZ = true; c.keepOriginalOrientation = c.keepOriginalPositionY = c.keepOriginalPositionXZ = true; }
+                    foreach (var c in takes) { c.loopTime = c.name.ToLower().Contains("loop") || c.name.ToLower().Contains("idle") || c.name.ToLower().Contains("walk") || c.name.ToLower().Contains("jog") || c.name.ToLower().Contains("sprint") || c.name.ToLower().Contains("swim"); c.lockRootRotation = c.lockRootHeightY = true; c.lockRootPositionXZ = false; c.keepOriginalOrientation = c.keepOriginalPositionY = true; }
                     mi.clipAnimations = takes; mi.SaveAndReimport();
                     var clips = System.Linq.Enumerable.ToArray(System.Linq.Enumerable.OfType<AnimationClip>(AssetDatabase.LoadAllAssetsAtPath(ual)));
                     Debug.Log("[PBBuild] UAL1 clips: " + string.Join(", ", System.Linq.Enumerable.Select(clips, c => c.name)));
