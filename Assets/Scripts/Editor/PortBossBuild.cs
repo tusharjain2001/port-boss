@@ -240,13 +240,15 @@ namespace PortBoss.EditorTools
         static void MixamoClips(Skin k)
         {
             if (!AssetDatabase.IsValidFolder(Mixamo)) return;
-            var files = System.IO.Directory.GetFiles(Mixamo, "*.fbx");
+            var files = System.IO.Directory.GetFiles(Mixamo, "*.fbx"); System.Array.Sort(files, (a, b) => a.Length.CompareTo(b.Length)); // "Clip.fbx" before "Clip (1).fbx"
             AnimationClip M(string name, bool loop)
             {
-                // "Standard Walk.fbx", or "Standard Walk (1).fbx" when downloaded twice.
+                // "X Bot@Standard Walk.fbx" (Mixamo puts the character's name in front), "Standard Walk.fbx", or
+                // "... (1).fbx" for a second take; the first match wins, so the plain take is picked over "(1)".
                 foreach (var f in files)
                 {
                     var n = System.IO.Path.GetFileNameWithoutExtension(f);
+                    n = n.Substring(n.LastIndexOf('@') + 1);
                     if (!n.Equals(name, StringComparison.OrdinalIgnoreCase) && !n.StartsWith(name + " (", StringComparison.OrdinalIgnoreCase)) continue;
                     var path = f.Replace('\\', '/');
                     if (AssetImporter.GetAtPath(path) is not ModelImporter mi) continue;
