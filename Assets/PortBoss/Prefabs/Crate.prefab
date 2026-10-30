@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &6044167141174204116
+--- !u!1 &3836539282473631245
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,12 +8,12 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 2701491565326467243}
-  - component: {fileID: 2326998509554313851}
-  - component: {fileID: 787837308133099253}
-  - component: {fileID: 8459574363088688170}
-  - component: {fileID: 241617680629837296}
-  - component: {fileID: 6869628636506737501}
+  - component: {fileID: 8466742340680884216}
+  - component: {fileID: 1292579753484034570}
+  - component: {fileID: 8140398747545871551}
+  - component: {fileID: 7904461877519213308}
+  - component: {fileID: 1902271693984022953}
+  - component: {fileID: 1526409144242951388}
   m_Layer: 0
   m_Name: Crate
   m_TagString: Untagged
@@ -21,13 +21,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &2701491565326467243
+--- !u!4 &8466742340680884216
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6044167141174204116}
+  m_GameObject: {fileID: 3836539282473631245}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -36,19 +36,19 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &2326998509554313851
+--- !u!114 &1292579753484034570
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6044167141174204116}
+  m_GameObject: {fileID: 3836539282473631245}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 1588135373
+  GlobalObjectIdHash: 2561132245
   InScenePlacedSourceGlobalObjectIdHash: 0
   m_InScenePlacedDisabledByDefault: 0
   DeferredDespawnTick: 0
@@ -63,13 +63,13 @@ MonoBehaviour:
   AutoObjectParentSync: 1
   SyncOwnerTransformWhenParented: 1
   AllowOwnerToParent: 0
---- !u!114 &787837308133099253
+--- !u!114 &8140398747545871551
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6044167141174204116}
+  m_GameObject: {fileID: 3836539282473631245}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e96cb6065543e43c4a752faaa1468eb1, type: 3}
@@ -109,13 +109,13 @@ MonoBehaviour:
   SwitchTransformSpaceWhenParented: 1
   Interpolate: 1
   SlerpPosition: 0
---- !u!54 &8459574363088688170
+--- !u!54 &7904461877519213308
 Rigidbody:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6044167141174204116}
+  m_GameObject: {fileID: 3836539282473631245}
   serializedVersion: 5
   m_Mass: 7
   m_LinearDamping: 0
@@ -136,13 +136,13 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 2
---- !u!65 &241617680629837296
+--- !u!65 &1902271693984022953
 BoxCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6044167141174204116}
+  m_GameObject: {fileID: 3836539282473631245}
   m_Material: {fileID: 0}
   m_IncludeLayers:
     serializedVersion: 2
@@ -157,13 +157,13 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.55, y: 0.55, z: 0.55}
   m_Center: {x: 0, y: 0, z: 0}
---- !u!114 &6869628636506737501
+--- !u!114 &1526409144242951388
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6044167141174204116}
+  m_GameObject: {fileID: 3836539282473631245}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b678be334d925454db78541f57b9cfd3, type: 3}
@@ -181,11 +181,6 @@ MonoBehaviour:
       MaxSecondsBetweenUpdates: 0
     m_InternalValue: 0
   Slot:
-    UpdateTraits:
-      MinSecondsBetweenUpdates: 0
-      MaxSecondsBetweenUpdates: 0
-    m_InternalValue: -1
-  Shelf:
     UpdateTraits:
       MinSecondsBetweenUpdates: 0
       MaxSecondsBetweenUpdates: 0

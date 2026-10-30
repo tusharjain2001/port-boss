@@ -25,15 +25,15 @@ Material:
     m_TexEnvs: []
     m_Ints: []
     m_Floats:
-    - _DepthFade: 7
-    - _FoamWidth: 0.6
-    - _LineFade: 90
-    - _LineScale: 0.32
+    - _CrestHeight: -0.55
+    - _DepthFade: 5
+    - _FoamWidth: 0.7
+    - _Gloss: 350
+    - _RippleScale: 0.45
+    - _RippleStrength: 0.045
     m_Colors:
-    - _Crest: {r: 0.41999996, g: 0.86, b: 0.88, a: 1}
-    - _Deep: {r: 0.06999998, g: 0.35999998, b: 0.56999993, a: 1}
-    - _FoamColor: {r: 0.96999997, g: 0.98999995, b: 1, a: 1}
-    - _LineColor: {r: 0.8, g: 0.96, b: 1, a: 0.38}
-    - _Shallow: {r: 0.25999996, g: 0.72, b: 0.76, a: 1}
+    - _Deep: {r: 0.059999965, g: 0.21999997, b: 0.39999998, a: 1}
+    - _FoamColor: {r: 0.95, g: 0.95, b: 0.9, a: 1}
+    - _Shallow: {r: 0.14999998, g: 0.41999996, b: 0.56, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
