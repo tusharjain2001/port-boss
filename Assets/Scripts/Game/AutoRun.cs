@@ -224,7 +224,7 @@ namespace PortBoss
             clip = "ladder-up"; n = 0; Directory.CreateDirectory(Path.Combine(dir, clip));
             while (!pl.Climbing.Value && n < 30) { Player.BotInput = () => new Player.In { grab = true }; yield return Frame(); Player.BotInput = () => new Player.In(); yield return Frame(); }
             Player.BotInput = () => new Player.In();
-            for (int f = 0; f < 30 * 3.5f; f++) yield return Frame();
+            for (int f = 0; f < 30 * 4.5f; f++) yield return Frame();
             Debug.Log($"[PB] animfilm ladder-up: {n} frames, swimming={pl.Swimming} at {pl.transform.position:F2}");
             clip = "ladder-down"; n = 0; Directory.CreateDirectory(Path.Combine(dir, clip));
             pl.DebugTeleport(lad.Top, 0); Player.BotInput = () => new Player.In(); for (int f = 0; f < 10; f++) yield return Frame();

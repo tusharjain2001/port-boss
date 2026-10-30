@@ -92,7 +92,7 @@ namespace PortBoss
         // any speed without the legs scissoring, and the phase advances by ground speed over the blended stride length,
         // so a planted foot stays put. Speeds and heel strikes are measured from the clips on this rig (MeasureGaits).
         readonly List<Slot> gaits = new();   // the gaits this skin has, slowest first
-        readonly List<float> gaitSpeed = new(), gaitStrike = new();
+        readonly List<float> gaitSpeed = new(), gaitStride = new(), gaitStrike = new(); // blend speed, m per cycle, heel strike
         bool measuredGaits;
         float phase, speedS, airT, landT = -1;
         Slot last;
@@ -131,7 +131,7 @@ namespace PortBoss
             }
             // Advance the shared stride over the blended stride length (m per cycle) of the gaits now playing.
             float stride = 0, sw = 0;
-            for (int g = 0; g < gaits.Count; g++) { float gw = w[(int)gaits[g]]; stride += gw * gaitSpeed[g] * Len(gaits[g]); sw += gw; }
+            for (int g = 0; g < gaits.Count; g++) { float gw = w[(int)gaits[g]]; stride += gw * gaitStride[g]; sw += gw; }
             if (sw > 0.001f) phase = Mathf.Repeat(phase + dt * speedS / Mathf.Max(0.05f, stride / sw), 1f);
             for (int g = 0; g < gaits.Count; g++)
             {
@@ -175,8 +175,9 @@ namespace PortBoss
         void Rate(Slot s, float r, float lo, float hi) { if (plays[(int)s].IsValid()) plays[(int)s].SetSpeed(Mathf.Clamp(r, lo, hi)); }
 
         // Ground speed and left heel strike of each gait clip on this rig, sampled once per (clip, avatar): while a foot
-        // is planted it slides back under the hips at exactly the ground speed the clip was made for. Gaits that measure
-        // no faster than the one below (the same clip twice, say) are dropped.
+        // is planted it slides back under the hips at exactly the ground speed the clip was made for. That sets each
+        // clip's stride; the blend keeps the gaits in their own order (a stylised sprint may cover less ground per second
+        // than a jog), each crossing over at least 30% faster than the one below. A clip used twice plays once.
         static readonly Dictionary<(AnimationClip, Avatar), (float speed, float strike)> measured = new();
         void MeasureGaits()
         {
@@ -198,11 +199,11 @@ namespace PortBoss
                 found.Add((slot, m.speed > 0.2f ? m.speed * scale : fallback * Scale, m.strike));
             }
             if (legLF != null && armLU != null) Debug.Log($"[PB] rig {animator.avatar?.name}: arm {ArmLen:F2} m, leg {LegLen:F2} m, shoulder {ShoulderY:F2} m");
-            found.Sort((a, b) => a.speed.CompareTo(b.speed));
             foreach (var f in found)
             {
-                if (gaitSpeed.Count > 0 && f.speed < gaitSpeed[gaitSpeed.Count - 1] * 1.15f) continue;
-                gaits.Add(f.slot); gaitSpeed.Add(f.speed); gaitStrike.Add(f.strike);
+                if (gaits.Count > 0 && plays[(int)gaits[gaits.Count - 1]].GetAnimationClip() == plays[(int)f.slot].GetAnimationClip()) continue;
+                gaits.Add(f.slot); gaitStride.Add(f.speed * Len(f.slot)); gaitStrike.Add(f.strike);
+                gaitSpeed.Add(gaitSpeed.Count > 0 ? Mathf.Max(f.speed, gaitSpeed[gaitSpeed.Count - 1] * 1.3f) : f.speed);
             }
             for (int i = 0; i < w.Length; i++) if (plays[i].IsValid()) mixer.SetInputWeight(i, saved[i]);
         }
@@ -345,7 +346,7 @@ namespace PortBoss
             var c = b.position - b.up * (BoxHalf + 0.03f) - back * (BoxHalf - GripIn);
             l = c - ax * (BoxHalf - 0.07f); r = c + ax * (BoxHalf - 0.07f);
         }
-        const float GripIn = 0.1f; // wrists this far in under the crate from its near edge
+        const float GripIn = 0.17f; // wrists this far in under the crate from its near edge
 
         // Where this body carries a crate (its centre, in the player's space: x = height, y = ahead): resting against
         // the body (`front` = how far the body sticks out ahead of the feet), as high as it has to be for the hands to
