@@ -208,9 +208,11 @@ namespace PortBoss
             return best;
         }
 
-        // Server: the boat goes, with whatever is still aboard (out of sight, or the day ended early in a test).
+        // Server: the boat goes, with whatever is still aboard (out of sight, or the day ended early in a test). A docked
+        // boat's crates lie loose on her deck: lash them down first, or they drop into the sea where she was.
         public void Gone()
         {
+            if (State.Value == St.Docked) TakeAboard();
             foreach (var c in cargo) if (c != null && c.IsSpawned) c.NetworkObject.Despawn();
             NetworkObject.Despawn();
         }
