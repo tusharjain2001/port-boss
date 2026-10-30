@@ -74,6 +74,7 @@ namespace PortBoss
             if (Arg("-pb-carrytest") != null) StartCoroutine(CarryTest(Arg("-pb-carrytest")));
             if (Arg("-pb-mapshots") != null) StartCoroutine(MapShots(Arg("-pb-mapshots")));
             if (Arg("-pb-uiscreens") != null) StartCoroutine(UiScreens(Arg("-pb-uiscreens")));
+            if (Arg("-pb-fxshots") != null) StartCoroutine(FxShots(Arg("-pb-fxshots")));
             if (Arg("-pb-areashots") != null) StartCoroutine(AreaShots(Arg("-pb-areashots")));
             if (Arg("-pb-uishots") != null) StartCoroutine(UiShots(Arg("-pb-uishots")));
             if (Arg("-pb-film") != null) StartCoroutine(Film(Arg("-pb-film")));
@@ -822,6 +823,54 @@ namespace PortBoss
             ("decktop", new Vector3(7.6f, 9f, 11f), new Vector3(7.6f, 1.6f, 16f)),
         };
 
+        // Splashes where Kufu saw a soft white blob in the dusk jetty shot (pixel 358,817): a crate's, then a person's.
+        IEnumerator FxShots(string dir)
+        {
+            Directory.CreateDirectory(dir);
+            yield return WaitGame();
+            var g = PortGame.I;
+            g.ForceWeather(0);
+            yield return new WaitForSeconds(2f);
+            Player.CamOverride = true;
+            var cam = Camera.main;
+            cam.transform.position = Areas[0].pos; cam.transform.LookAt(Areas[0].look);
+            cam.aspect = 16f / 9f;
+            var ray = cam.ViewportPointToRay(new Vector3(358f / 1600, 1 - 817f / 900, 0));
+            var at = ray.GetPoint((Water.Level - ray.origin.y) / ray.direction.y);
+            Debug.Log($"[PB] fx shots: splash point {at:F1}");
+            foreach (var (size, nm) in new[] { (0.7f, "crate"), (1.2f, "person") })
+            {
+                g.DayT.Value = 445f;
+                yield return new WaitForSeconds(1.5f);
+                Fx.Splash(at, size);
+                foreach (var t in new[] { 0.15f, 0.45f, 0.8f }) { yield return new WaitForSeconds(t == 0.15f ? t : 0.3f); yield return Snap(dir, $"fx-{nm}-splash-{t:0.00}"); }
+            }
+            Player.CamOverride = false;
+            Debug.Log("[PB] fx shots done");
+            Application.Quit();
+        }
+
+        // Every live particle drawn in this frame, by emitter, with where it sits on screen (stray sprites in a shot).
+        static void ParticlesInView(Camera cam, string shot)
+        {
+            foreach (var ps in FindObjectsByType<ParticleSystem>(FindObjectsSortMode.None))
+            {
+                if (ps.particleCount == 0) continue;
+                var parts = new ParticleSystem.Particle[ps.particleCount];
+                int n = ps.GetParticles(parts), shown = 0;
+                var sb = new System.Text.StringBuilder();
+                bool world = ps.main.simulationSpace == ParticleSystemSimulationSpace.World;
+                for (int i = 0; i < n; i++)
+                {
+                    var wp = world ? parts[i].position : ps.transform.TransformPoint(parts[i].position);
+                    var sp = cam.WorldToViewportPoint(wp);
+                    if (sp.z <= 0 || sp.x < 0 || sp.x > 1 || sp.y < 0 || sp.y > 1) continue;
+                    if (shown++ < 4) sb.Append($" ({sp.x * 1600:0},{(1 - sp.y) * 900:0}) at {wp:F1} size {parts[i].GetCurrentSize(ps):F2}");
+                }
+                if (shown > 0) Debug.Log($"[PB] particles in {shot}: {ps.name} (parent {ps.transform.parent?.name}) x{shown}:{sb}");
+            }
+        }
+
         // Crates on a boat that sink into its hull (the pack meshes) by more than 3 cm.
         static void DeckCheck(string when)
         {
@@ -866,6 +915,7 @@ namespace PortBoss
                     cam.transform.position = pos; cam.transform.LookAt(look);
                     yield return new WaitForSeconds(1.2f);
                     yield return Snap(dir, $"{name}-{cond}");
+                    ParticlesInView(cam, $"{name}-{cond}");
                     if (cond == "day" && (name == "jetty" || name == "berth" || name == "lamps"))
                         for (int k = 0; k < 6; k++) { cam.transform.position += cam.transform.right * 0.01f; yield return new WaitForSeconds(0.1f); yield return Snap(dir, $"{name}-burst{k}"); }
                 }
