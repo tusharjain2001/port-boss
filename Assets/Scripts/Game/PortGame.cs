@@ -273,7 +273,7 @@ namespace PortBoss
         // Test hook: skip to the end of the day.
         public void EndDayNow()
         {
-            foreach (var b in Boat.All.ToArray()) b.NetworkObject.Despawn();
+            foreach (var b in Boat.All.ToArray()) b.Gone();
             activeBoats = 0; nextBoat = Schedule.Length; DayT.Value = DayLength;
         }
 

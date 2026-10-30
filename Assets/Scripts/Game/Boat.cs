@@ -208,6 +208,13 @@ namespace PortBoss
             return best;
         }
 
+        // Server: the boat goes, with whatever is still aboard (out of sight, or the day ended early in a test).
+        public void Gone()
+        {
+            foreach (var c in cargo) if (c != null && c.IsSpawned) c.NetworkObject.Despawn();
+            NetworkObject.Despawn();
+        }
+
         public override void OnNetworkDespawn()
         {
             All.Remove(this);
@@ -273,9 +280,8 @@ namespace PortBoss
                     Pose(Bezier(OutPath, u), heading);
                     if (t >= SailSeconds)
                     {
-                        foreach (var c in cargo) if (c != null && c.IsSpawned) c.NetworkObject.Despawn();
                         game?.BoatGone();
-                        NetworkObject.Despawn();
+                        Gone();
                     }
                     break;
                 }
