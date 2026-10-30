@@ -241,6 +241,17 @@ namespace PortBoss.EditorTools
         {
             if (!AssetDatabase.IsValidFolder(Mixamo)) return;
             var files = System.IO.Directory.GetFiles(Mixamo, "*.fbx"); System.Array.Sort(files, (a, b) => a.Length.CompareTo(b.Length)); // "Clip.fbx" before "Clip (1).fbx"
+            // One avatar for every clip, from Mixamo's character in its T-pose ("X Bot.fbx", with skin): a "without skin"
+            // clip has no rest pose, and an avatar made from its first frame can get the body's facing backwards (the
+            // worker ran and idled facing away from where he was going).
+            Avatar rig = null;
+            var rigPath = System.Array.Find(files, f => !System.IO.Path.GetFileName(f).Contains("@"))?.Replace('\\', '/');
+            if (rigPath != null && AssetImporter.GetAtPath(rigPath) is ModelImporter ri)
+            {
+                if (ri.animationType != ModelImporterAnimationType.Human) { ri.animationType = ModelImporterAnimationType.Human; ri.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel; ri.SaveAndReimport(); }
+                rig = AssetDatabase.LoadAssetAtPath<Avatar>(rigPath);
+            }
+            Debug.Log($"[PBBuild] mixamo rig: {(rig != null ? rig.name + (rig.isHuman ? " (human)" : " (NOT human)") : "none, each clip makes its own avatar")}");
             AnimationClip M(string name, bool loop)
             {
                 // "X Bot@Standard Walk.fbx" (Mixamo puts the character's name in front), "Standard Walk.fbx", or
@@ -252,12 +263,12 @@ namespace PortBoss.EditorTools
                     if (!n.Equals(name, StringComparison.OrdinalIgnoreCase) && !n.StartsWith(name + " (", StringComparison.OrdinalIgnoreCase)) continue;
                     var path = f.Replace('\\', '/');
                     if (AssetImporter.GetAtPath(path) is not ModelImporter mi) continue;
-                    mi.animationType = ModelImporterAnimationType.Human; mi.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
+                    mi.animationType = ModelImporterAnimationType.Human;
+                    if (rig != null) { mi.avatarSetup = ModelImporterAvatarSetup.CopyFromOther; mi.sourceAvatar = rig; }
+                    else mi.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
                     mi.materialImportMode = ModelImporterMaterialImportMode.None; mi.importCameras = false; mi.importLights = false;
                     var takes = mi.defaultClipAnimations;
-                    // Facing from the body, not "as authored": Mixamo's In Place locomotion comes in turned 180 degrees (the
-                    // worker ran backwards, moonwalking), its idles don't.
-                    foreach (var c in takes) { c.loopTime = loop; c.lockRootRotation = c.lockRootHeightY = true; c.lockRootPositionXZ = false; c.keepOriginalOrientation = false; c.keepOriginalPositionY = true; }
+                    foreach (var c in takes) { c.loopTime = loop; c.lockRootRotation = c.lockRootHeightY = true; c.lockRootPositionXZ = false; c.keepOriginalOrientation = c.keepOriginalPositionY = true; }
                     mi.clipAnimations = takes; mi.SaveAndReimport();
                     foreach (var a in AssetDatabase.LoadAllAssetsAtPath(path)) if (a is AnimationClip clip && !clip.name.StartsWith("__")) return clip;
                 }
