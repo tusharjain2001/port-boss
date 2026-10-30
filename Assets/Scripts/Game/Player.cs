@@ -208,13 +208,15 @@ namespace PortBoss
                 slot = stroke ? CharAnim.Slot.Swim : CharAnim.Slot.SwimIdle;
                 swimLean = Mathf.MoveTowards(swimLean, stroke ? 1f : 0f, dt * 3f);
                 model.localPosition = new Vector3(0, Mathf.Lerp(anim.WaterLift(false, SwimDepth), anim.WaterLift(true, SwimDepth), swimLean), 0);
+                // Never drawn deeper than the depth the body settles at (it overshoots falling in and lags a rising wave).
+                model.localPosition += Vector3.up * Mathf.Max(0f, Water.Height(transform.position) - SwimDepth - transform.position.y);
                 if (dunkT >= 0)
                 {
                     // A short, shallow dip (players stay at the surface: the eyes are under for ~0.3 s at most), then up
                     // with a little overshoot; tipped forward on the way in.
                     float u = dunkT, dip = u < 0.3f ? 1 - (1 - u / 0.3f) * (1 - u / 0.3f) : 1f - Mathf.SmoothStep(0, 1, (u - 0.3f) / 0.55f);
                     float pop = u > 0.8f ? Mathf.Sin((u - 0.8f) / 0.2f * Mathf.PI) * 0.1f : 0f;
-                    model.localPosition += new Vector3(0, -0.4f * dip + pop, 0);
+                    model.localPosition += new Vector3(0, -0.3f * dip + pop, 0);
                     model.localRotation = Quaternion.Euler(15f * dip, 0, 0);
                     slot = CharAnim.Slot.SwimIdle;
                     stroke = false;
