@@ -268,7 +268,10 @@ namespace PortBoss.EditorTools
                     else mi.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
                     mi.materialImportMode = ModelImporterMaterialImportMode.None; mi.importCameras = false; mi.importLights = false;
                     var takes = mi.defaultClipAnimations;
-                    foreach (var c in takes) { c.loopTime = loop; c.lockRootRotation = c.lockRootHeightY = true; c.lockRootPositionXZ = false; c.keepOriginalOrientation = c.keepOriginalPositionY = true; }
+                    // Facing: our people are all turned 180 degrees under the player (the pack's face -Z, ours is exported the
+                    // same way). The UAL1 clips are authored facing -Z too, so they cancel out; Mixamo's face +Z, so they
+                    // take the body's facing turned round (the worker ran, carried and idled facing backwards before).
+                    foreach (var c in takes) { c.loopTime = loop; c.lockRootRotation = c.lockRootHeightY = true; c.lockRootPositionXZ = false; c.keepOriginalOrientation = false; c.rotationOffset = 180f; c.keepOriginalPositionY = true; }
                     mi.clipAnimations = takes; mi.SaveAndReimport();
                     foreach (var a in AssetDatabase.LoadAllAssetsAtPath(path)) if (a is AnimationClip clip && !clip.name.StartsWith("__")) return clip;
                 }
