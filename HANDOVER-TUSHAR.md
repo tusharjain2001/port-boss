@@ -1,3 +1,5 @@
+> **HISTORICAL (1 Nov 2026).** This file describes the OLD dock-work version of Port Boss, which Manan replaced on 31 Oct with the fishing-first game. **Read `HANDOVER.md` instead**: it is the one entry point, and its rules win over anything below. **Still valid:** §2 (setup checklist) and §3 (Toon Harbor import), which `HANDOVER.md` §5 points to. The rest (state, rules, next work) is replaced.
+
 # Port Boss: handover to Tushar
 
 Hi Tushar. This file is everything you (and your Claude Code agent) need to pick Port Boss up exactly where we stopped on

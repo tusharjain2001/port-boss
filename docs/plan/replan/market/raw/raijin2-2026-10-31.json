@@ -1,0 +1,101 @@
+[
+ {
+  "appid": "3643170",
+  "peak": 9171,
+  "reviews": 4960,
+  "pct": 86,
+  "sales_est": 299250,
+  "sales_conf": "medium",
+  "wishlists_est": 402251,
+  "revenue_line": "Roadside Research has 298,888 units sold, $2,688,199 total revenue and sold 1,032 copies in the last 7 days.",
+  "url": "https://raijin.gg/app/3643170/"
+ },
+ {
+  "appid": "4704690",
+  "peak": 339272,
+  "reviews": 91351,
+  "pct": 88,
+  "sales_est": 16471636,
+  "sales_conf": "high",
+  "wishlists_est": 405267,
+  "revenue_line": "MECCHA CHAMELEON has 16,470,146 units sold, $78,924,940 total revenue and sold 10,250 copies in the last 7 days.",
+  "url": "https://raijin.gg/app/4704690/"
+ },
+ {
+  "appid": "3949040",
+  "peak": 99803,
+  "reviews": 89813,
+  "pct": 90,
+  "sales_est": 2191460,
+  "sales_conf": "medium",
+  "wishlists_est": 1071715,
+  "revenue_line": "RV There Yet? has 2,191,460 units sold and $14,007,812 total revenue.",
+  "url": "https://raijin.gg/app/3949040/"
+ },
+ {
+  "appid": "4069520",
+  "peak": 20421,
+  "reviews": 12064,
+  "pct": 93,
+  "sales_est": 642942,
+  "sales_conf": "medium",
+  "wishlists_est": 275967,
+  "revenue_line": "Super Battle Golf has 642,558 units sold, $5,008,097 total revenue and sold 3,007 copies in the last 7 days.",
+  "url": "https://raijin.gg/app/4069520/"
+ },
+ {
+  "appid": "4001890",
+  "peak": 372634,
+  "reviews": 84727,
+  "pct": 95,
+  "sales_est": 3590954,
+  "sales_conf": "medium",
+  "wishlists_est": 184479,
+  "revenue_line": "How to Fish has 3,584,625 units sold, $22,912,923 total revenue and sold 23,792 copies in the last 7 days.",
+  "url": "https://raijin.gg/app/4001890/"
+ },
+ {
+  "appid": "2424010",
+  "peak": 2557,
+  "reviews": 2896,
+  "pct": 93,
+  "sales_est": 68170,
+  "sales_conf": "medium",
+  "wishlists_est": 81323,
+  "revenue_line": "Parcel Simulator has 68,118 units sold, $735,266 total revenue and sold 350 copies in the last 7 days.",
+  "url": "https://raijin.gg/app/2424010/"
+ },
+ {
+  "appid": "4429930",
+  "peak": 961,
+  "reviews": 397,
+  "pct": 60,
+  "sales_est": 14702,
+  "sales_conf": "medium",
+  "wishlists_est": 11328,
+  "revenue_line": "Water You Doing? has 14,702 units sold and $93,975 total revenue.",
+  "url": "https://raijin.gg/app/4429930/"
+ },
+ {
+  "appid": "3672760",
+  "peak": 19,
+  "reviews": 34,
+  "pct": 97,
+  "sales_est": 783,
+  "sales_conf": "low",
+  "wishlists_est": 1648,
+  "revenue_line": "Port Authority has 783 units sold, $3,752 total revenue and sold 45 copies in the last 7 days.",
+  "url": "https://raijin.gg/app/3672760/"
+ },
+ {
+  "appid": "2582140",
+  "peak": 1009,
+  "reviews": 2270,
+  "pct": 65,
+  "sales_est": 54877,
+  "sales_conf": "medium",
+  "wishlists_est": 86096,
+  "revenue_line": "Seafarer: The Ship Sim has 54,810 units sold, $986,251 total revenue and sold 193 copies in the last 7 days.",
+  "url": "https://raijin.gg/app/2582140/"
+ }
+]

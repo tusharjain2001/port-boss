@@ -1,0 +1,94 @@
+<!doctype html>
+<html><head><!-- Kufu review 31 Oct: normal-fish copy; no snap warning (snap only on an opt-in HEAVY fight) --><meta charset="utf-8"><title>Minigame</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+body { position: relative; background: #5B5E9E; }
+.bg { position: absolute; inset: 0; background: url('../../../replan/artdir/concepts/4-ponyo-coast-concept.png') center/cover; }
+/* dusk grade over the day concept (stand-in for the real dusk lighting state) */
+.dusk { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(246,150,110,.85) 0%, rgba(150,120,190,.75) 45%, rgba(43,55,102,.85) 100%); mix-blend-mode: multiply; }
+.glow { position: absolute; inset: 0; background: radial-gradient(ellipse at 70% 20%, rgba(255,214,150,.35), transparent 55%); }
+.vig { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 60%, transparent 40%, rgba(29,39,72,.45) 100%); }
+
+/* the bobber out on the water (world space) */
+.bob { position: absolute; left: 250px; top: 600px; }
+.bob .float { width: 26px; height: 36px; position: relative; }
+.bob .float::before { content: ''; position: absolute; inset: 0; border-radius: 50% 50% 46% 46%; background: linear-gradient(180deg, #E2553F 0 52%, #FFFBF2 52%); border: 2px solid var(--line); }
+.bob .float::after { content: ''; position: absolute; left: 11px; top: -12px; width: 3px; height: 14px; background: var(--line); border-radius: 2px; }
+.ring { position: absolute; border: 2.5px solid rgba(255,251,242,.85); border-radius: 50%; }
+
+/* minigame panel, lower third */
+.mg { position: absolute; left: 50%; bottom: 56px; transform: translateX(-50%); width: 900px; padding: 22px 30px 24px; border-radius: 28px; }
+.top { display: flex; align-items: center; justify-content: space-between; }
+.hintline { display: flex; align-items: center; gap: 12px; }
+.hintline .st { width: 44px; height: 44px; border-radius: 50%; background: var(--sea-deep); color: #fff; border: 2px solid var(--line); display: grid; place-items: center; font-size: 24px; }
+.hintline b { display: block; font: 600 28px var(--f-display); font-variation-settings: 'SOFT' 100, 'opsz' 72; font-style: italic; }
+.hintline span { font: 500 15px var(--f-ui); color: var(--ink-soft); }
+.stops { display: flex; align-items: center; gap: 10px; font: 700 13px var(--f-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--line); }
+.pip { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; font-size: 18px; background: var(--paper-2); }
+.pip.hit { background: var(--leaf); color: #fff; }
+.pip.now { background: var(--sunflower); box-shadow: 0 0 0 5px rgba(247,197,72,.35); }
+
+.trackwrap { position: relative; margin-top: 22px; height: 86px; }
+.track { position: absolute; left: 0; right: 0; top: 18px; height: 50px; border-radius: 25px; border: 2.5px solid var(--line); overflow: hidden;
+  background: linear-gradient(180deg, #D7EFF4, #A9DDE4); box-shadow: inset 0 4px 0 rgba(255,255,255,.5), inset 0 -4px 0 rgba(33,96,184,.12); }
+.track::before { content: ''; position: absolute; inset: 0; opacity: .5;
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='50'><path d='M0 30 Q10 24 20 30 T40 30' stroke='%2346D6C8' stroke-width='2' fill='none'/></svg>"); }
+.zone { position: absolute; top: 0; bottom: 0; left: 58%; width: 13%; background: repeating-linear-gradient(135deg, #8FCC7C 0 10px, #7DBE6A 10px 20px); border-left: 2.5px solid var(--line); border-right: 2.5px solid var(--line); }
+.zone.sweet::after { content: ''; position: absolute; left: 50%; top: 6px; bottom: 6px; width: 3px; margin-left: -1.5px; background: rgba(255,251,242,.85); border-radius: 2px; }
+.ghost { position: absolute; top: 18px; height: 50px; width: 0; border-left: 2.5px dashed rgba(79,148,66,.9); }
+.ghost::after { content: attr(data-t); position: absolute; top: 56px; left: -18px; font: 700 12px var(--f-ui); color: var(--leaf-d); white-space: nowrap; }
+/* the pointer is a little bobber riding the bar */
+.ptr { position: absolute; top: 0; left: 34%; width: 34px; margin-left: -17px; height: 86px; }
+.ptr .stem { position: absolute; left: 15px; top: 10px; width: 4px; height: 66px; background: var(--line); border-radius: 2px; }
+.ptr .head { position: absolute; left: 3px; top: 0; width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(180deg, #E2553F 0 50%, #FFFBF2 50%); border: 2.5px solid var(--line); box-shadow: 0 3px 0 rgba(128,92,82,.35); }
+.ptr .foot { position: absolute; left: 9px; bottom: 0; width: 16px; height: 10px; border-radius: 50%; background: var(--line); }
+.ptr .trail { position: absolute; top: 34px; right: 30px; width: 90px; height: 18px; background: linear-gradient(90deg, transparent, rgba(255,251,242,.85)); border-radius: 9px; }
+
+.bottom { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
+.ladder { display: flex; align-items: center; gap: 6px; }
+.g { display: flex; align-items: center; gap: 6px; padding: 6px 12px 7px 8px; border-radius: 999px; font: 700 14px var(--f-ui); color: var(--ink-soft); border: 1.5px solid var(--line-soft); background: var(--paper-2); }
+.g i { width: 12px; height: 12px; border-radius: 50%; background: var(--c); border: 1.5px solid var(--line); }
+.g.on { color: var(--ink); background: #fff; border: 2px solid var(--line); box-shadow: 0 2px 0 var(--line); }
+.arrow { color: var(--line); font-size: 18px; }
+.ctrl { display: flex; align-items: center; gap: 14px; font: 700 16px var(--f-ui); }
+.ctrl span { display: flex; align-items: center; gap: 8px; }
+.line { display: flex; align-items: center; gap: 8px; font: 700 14px var(--f-ui); color: var(--poppy); }
+.line .i { font-size: 18px; }
+.retry { padding: 5px 10px; border-radius: 999px; background: var(--sea); color: #fff; font: 700 12px var(--f-ui); letter-spacing: .08em; text-transform: uppercase; border: 1.5px solid var(--line); }
+
+.say { position: absolute; left: 50%; bottom: 330px; transform: translateX(-50%); font: 600 italic 30px var(--f-display); font-variation-settings: 'SOFT' 100; color: #fff; text-shadow: var(--text-halo); }
+.clock { position: absolute; left: 40px; top: 32px; padding: 10px 18px 12px; display: flex; align-items: baseline; gap: 10px; }
+.clock b { font: 600 38px var(--f-display); font-variation-settings: 'SOFT' 100; } .clock span { font: 700 13px var(--f-ui); letter-spacing: .14em; color: var(--line); text-transform: uppercase; }
+</style></head>
+<body>
+<div class="bg"></div><div class="dusk"></div><div class="glow"></div><div class="vig"></div>
+
+<div class="clock paper"><b class="num">6:48</b><span>PM · Day 3 · dusk</span></div>
+
+<div class="bob"><div class="ring" style="left:-30px;top:14px;width:86px;height:26px"></div><div class="ring" style="left:-58px;top:6px;width:142px;height:42px;opacity:.45"></div><div class="float"></div></div>
+
+<div class="say">Nice! Again…</div>
+
+<div class="mg paper">
+  <div class="top">
+    <div class="hintline"><span class="st"><i data-i="fish"></i></span><div><b>Fighting!</b><span class="line">Take your time · a miss only lowers the grade</span></div></div>
+    <div class="stops"><span>Stop</span><span class="pip hit"><i data-i="check"></i></span><span class="pip now"></span><span class="pip"></span><span class="retry">Hook · 1 retry</span></div>
+  </div>
+  <div class="trackwrap">
+    <div class="track"><div class="zone sweet"></div></div>
+    <div class="ghost" style="left: 50.5%" data-t="stop 1 · hit"></div>
+    <div class="ptr"><div class="trail"></div><div class="stem"></div><div class="head"></div><div class="foot"></div></div>
+  </div>
+  <div class="bottom">
+    <div class="ladder">
+      <span class="g" style="--c:var(--r-common)"><i></i>Common</span><span class="arrow">›</span>
+      <span class="g on" style="--c:var(--r-fine)"><i></i>Fine</span><span class="arrow">›</span>
+      <span class="g" style="--c:var(--r-rare)"><i></i>Rare</span><span class="arrow">›</span>
+      <span class="g" style="--c:var(--r-prized)"><i></i>Prized</span>
+    </div>
+    <div class="ctrl"><span><span class="key">Space</span></span><span><span class="pad" style="background:#7DBE6A">A</span></span><span style="color:var(--ink-soft)">Stop</span></div>
+  </div>
+</div>
+<div class="cap" style="color:#fff">Port Boss · fishing minigame UI · rules from gdd/fishing (3 stops, the zone jumps ±15%, each hit = +1 grade) · dusk grade over concept #4</div>
+<script src="icons.js"></script>
+</body></html>

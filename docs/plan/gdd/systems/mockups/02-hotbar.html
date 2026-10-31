@@ -1,0 +1,141 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Hotbar</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+body { background: var(--grain), linear-gradient(180deg, #CFE6F5 0%, #E8F1F2 45%, #F8EFDD 100%); padding: 56px 72px; color: var(--ink); }
+h1 { font: 600 44px var(--f-display); font-variation-settings: 'SOFT' 100, 'opsz' 96; letter-spacing: -.01em; }
+.sub { font: 500 19px var(--f-ui); color: var(--ink-soft); margin-top: 6px; max-width: 1100px; }
+.label.k { color: var(--brass-300); }
+
+.hotbar { display: flex; gap: 10px; padding: 10px; border-radius: 24px; background: var(--grain), var(--paper); border: 2px solid var(--line); box-shadow: var(--sh-2); width: max-content; }
+.slot { width: 104px; height: 104px; border-radius: 16px; position: relative; display: grid; place-items: center;
+  background: var(--paper-2); border: 1.5px solid var(--line-soft); box-shadow: inset 0 -3px 0 rgba(128,92,82,.12); color: var(--line); }
+.slot .k { position: absolute; left: 10px; top: 6px; font: 900 14px var(--f-ui); color: rgba(128,92,82,.6); }
+.slot .i { font-size: 60px; stroke-width: 1.4; fill: var(--fill, #FFF3DC); }
+.slot .cnt { position: absolute; right: 10px; bottom: 14px; font: 900 20px var(--f-ui); color: var(--ink); text-shadow: 0 0 3px var(--paper), 0 0 3px var(--paper); }
+.slot .rar { position: absolute; right: 10px; top: 10px; width: 10px; height: 10px; border-radius: 50%; background: var(--rc); border: 1.5px solid var(--line); }
+.slot .fresh { position: absolute; left: 10px; right: 10px; bottom: 8px; height: 5px; border-radius: 3px; background: rgba(128,92,82,.15); }
+.slot .fresh i { display: block; height: 100%; border-radius: 2px; }
+.slot.sel { transform: translateY(-8px); border: 2.5px solid var(--line); background: linear-gradient(180deg, #FFF0C2, #FBE3A0); box-shadow: 0 3px 0 var(--line), 0 12px 22px rgba(91,94,158,.35); }
+.slot.sel .k { color: var(--line); }
+.slot.empty { background: rgba(248,239,221,.55); }
+.slot.rot .i { color: #A8B87A; }
+.slot.ghost { border: 2.5px dashed var(--poppy); background: rgba(226,85,63,.08); }
+
+.stage { position: relative; margin-top: 436px; margin-left: 120px; }
+/* inspect card over slot 3 */
+.inspect { position: absolute; left: 150px; bottom: 150px; width: 430px; padding: 22px 24px; border-radius: var(--r-lg);
+  background: var(--grain), var(--paper); border: 2px solid var(--line); color: var(--ink); box-shadow: var(--sh-2); }
+.inspect::after { content: ''; position: absolute; left: 130px; bottom: -10px; width: 20px; height: 20px; background: var(--paper); border-right: 2px solid var(--line); border-bottom: 2px solid var(--line); transform: rotate(45deg); bottom: -12px; }
+.inspect .top { display: flex; justify-content: space-between; align-items: baseline; }
+.inspect .nm { font: 600 34px var(--f-display); font-variation-settings: 'SOFT' 100, 'opsz' 72; }
+.chip { border: 1.5px solid var(--line); font: 900 12px var(--f-ui); letter-spacing: .12em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; background: var(--c); color: var(--paper-ink); }
+.inspect .line { font: 500 17px var(--f-ui); color: #5B4A35; margin-top: 4px; }
+.fishrows { margin-top: 16px; display: grid; gap: 7px; }
+.fr { display: grid; grid-template-columns: 26px 1fr 112px; align-items: center; gap: 10px; font: 600 15px var(--f-label); color: #5B4A35; }
+.fr .b { height: 7px; border-radius: 4px; background: rgba(43,33,22,.12); overflow: hidden; }
+.fr .b i { display: block; height: 100%; border-radius: 4px; }
+.fr .t { text-align: right; letter-spacing: .04em; }
+.inspect .val { margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(43,33,22,.15); display: flex; justify-content: space-between; font: 500 17px var(--f-ui); }
+.inspect .val b { font: 600 24px var(--f-display); font-variation-settings: 'SOFT' 100; }
+.inspect .acts { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px 16px; font: 500 15px var(--f-ui); color: #5B4A35; }
+.inspect .acts span { display: flex; align-items: center; gap: 7px; }
+
+
+/* annotations */
+.ann { position: absolute; font: 500 16px/1.4 var(--f-ui); color: var(--ink); width: 280px; }
+.ann b { display: block; font: 600 13px var(--f-label); letter-spacing: .12em; text-transform: uppercase; color: var(--line); margin-bottom: 3px; }
+.ann::before { content: ''; position: absolute; width: 8px; height: 8px; border-radius: 50%; background: var(--poppy); border: 1.5px solid var(--line); left: -20px; top: 3px; }
+
+/* bottom state tiles */
+.tiles { position: absolute; left: 72px; right: 72px; bottom: 56px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 22px; }
+.tile { border-radius: var(--r-lg); background: var(--grain), var(--paper); border: 2px solid var(--line); box-shadow: var(--sh-1); padding: 20px 22px; min-height: 250px; position: relative; }
+.tile h3 { font: 600 24px var(--f-display); font-variation-settings: 'SOFT' 100, 'opsz' 48; margin-bottom: 6px; }
+.tile p { font: 500 16px/1.45 var(--f-ui); color: var(--ink-soft); }
+.mini { display: flex; gap: 6px; margin-top: 16px; }
+.mini .slot { width: 58px; height: 58px; border-radius: 10px; }
+.mini .slot .i { font-size: 30px; }
+.mini .slot .cnt { font-size: 14px; right: 6px; bottom: 8px; }
+.mini .slot .k { font-size: 11px; left: 6px; top: 4px; }
+.mini .slot .fresh { left: 6px; right: 6px; bottom: 5px; height: 3px; }
+.toast { margin-top: 14px; display: flex; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 12px; background: #fff; border: 1.5px solid var(--line-soft); position: relative; overflow: hidden; font: 500 15px var(--f-ui); }
+.toast::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--acc); }
+.toast .i { font-size: 20px; color: var(--acc); margin-left: 4px; }
+.toast .key { height: 22px; min-width: 22px; font-size: 12px; }
+.pill { display: inline-flex; align-items: center; gap: 8px; margin-top: 12px; padding: 7px 12px; border-radius: 999px; background: var(--paper-2); border: 1.5px solid var(--line-soft); font: 500 15px var(--f-ui); }
+.pad { display: inline-grid; place-items: center; width: 34px; height: 24px; border-radius: 8px; background: var(--paper); color: var(--ink); font: 900 12px var(--f-ui); border: 1.5px solid var(--line); box-shadow: 0 2px 0 var(--line); }
+.pad.round { width: 26px; height: 26px; border-radius: 50%; }
+</style></head>
+<body>
+<h1>Hotbar · 8 slots</h1>
+<div class="sub">Rod, fish (stacks of 5), guns and collectibles. The phone is never here: it lives on <span class="key">Tab</span>. Every slot is free: no item is pinned to a slot.</div>
+
+<div class="stage">
+  <div class="inspect">
+    <div class="top"><span class="nm">Sea Bream</span><span class="chip" style="--c: var(--r-common)">Common</span></div>
+    <div class="line">Stack 5 / 5 · each fish keeps its own catch time</div>
+    <div class="fishrows">
+      <div class="fr"><span>1</span><span class="b"><i style="width:96%;background:var(--leaf-d)"></i></span><span class="t">fresh · 2 d 1 h</span></div>
+      <div class="fr"><span>2</span><span class="b"><i style="width:80%;background:var(--leaf-d)"></i></span><span class="t">fresh · 1 d 15 h</span></div>
+      <div class="fr"><span>3</span><span class="b"><i style="width:58%;background:var(--sunflower)"></i></span><span class="t">fading · 1 d 4 h</span></div>
+      <div class="fr"><span>4</span><span class="b"><i style="width:40%;background:var(--sunflower)"></i></span><span class="t">fading · 19 h</span></div>
+      <div class="fr"><span>5</span><span class="b"><i style="width:14%;background:var(--poppy)"></i></span><span class="t">going off · 7 h</span></div>
+    </div>
+    <div class="val"><span>Worth now at June's</span><b class="num">$27</b></div>
+    <div class="acts">
+      <span><span class="key">Q</span>Drop one</span>
+      <span><span class="key">⇧Q</span>Drop stack</span>
+      <span><span class="key">Hold E</span>Give (on a mate)</span>
+      <span><span class="key">E</span>Into chest</span>
+    </div>
+  </div>
+
+  <div class="hotbar">
+    <div class="slot"><span class="k">1</span><i data-i="rod"></i></div>
+    <div class="slot" style="--rc: var(--r-fine); --fill:#BFF0EA"><span class="k">2</span><span class="rar"></span><i data-i="fish"></i><span class="cnt">3</span><span class="fresh"><i style="width:92%;background:var(--leaf)"></i></span></div>
+    <div class="slot sel" style="--rc: var(--r-common); --fill:#EFE6D6"><span class="k">3</span><span class="rar"></span><i data-i="fish"></i><span class="cnt">5</span><span class="fresh"><i style="width:14%;background:var(--poppy)"></i></span></div>
+    <div class="slot" style="--rc: var(--r-prized)"><span class="k">4</span><span class="rar"></span><i data-i="fish" style="--fill:#FBE3A0"></i><span class="cnt">1</span><span class="fresh"><i style="width:100%;background:var(--leaf)"></i></span></div>
+    <div class="slot" style="--fill:#F7B9A9"><span class="k">5</span><i data-i="flare"></i><span class="cnt">2</span></div>
+    <div class="slot" style="--fill:#FAD9C5"><span class="k">6</span><i data-i="shell"></i></div>
+    <div class="slot empty"><span class="k">7</span></div>
+    <div class="slot empty"><span class="k">8</span></div>
+  </div>
+
+  <div class="ann" style="left: 640px; top: -150px;"><b>Freshness bar</b>Shows the stack's most-rotten fish, so a stack never looks fresher than its worst fish. Green → amber → coral.</div>
+  <div class="ann" style="left: 1140px; top: -60px;"><b>Grade dot</b>Common · Fine · Rare · Prized. The colour also has a shape (dot, ring, diamond, star) for colour-blind players.</div>
+  <div class="ann" style="left: 1180px; top: 60px;"><b>Selected</b>Lifts 8 px on a sunflower wash. The name and key facts sit above the bar for 2 s after you switch.</div>
+</div>
+
+<div class="tiles">
+  <div class="tile">
+    <h3>Pick up</h3>
+    <p>New fish merge into a matching stack first (same species + grade), then the first empty slot. A pop and a +1 tick on the slot.</p>
+    <div class="mini">
+      <div class="slot" style="--rc: var(--r-fine); --fill:#BFF0EA"><span class="k">2</span><span class="rar"></span><i data-i="fish"></i><span class="cnt" style="color:var(--leaf)">4</span></div>
+      <div class="slot empty"><span class="k">7</span></div>
+    </div>
+    <div class="toast" style="--acc: var(--teal-400)"><i data-i="fish"></i>Mackerel · Fine &nbsp;<b>+1</b></div>
+  </div>
+  <div class="tile">
+    <h3>Full hotbar</h3>
+    <p>The catch is never lost: it waits in your hands for 10 s. Pick a slot to swap it out, drop something, or drop it on deck.</p>
+    <div class="mini">
+      <div class="slot ghost"><i data-i="fish" style="--fill:#BBD6F6"></i></div>
+    </div>
+    <div class="toast" style="--acc: var(--poppy)"><i data-i="warn"></i>Hotbar full · <span class="key">1</span>–<span class="key">8</span> swap · <span class="key">Q</span> drop</div>
+  </div>
+  <div class="tile">
+    <h3>Give to a crewmate</h3>
+    <p>Look at a mate within 3 m and hold E. They get it at once if there's room. A fish is never thrown into the sea by mistake.</p>
+    <div class="toast" style="--acc: var(--brass-400)"><i data-i="crew"></i>Gave <b>&nbsp;3 Mackerel&nbsp;</b> to Rani</div>
+    <div class="pill"><span class="key">Hold E</span> Give one · <span class="key">⇧ Hold E</span> Give stack</div>
+  </div>
+  <div class="tile">
+    <h3>Controller</h3>
+    <p>Bumpers cycle the slots, D-pad ↓ drops, hold X on a mate to give. Hold Y opens the bait pouch. Hint text follows the last device used.</p>
+    <div class="pill"><span class="pad">LB</span><span class="pad">RB</span> Cycle · <span class="pad round">Y</span> Bait · <span class="pad">D↓</span> Drop</div>
+  </div>
+</div>
+<div class="cap" style="color:var(--ink-soft)">Port Boss · hotbar spec mockup · numbers illustrative (fishing.md / economy.md own the values)</div>
+<script src="icons.js"></script>
+</body></html>

@@ -1,3 +1,5 @@
+> **HISTORICAL (1 Nov 2026).** This file describes the OLD dock-work version of Port Boss, which Manan replaced on 31 Oct with the fishing-first game. **Read `HANDOVER.md` instead**: it is the one entry point, and its rules win over anything below. Kept only as a record of Tushar's five playtest rounds on 29 Oct.
+
 # Port Boss: handover to Manan (29 Oct 2026, evening)
 
 Hi Manan. After your MORNING build, Tushar played the game five times and asked for changes after each session. This file

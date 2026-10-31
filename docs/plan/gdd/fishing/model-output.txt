@@ -1,0 +1,84 @@
+15 species, 3 per rod, 1 legend (Old Faithful + Walt's Mix only; 5%/cast first time, 1%/cast after); every fish bites anywhere, any time, any weather
+
+Stop-1 timing window (ms) per rod:
+             Walt's Bamboo     Fibreglass         Carbon       Deep-sea   Old Faithful
+  Everyday             211            256            305            348            396
+  Uncommon             180            218            260            296            338
+  Scarce               155            187            223            255            290
+  Trophy               120            145            173            198            225
+  Legend                93            112            134            153            174
+
+Chance of Prized (3 hits), practised player (sigma 70 ms), per rod:
+  Everyday             59%            75%            87%            93%            97%
+  Uncommon             45%            61%            76%            86%            92%
+  Scarce               33%            48%            64%            75%            84%
+  Trophy               19%            29%            42%            53%            64%
+  Legend               10%            16%            24%            33%            42%
+
+Grade mix, novice player (sigma 110 ms), starter rod:
+  Everyday  C:  5%  F: 26%  R: 44%  P: 25%   price x1.76
+  Uncommon  C:  9%  F: 33%  R: 41%  P: 17%   price x1.64
+  Scarce    C: 14%  F: 39%  R: 36%  P: 11%   price x1.54
+  Trophy    C: 23%  F: 44%  R: 28%  P:  6%   price x1.41
+  Legend    C: 34%  F: 44%  R: 19%  P:  3%   price x1.31
+
+Grade mix, practised player (sigma 70 ms), starter rod:
+  Everyday  C:  0%  F:  7%  R: 34%  P: 59%   price x2.14
+  Uncommon  C:  1%  F: 12%  R: 41%  P: 45%   price x2.00
+  Scarce    C:  3%  F: 19%  R: 44%  P: 33%   price x1.87
+  Trophy    C:  8%  F: 31%  R: 42%  P: 19%   price x1.67
+  Legend    C: 16%  F: 40%  R: 34%  P: 10%   price x1.51
+
+Who bites, per rod x bait (average over times/weathers; top 3 species):
+  Walt's Bamboo Worm     Harbour Sprat 44%, Grey Mullet 33%, Mackerel 23%
+  Walt's Bamboo Shrimp   Grey Mullet 49%, Mackerel 35%, Harbour Sprat 16%
+  Walt's Bamboo Sardine  Mackerel 55%, Harbour Sprat 26%, Grey Mullet 19%
+  Walt's Bamboo Squid    Harbour Sprat 44%, Grey Mullet 33%, Mackerel 23%
+  Fibreglass    Worm     Harbour Sprat 41%, Grey Mullet 30%, Mackerel 22%
+  Fibreglass    Shrimp   Black Bream 30%, Garfish 22%, Grey Mullet 21%
+  Fibreglass    Sardine  Conger Eel 41%, Mackerel 21%, Garfish 15%
+  Fibreglass    Squid    Conger Eel 31%, Black Bream 30%, Harbour Sprat 15%
+  Carbon        Worm     Harbour Sprat 39%, Grey Mullet 29%, Mackerel 21%
+  Carbon        Shrimp   Black Bream 27%, Garfish 20%, Grey Mullet 19%
+  Carbon        Sardine  Conger Eel 29%, Mackerel 15%, Mahi-mahi 13%
+  Carbon        Squid    Red Snapper 23%, Conger Eel 18%, Black Bream 18%
+  Deep-sea      Worm     Harbour Sprat 38%, Grey Mullet 28%, Mackerel 20%
+  Deep-sea      Shrimp   Black Bream 25%, Garfish 18%, Grey Mullet 18%
+  Deep-sea      Sardine  Conger Eel 24%, Mackerel 13%, Mahi-mahi 11%
+  Deep-sea      Squid    Red Snapper 17%, Conger Eel 13%, Black Bream 13%
+  Old Faithful  Worm     Harbour Sprat 37%, Grey Mullet 28%, Mackerel 20%
+  Old Faithful  Shrimp   Black Bream 25%, Garfish 18%, Grey Mullet 18%
+  Old Faithful  Sardine  Conger Eel 24%, Mackerel 12%, Mahi-mahi 11%
+  Old Faithful  Squid    Red Snapper 16%, Conger Eel 12%, Black Bream 12%
+  Old Faithful  WaltsMix Giant Oarfish 12%, Harbour Sprat 11%, Swordfish 10%
+
+$/fish and $/real hour, practised player, Fresh, mid size, best bait per rod:
+  rod           bait       $/fish      net  fish/h      $/h
+  Walt's Bamboo Worm         16.2     15.7      70     1097
+  Walt's Bamboo Shrimp       17.9     16.5      70     1157
+  Walt's Bamboo Sardine      18.3     16.3      70     1139
+  Walt's Bamboo Squid        16.2     13.4      70      936
+                best: Shrimp
+  Fibreglass    Worm         20.1     19.5      72     1401
+  Fibreglass    Shrimp       36.1     34.7      72     2490
+  Fibreglass    Sardine      43.6     41.5      72     2980
+  Fibreglass    Squid        43.9     41.0      72     2947
+                best: Sardine
+  Carbon        Worm         25.7     25.1      74     1851
+  Carbon        Shrimp       48.2     46.9      74     3454
+  Carbon        Sardine      73.3     71.2      74     5246
+  Carbon        Squid        83.0     80.1      74     5904
+                best: Squid
+  Deep-sea      Worm         35.3     34.8      76     2631
+  Deep-sea      Shrimp       67.6     66.2      76     5009
+  Deep-sea      Sardine     119.8    117.7      76     8907
+  Deep-sea      Squid       150.1    147.2      76    11140
+                best: Squid
+  Old Faithful  Worm         42.2     41.6      78     3237
+  Old Faithful  Shrimp       76.8     75.4      78     5864
+  Old Faithful  Sardine     130.3    128.2      78     9970
+  Old Faithful  Squid       186.7    183.8      78    14297
+  Old Faithful  WaltsMix    388.3    342.3      78    26623
+                best: WaltsMix
+
+OK: all MUST asserts passed

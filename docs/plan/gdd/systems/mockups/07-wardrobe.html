@@ -1,0 +1,112 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Wardrobe</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+body { background: var(--grain), linear-gradient(180deg, #CFE6F5 0%, #EAF3F0 50%, #F8EFDD 100%); padding: 48px 64px; position: relative; }
+.cloud { position: absolute; border-radius: 50%; background: #fff; opacity: .7; filter: blur(2px); }
+h1 { font: 600 42px var(--f-display); font-variation-settings: 'SOFT' 100, 'opsz' 96; position: relative; }
+.sub { font: 500 18px var(--f-ui); color: var(--ink-soft); margin-top: 4px; position: relative; }
+.wrap { position: absolute; left: 64px; right: 64px; top: 150px; bottom: 56px; display: grid; grid-template-columns: 380px 1fr 560px; gap: 28px; }
+
+.crew { padding: 22px; display: flex; flex-direction: column; gap: 14px; }
+.lab { font: 700 12px var(--f-ui); letter-spacing: .14em; text-transform: uppercase; color: var(--line); }
+.grid6 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.pc { border-radius: 18px; border: 2px solid var(--line-soft); background: #fff; overflow: hidden; position: relative; }
+.pc .ph { height: 150px; background-image: url('../../../replan/chars/img/_fronts.png'); background-size: 600% auto; background-repeat: no-repeat; background-position-y: 18%; background-color: #E6EEF3; }
+.pc b { display: block; font: 600 20px var(--f-display); font-variation-settings: 'SOFT' 100; padding: 8px 12px 0; }
+.pc span { display: block; font: 500 13px var(--f-ui); color: var(--ink-soft); padding: 0 12px 10px; }
+.pc.on { border: 2.5px solid var(--line); box-shadow: 0 3px 0 var(--line); }
+.pc.on::after { content: 'You'; position: absolute; right: 8px; top: 8px; font: 900 11px var(--f-ui); letter-spacing: .1em; text-transform: uppercase; background: var(--leaf); color: #fff; padding: 3px 8px; border-radius: 999px; border: 1.5px solid var(--line); }
+.pc.taken { opacity: .55; }
+.pc.taken::after { content: 'Rani (P2)'; position: absolute; right: 8px; top: 8px; font: 900 11px var(--f-ui); letter-spacing: .06em; background: var(--poppy); color: #fff; padding: 3px 8px; border-radius: 999px; border: 1.5px solid var(--line); }
+.fixed { font: 500 14px/1.45 var(--f-ui); color: var(--ink-soft); padding: 10px 12px; border-radius: 12px; background: var(--paper-2); border: 1.5px dashed var(--line-soft); }
+
+.stage { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+.disc { position: absolute; bottom: 120px; width: 520px; height: 130px; border-radius: 50%; background: radial-gradient(ellipse, #FFF3DC 0%, #F8EFDD 60%, rgba(248,239,221,0) 72%); border: 2px solid var(--line-soft); }
+.hero { position: absolute; bottom: 150px; width: 440px; height: 640px; background: url('../../../replan/chars/img/turn-pip.png') no-repeat; background-size: 300% auto; background-position: 0% 40%; -webkit-mask-image: radial-gradient(ellipse 62% 58% at 50% 50%, #000 70%, transparent 100%); mix-blend-mode: multiply; filter: brightness(1.18) saturate(1.05); }
+.rot { position: absolute; bottom: 165px; display: flex; gap: 420px; }
+.rot span { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: var(--paper); border: 2px solid var(--line); box-shadow: 0 3px 0 var(--line); font-size: 26px; color: var(--line); }
+.who { position: relative; text-align: center; padding: 14px 26px 16px; border-radius: 22px; }
+.who b { font: 600 34px var(--f-display); font-variation-settings: 'SOFT' 100; }
+.who p { font: 500 15px var(--f-ui); color: var(--ink-soft); }
+.band { display: inline-flex; align-items: center; gap: 8px; margin-top: 8px; padding: 6px 12px; border-radius: 999px; background: #E9F6E4; border: 1.5px solid var(--line); font: 700 13px var(--f-ui); }
+.band i { width: 16px; height: 16px; border-radius: 50%; background: #3FAE4A; border: 1.5px solid var(--line); }
+.band .i { font-size: 14px; color: var(--line); }
+
+.ward { padding: 22px 24px; display: flex; flex-direction: column; gap: 16px; }
+.tabs { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.tab { text-align: center; padding: 9px 0; border-radius: 12px; font: 700 14px var(--f-ui); color: var(--ink-soft); border: 2px solid transparent; }
+.tab.on { background: #fff; color: var(--ink); border-color: var(--line); box-shadow: 0 2px 0 var(--line); }
+.items { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.it { border-radius: 18px; background: #fff; border: 2px solid var(--line-soft); padding: 12px; text-align: center; position: relative; }
+.it.on { border: 2.5px solid var(--line); background: linear-gradient(180deg, #FFFDF6, #FFF3D2); box-shadow: 0 3px 0 var(--line); }
+.it svg { width: 100px; height: 72px; }
+.it b { display: block; font: 700 14px var(--f-ui); margin-top: 4px; }
+.it span { font: 500 12px var(--f-ui); color: var(--ink-soft); }
+.it.lock { background: var(--paper-2); border-style: dashed; }
+.it.lock svg { opacity: .35; }
+.it .tag { position: absolute; left: 8px; top: 8px; font: 900 10px var(--f-ui); letter-spacing: .08em; text-transform: uppercase; padding: 3px 7px; border-radius: 999px; background: var(--sunflower); border: 1.5px solid var(--line); }
+.dyes { display: flex; gap: 10px; align-items: center; }
+.dye { width: 38px; height: 38px; border-radius: 50%; border: 2px solid var(--line); background: var(--c); }
+.dye.on { box-shadow: 0 0 0 3px var(--paper), 0 0 0 5.5px var(--line); }
+.dyes .more { font: 700 13px var(--f-ui); color: var(--ink-soft); margin-left: 6px; }
+.shopnote { display: flex; align-items: center; gap: 10px; font: 500 14px var(--f-ui); color: var(--ink-soft); padding: 10px 12px; border-radius: 12px; background: var(--paper-2); }
+.shopnote .i { font-size: 20px; color: var(--line); }
+.foot { margin-top: auto; display: flex; gap: 12px; }
+.btn { flex: 1; height: 56px; border-radius: 18px; display: flex; align-items: center; justify-content: center; gap: 10px; font: 900 18px var(--f-ui); border: 2.5px solid var(--line); box-shadow: 0 4px 0 var(--line); }
+.btn.go { background: linear-gradient(180deg, #FBD873, #F7C548); }
+.btn.alt { background: var(--paper-2); color: var(--ink-soft); flex: .6; }
+</style></head>
+<body>
+<div class="cloud" style="left:1300px;top:30px;width:260px;height:90px"></div><div class="cloud" style="left:1480px;top:10px;width:180px;height:110px"></div>
+<h1>Wardrobe</h1>
+<div class="sub">Pick one of the six crew. Faces and bodies come with them; only the clothes change. Open it at any bed or the office locker.</div>
+
+<div class="wrap">
+  <div class="crew paper">
+    <div class="lab">Crew member</div>
+    <div class="grid6">
+      <div class="pc"><div class="ph" style="background-position-x: 60%"></div><b>Bruno</b><span>stocky · quiet strongman</span></div>
+      <div class="pc"><div class="ph" style="background-position-x: 0%"></div><b>Stretch</b><span>lanky · eager apprentice</span></div>
+      <div class="pc on"><div class="ph" style="background-position-x: 80%"></div><b>Pip</b><span>round · fish expert</span></div>
+      <div class="pc taken"><div class="ph" style="background-position-x: 20%"></div><b>Rani</b><span>broad · ex-crane boss</span></div>
+      <div class="pc"><div class="ph" style="background-position-x: 100%"></div><b>Old Gus</b><span>wiry · old salt</span></div>
+      <div class="pc"><div class="ph" style="background-position-x: 40%"></div><b>Sully</b><span>the diver · silent</span></div>
+    </div>
+    <div class="fixed">In co-op, each crew member can be picked by only one player at a time. If both want Pip, the second player is asked to choose another.</div>
+  </div>
+
+  <div class="stage">
+    <div class="disc"></div>
+    <div class="hero"></div>
+    <div class="rot"><span><i data-i="back"></i></span><span><i data-i="chev"></i></span></div>
+    <div class="who paper">
+      <b>Pip</b>
+      <p>Cheerful fish expert. Hums shanties, knows every buyer by name.</p>
+      <span class="band"><i></i>Your colour: green · armband + back patch, always on <i data-i="lock"></i></span>
+    </div>
+  </div>
+
+  <div class="ward paper">
+    <div class="tabs"><span class="tab on">Hat</span><span class="tab">Top</span><span class="tab">Over</span><span class="tab">Legs</span><span class="tab">Boots</span><span class="tab">Gloves</span></div>
+    <div class="items">
+      <div class="it on"><svg viewBox="0 0 100 72"><path d="M14 46 C 14 26, 86 26, 86 46 Z" fill="#F7C548" stroke="#805C52" stroke-width="2.5"/><path d="M4 48 C 30 40, 70 40, 96 48 C 70 58, 30 58, 4 48 Z" fill="#F7C548" stroke="#805C52" stroke-width="2.5"/></svg><b>Sou'wester</b><span>Pip's own</span></div>
+      <div class="it"><svg viewBox="0 0 100 72"><path d="M22 50 C 20 22, 80 22, 78 50 Z" fill="#5B6FB8" stroke="#805C52" stroke-width="2.5"/><path d="M18 50 H82 V58 H18 Z" fill="#3A4A8E" stroke="#805C52" stroke-width="2.5" rx="3"/><circle cx="50" cy="20" r="5" fill="#E2553F" stroke="#805C52" stroke-width="2"/></svg><b>Bobble beanie</b><span>owned</span></div>
+      <div class="it"><svg viewBox="0 0 100 72"><path d="M18 44 C 18 20, 82 20, 82 44 Z" fill="#FFFBF2" stroke="#805C52" stroke-width="2.5"/><path d="M10 46 H90 L84 52 H16 Z" fill="#FFFBF2" stroke="#805C52" stroke-width="2.5"/><path d="M18 40 H82" stroke="#3FAE4A" stroke-width="4"/></svg><b>Hard hat</b><span>owned</span></div>
+      <div class="it"><span class="tag">Story</span><svg viewBox="0 0 100 72"><path d="M20 44 C 22 22, 78 22, 80 44 Z" fill="#2B3766" stroke="#805C52" stroke-width="2.5"/><path d="M12 44 H70 C 82 44, 92 48, 92 52 H12 Z" fill="#1D2748" stroke="#805C52" stroke-width="2.5"/><path d="M38 30 L 50 24 L 62 30" stroke="#F7C548" stroke-width="3" fill="none"/></svg><b>Walt's cap</b><span>from Grandpa</span></div>
+      <div class="it lock"><svg viewBox="0 0 100 72"><path d="M16 44 C 16 24, 84 24, 84 44 Z" fill="#E2553F" stroke="#805C52" stroke-width="2.5"/><path d="M60 44 H94 V50 H60 Z" fill="#E2553F" stroke="#805C52" stroke-width="2.5"/></svg><b>Ball cap</b><span>Hartley's · $40</span></div>
+      <div class="it lock"><svg viewBox="0 0 100 72"><path d="M10 40 C 30 20, 70 20, 90 40 C 70 48, 30 48, 10 40 Z" fill="#E9D2A5" stroke="#805C52" stroke-width="2.5"/><path d="M30 34 C 34 18, 66 18, 70 34" fill="#E9D2A5" stroke="#805C52" stroke-width="2.5"/></svg><b>Straw hat</b><span>Hartley's · $90</span></div>
+    </div>
+    <div>
+      <div class="lab" style="margin-bottom:10px">Dye · Sou'wester</div>
+      <div class="dyes">
+        <span class="dye on" style="--c:#F7C548"></span><span class="dye" style="--c:#E2553F"></span><span class="dye" style="--c:#46D6C8"></span><span class="dye" style="--c:#3A86E0"></span><span class="dye" style="--c:#FFFBF2"></span><span class="dye" style="--c:#2B3766"></span><span class="dye" style="--c:#7DBE6A"></span><span class="more">+ dyes at Hartley's, $25 each</span>
+      </div>
+    </div>
+    <div class="shopnote"><i data-i="pin"></i><span>Greyed items are sold at <b style="color:var(--ink)">Hartley's Outfitters</b>, Old Saltmouth, 9 AM – 7 PM.</span></div>
+    <div class="foot"><div class="btn alt"><span class="key">R</span>Reset to Pip</div><div class="btn go"><span class="key">E</span>Wear it</div></div>
+  </div>
+</div>
+<div class="cap">Port Boss · wardrobe: clothes only (Manan, 2026-10-31) · character images = pb-chars concept sheets, stand-ins for the Ponyo-shaded kit</div>
+<script src="icons.js"></script>
+</body></html>
