@@ -288,6 +288,7 @@ namespace PortBoss.M1
             var s = Skiff.I; Ctl.Bot = true;
             me.Select(0); yield return new WaitForSeconds(0.8f);
             filmSide = side; StartCoroutine(Film(dir, 999, 1280, 720));
+            StartCoroutine(LogBeats());
             yield return new WaitForSeconds(0.8f);
             // walk the deck: aft along the rail, turn, back, then turn to the sea
             float yaw0 = CameraRig.I.Yaw;
@@ -324,6 +325,17 @@ namespace PortBoss.M1
             Application.Quit();
         }
         static bool filmSide;
+        // the tour's beats with their times, so the proof script can cut contact sheets of them
+        IEnumerator LogBeats()
+        {
+            var last = fish.State;
+            while (true)
+            {
+                if (fish.State != last && fish.State is Fishing.St.Heavy or Fishing.St.Minigame or Fishing.St.Reel or Fishing.St.Reveal or Fishing.St.Bite)
+                    Debug.Log($"[PB] tour beat {fish.State} at {Time.time:F2}");
+                last = fish.State; yield return null;
+            }
+        }
 
         // -pb-cast8 <dir>: stand mid-deck facing the bow, aim the camera at 8 headings round the boat (0 = over the bow,
         // 180 = behind him, over the motor) and cast. The body must face where the line goes, from the charge to the
