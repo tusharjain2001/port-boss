@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 517fda29ce71d7749a5e7480dd296af6, type: 3}
   m_Name: M1Assets
   m_EditorClassIdentifier: Assembly-CSharp::PortBoss.M1.M1Assets
-  Pipeline: {fileID: 11400000, guid: ecb2a77a5a6369d4189d5032e6a96a75, type: 2}
+  Pipeline: {fileID: 11400000, guid: 2a43f4b148e2e9143b7aabcf344c70fa, type: 2}
   Toon: {fileID: 4800000, guid: 15ac94d561d5a0540aa898a9bb14280f, type: 3}
   Water: {fileID: 4800000, guid: 13f21e1d8ea8bd1469c54d58ac3d4d78, type: 3}
   Sky: {fileID: 4800000, guid: 01605a835470fe342bc33cfe6e45370c, type: 3}

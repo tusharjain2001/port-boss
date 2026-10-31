@@ -34,6 +34,7 @@ namespace PortBoss.M1
             if (Arg("-pb-fishtest") != null) yield return FishTest((int)ArgF("-pb-fishtest", 50), Arg("-pb-csv"));
             else if (Arg("-pb-shots") != null) { shots = Arg("-pb-shots"); Directory.CreateDirectory(shots); yield return ShotTour(); }
             else if (Arg("-pb-boattest") != null) yield return BoatTest();
+            else if (Arg("-pb-swimtest") != null) yield return SwimTest();
         }
 
         IEnumerator QuitAfter(float s) { yield return new WaitForSecondsRealtime(s); Debug.Log("[PB] quit"); Application.Quit(); }
@@ -147,8 +148,10 @@ namespace PortBoss.M1
         {
             yield return new WaitForSeconds(0.5f);
             yield return SailOut(false); me.Select(0);
+            // nothing to look at in a 500-cast run: stop drawing so game time runs fast with small, even frames
+            CameraRig.I.Cam.enabled = false; CameraRig.I.UiCam.enabled = false;
             var lines = new List<string> { "cast,species,planned_wait_s,measured_wait_s,nibbles,outcome,hits,grade,stop_err_ms" };
-            var waits = new List<float>(); var grades = new int[4]; int landed = 0;
+            var waits = new List<float>(); var grades = new int[4]; int landed = 0; float pmin = 99, pmax = 0, lagMax = 0;
             for (int i = 0; i < n; i++)
             {
                 yield return CastOnce(0.55f + 0.4f * Random.value);
@@ -157,6 +160,7 @@ namespace PortBoss.M1
                 lines.Add(i + 1 + "," + row);
                 var f = row.Split(',');
                 if (float.TryParse(f[2], NumberStyles.Float, CultureInfo.InvariantCulture, out var w)) waits.Add(w);
+                if (float.TryParse(f[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var pw)) { pmin = Mathf.Min(pmin, pw); pmax = Mathf.Max(pmax, pw); lagMax = Mathf.Max(lagMax, w - pw); }
                 if (int.TryParse(f[6], out var g)) { grades[g]++; landed++; }
                 if (me.Bar.Full) { for (int k = 1; k < 8; k++) me.Bar.S[k].Fish.Clear(); } // sold, so to speak
                 if (i % 25 == 24) Debug.Log($"[PB] fishtest {i + 1}/{n}");
@@ -165,12 +169,13 @@ namespace PortBoss.M1
             Directory.CreateDirectory(Path.GetDirectoryName(csv)); File.WriteAllLines(csv, lines);
             waits.Sort();
             float min = waits.Count > 0 ? waits[0] : -1, max = waits.Count > 0 ? waits[^1] : -1, mean = 0; foreach (var w in waits) mean += w; mean /= Mathf.Max(1, waits.Count);
-            bool waitOk = min >= 4.0f - 0.02f && max <= fish.Rod.BiteHi + 0.05f;
+            bool waitOk = min >= fish.Rod.BiteLo && max <= fish.Rod.BiteHi;
             // expected grade mix: each stop a hit when |error| ≤ half the window (window = zone / speed, rod-scaled)
             string mix = ""; float[] exp = ExpectedMix(); bool mixOk = true;
             for (int g = 0; g < 4; g++) { float got = grades[g] / (float)Mathf.Max(1, landed); mix += $"{Ponyo.GradeName[g]} {got:P0} (model {exp[g]:P0}) "; if (Mathf.Abs(got - exp[g]) > 0.03f + 1.5f * Mathf.Sqrt(exp[g] * (1 - exp[g]) / Mathf.Max(1, landed))) mixOk = false; }
             Debug.Log($"[PB] fishtest csv {csv}");
-            Debug.Log($"[PB] RESULT bites {waits.Count}/{n}: wait min {min:F2} max {max:F2} mean {mean:F2} s (rod {fish.Rod.BiteLo}-{fish.Rod.BiteHi}) -> {(waitOk ? "PASS" : "FAIL")}");
+            Debug.Log($"[PB] RESULT bites {waits.Count}/{n}: seen on screen after min {min:F3} max {max:F3} mean {mean:F2} s (rod {fish.Rod.BiteLo}-{fish.Rod.BiteHi}, timescale {Time.timeScale}) -> {(waitOk ? "PASS" : "FAIL")}");
+            Debug.Log($"[PB] RESULT bite timer (planned) min {pmin:F3} max {pmax:F3} s -> {(pmin >= fish.Rod.BiteLo && pmax <= fish.Rod.BiteHi ? "PASS" : "FAIL")}; frame lag max {lagMax * 1000:F0} ms");
             Debug.Log($"[PB] RESULT grade mix (landed {landed}, sigma {sigma * 1000:0} ms, Everyday on {fish.Rod.Name}): {mix}-> {(mixOk ? "PASS" : "CHECK")}");
             Application.Quit();
         }
@@ -291,5 +296,37 @@ namespace PortBoss.M1
             Application.Quit();
         }
         static Vector3 Flat(Vector3 v) => new(v.x, 0, v.z);
+
+        // Jump over the side from the rail, swim to the stern ladder, climb back aboard (Manan's M1 check).
+        IEnumerator SwimTest()
+        {
+            shots = Arg("-pb-swimshots"); if (shots != null) Directory.CreateDirectory(shots);
+            yield return new WaitForSeconds(0.5f);
+            yield return SailOut(false);
+            var s = Skiff.I; Ctl.Bot = true; me.Select(1);
+            CameraRig.I.Yaw = me.transform.eulerAngles.y;
+            Ctl.BotMove = Vector2.up; yield return new WaitForSeconds(0.25f);
+            Ctl.BotJump = true; yield return null; Ctl.BotJump = false;
+            float t = 0; while (!me.Swimming && t < 3) { t += Time.deltaTime; yield return null; }
+            Ctl.BotMove = Vector2.zero;
+            Debug.Log($"[PB] swim: jumped overboard {(me.Swimming ? "yes" : "NO")} in {t:F2} s");
+            yield return new WaitForSeconds(1f);
+            if (shots != null) yield return Shot("swim-in-water");
+            // swim round to the ladder (the bot steers straight at it)
+            t = 0;
+            while (t < 25 && Vector3.Distance(Flat(me.transform.position), Flat(s.LadderBottom.position)) > 1.2f)
+            {
+                var to = s.LadderBottom.position - me.transform.position; to.y = 0;
+                CameraRig.I.Yaw = Mathf.Atan2(to.x, to.z) * Mathf.Rad2Deg; Ctl.BotMove = Vector2.up;
+                t += Time.deltaTime; yield return null;
+            }
+            Ctl.BotMove = Vector2.zero;
+            Debug.Log($"[PB] swim: reached the ladder in {t:F1} s (prompt: {me.Prompt})");
+            Ctl.BotInteract = true; yield return null; Ctl.BotInteract = false;
+            yield return new WaitForSeconds(2f);
+            if (shots != null) yield return Shot("swim-back-aboard");
+            Debug.Log($"[PB] RESULT swim: back aboard {(me.OnBoat ? "PASS" : "FAIL")} (swimming {me.Swimming})");
+            Application.Quit();
+        }
     }
 }

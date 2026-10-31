@@ -233,7 +233,8 @@ namespace PortBoss.M1
         void StartWait()
         {
             // the rod's bite range (MUST 4–10 s; better rods narrow it to 4–6 s); species rolled now, revealed at the bite
-            BiteWait = Rod.BiteLo + (Rod.BiteHi - Rod.BiteLo) * (float)Rng.NextDouble();
+            // (20 ms kept back from the top: the bite shows on the next frame, so it never lands after the rod's top)
+            BiteWait = Rod.BiteLo + (Rod.BiteHi - Rod.BiteLo - 0.02f) * (float)Rng.NextDouble();
             WaitStart = Time.time; BiteAt = Time.time + BiteWait;
             Hooked = FishDb.Roll(Rng, RodTier, BaitId);
             int c = (int)Hooked.Class;

@@ -125,7 +125,7 @@ namespace PortBoss.M1
             {
                 vy -= (vy > 0 ? 20f : 30f) * dt;
                 if (grounded && vy < 0) vy = -2f;
-                if (!Busy && Ctl.Jump && Time.time - lastGround < 0.12f) { vy = Mathf.Sqrt(2 * 20f * (OnBoat ? 0.45f : 0.6f)); lastGround = -1; }
+                if (!Busy && Ctl.Jump && Time.time - lastGround < 0.12f) { vy = Mathf.Sqrt(2 * 20f * (OnBoat ? 0.6f : 0.6f)); /* on Biscuit: just clears the 0.5 m gunwale when you mean it */ lastGround = -1; }
             }
             Cc.Move((Vel + Vector3.up * vy) * dt);
 
