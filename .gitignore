@@ -124,3 +124,5 @@ InitTestScene*.unity*
 
 # Blender output scratch of art-src/worker/build_worker.py (Worker.fbx is copied to Assets/Art/Worker, Worker.blend kept)
 /art-src/worker/out/
+# Blender output scratch of art-src/m1/build_fish.py (FBX go to Assets/Game/Art/Fish)
+/art-src/m1/out/

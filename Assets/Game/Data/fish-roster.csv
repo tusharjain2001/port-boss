@@ -1,0 +1,17 @@
+# MUST (Manan 31 Oct): these 15 fish are final for the build. 3 per rod tier; first bait = favourite (x4), others liked (x2), any other bait x0.5; fav_time/fav_weather = x1.5 nudge, never a lock; no zones. Walt's Mix $40 each at June's once you own Old Faithful.
+id,name,class,rod_tier,fav_time,fav_weather,baits,base_price,size_min_cm,size_max_cm,weight_min_kg,weight_max_kg,notes
+sprat,Harbour Sprat,Everyday,1,Any,Any,Worm|None,6,8,15,0.01,0.04,Tutorial fish; also bites a bare hook and is caught by the cast net
+mullet,Grey Mullet,Everyday,1,Day,Any,Worm|Shrimp,8,25,55,0.3,2.0,Cruises our dock pilings; visible from the pier
+mackerel,Mackerel,Everyday,1,Dawn,Clear,Worm|Shrimp|Sardine,10,25,42,0.2,0.9,Comes in shoals under diving gulls
+garfish,Garfish,Uncommon,2,Dusk,Clear,Shrimp|Sardine,20,50,85,0.3,1.2,Green bones; leaps on the last hit
+bream,Black Bream,Uncommon,2,Day,Any,Shrimp|Squid,24,25,50,0.4,2.5,Steady daytime biter
+conger,Conger Eel,Uncommon,2,Night,Any,Sardine|Squid,30,60,180,1.5,25,Lives under our own old pier; heavy ones ask Fight it or Let it go
+snapper,Red Snapper,Scarce,3,Dusk,Any,Squid|Sardine,55,35,90,1,12,The Pelican's staple order
+mahi,Mahi-mahi,Scarce,3,Day,Clear,Sardine|Shrimp,65,70,140,4,20,Colour fades gold to grey as it goes stale
+grouper,Dusky Grouper,Scarce,3,Day,Fair,Squid|Sardine,70,50,120,3,35,Cousin of Walt's legend
+sunfish,Ocean Sunfish,Trophy,4,Day,Clear,Squid|Shrimp|WaltsMix,140,80,250,40,300,Absurd two-handed wobbling reveal
+blueshark,Blue Shark,Trophy,4,Any,Rain,Sardine|Squid|WaltsMix,160,150,300,30,150,Circles the boat before it bites
+swordfish,Swordfish,Trophy,4,Night,Any,Squid|Sardine|WaltsMix,180,120,300,30,250,Leaps twice during the fight
+anglerfish,Deep Anglerfish,Trophy,5,Night,Any,Squid|WaltsMix,200,40,100,3,25,Lure light stays lit in the hotbar
+oarfish,Giant Oarfish,Trophy,5,Any,Storm,WaltsMix|Squid,220,300,800,20,200,The reveal pans along its length
+oldbrass,Old Brass (Walt's legend grouper),Legend,5,Dusk,Rain,WaltsMix,1500,210,240,180,220,"MUST (Manan 31 Oct): needs Old Faithful AND Walt's Mix; 5%/cast first time (story: mount or sell), then 1%/cast"

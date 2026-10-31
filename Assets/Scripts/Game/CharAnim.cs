@@ -36,6 +36,8 @@ namespace PortBoss
         public float BoxHalf, BoxW;   // its half size; 0..1 how much the hands hold it (fades out after letting go)
         public Transform Grip;        // something to hold with both hands at GripL / GripR (local to it): the trolley bar
         public Vector3 GripL, GripR;
+        public float GripLean = 14f;  // lean into what the hands hold (the trolley's push; 0 for a fishing rod)
+        public Vector3 GripElbow = new(0, -0.7f, -0.1f), GripFingers = new(0, -0.2f, 1); // in the player's space: elbow hint, finger direction
         public World.Ladder? Ladder;  // on this ladder: hands and feet on the rungs, from how high the player is
         public float LadderW;
         public float WaterY = float.NaN; // treading water at this surface height: arms down in the water, sculling
@@ -313,8 +315,8 @@ namespace PortBoss
             }
             if (gripW > 0.01f && Grip != null)
             {
-                if (spine != null) spine.rotation = Quaternion.AngleAxis(14f * gripW, t.right) * spine.rotation; // leaning into the push
-                Hands(t, Grip.TransformPoint(GripL), Grip.TransformPoint(GripR), gripW, -t.up * 0.7f - t.forward * 0.1f, t.forward - t.up * 0.2f);
+                if (spine != null && GripLean != 0) spine.rotation = Quaternion.AngleAxis(GripLean * gripW, t.right) * spine.rotation; // leaning into the push
+                Hands(t, Grip.TransformPoint(GripL), Grip.TransformPoint(GripR), gripW, t.TransformDirection(GripElbow), t.TransformDirection(GripFingers));
             }
             if (waterW > 0.01f && armLU != null)
             {

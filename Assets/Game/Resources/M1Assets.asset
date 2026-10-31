@@ -1,0 +1,83 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 517fda29ce71d7749a5e7480dd296af6, type: 3}
+  m_Name: M1Assets
+  m_EditorClassIdentifier: Assembly-CSharp::PortBoss.M1.M1Assets
+  Pipeline: {fileID: 11400000, guid: ac595e2d887a69349adf20f228f7adc8, type: 2}
+  Toon: {fileID: 4800000, guid: 15ac94d561d5a0540aa898a9bb14280f, type: 3}
+  Water: {fileID: 4800000, guid: 13f21e1d8ea8bd1469c54d58ac3d4d78, type: 3}
+  Sky: {fileID: 4800000, guid: 01605a835470fe342bc33cfe6e45370c, type: 3}
+  Particle: {fileID: 4800000, guid: 0406db5a14f94604a8c57ccfbc9f3b46, type: 3}
+  Display: {fileID: 12800000, guid: 073515f630f9bfb488761df9f65c53ca, type: 3}
+  DisplayBold: {fileID: 12800000, guid: 8e791ecdc3c43474a9e9dcb860eadc89, type: 3}
+  Ui: {fileID: 12800000, guid: 749a9620315e56347ac06b0fc090dae8, type: 3}
+  UiBold: {fileID: 12800000, guid: 5583b133943a73d4b9dae96457a38cd3, type: 3}
+  UiBlack: {fileID: 12800000, guid: 19ae15171cb4dcf41961ccdce7caa3aa, type: 3}
+  Boat: {fileID: 919132149155446097, guid: 4a02bc32aecf91f41a19329dffaf5490, type: 3}
+  Landing: {fileID: 919132149155446097, guid: 8c71eb69c3c22e647923a43766fef498, type: 3}
+  Worker: {fileID: 919132149155446097, guid: 3a9ed3cc823cb0a41925d0bda8083fc1, type: 3}
+  FishIds:
+  - anglerfish
+  - blueshark
+  - bream
+  - conger
+  - garfish
+  - grouper
+  - mackerel
+  - mahi
+  - mullet
+  - oarfish
+  - oldbrass
+  - snapper
+  - sprat
+  - sunfish
+  - swordfish
+  Fish:
+  - {fileID: 919132149155446097, guid: 6e3a4a7c7396cba45a37a88935a3856f, type: 3}
+  - {fileID: 919132149155446097, guid: f6e7b37e5dc04194d9937fd7662519b8, type: 3}
+  - {fileID: 919132149155446097, guid: 77eb083fb2bc84f45a9f949785089940, type: 3}
+  - {fileID: 919132149155446097, guid: eb3a2abab2dc17f4c9d4939eee8f39fb, type: 3}
+  - {fileID: 919132149155446097, guid: bd0902b7a958d164f819f3f37fe5d12a, type: 3}
+  - {fileID: 919132149155446097, guid: d37e8bc336ae53c41980edaa1da9b2fb, type: 3}
+  - {fileID: 919132149155446097, guid: 13c5492bafbe41641bd9f6d67ee99c47, type: 3}
+  - {fileID: 919132149155446097, guid: f02ac3fb071013a49af401e387ad7140, type: 3}
+  - {fileID: 919132149155446097, guid: 2f4834ff36243e6428637f3afc31c87a, type: 3}
+  - {fileID: 919132149155446097, guid: f21bb01e3a8b46f4a8efab0223dc2d88, type: 3}
+  - {fileID: 919132149155446097, guid: 50ac7e4ba6acfa345a6082fa36f8a257, type: 3}
+  - {fileID: 919132149155446097, guid: dfbe8c9c63b021e4995d4ec13ef6cb2a, type: 3}
+  - {fileID: 919132149155446097, guid: 699a86ba1da363e45834b7d7678f7560, type: 3}
+  - {fileID: 919132149155446097, guid: 711f486537b3d4344a5af625a72b4ffc, type: 3}
+  - {fileID: 919132149155446097, guid: c07cfc781b781b84faee95a6161b82f9, type: 3}
+  FishCsv: {fileID: 4900000, guid: 3797809c58441a14a9440cc911fd4752, type: 3}
+  Idle: {fileID: -203655887218126122, guid: 4d91c61f399d12749bfab62a7bc1be36, type: 3}
+  Walk: {fileID: -203655887218126122, guid: 60892e84d24724744b1b72214421a9a0, type: 3}
+  Run: {fileID: -203655887218126122, guid: 5078bdbac9b825b4b8b78f307461e6eb, type: 3}
+  Sprint: {fileID: -203655887218126122, guid: 8e245573ff1d50343a2d22e477bfc8b3, type: 3}
+  Jump: {fileID: -203655887218126122, guid: ca2052306469e0948a8825a433f9c3d7, type: 3}
+  Land: {fileID: -203655887218126122, guid: 4c6212ae1bc1b404894ba4363542cf12, type: 3}
+  SwimIdle: {fileID: -203655887218126122, guid: fc681bb1b11c1bb409a65d01068deadd, type: 3}
+  Swim: {fileID: -203655887218126122, guid: a013570a1f8ab224b90983637c1db45c, type: 3}
+  Climb: {fileID: -203655887218126122, guid: d9abfa5ecb0911e4c956625509993ece, type: 3}
+  Drive: {fileID: -203655887218126122, guid: b03e2ef6972e9dd45bf819089a3a2d18, type: 3}
+  Waves: {fileID: 8300000, guid: 57173d2a4fe7bb140bd3db2d0718a5ed, type: 3}
+  Splash: {fileID: 8300000, guid: 8df16bfc4089408438d8489bd6afa186, type: 3}
+  Gull: {fileID: 8300000, guid: f643c3efd82711a46acd2a9c37f134b4, type: 3}
+  Thud: {fileID: 8300000, guid: b22e4dd964999254589b1edd48a1fbe9, type: 3}
+  Kaching: {fileID: 8300000, guid: 23102fcf5b5384f479005e000c849201, type: 3}
+  Click: {fileID: 8300000, guid: c9f84f122661d364aa28ab6c698b98cf, type: 3}
+  Steps:
+  - {fileID: 8300000, guid: 4dda48ba0868bcb4c80c3e38efa4c4b2, type: 3}
+  - {fileID: 8300000, guid: 5113e0f74c1c33347b2c59d712631241, type: 3}
+  - {fileID: 8300000, guid: 45b652990945c614da3a650a5f87f93d, type: 3}
+  - {fileID: 8300000, guid: 5c8429af71d2f2d4b87b867e2c816f1b, type: 3}
+  - {fileID: 8300000, guid: d7c6f8de97068f441a0f120d327e1e55, type: 3}
+  WorkerPalette: {fileID: 0}

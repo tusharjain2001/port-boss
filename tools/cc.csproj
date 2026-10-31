@@ -3,9 +3,10 @@
   <PropertyGroup><TargetFramework>netstandard2.1</TargetFramework><LangVersion>9.0</LangVersion><EnableDefaultCompileItems>false</EnableDefaultCompileItems><AllowUnsafeBlocks>true</AllowUnsafeBlocks><NoWarn>CS0618;CS0414;CS0649</NoWarn></PropertyGroup>
   <ItemGroup><Lib Include="Netcode.Runtime;Networking.Transport;InputSystem;RenderPipelines.Core.Runtime;RenderPipelines.Universal.Runtime;Collections;Mathematics;Burst" /></ItemGroup>
   <ItemGroup>
-    <Compile Include="$(PB_PROJECT)/Assets/Scripts/**/*.cs" />
+    <Compile Include="$(PB_PROJECT)/Assets/Scripts/**/*.cs;$(PB_PROJECT)/Assets/Game/**/*.cs" />
     <Reference Include="$(UNITY_DATA)/Managed/UnityEngine/*.dll;$(UNITY_DATA)/Managed/UnityEditor/*.dll" Private="false" />
     <Reference Include="@(Lib->'$(PB_PROJECT)/Library/ScriptAssemblies/Unity.%(Identity).dll')" Private="false" />
     <Reference Include="$(PB_PROJECT)/Assets/Plugins/Facepunch.Steamworks/Facepunch.Steamworks.Win64.dll" Private="false" />
+    <Reference Include="$(PB_PROJECT)/Library/ScriptAssemblies/UnityEngine.UI.dll" Private="false" />
   </ItemGroup>
 </Project>
