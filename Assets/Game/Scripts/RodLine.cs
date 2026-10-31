@@ -17,26 +17,26 @@ namespace PortBoss.M1
         public const float Length = 2.4f;
         public static readonly Vector3 GripR = new(0, -0.02f, 0.42f), GripL = new(0, -0.02f, 0.1f);
 
-        public static RodView Make(Material toon, int tier)
+        public static RodView Make(Material toon, int tier, float thick = 1f)
         {
             var g = new GameObject("Rod"); var r = g.AddComponent<RodView>();
             r.Root = g.transform;
             Color blank = tier switch { 1 => Ponyo.Hex("D8B070"), 2 => Ponyo.Hex("F2E2C0"), 3 => Ponyo.Hex("3A3A48"), 4 => Ponyo.Hex("2160B8"), _ => Ponyo.Hex("6A4A30") };
             Color wrap = tier == 5 ? Ponyo.Hex("F7C548") : Ponyo.Hex("D9483B");
             // cork handle + reel seat
-            Util.MeshObj("cork", Util.Cylinder(10, 0.02f, 0.017f, 0.5f, Ponyo.Hex("C9A27A"), Ponyo.Hex("B88E66")), toon, g.transform);
+            Util.MeshObj("cork", Util.Cylinder(10, 0.02f * thick, 0.017f * thick, 0.5f, Ponyo.Hex("C9A27A"), Ponyo.Hex("B88E66")), toon, g.transform);
             var reel = Util.MeshObj("reel", Util.Cylinder(12, 0.045f, 0.045f, 0.035f, Ponyo.Hex("5E5A66"), Ponyo.Hex("7A7684")), toon, g.transform);
             reel.transform.localPosition = new Vector3(0, -0.06f, 0.36f); reel.transform.localRotation = Quaternion.Euler(0, 90, 0);
             var handle = Util.MeshObj("crank", Util.Cylinder(6, 0.006f, 0.006f, 0.06f, Ponyo.Hex("F7C548"), Ponyo.Hex("F7C548")), toon, reel.transform);
             handle.transform.localPosition = new Vector3(0, 0.03f, 0.035f);
             var foot = Util.MeshObj("foot", Util.Cylinder(6, 0.008f, 0.008f, 0.06f, Ponyo.Hex("5E5A66"), Ponyo.Hex("5E5A66")), toon, g.transform);
             foot.transform.localPosition = new Vector3(0, -0.005f, 0.36f); foot.transform.localRotation = Quaternion.Euler(90, 0, 0);
-            float len = (Length - 0.5f) / 6f, r0 = 0.016f;
+            float len = (Length - 0.5f) / 6f, r0 = 0.016f * thick;
             Transform parent = g.transform; float z = 0.5f;
             for (int i = 0; i < 6; i++)
             {
                 var s = new GameObject("seg" + i).transform; s.SetParent(parent, false); s.localPosition = new Vector3(0, 0, i == 0 ? z : len);
-                float r1 = Mathf.Lerp(0.016f, 0.0035f, (i + 1) / 6f);
+                float r1 = Mathf.Lerp(0.016f, 0.0035f, (i + 1) / 6f) * thick;
                 Util.MeshObj("blank", Util.Cylinder(8, r0, r1, len, blank, blank), toon, s);
                 // a guide ring + wrap at each joint
                 var gw = Util.MeshObj("wrap", Util.Cylinder(8, r0 + 0.003f, r0 + 0.003f, 0.025f, wrap, wrap), toon, s);
@@ -107,7 +107,7 @@ namespace PortBoss.M1
             for (int i = 1; i < N - 1; i++)
             {
                 var v = (p[i] - prev[i]) * 0.96f; prev[i] = p[i];
-                p[i] += v + Vector3.down * 9.8f * 0.35f * dt * dt;
+                p[i] += v + Vector3.down * 9.8f * 0.6f * dt * dt;
             }
             p[0] = a; p[N - 1] = B;
             var s = Skiff.I;
@@ -121,8 +121,7 @@ namespace PortBoss.M1
                 }
                 for (int i = 1; i < N - 1; i++)
                 {
-                    float wy = Sea.Height(p[i]) ;
-                    if (p[i].y < wy - 0.02f && i < N - 3) p[i].y = wy - 0.02f; // rests on the surface, doesn't sink through
+                    if (p[i].y < Sea.Level - 0.25f) p[i].y = Sea.Level - 0.25f; // floats just under the surface
                     if (s != null && s.Inside(p[i], 0.05f)) { float gy = s.GunwaleY(p[i]) + 0.04f; if (p[i].y < gy) p[i].y = gy; }
                 }
             }
@@ -132,8 +131,8 @@ namespace PortBoss.M1
             if (cam != null)
             {
                 float d0 = Vector3.Distance(cam.transform.position, a), d1 = Vector3.Distance(cam.transform.position, B);
-                float px = 2f * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad) / Mathf.Max(1, cam.pixelHeight) * 1.6f;
-                lr.widthCurve = new AnimationCurve(new Keyframe(0, Mathf.Max(0.004f, d0 * px)), new Keyframe(1, Mathf.Max(0.004f, d1 * px)));
+                float px = 2f * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad) / Mathf.Max(1, cam.pixelHeight) * 2.6f;
+                lr.widthCurve = new AnimationCurve(new Keyframe(0, Mathf.Max(0.006f, d0 * px)), new Keyframe(1, Mathf.Max(0.006f, d1 * px)));
                 lr.widthMultiplier = 1;
             }
         }
@@ -145,7 +144,7 @@ namespace PortBoss.M1
         public Vector3 Pos;            // resting point on the sea (xz drifts)
         public float Dip, Yank, Spin;  // metres under (nibble / bite), extra sideways drag, spin
         public bool Floating;
-        float rippleT;
+        float rippleT; Transform halo;
 
         public static BobberView Make(Material toon)
         {
@@ -156,6 +155,15 @@ namespace PortBoss.M1
             stick.transform.localPosition = new Vector3(0, 0.07f, 0); stick.transform.localRotation = Quaternion.Euler(-90, 0, 0);
             var band = Util.MeshObj("band", Util.Cylinder(12, 0.0765f, 0.0765f, 0.018f, Ponyo.Hex("3F2C27"), Ponyo.Hex("3F2C27")), toon, g.transform);
             band.transform.localPosition = new Vector3(0, 0.0f, 0); band.transform.localRotation = Quaternion.Euler(-90, 0, 0);
+            // bright: a little self-light and a strong white rim, plus a soft camera-facing halo
+            var bright = new Material(toon); bright.SetFloat("_Emit", 0.35f); bright.SetColor("_RimColor", new Color(1, 1, 1, 0.8f)); bright.SetFloat("_RimPower", 2.5f); bright.SetFloat("_PaintNoise", 0);
+            foreach (var r in g.GetComponentsInChildren<MeshRenderer>()) r.sharedMaterial = bright;
+            var halo = GameObject.CreatePrimitive(PrimitiveType.Quad); Object.Destroy(halo.GetComponent<Collider>()); halo.name = "halo";
+            halo.transform.SetParent(g.transform, false); halo.transform.localScale = Vector3.one * 0.42f;
+            var hm = Util.Soft(new Color(1f, 0.6f, 0.45f, 0.45f)); hm.renderQueue = 3150;
+            halo.GetComponent<MeshRenderer>().sharedMaterial = hm; halo.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            b.halo = halo.transform;
+            g.transform.localScale = Vector3.one * 1.25f;
             b.gameObject.SetActive(false);
             return b;
         }
@@ -171,7 +179,8 @@ namespace PortBoss.M1
             // never lost at range: grows so it stays ~10 px tall beyond 15 m
             var cam = Camera.main;
             float d = cam != null ? Vector3.Distance(cam.transform.position, transform.position) : 10;
-            transform.localScale = Vector3.one * Mathf.Max(1f, d / 15f);
+            transform.localScale = Vector3.one * Mathf.Max(1.25f, d / 12f);
+            if (halo != null && cam != null) { halo.rotation = Quaternion.LookRotation(halo.position - cam.transform.position); halo.gameObject.SetActive(Yank < 0.05f); }
             rippleT += Time.deltaTime;
             if (rippleT > 1.6f && Yank < 0.05f) { rippleT = 0; Fx.Ring(new Vector3(Pos.x, h, Pos.z), 1.2f, 1.0f, 0.45f); }
         }

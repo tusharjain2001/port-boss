@@ -54,7 +54,7 @@ namespace PortBoss.M1
                 var e = drops.emission; e.rateOverTime = 0;
                 var sh = drops.shape; sh.shapeType = ParticleSystemShapeType.Cone; sh.angle = 28; sh.radius = 0.08f; sh.rotation = new Vector3(-90, 0, 0);
                 var sz = drops.sizeOverLifetime; sz.enabled = true; sz.size = new ParticleSystem.MinMaxCurve(1, AnimationCurve.Linear(0, 1, 1, 0.3f));
-                var r = g.GetComponent<ParticleSystemRenderer>(); r.sharedMaterial = Util.ParticleMat; r.renderMode = ParticleSystemRenderMode.Stretch; r.velocityScale = 0.04f; r.lengthScale = 1.2f; r.maxParticleSize = 0.02f;
+                var r = g.GetComponent<ParticleSystemRenderer>(); r.sharedMaterial = Util.Soft(Color.white); r.renderMode = ParticleSystemRenderMode.Stretch; r.velocityScale = 0.04f; r.lengthScale = 1.2f; r.maxParticleSize = 0.02f;
                 return drops;
             }
         }
@@ -73,7 +73,7 @@ namespace PortBoss.M1
         // An expanding ring on the water that fades out (ripples, bobber land, nibbles).
         public static void Ring(Vector3 at, float diameter, float life, float alpha = 0.8f)
         {
-            if (ringMat == null) { ringMat = new Material(Util.ParticleMat); ringMat.SetTexture("_BaseMap", Util.Ring); }
+            if (ringMat == null) ringMat = Util.Soft(Color.white, Util.Ring);
             var g = GameObject.CreatePrimitive(PrimitiveType.Quad); Object.Destroy(g.GetComponent<Collider>());
             g.name = "ring"; g.transform.position = at + Vector3.up * 0.03f; g.transform.rotation = Quaternion.Euler(90, 0, 0);
             var r = g.GetComponent<MeshRenderer>(); r.sharedMaterial = ringMat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
@@ -92,7 +92,7 @@ namespace PortBoss.M1
                 float s = Mathf.Lerp(0.35f, 1f, 1 - (1 - u) * (1 - u)) * size;
                 t.localScale = new Vector3(s, s, 1);
                 var p = t.position; p.y = Sea.Height(p) + 0.03f; t.position = p;
-                var r = t.GetComponent<MeshRenderer>(); r.GetPropertyBlock(mpb); mpb.SetColor("_BaseColor", new Color(1, 1, 1, (1 - u) * 0.75f)); r.SetPropertyBlock(mpb);
+                var r = t.GetComponent<MeshRenderer>(); r.GetPropertyBlock(mpb); mpb.SetColor("_BaseColor", new Color(1, 1, 1, (1 - u) * 0.5f)); r.SetPropertyBlock(mpb);
             }
         }
     }

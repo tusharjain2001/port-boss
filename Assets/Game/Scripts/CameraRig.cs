@@ -19,6 +19,7 @@ namespace PortBoss.M1
         public Vector3 Focus;             // marker / bobber / fish
         public bool OnDeck;
         public float FovPunch;            // the bite's -3° punch
+        public float RevealSide = -1;     // which 3/4 side the reveal frames from (Fishing picks the one with a clear view)
 
         Vector3 pivot, pos;
         float dist = 6, fov = 55, side, pitchOff, focusW, lastLook, roll;
@@ -73,7 +74,7 @@ namespace PortBoss.M1
             if (M == Mode.Reveal)
             {
                 // 3/4 front: swing round to face the player and the fish they hold up
-                float front = Target.eulerAngles.y + 180 - 32;
+                float front = Target.eulerAngles.y + 180 + RevealSide * 32;
                 Yaw = Mathf.LerpAngle(Yaw, front, 1 - Mathf.Exp(-4f * dt));
             }
 

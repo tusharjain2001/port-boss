@@ -89,7 +89,7 @@ namespace PortBoss.M1
         // Soft round dot (particles) and a ring (ripples), generated once.
         static Texture2D dot, ring;
         public static Texture2D Dot { get { if (dot == null) dot = Radial(64, d => Mathf.SmoothStep(1, 0, Mathf.InverseLerp(0.4f, 1f, d))); return dot; } }
-        public static Texture2D Ring { get { if (ring == null) ring = Radial(128, d => Mathf.Clamp01(1 - Mathf.Abs(d - 0.86f) / 0.07f) * 0.9f); return ring; } }
+        public static Texture2D Ring { get { if (ring == null) ring = Radial(128, d => Mathf.Clamp01(1 - Mathf.Abs(d - 0.88f) / 0.035f) * 0.85f); return ring; } }
         static Texture2D Radial(int s, System.Func<float, float> a)
         {
             var t = new Texture2D(s, s, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Clamp };
@@ -107,15 +107,21 @@ namespace PortBoss.M1
             get
             {
                 if (particle != null) return particle;
-                particle = new Material(M1Assets.I.Particle);
+                particle = M1Assets.I.SoftParticle != null ? new Material(M1Assets.I.SoftParticle) : new Material(M1Assets.I.Particle);
                 particle.SetFloat("_Surface", 1); particle.SetFloat("_Blend", 0);
                 particle.SetOverrideTag("RenderType", "Transparent");
                 particle.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha); particle.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
                 particle.SetInt("_ZWrite", 0); particle.renderQueue = 3100;
                 particle.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-                particle.SetTexture("_BaseMap", Dot); particle.SetColor("_BaseColor", Color.white);
+                particle.SetTexture("_BaseMap", Dot); particle.SetTexture("_MainTex", Dot); particle.SetColor("_BaseColor", Color.white);
                 return particle;
             }
+        }
+
+        public static Material Soft(Color c, Texture t = null)
+        {
+            var m = new Material(ParticleMat); m.SetTexture("_BaseMap", t != null ? t : Dot); m.SetTexture("_MainTex", t != null ? t : Dot); m.SetColor("_BaseColor", c);
+            return m;
         }
 
         public static float Damp(float a, float b, float rate, float dt) => Mathf.Lerp(a, b, 1 - Mathf.Exp(-rate * dt));

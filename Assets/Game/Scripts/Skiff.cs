@@ -46,6 +46,9 @@ namespace PortBoss.M1
             s.Hull = new Bounds(new Vector3(0, 0.25f, 0), new Vector3(1.9f, 1.1f, 4.9f));
             var hb = F("HullBottom_colBox"); if (hb != null && hb.TryGetComponent<Collider>(out var hc)) hc.enabled = false;
             var rb = g.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.interpolation = RigidbodyInterpolation.None;
+            // a hull-shaped trigger box, only for working out how far the hull sits inside the pier or the shore
+            var px = new GameObject("HullProxy"); px.transform.SetParent(g.transform, false);
+            s.proxy = px.AddComponent<BoxCollider>(); s.proxy.isTrigger = true; s.proxy.center = s.Hull.center; s.proxy.size = s.Hull.size;
             s.MoorAt = moor;
             s.pos = moor.position; s.yaw = moor.eulerAngles.y; s.y = Sea.Level;
             g.transform.SetPositionAndRotation(new Vector3(s.pos.x, s.y, s.pos.z), Quaternion.Euler(0, s.yaw, 0));
@@ -73,7 +76,7 @@ namespace PortBoss.M1
             var co = ps.colorOverLifetime; co.enabled = true;
             var gr = new Gradient(); gr.SetKeys(new[] { new GradientColorKey(Color.white, 0), new GradientColorKey(Color.white, 1) }, new[] { new GradientAlphaKey(0.8f, 0), new GradientAlphaKey(0, 1) });
             co.color = gr;
-            g.GetComponent<ParticleSystemRenderer>().sharedMaterial = Util.ParticleMat;
+            g.GetComponent<ParticleSystemRenderer>().sharedMaterial = Util.Soft(Color.white);
             return ps;
         }
 
@@ -110,7 +113,7 @@ namespace PortBoss.M1
 
             if (Moored && MoorAt != null)
             {
-                // the assisted 1.5 s settle into the berth (systems ง1.6.3), then held by the ropes
+                // the assisted 1.5 s settle into the berth (systems ยง1.6.3), then held by the ropes
                 moorBlend = Mathf.MoveTowards(moorBlend, 1, dt / 1.5f);
                 var mp = MoorAt.position; mp.y = 0;
                 newPos = Util.Damp(newPos, mp, 2f + 20f * moorBlend * moorBlend, dt);
@@ -118,11 +121,7 @@ namespace PortBoss.M1
             }
 
             // the pier, the shore: stop with a bump instead of sailing through
-            if (!Moored && Blocked(newPos, newYaw))
-            {
-                if (Mathf.Abs(Speed) > 1.2f) { Snd.Play(M1Assets.I.Thud, transform.position, 0.8f); CameraRig.Shake(0.25f * Mathf.Abs(Speed) / MaxSpeed); }
-                Speed *= -0.25f; newPos = pos; newYaw = yaw;
-            }
+            if (!Moored) newPos = PushOut(newPos, newYaw);
             Velocity = (newPos - pos) / Mathf.Max(dt, 1e-4f);
             pos = newPos; yaw = newYaw;
 
@@ -163,14 +162,54 @@ namespace PortBoss.M1
             x = dx * det; v = dv * det;
         }
 
-        static readonly Collider[] hits = new Collider[16];
+        static readonly Collider[] hits = new Collider[16], now = new Collider[16];
+        // Blocked = the move would touch something the hull isn't already touching (so it can always back or slide
+        // out of a contact, e.g. leaving the berth beside the piles, but never push into the pier or the shore).
         bool Blocked(Vector3 p, float yw)
+        {
+            int m = Overlap(pos, yaw, now), n = Overlap(p, yw, hits);
+            for (int i = 0; i < n; i++)
+            {
+                bool old = false; for (int j = 0; j < m; j++) if (now[j] == hits[i]) old = true;
+                if (!old) { if (Time.time - lastBlockLog > 1f) { lastBlockLog = Time.time; Debug.Log($"[PB] boat blocked by {hits[i].name} at {transform.position} speed {Speed:F2}"); } return true; }
+            }
+            return false;
+        }
+        float lastBlockLog; BoxCollider proxy;
+
+        // The pier, the shore: the hull is pushed back out of whatever it would overlap (it slides along piles and
+        // rocks instead of sticking); a head-on hit stops it with a thud and a little bounce.
+        Vector3 PushOut(Vector3 p, float yw)
+        {
+            var q = Quaternion.Euler(0, yw, 0);
+            var fwd = q * Vector3.forward;
+            for (int it = 0; it < 3; it++)
+            {
+                int n = Overlap(p, yw, hits);
+                if (n == 0) break;
+                for (int i = 0; i < n; i++)
+                {
+                    var o = hits[i].transform;
+                    if (!Physics.ComputePenetration(proxy, new Vector3(p.x, y, p.z), q, hits[i], o.position, o.rotation, out var dir, out float d)) continue;
+                    dir.y = 0; if (dir.sqrMagnitude < 1e-6f) continue; dir.Normalize();
+                    p += dir * (d + 0.005f);
+                    if (Vector3.Dot(dir, fwd * Mathf.Sign(Speed == 0 ? 1 : Speed)) < -0.6f && Mathf.Abs(Speed) > 0.6f)
+                    {
+                        if (Mathf.Abs(Speed) > 1.2f) { Snd.Play(M1Assets.I.Thud, transform.position, 0.8f); CameraRig.Shake(0.25f * Mathf.Abs(Speed) / MaxSpeed); }
+                        if (Time.time - lastBlockLog > 1f) { lastBlockLog = Time.time; Debug.Log($"[PB] boat bumped {hits[i].name} at {Speed:F1} m/s"); }
+                        Speed *= -0.25f;
+                    }
+                }
+            }
+            return p;
+        }
+        int Overlap(Vector3 p, float yw, Collider[] into)
         {
             var q = Quaternion.Euler(0, yw, 0);
             var c = new Vector3(p.x, y, p.z) + q * Hull.center;
-            int n = Physics.OverlapBoxNonAlloc(c, Hull.extents + new Vector3(0.1f, 0, 0.1f), hits, q, ~0, QueryTriggerInteraction.Ignore);
-            for (int i = 0; i < n; i++) if (!hits[i].transform.IsChildOf(transform) && hits[i].GetComponentInParent<Angler>() == null) return true;
-            return false;
+            int n = Physics.OverlapBoxNonAlloc(c, Hull.extents + new Vector3(0.04f, 0, 0.04f), into, q, ~0, QueryTriggerInteraction.Ignore), k = 0;
+            for (int i = 0; i < n; i++) if (!into[i].transform.IsChildOf(transform) && into[i].GetComponentInParent<Angler>() == null) into[k++] = into[i];
+            return k;
         }
 
         public void CastOff()

@@ -3,7 +3,7 @@
 #define LD_COMMON_INCLUDED
 
 float  _LDTime;
-float4 _LDSkyTop, _LDSkyHorizon, _LDSkyBottom, _LDSunSky; // rgb; _LDSunSky.a = sun disc size
+float4 _LDSkyTop, _LDSkyHorizon, _LDSkyBottom, _LDSunSky, _LDSkyMid; // rgb; _LDSunSky.a = sun disc size
 float4 _LDSunDir;                                          // xyz towards the sun, w = glow power
 float4 _LDAmbSky, _LDAmbEq, _LDAmbGround;                  // trilight ambient
 
@@ -27,7 +27,8 @@ float LDFbm(float2 p)
 float3 LDSkyGradient(float3 dir)
 {
     float y = dir.y;
-    float3 c = y > 0 ? lerp(_LDSkyHorizon.rgb, _LDSkyTop.rgb, pow(saturate(y), 0.35))
+    float3 mid = _LDSkyMid.a > 0 ? _LDSkyMid.rgb : lerp(_LDSkyHorizon.rgb, _LDSkyTop.rgb, 0.5);
+    float3 c = y > 0 ? lerp(lerp(_LDSkyHorizon.rgb, mid, smoothstep(0.0, 0.16, y)), _LDSkyTop.rgb, smoothstep(0.16, 0.75, y))
                      : lerp(_LDSkyHorizon.rgb, _LDSkyBottom.rgb, saturate(-y * 6));
     float s = saturate(dot(dir, normalize(_LDSunDir.xyz)));
     c += _LDSunSky.rgb * pow(s, max(_LDSunDir.w, 1)) * 0.6;             // glow around the sun

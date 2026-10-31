@@ -102,7 +102,7 @@ Shader "PortBoss/M1/Toon"
                     alb *= 1 + (LDFbm(p) - 0.5) * _PaintNoise;
                 }
 
-                float3 n = normalize(front ? i.n : -i.n);
+                float3 n = SafeNormalize(front ? i.n : -i.n);
                 float3 v = GetWorldSpaceNormalizeViewDir(i.ws);
                 float4 sc = TransformWorldToShadowCoord(i.ws);
                 Light L = GetMainLight(sc, i.ws, half4(1,1,1,1));
@@ -208,7 +208,7 @@ Shader "PortBoss/M1/Toon"
             struct A { float4 pos : POSITION; float3 n : NORMAL; };
             struct V { float4 cs : SV_POSITION; float3 n : TEXCOORD0; };
             V vert(A i) { V o; o.cs = TransformObjectToHClip(SwimBend(i.pos.xyz)); o.n = TransformObjectToWorldNormal(i.n); return o; }
-            half4 frag(V i) : SV_Target { return half4(normalize(i.n), 0); }
+            half4 frag(V i) : SV_Target { return half4(SafeNormalize(i.n), 0); }
             ENDHLSL
         }
     }

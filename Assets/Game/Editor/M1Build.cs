@@ -57,6 +57,16 @@ namespace PortBoss.EditorTools
             a.Steps = Enumerable.Range(0, 5).Select(i => Au($"step{i}.ogg")).Where(c => c != null).ToArray();
 
             a.Pipeline = Pipeline();
+            // runtime-made materials don't tell the build which shader variants they need: this asset keeps the
+            // transparent particle variant in (without it splashes, wakes and halos drew as opaque squares)
+            const string sp = Settings + "/M1_SoftParticle.mat";
+            AssetDatabase.DeleteAsset(sp);
+            var pm = new Material(a.Particle) { name = "M1_SoftParticle" };
+            pm.SetFloat("_Surface", 1); pm.SetFloat("_Blend", 0); pm.SetFloat("_ZWrite", 0);
+            pm.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha); pm.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            pm.SetOverrideTag("RenderType", "Transparent"); pm.EnableKeyword("_SURFACE_TYPE_TRANSPARENT"); pm.renderQueue = 3000;
+            AssetDatabase.CreateAsset(pm, sp);
+            a.SoftParticle = pm;
             const string ap = Root + "/Resources/M1Assets.asset";
             AssetDatabase.DeleteAsset(ap); AssetDatabase.CreateAsset(a, ap);
             AssetDatabase.SaveAssets();

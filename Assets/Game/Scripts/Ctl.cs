@@ -98,16 +98,18 @@ namespace PortBoss.M1
         public static bool Escape => KD(Key.Escape) || (P != null && P.startButton.wasPressedThisFrame);
 
         // helm: throttle notch steps, steering axis
+        public static int BotThrottle; public static float BotSteer;
         public static int Throttle
         {
             get
             {
+                if (Bot) { int b = BotThrottle; BotThrottle = 0; return b; }
                 if (KD(Key.W)) return 1; if (KD(Key.S)) return -1;
                 if (P != null) { if (P.rightTrigger.wasPressedThisFrame || P.dpad.up.wasPressedThisFrame) return 1; if (P.leftTrigger.wasPressedThisFrame || P.dpad.down.wasPressedThisFrame) return -1; }
                 return 0;
             }
         }
-        public static float Steer => (K_(Key.D) ? 1 : 0) - (K_(Key.A) ? 1 : 0) + (P != null ? P.leftStick.ReadValue().x : 0);
+        public static float Steer => Bot ? BotSteer : (K_(Key.D) ? 1 : 0) - (K_(Key.A) ? 1 : 0) + (P != null ? P.leftStick.ReadValue().x : 0);
     }
 
     // The few settings M1 needs (systems §1.10/§1.12), saved on this PC.

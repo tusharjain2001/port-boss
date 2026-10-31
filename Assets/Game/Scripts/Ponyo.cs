@@ -38,15 +38,16 @@ namespace PortBoss.M1
             RenderSettings.ambientMode = AmbientMode.Trilight;
             RenderSettings.ambientSkyColor = ambSky; RenderSettings.ambientEquatorColor = ambEq; RenderSettings.ambientGroundColor = ambGround;
             RenderSettings.fog = true; RenderSettings.fogMode = FogMode.Linear;
-            RenderSettings.fogColor = Hex("F2DCC4"); RenderSettings.fogStartDistance = 180; RenderSettings.fogEndDistance = 1400;
+            RenderSettings.fogColor = Hex("F7CFA4"); RenderSettings.fogStartDistance = 260; RenderSettings.fogEndDistance = 1900;
 
             SkyMat = new Material(a.Sky);
-            SkyMat.SetColor("_CloudColor", Hex("FFF4E6")); SkyMat.SetColor("_CloudShade", Hex("B4AEDA"));
-            SkyMat.SetFloat("_CloudCover", 0.24f); SkyMat.SetFloat("_CloudSharp", 0.07f); SkyMat.SetFloat("_CloudScale", 1.1f);
-            SkyMat.SetFloat("_CloudBank", 1f); SkyMat.SetFloat("_CloudBankHeight", 0.15f);
+            SkyMat.SetColor("_CloudColor", Hex("FFF0DC")); SkyMat.SetColor("_CloudShade", Hex("D8A8B8"));
+            SkyMat.SetFloat("_CloudCover", 0.4f); SkyMat.SetFloat("_CloudSharp", 0.09f); SkyMat.SetFloat("_CloudScale", 0.9f);
+            SkyMat.SetFloat("_CloudBank", 1f); SkyMat.SetFloat("_CloudBankHeight", 0.2f);
             RenderSettings.skybox = SkyMat;
 
-            Shader.SetGlobalColor("_LDSkyTop", Hex("4F8FE2")); Shader.SetGlobalColor("_LDSkyHorizon", Hex("FFE2B8")); Shader.SetGlobalColor("_LDSkyBottom", Hex("E8C8A8"));
+            Shader.SetGlobalColor("_LDSkyTop", Hex("2F6FD0")); Shader.SetGlobalColor("_LDSkyHorizon", Hex("FFC48E")); Shader.SetGlobalColor("_LDSkyBottom", Hex("F0B890"));
+            var mid = Hex("5EA6EE"); mid.a = 1; Shader.SetGlobalColor("_LDSkyMid", mid);
             var sunSky = Hex("FFD08A"); sunSky.a = 0.0025f; Shader.SetGlobalColor("_LDSunSky", sunSky);
             var sd = -sg.transform.forward; Shader.SetGlobalVector("_LDSunDir", new Vector4(sd.x, sd.y, sd.z, 10));
             Shader.SetGlobalColor("_LDAmbSky", ambSky); Shader.SetGlobalColor("_LDAmbEq", ambEq); Shader.SetGlobalColor("_LDAmbGround", ambGround);
@@ -56,7 +57,7 @@ namespace PortBoss.M1
             var vol = vg.AddComponent<Volume>(); vol.isGlobal = true;
             var p = ScriptableObject.CreateInstance<VolumeProfile>();
             p.Add<Tonemapping>(true).mode.Override(TonemappingMode.Neutral);
-            var ca = p.Add<ColorAdjustments>(true); ca.postExposure.Override(0.2f); ca.contrast.Override(-4); ca.saturation.Override(10);
+            var ca = p.Add<ColorAdjustments>(true); ca.postExposure.Override(0.1f); ca.contrast.Override(0); ca.saturation.Override(14);
             var wb = p.Add<WhiteBalance>(true); wb.temperature.Override(6);
             var bl = p.Add<Bloom>(true); bl.intensity.Override(0.5f); bl.threshold.Override(1.15f); bl.scatter.Override(0.8f); bl.tint.Override(Hex("FFE6C4")); bl.highQualityFiltering.Override(true);
             var vi = p.Add<Vignette>(true); vi.intensity.Override(0.16f); vi.smoothness.Override(0.45f);
@@ -68,11 +69,11 @@ namespace PortBoss.M1
         public static Material SeaMaterial(M1Assets a)
         {
             var w = new Material(a.Water);
-            w.SetColor("_Shallow", Hex("4FD8C8")); w.SetColor("_Deep", Hex("2468B8")); w.SetFloat("_DepthDist", 6); w.SetFloat("_MinOpacity", 0.35f);
-            w.SetFloat("_Bands", 0); w.SetFloat("_Refraction", 0.03f); w.SetFloat("_Reflect", 0.5f); w.SetColor("_ReflTint", Hex("FFF2E0"));
-            w.SetFloat("_FresnelPow", 4); w.SetFloat("_SunSpec", 2.2f); w.SetFloat("_SunPow", 500); w.SetFloat("_SpecToon", 0);
+            w.SetColor("_Shallow", Hex("4FD8C8")); w.SetColor("_Deep", Hex("2468B8")); w.SetFloat("_DepthDist", 2.6f); w.SetFloat("_MinOpacity", 0.35f);
+            w.SetFloat("_Bands", 0); w.SetFloat("_Refraction", 0.03f); w.SetFloat("_Reflect", 0.38f); w.SetColor("_ReflTint", Hex("FFF2E0"));
+            w.SetFloat("_FresnelPow", 4); w.SetFloat("_SunSpec", 0.3f); w.SetFloat("_SunPow", 2200); w.SetFloat("_SpecToon", 0f);
             w.SetColor("_Foam", Color.white); w.SetFloat("_FoamDist", 1.1f); w.SetFloat("_FoamScale", 0.6f); w.SetFloat("_FoamSharp", 0.05f);
-            w.SetFloat("_CrestFoam", 0.12f); w.SetFloat("_DetailNormal", 0.2f); w.SetFloat("_DetailScale", 0.35f); w.SetFloat("_ShadowAmt", 0.5f); w.SetFloat("_Lift", 0.35f);
+            w.SetFloat("_CrestFoam", 0f); w.SetFloat("_DetailNormal", 0.14f); w.SetFloat("_DetailScale", 0.35f); w.SetFloat("_ShadowAmt", 0.5f); w.SetFloat("_Lift", 0.35f);
             return w;
         }
 

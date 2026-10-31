@@ -46,7 +46,11 @@ namespace PortBoss.M1
             PortBoss.Art.Lit = new Material(a.Toon);
             PortBoss.Art.Lit.SetFloat("_PaintNoise", 0.12f);
             var w = PortBoss.Worker.Make(a.Worker, p.Model);
-            w.Apply(PortBoss.Look.Default(0));
+            w.Apply(new PortBoss.Look
+            {
+                Set = 1, Face = 0, Hair = 3, Beard = 2, Hat = 2, Top = 2, Gloves = 0,
+                SkinTone = 2, HairColor = 2, TopColor = 1, AccentColor = 4, LegsColor = 4, BootsColor = 7, GloveColor = 4, HatColor = 2,
+            });
             foreach (var c in w.GetComponentsInChildren<Collider>()) Destroy(c);
             var rs = w.GetComponentsInChildren<Renderer>(); var bb = rs[0].bounds; foreach (var r in rs) bb.Encapsulate(r.bounds);
             if (bb.size.y > 0.5f) w.transform.localScale = Vector3.one * Mathf.Clamp(1.78f / bb.size.y, 0.8f, 1.25f);
@@ -130,6 +134,16 @@ namespace PortBoss.M1
             Animate(dt);
         }
 
+        // Put the player somewhere (tests, ladders): also re-anchors them in the boat's space so the deck carry doesn't undo it.
+        public void Teleport(Vector3 p, float yaw)
+        {
+            Cc.enabled = false; transform.SetPositionAndRotation(p, Quaternion.Euler(0, yaw, 0)); Cc.enabled = true;
+            Vel = Vector3.zero; vy = 0; Track();
+        }
+
+        public void TakeHelm() { var s = Skiff.I; if (s == null) return; helm = true; s.AtHelm = true; Fish.Stow(); }
+        public void LeaveHelm() { var s = Skiff.I; helm = false; if (s != null) { s.AtHelm = false; s.Steer = 0; } if (CameraRig.I != null) CameraRig.I.M = CameraRig.Mode.Follow; }
+
         public void Select(int i)
         {
             if (i == Bar.Selected) return;
@@ -187,7 +201,7 @@ namespace PortBoss.M1
             else if (th != 0) { s.Notch = Mathf.Clamp(s.Notch + th, -1, 3); Snd.Play2D(Synth.Tik, 0.6f, th > 0 ? 1.2f : 0.9f); }
             s.Steer = Mathf.Clamp(Ctl.Steer, -1, 1);
             if (s.CanMoor && Ctl.Key_(UnityEngine.InputSystem.Key.F)) s.Moor();
-            if (Ctl.Interact || Ctl.Escape) { helm = false; s.AtHelm = false; s.Steer = 0; }
+            if (Ctl.Interact || Ctl.Escape) LeaveHelm();
             if (CameraRig.I != null) CameraRig.I.M = helm ? CameraRig.Mode.Helm : CameraRig.Mode.Follow;
             Vel = Vector3.zero;
         }

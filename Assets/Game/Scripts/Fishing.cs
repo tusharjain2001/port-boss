@@ -27,7 +27,7 @@ namespace PortBoss.M1
         // --- live state the HUD reads ---
         public float Power; public bool InSweet; public Vector3 Marker; public bool MarkerSnapped; public float MarkerDist;
         public Vector3 CastFrom;
-        public FishSpecies Hooked; public Fish Catch; public float BiteAt, BiteWait, WaitStart; public int Nibbles, NibblesDone;
+        public FishSpecies Hooked; public Fish Catch; public float BiteSeenAt, BiteAt, BiteWait, WaitStart; public int Nibbles, NibblesDone;
         readonly List<float> nibbleAt = new();
         public int Stop, Hits, Misses; public readonly int[] Result = new int[3]; // 0 pending, 1 hit, -1 miss
         public readonly float[] ErrMs = new float[3];
@@ -270,7 +270,7 @@ namespace PortBoss.M1
             if (Time.time >= BiteAt)
             {
                 // the bite: yanked fully under, dragged sideways, BLOOP + 3 ratchet clicks, punch-in
-                Go(St.Bite);
+                Go(St.Bite); BiteSeenAt = Time.time;
                 Snd.Play(Synth.Bloop, bob.transform.position, 1f); Snd.Play(Synth.Ratchet, rod.Tip.position, 0.7f);
                 Fx.Splash(bob.transform.position, 1.1f, 18); Snd.Rumble(0.8f, 0.8f, 0.3f);
                 if (CameraRig.I != null) CameraRig.I.FovPunch = 3f;
@@ -477,6 +477,18 @@ namespace PortBoss.M1
                 AudioClip sting = Catch.Grade switch { 0 => Synth.Pluck, 1 => Synth.Chime, 2 => Synth.Shimmer, _ => Synth.Brass };
                 Snd.Play2D(sting, 0.6f);
                 if (Catch.Grade == 3) Fx.Splash(HoldPoint(), 0.5f, 16);
+                if (CameraRig.I != null)
+                {
+                    // frame the hold-up from whichever 3/4 side has nothing between the camera and the fish
+                    float Clear(float side)
+                    {
+                        var dir = Quaternion.Euler(6, transform.eulerAngles.y + 180 + side * 32, 0) * Vector3.back;
+                        var from = HoldPoint(); var hits = Physics.RaycastAll(from, dir, 3.2f, ~0, QueryTriggerInteraction.Ignore); float best = 3.2f;
+                        foreach (var h in hits) if (h.collider.GetComponentInParent<Angler>() == null) best = Mathf.Min(best, h.distance);
+                        return best;
+                    }
+                    CameraRig.I.RevealSide = Clear(1) > Clear(-1) + 0.1f ? 1 : -1;
+                }
                 Go(St.Reveal);
             }
         }
@@ -555,8 +567,9 @@ namespace PortBoss.M1
             {
                 // on the back strap (systems H7: long items show on your back when not in hand)
                 rod.Root.SetParent(me.Model, false);
-                rod.Root.localRotation = Quaternion.LookRotation(new Vector3(-0.35f, -0.85f, -0.05f), Vector3.back);
-                rod.Root.localPosition = new Vector3(0.18f, 1.5f, -0.22f);
+                // butt at the right hip behind, tip up over the left shoulder
+                rod.Root.localRotation = Quaternion.LookRotation(new Vector3(-0.32f, 0.93f, -0.12f), Vector3.back);
+                rod.Root.localPosition = new Vector3(0.2f, 0.72f, -0.24f);
                 rod.Tension = 0; if (me.Anim.Grip == rod.Root) me.Anim.Grip = null;
                 elev = 35; butt = RestButt; return;
             }

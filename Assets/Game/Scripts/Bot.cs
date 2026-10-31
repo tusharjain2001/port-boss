@@ -42,9 +42,38 @@ namespace PortBoss.M1
         void Board()
         {
             // stand at Biscuit's starboard rail facing out to sea
-            var s = Skiff.I; var spot = s.Rails[1] != null ? s.Rails[1] : s.transform;
-            me.Cc.enabled = false; me.transform.position = spot.position + Vector3.up * 0.05f; me.transform.rotation = Quaternion.LookRotation(s.transform.right); me.Cc.enabled = true;
-            CameraRig.I.Yaw = s.transform.eulerAngles.y + 90; CameraRig.I.Pitch = 22;
+            var s = Skiff.I;
+            bool blockedRight = Physics.Raycast(s.transform.position + Vector3.up * 1.5f, s.transform.right, 12f);
+            var spot = (blockedRight ? s.Rails[0] : s.Rails[1]) ?? s.transform; var outward = blockedRight ? -s.transform.right : s.transform.right;
+            me.Teleport(spot.position + Vector3.up * 0.05f, Quaternion.LookRotation(outward).eulerAngles.y);
+            CameraRig.I.Yaw = Quaternion.LookRotation(outward).eulerAngles.y; CameraRig.I.Pitch = 22;
+        }
+
+        // Take the tiller, cast off, motor out past the pier end into open water, stop, drop the anchor at the bow,
+        // then stand at a rail facing the open sea (the M1 MUST: fishing from the boat at sea).
+        IEnumerator SailOut(bool shotsOn)
+        {
+            Ctl.Bot = true;
+            var s = Skiff.I;
+            me.Teleport(s.Helm.position + Vector3.up * 0.05f, s.transform.eulerAngles.y);
+            yield return null; me.TakeHelm(); yield return new WaitForSeconds(0.4f);
+            if (shotsOn) yield return Shot("0-at-the-tiller");
+            Ctl.BotThrottle = 1; yield return new WaitForSeconds(0.6f); Ctl.BotThrottle = 1; // cast off, then 2/3
+            var start = s.transform.position;
+            float t = 0;
+            while (t < 16f) { Ctl.BotSteer = t < 3.5f ? -0.6f : t < 6f ? 0.45f : 0; /* away from the pier (on the right at the berth), then straighten */ t += Time.deltaTime; if (shotsOn && Mathf.Abs(t - 7f) < Time.deltaTime) yield return Shot("0-motoring-out"); yield return null; }
+            Ctl.BotSteer = 0; Ctl.BotThrottle = -1; yield return null; Ctl.BotThrottle = -1; yield return null;
+            for (float w = 0; Mathf.Abs(s.Speed) > 0.05f && w < 8; w += Time.deltaTime) yield return null;
+            me.LeaveHelm(); yield return new WaitForSeconds(0.3f);
+            var bow = s.Rails[2] != null ? s.Rails[2].position : s.AnchorPt.position - s.transform.forward * 0.8f;
+            me.Teleport(bow + Vector3.up * 0.05f, s.transform.eulerAngles.y);
+            yield return new WaitForSeconds(0.2f);
+            Ctl.BotInteract = true; yield return null; Ctl.BotInteract = false;
+            for (float w = 0; !s.Anchored && w < 4; w += Time.deltaTime) yield return null;
+            if (!s.Anchored) Debug.LogWarning("[PB] anchor did not drop (bot not at the bow?)");
+            Debug.Log($"[PB] sailed out {Vector3.Distance(Flat(start), Flat(s.transform.position)):F0} m from the berth, anchored at {s.transform.position}");
+            Board(); yield return new WaitForSeconds(0.8f);
+            if (shotsOn) yield return Shot("0-anchored-open-sea");
         }
 
         IEnumerator CastOnce(float power)
@@ -62,17 +91,17 @@ namespace PortBoss.M1
         // aiming at the zone's centre with a normal error of sigma (the "practised player" of fishing §3.7 is 70 ms).
         IEnumerator PlayFish(System.Action<string> row)
         {
-            float settle = -1, bite = -1, planned = 0; int nibbles = 0; string sp = "";
+            float settle = -1, bite = -1, planned = 0; int nibbles = 0; string sp = ""; int grade = -1;
             double plannedPress = -1; var errs = new List<float>();
             float t0 = Time.time;
             while (true)
             {
                 var st = fish.State;
-                if (st == Fishing.St.Waiting && settle < 0) { settle = Time.time; planned = fish.BiteWait; nibbles = fish.Nibbles; sp = fish.Hooked.Id; }
+                if (st == Fishing.St.Waiting && settle < 0) { settle = fish.WaitStart; planned = fish.BiteWait; nibbles = fish.Nibbles; sp = fish.Hooked.Id; }
                 if (st == Fishing.St.Bite)
                 {
-                    if (bite < 0) { bite = Time.time; if (shots != null && shotN < 30) yield return Shot("3-bite"); }
-                    if (Time.time - bite > 0.3f) { Ctl.BotStrike = true; yield return null; Ctl.BotStrike = false; }
+                    if (bite < 0) { bite = fish.BiteSeenAt; if (shots != null && shotN < 30) yield return Shot("3-bite"); }
+                    if (Time.time - bite > 0.3f && Time.time - bite < 1.0f) { Ctl.BotStrike = true; yield return null; Ctl.BotStrike = false; }
                 }
                 if (st == Fishing.St.Minigame && !fish.Frozen)
                 {
@@ -92,6 +121,7 @@ namespace PortBoss.M1
                         yield return null; Ctl.BotStrike = false; plannedPress = -1;
                     }
                 }
+                if (st == Fishing.St.Reveal && fish.Catch != null) grade = fish.Catch.Grade;
                 if (st == Fishing.St.Reveal && fish.StateT > 0.7f)
                 {
                     if (shots != null && fish.StateT < 1.0f) { yield return Shot("5-catch"); }
@@ -101,7 +131,7 @@ namespace PortBoss.M1
                 {
                     string outcome = fish.LastOutcome ?? "landed";
                     row(string.Join(",", sp, settle >= 0 ? planned.ToString("F3", CultureInfo.InvariantCulture) : "", bite >= 0 && settle >= 0 ? (bite - settle).ToString("F3", CultureInfo.InvariantCulture) : "",
-                        nibbles, outcome, fish.Hits, fish.Catch?.Grade.ToString() ?? "", string.Join("|", errs.ConvertAll(x => x.ToString("F0", CultureInfo.InvariantCulture)))));
+                        nibbles, outcome, fish.Hits, grade >= 0 ? grade.ToString() : "", string.Join("|", errs.ConvertAll(x => x.ToString("F0", CultureInfo.InvariantCulture)))));
                     fish.LastOutcome = null;
                     yield break;
                 }
@@ -116,7 +146,7 @@ namespace PortBoss.M1
         IEnumerator FishTest(int n, string csv)
         {
             yield return new WaitForSeconds(0.5f);
-            Board(); me.Select(0);
+            yield return SailOut(false); me.Select(0);
             var lines = new List<string> { "cast,species,planned_wait_s,measured_wait_s,nibbles,outcome,hits,grade,stop_err_ms" };
             var waits = new List<float>(); var grades = new int[4]; int landed = 0;
             for (int i = 0; i < n; i++)
@@ -164,8 +194,7 @@ namespace PortBoss.M1
             yield return Shot("0-start");
             me.Select(0); yield return new WaitForSeconds(0.6f);
             yield return Shot("0-rod-in-hand");
-            Board(); yield return new WaitForSeconds(0.8f);
-            yield return Shot("0-on-deck");
+            yield return SailOut(true);
             for (int i = 0; i < 9; i++)
             {
                 yield return CastOnce(i == 0 ? 0.97f : 0.6f + 0.35f * Random.value);
@@ -193,14 +222,39 @@ namespace PortBoss.M1
 
         public static void Save(string path)
         {
-            var rt = Game.BatchTarget;
-            if (rt == null) { ScreenCapture.CaptureScreenshot(path); return; }
+            if (!Application.isBatchMode || CameraRig.I == null) { ScreenCapture.CaptureScreenshot(path); return; }
+            // batchmode draws nothing by itself: render the scene camera, then the UI camera, each into its own fresh
+            // texture, and lay the (premultiplied) UI over the scene, as the stacked cameras do in the game
+            int w = 1920, h = 1080;
+            var tex = Grab(CameraRig.I.Cam, w, h, false);
+            // URP writes alpha 1 for the UI camera's empty background, so recover the UI's coverage by drawing it over
+            // black and over white: alpha = 1 - (white - black), colour (premultiplied) = the black pass
+            var uc = CameraRig.I.UiCam; var bg = uc.backgroundColor;
+            uc.backgroundColor = Color.black; var ub = Grab(uc, w, h, false);
+            uc.backgroundColor = Color.white; var uw = Grab(uc, w, h, false);
+            uc.backgroundColor = bg;
+            var a = tex.GetPixels32(); var b = ub.GetPixels32(); var wh = uw.GetPixels32(); long sum = 0;
+            for (int i = 0; i < a.Length; i++)
+            {
+                sum += a[i].r + a[i].g + a[i].b;
+                int k = Mathf.Clamp(((wh[i].r - b[i].r) + (wh[i].g - b[i].g) + (wh[i].b - b[i].b)) / 3, 0, 255); // 255 - alpha
+                a[i] = new Color32((byte)Mathf.Min(255, b[i].r + a[i].r * k / 255), (byte)Mathf.Min(255, b[i].g + a[i].g * k / 255), (byte)Mathf.Min(255, b[i].b + a[i].b * k / 255), 255);
+            }
+            tex.SetPixels32(a); tex.Apply();
+            File.WriteAllBytes(path, tex.EncodeToPNG()); Destroy(tex); Destroy(ub); Destroy(uw);
+            Debug.Log($"[PB] shot {path} (scene brightness {sum / (3.0 * a.Length):F0})");
+        }
+
+        static Texture2D Grab(Camera c, int w, int h, bool alpha)
+        {
+            var keep = c.targetTexture;
+            var rt = RenderTexture.GetTemporary(w, h, 24, RenderTextureFormat.ARGB32);
+            c.targetTexture = rt; c.Render(); c.targetTexture = keep;
             var prev = RenderTexture.active; RenderTexture.active = rt;
-            var tex = new Texture2D(rt.width, rt.height, TextureFormat.RGB24, false);
-            tex.ReadPixels(new Rect(0, 0, rt.width, rt.height), 0, 0); tex.Apply();
-            RenderTexture.active = prev;
-            File.WriteAllBytes(path, tex.EncodeToPNG()); Destroy(tex);
-            Debug.Log("[PB] shot " + path);
+            var t = new Texture2D(w, h, alpha ? TextureFormat.RGBA32 : TextureFormat.RGB24, false);
+            t.ReadPixels(new Rect(0, 0, w, h), 0, 0); t.Apply();
+            RenderTexture.active = prev; RenderTexture.ReleaseTemporary(rt);
+            return t;
         }
 
         IEnumerator Film(string dir, float secs)
@@ -225,7 +279,7 @@ namespace PortBoss.M1
             if (shots != null) yield return Shot("boat-moored");
             // drive out: cast off, full, a wide turn
             s.AtHelm = true; s.CastOff(); s.Notch = 3; var start = s.transform.position; maxRoll = 0;
-            for (float t = 0; t < 12; t += Time.deltaTime) { s.Steer = t > 4 ? 0.6f : 0; maxRoll = Mathf.Max(maxRoll, Mathf.Abs(Mathf.DeltaAngle(0, s.transform.eulerAngles.z))); yield return null; }
+            for (float t = 0; t < 12; t += Time.deltaTime) { s.Steer = t < 3 ? -0.6f : t > 6 ? 0.6f : 0; maxRoll = Mathf.Max(maxRoll, Mathf.Abs(Mathf.DeltaAngle(0, s.transform.eulerAngles.z))); yield return null; }
             Debug.Log($"[PB] boat drive: {Vector3.Distance(start, s.transform.position):F1} m in 12 s, speed {s.Speed:F2} m/s, max roll {maxRoll:F1}° (Clear limit 6 + turn lean 3)");
             if (shots != null) yield return Shot("boat-driving");
             s.Notch = 0; s.Steer = 0; s.AtHelm = false;

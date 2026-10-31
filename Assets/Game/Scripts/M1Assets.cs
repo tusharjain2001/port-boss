@@ -8,6 +8,7 @@ namespace PortBoss.M1
     {
         public UniversalRenderPipelineAsset Pipeline;     // copy of the PC pipeline + the Ponyo outline pass
         public Shader Toon, Water, Sky, Particle;
+        public Material SoftParticle;   // a transparent particle material ASSET, so the build keeps its shader variant
         public Font Display, DisplayBold, Ui, UiBold, UiBlack; // Fraunces 600 / 700, Zen Maru Gothic 500 / 700 / 900
         public GameObject Boat, Landing, Worker;
         public string[] FishIds; public GameObject[] Fish;

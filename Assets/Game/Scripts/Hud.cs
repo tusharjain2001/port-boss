@@ -39,7 +39,7 @@ namespace PortBoss.M1
         readonly Image[] slotGrade = new Image[8]; readonly Image[] slotFresh = new Image[8]; readonly float[] slotPulse = new float[8];
         RectTransform namePill; Text nameT, nameSub; float nameShow;
         RectTransform prompts; float promptsKey; string lastPrompt;
-        Text baitTag;
+        Text baitTag; RectTransform baitChip;
         // alerts
         readonly List<(RectTransform r, Alerts.A a, float h, Image life)> cards = new();
         readonly List<Alerts.A> held = new();
@@ -94,9 +94,10 @@ namespace PortBoss.M1
                 var fr = UiKit.Img(s, null, Ponyo.Leaf, "fresh"); fr.rectTransform.Place(new Vector2(0, 0), new Vector2(10, 7), new Vector2(40, 4), new Vector2(0, 0)); fr.enabled = false;
                 slot[i] = s; slotIcon[i] = ic; slotCount[i] = c; slotGrade[i] = gr; slotFresh[i] = fr;
             }
-            baitTag = UiKit.Txt(root, "", UiKit.Bold, 17, Ponyo.Paper, TextAnchor.LowerLeft);
-            baitTag.rectTransform.Place(new Vector2(0.5f, 0), new Vector2(total / 2 + 22, 38), new Vector2(340, 30), new Vector2(0, 0));
-            UiKit.Shade(baitTag, new Color(0.25f, 0.17f, 0.15f, 0.75f), new Vector2(1.5f, -1.5f));
+            baitChip = UiKit.Card(root, "baitChip", 16, Ponyo.Paper, true);
+            baitChip.Place(new Vector2(0.5f, 0), new Vector2(total / 2 + 16, 34), new Vector2(170, 38), new Vector2(0, 0));
+            var worm = UiKit.Img(baitChip, UiKit.Circle, Ponyo.Peach, "worm"); worm.rectTransform.Place(new Vector2(0, 0.5f), new Vector2(12, 0), new Vector2(16, 16), new Vector2(0, 0.5f));
+            baitTag = UiKit.Txt(baitChip, "", UiKit.Bold, 17, Ponyo.Ink, TextAnchor.MiddleLeft); baitTag.rectTransform.Stretch(); baitTag.rectTransform.offsetMin = new Vector2(36, 0);
 
             // item name pill (above the hotbar, 2 s after a switch)
             namePill = UiKit.Card(root, "itemName", 24, Ponyo.Paper, true);
@@ -128,11 +129,11 @@ namespace PortBoss.M1
         void BuildMinigame()
         {
             mg = UiKit.Card(root, "minigame", 26, Ponyo.Paper, true);
-            mg.Place(new Vector2(0.5f, 0), new Vector2(0, 168), new Vector2(900, 252), new Vector2(0.5f, 0));
+            mg.Place(new Vector2(0.5f, 0), new Vector2(0, 168), new Vector2(900, 262), new Vector2(0.5f, 0));
             var stamp = UiKit.Img(mg, UiKit.Circle, Ponyo.SeaDeep, "stamp"); stamp.rectTransform.Place(new Vector2(0, 1), new Vector2(32, -26), new Vector2(46, 46), new Vector2(0, 1));
             var st = UiKit.Txt(stamp.transform, "><>", UiKit.Black, 16, Ponyo.Paper, TextAnchor.MiddleCenter); st.rectTransform.Stretch();
             mgTitle = UiKit.Txt(mg, "Fighting!", UiKit.Display, 34, Ponyo.Ink, TextAnchor.MiddleLeft); mgTitle.rectTransform.Place(new Vector2(0, 1), new Vector2(92, -18), new Vector2(500, 42), new Vector2(0, 1));
-            mgSub = UiKit.Txt(mg, "Take your time · a miss only lowers the grade", UiKit.Body, 17, Ponyo.InkSoft, TextAnchor.MiddleLeft); mgSub.rectTransform.Place(new Vector2(0, 1), new Vector2(94, -58), new Vector2(560, 26), new Vector2(0, 1));
+            mgSub = UiKit.Txt(mg, "Take your time · a miss only lowers the grade", UiKit.Body, 17, Ponyo.InkSoft, TextAnchor.MiddleLeft); mgSub.rectTransform.Place(new Vector2(0, 1), new Vector2(94, -56), new Vector2(560, 26), new Vector2(0, 1));
             mgStopLbl = UiKit.Txt(mg, "STOP", UiKit.Bold, 14, Ponyo.InkSoft, TextAnchor.MiddleRight); mgStopLbl.rectTransform.Place(new Vector2(1, 1), new Vector2(-170, -30), new Vector2(80, 30), new Vector2(1, 1));
             for (int i = 0; i < 3; i++)
             {
@@ -144,7 +145,7 @@ namespace PortBoss.M1
             }
             mgHeavy = UiKit.Txt(mg, "", UiKit.Black, 15, Ponyo.Poppy, TextAnchor.MiddleRight); mgHeavy.rectTransform.Place(new Vector2(1, 1), new Vector2(-32, -64), new Vector2(420, 24), new Vector2(1, 1));
             // the bar
-            bar = UiKit.Card(mg, "bar", 24, Ponyo.Hex("CFF2F0"), false); bar.Place(new Vector2(0.5f, 1), new Vector2(0, -122), new Vector2(830, 46), new Vector2(0.5f, 0.5f));
+            bar = UiKit.Card(mg, "bar", 24, Ponyo.Hex("CFF2F0"), false); bar.Place(new Vector2(0.5f, 1), new Vector2(0, -136), new Vector2(830, 46), new Vector2(0.5f, 0.5f));
             var wave = UiKit.Img(bar, null, new Color(0.27f, 0.84f, 0.78f, 0.25f), "tide"); wave.rectTransform.Stretch(6); wave.rectTransform.offsetMax = new Vector2(-6, -24);
             zone = UiKit.Rect("zone", bar); zone.anchorMin = new Vector2(0.4f, 0); zone.anchorMax = new Vector2(0.6f, 1); zone.offsetMin = new Vector2(0, 3); zone.offsetMax = new Vector2(0, -3);
             var zr = zone.gameObject.AddComponent<RawImage>(); zr.texture = UiKit.Stripes(Ponyo.Leaf, Ponyo.Hex("6AAE58"), 32); zr.raycastTarget = false;
@@ -160,7 +161,7 @@ namespace PortBoss.M1
             var bw = UiKit.Img(pointer, UiKit.Circle, Ponyo.Paper, "bob"); bw.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0, 28), new Vector2(28, 28));
             var br = UiKit.Img(bw.transform, UiKit.Circle, Ponyo.Poppy, "red"); br.type = Image.Type.Filled; br.fillMethod = Image.FillMethod.Vertical; br.fillOrigin = 1; br.fillAmount = 0.52f; br.rectTransform.Stretch(2);
             UiKit.Img(bw.transform, UiKit.RingSprite, Ponyo.Line, "edge").rectTransform.Stretch(-1);
-            barNote = UiKit.Txt(mg, "", UiKit.Bold, 14, Ponyo.Hex("4E8C40"), TextAnchor.MiddleCenter); barNote.rectTransform.Place(new Vector2(0.5f, 1), new Vector2(0, -160), new Vector2(300, 22), new Vector2(0.5f, 0.5f));
+            barNote = UiKit.Txt(mg, "", UiKit.Bold, 14, Ponyo.Hex("4E8C40"), TextAnchor.MiddleCenter); barNote.rectTransform.Place(new Vector2(0.5f, 1), new Vector2(0, -172), new Vector2(300, 22), new Vector2(0.5f, 0.5f));
             // grade ladder + key hint
             string[] g = Ponyo.GradeName;
             for (int i = 0; i < 4; i++)
@@ -193,11 +194,11 @@ namespace PortBoss.M1
 
         void BuildReveal()
         {
-            dim = UiKit.Img(root, null, new Color(0.17f, 0.15f, 0.3f, 0), "dim"); dim.rectTransform.Stretch();
+            dim = UiKit.Img(root, null, new Color(0.24f, 0.18f, 0.2f, 0), "dim"); dim.rectTransform.Stretch();
             rays = UiKit.Rect("rays", root).Place(new Vector2(0.5f, 0.5f), new Vector2(0, 30), new Vector2(1500, 1500));
-            var ri = rays.gameObject.AddComponent<RawImage>(); ri.texture = UiKit.Rays(); ri.color = new Color(1, 0.95f, 0.8f, 0.22f); ri.raycastTarget = false;
+            var ri = rays.gameObject.AddComponent<RawImage>(); ri.texture = UiKit.Rays(); ri.color = new Color(1, 0.97f, 0.88f, 0.09f); ri.raycastTarget = false;
             rv = UiKit.Card(root, "reveal", 30, Ponyo.Paper, true, null, 5);
-            rv.Place(new Vector2(0.5f, 0.5f), new Vector2(0, 20), new Vector2(860, 800));
+            rv.Place(new Vector2(0.5f, 0.5f), new Vector2(0, 46), new Vector2(860, 780));
             rvNew = Stamp(rv, "NEW IN JOURNAL", Ponyo.SeaC, new Vector2(-110, -40), -3f);
             rvBest = Stamp(rv, "PERSONAL BEST", Ponyo.Sunflower, new Vector2(110, -40), 2f);
             rvFish = UiKit.Rect("fish", rv).Place(new Vector2(0.5f, 1), new Vector2(0, -230), new Vector2(560, 280), new Vector2(0.5f, 0.5f)).gameObject.AddComponent<RawImage>(); rvFish.raycastTarget = false;
@@ -218,10 +219,10 @@ namespace PortBoss.M1
             }
             var top = UiKit.Img(statsBox, null, Ponyo.Paper3, "top"); top.rectTransform.anchorMin = new Vector2(0, 1); top.rectTransform.anchorMax = new Vector2(1, 1); top.rectTransform.sizeDelta = new Vector2(0, 2);
             var bot = UiKit.Img(statsBox, null, Ponyo.Paper3, "bot"); bot.rectTransform.anchorMin = new Vector2(0, 0); bot.rectTransform.anchorMax = new Vector2(1, 0); bot.rectTransform.sizeDelta = new Vector2(0, 2);
-            rvHits = UiKit.Txt(rv, "", UiKit.Body, 18, Ponyo.InkSoft, TextAnchor.MiddleCenter); rvHits.rectTransform.Place(new Vector2(0.5f, 1), new Vector2(0, -680), new Vector2(780, 26), new Vector2(0.5f, 0.5f));
-            rvKeep = Button(rv, "E", "Keep", Ponyo.Sunflower, new Vector2(-120, 50));
-            rvLet = Button(rv, "Q", "Let it go", Ponyo.Paper, new Vector2(120, 50));
-            rvFoot = UiKit.Txt(root, "", UiKit.Bold, 18, Ponyo.Paper, TextAnchor.MiddleCenter); rvFoot.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0, -420), new Vector2(900, 30));
+            rvHits = UiKit.Txt(rv, "", UiKit.Body, 18, Ponyo.InkSoft, TextAnchor.MiddleCenter); rvHits.rectTransform.Place(new Vector2(0.5f, 1), new Vector2(0, -672), new Vector2(780, 26), new Vector2(0.5f, 0.5f));
+            rvKeep = Button(rv, "E", "Keep", Ponyo.Sunflower, new Vector2(-120, 48));
+            rvLet = Button(rv, "Q", "Let it go", Ponyo.Paper, new Vector2(120, 48));
+            rvFoot = UiKit.Txt(root, "", UiKit.Bold, 18, Ponyo.Paper, TextAnchor.MiddleCenter); rvFoot.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0, -374), new Vector2(900, 30));
             UiKit.Shade(rvFoot, new Color(0.25f, 0.17f, 0.15f, 0.8f), new Vector2(1.5f, -1.5f));
             SetReveal(false);
         }
@@ -264,7 +265,7 @@ namespace PortBoss.M1
                 }
             t.Apply();
             var g = GameObject.CreatePrimitive(PrimitiveType.Quad); Object.Destroy(g.GetComponent<Collider>()); g.name = "castMarker";
-            var m = new Material(Util.ParticleMat); m.SetTexture("_BaseMap", t); m.renderQueue = 3200;
+            var m = Util.Soft(Color.white, t); m.renderQueue = 3200;
             g.GetComponent<MeshRenderer>().sharedMaterial = m; g.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             g.transform.localScale = Vector3.one * 0.95f;
             return g.transform;
@@ -296,13 +297,14 @@ namespace PortBoss.M1
         void Show(Alerts.A a)
         {
             var c = UiKit.Card(root, "alert", 20, Ponyo.Paper, true);
-            float h = 92 + (a.Text.Length > 44 ? 24 : 0);
+            int lines = Mathf.Max(1, Mathf.CeilToInt(a.Text.Length / 36f));
+            float h = 62 + lines * 28;
             c.Place(new Vector2(0, 1), new Vector2(-480, -40), new Vector2(452, h), new Vector2(0, 1));
             var st = UiKit.Img(c, UiKit.Circle, Alerts.Col(a.K), "stamp"); st.rectTransform.Place(new Vector2(0, 1), new Vector2(18, -18), new Vector2(40, 40), new Vector2(0, 1));
             UiKit.Img(st.transform, UiKit.RingSprite, Ponyo.Line, "edge").rectTransform.Stretch(-1);
             var gl = UiKit.Txt(st.transform, Alerts.Glyph(a.K), UiKit.Black, 20, a.K == Alerts.Kind.Info ? Ponyo.Ink : Ponyo.Paper, TextAnchor.MiddleCenter); gl.rectTransform.Stretch();
             var s = UiKit.Txt(c, UiKit.Caps(a.Sender), UiKit.Bold, 14, Ponyo.InkSoft, TextAnchor.UpperLeft); s.rectTransform.Stretch(); s.rectTransform.offsetMin = new Vector2(72, 0); s.rectTransform.offsetMax = new Vector2(-16, -16);
-            var t = UiKit.Txt(c, a.Text, UiKit.Body, 20, Ponyo.Ink, TextAnchor.UpperLeft); t.rectTransform.Stretch(); t.rectTransform.offsetMin = new Vector2(72, 12); t.rectTransform.offsetMax = new Vector2(-18, -38);
+            var t = UiKit.Txt(c, a.Text, UiKit.Body, 20, Ponyo.Ink, TextAnchor.UpperLeft); t.rectTransform.Stretch(); t.rectTransform.offsetMin = new Vector2(72, 18); t.rectTransform.offsetMax = new Vector2(-18, -38);
             var life = UiKit.Img(c, null, Alerts.Col(a.K == Alerts.Kind.Info ? Alerts.Kind.Crew : a.K), "life"); life.rectTransform.anchorMin = new Vector2(0, 0); life.rectTransform.anchorMax = new Vector2(1, 0); life.rectTransform.pivot = new Vector2(0, 0);
             life.rectTransform.offsetMin = new Vector2(16, 6); life.rectTransform.offsetMax = new Vector2(-16, 10);
             var aa = a; aa.Born = Time.unscaledTime;
@@ -350,7 +352,9 @@ namespace PortBoss.M1
             if (sl.Rod) { nameT.text = fish.Rod.Name; nameSub.text = $"{BaitText()} · line {fish.Rod.LineKg:0} kg"; }
             else if (sl.Fish.Count > 0) { var f = sl.Fish[0]; nameT.text = f.Species.Name; nameSub.text = $"{Ponyo.GradeName[f.Grade]} · {sl.Fish.Count} of 5 · about ${Mathf.RoundToInt(f.Value * 0.6f)} each"; }
             namePill.sizeDelta = new Vector2(Mathf.Max(460, nameT.preferredWidth + nameSub.preferredWidth + 70), 50);
-            baitTag.text = sl.Rod && !me.AtHelm ? (fish.BaitCount[fish.BaitI] > 0 ? BaitText() : "<color=#F7C548>No bait (sprats only)</color>") : "";
+            baitTag.text = sl.Rod && !me.AtHelm ? (fish.BaitCount[fish.BaitI] > 0 ? BaitText() : "<color=#E2553F>No bait: sprats only</color>") : "";
+            baitChip.gameObject.SetActive(baitTag.text != "");
+            baitChip.sizeDelta = new Vector2(baitTag.preferredWidth + 52, 38);
         }
 
         string BaitText() => fish.BaitCount[fish.BaitI] > 0 ? $"{FishDb.Baits[fish.BaitI].Name} × {fish.BaitCount[fish.BaitI]}" : "no bait";
@@ -423,7 +427,7 @@ namespace PortBoss.M1
             zone.anchorMin = new Vector2(zc - fish.ZoneW / 2, 0); zone.anchorMax = new Vector2(zc + fish.ZoneW / 2, 1);
             zone.GetComponent<RawImage>().uvRect = new Rect(0, 0, fish.ZoneW * 830 / 32f, 46 / 32f);
             float p = fish.Frozen ? fish.PointerShown : fish.PointerAt(now);
-            pointer.anchorMin = pointer.anchorMax = new Vector2(p, 0.5f); pointer.anchoredPosition = new Vector2(0, 18);
+            pointer.anchorMin = pointer.anchorMax = new Vector2(p, 0.5f); pointer.anchoredPosition = new Vector2(0, 8);
             var flash = fish.Frozen && fish.Stop > 0 ? (fish.Result[fish.Stop - 1] > 0 ? Ponyo.Leaf : Ponyo.Hex("C9C2BA")) : Ponyo.Paper;
             pointer.Find("bob").GetComponent<Image>().color = flash;
             bool hasGhost = fish.Stop > 0 && !fish.Frozen;
@@ -431,7 +435,7 @@ namespace PortBoss.M1
             if (hasGhost) { ghost.anchorMin = new Vector2(lastStopAt, 0); ghost.anchorMax = new Vector2(lastStopAt, 1); }
             if (fish.Frozen && fish.Stop > 0) { lastStopAt = fish.PointerShown; barNote.text = $"stop {fish.Stop} · {(fish.Result[fish.Stop - 1] > 0 ? "hit" : "miss: one grade lower")}"; }
             else if (fish.Stop == 0) barNote.text = "";
-            barNote.rectTransform.anchoredPosition = new Vector2((lastStopAt - 0.5f) * 830, -160);
+            barNote.rectTransform.anchoredPosition = new Vector2(Mathf.Clamp((lastStopAt - 0.5f) * 830, -300, 300), -172);
             barNote.color = fish.Stop > 0 && fish.Result[Mathf.Max(0, fish.Stop - 1)] > 0 ? Ponyo.Hex("4E8C40") : Ponyo.InkSoft;
             for (int i = 0; i < 4; i++)
             {
@@ -479,8 +483,8 @@ namespace PortBoss.M1
             if (!on) return;
             rvIn = Mathf.MoveTowards(rvIn, 1, dt / 0.28f);
             float e = Util.EaseOutBack(rvIn);
-            rv.anchoredPosition = new Vector2(0, 20 + 60 * (1 - e)); rv.localScale = Vector3.one * Mathf.Lerp(0.92f, 1f, e);
-            dim.color = new Color(dim.color.r, dim.color.g, dim.color.b, 0.38f * rvIn);
+            rv.anchoredPosition = new Vector2(0, 46 + 60 * (1 - e)); rv.localScale = Vector3.one * Mathf.Lerp(0.92f, 1f, e);
+            dim.color = new Color(dim.color.r, dim.color.g, dim.color.b, 0.3f * rvIn);
             rays.localRotation = Quaternion.Euler(0, 0, -Time.unscaledTime * 6f);
             bool full = fish.TargetSlot < 0;
             float auto = Fishing.RevealAuto - fish.StateT;

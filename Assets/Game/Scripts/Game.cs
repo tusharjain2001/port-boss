@@ -9,7 +9,7 @@ namespace PortBoss.M1
         public static Material ToonMat;
         static readonly Dictionary<string, Material> fishMats = new();
         public static bool Paused;
-        public static RenderTexture BatchTarget;   // batchmode: the camera renders here (1920x1080) so shots include the UI
+        public static RenderTexture BatchTarget, UiTarget;   // batchmode: the camera renders here (1920x1080) so shots include the UI
         AudioSource sea; float gullT = 6;
         UnityEngine.UI.Text pauseT; RectTransform pause;
 
@@ -50,6 +50,11 @@ namespace PortBoss.M1
             {
                 BatchTarget = new RenderTexture(1920, 1080, 24) { antiAliasing = 4, name = "batch" };
                 rig.Cam.targetTexture = BatchTarget;
+                // the UI camera renders on its own into a transparent texture; shots composite it over the scene
+                var ui = rig.UiCam; var md = rig.Cam.GetComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>(); md.cameraStack.Remove(ui);
+                var ud = ui.GetComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>(); ud.renderType = UnityEngine.Rendering.Universal.CameraRenderType.Base;
+                ui.clearFlags = CameraClearFlags.SolidColor; ui.backgroundColor = new Color(0, 0, 0, 0);
+                UiTarget = new RenderTexture(1920, 1080, 24, RenderTextureFormat.ARGB32) { name = "batchUi" }; ui.targetTexture = UiTarget;
             }
             Hud.Create(rig.UiCam, p);
             BakeIcons(a);
@@ -75,48 +80,81 @@ namespace PortBoss.M1
                 var pf = a.FishPrefab(s.Id);
                 if (pf != null) Hud.Icons[s.Id] = IconBaker.Bake(pf, 192, 96, FishMat(s));
             }
-            var rod = RodView.Make(ToonMat, 1);
-            Hud.RodIcon = IconBaker.Bake(rod.gameObject, 128, 128, null, new Vector3(0.62f, -0.2f, 0.75f), 0.62f);
+            // a chunky stand-in rod (3.5x thicker) so the icon reads like the painted fish icons
+            var rod = RodView.Make(ToonMat, 1, 6f);
+            Hud.RodIcon = IconBaker.Bake(rod.gameObject, 160, 160, null, new Vector3(0.7f, -0.25f, 0.68f), 0.52f);
             Destroy(rod.gameObject);
         }
 
-        // Distant islands on the horizon: low chunky rock + grass mounds (code-made, fogged), so the sea isn't empty.
+        // Distant islands on the horizon (code-made, fogged) and a sandy seabed that slopes away from the shore, so the
+        // sea's depth colour fades from turquoise shallows to deep blue instead of stepping at the shore's underwater edge.
         void Islands()
         {
             var rnd = new System.Random(11);
-            var spots = new[] { (new Vector3(-420, 0, -620), 120f, 38f), (new Vector3(380, 0, -760), 170f, 55f), (new Vector3(760, 0, -120), 90f, 26f), (new Vector3(-820, 0, 160), 140f, 44f), (new Vector3(120, 0, -1150), 260f, 80f) };
+            var spots = new[] { (new Vector3(-460, 0, -700), 150f, 30f), (new Vector3(420, 0, -820), 210f, 44f), (new Vector3(900, 0, -260), 110f, 22f), (new Vector3(-950, 0, 120), 170f, 36f) };
             foreach (var (at, r, h) in spots)
             {
-                var m = Mound(rnd, r, h);
-                var g = Util.MeshObj("island", m, ToonMat, null); g.transform.position = at + Vector3.down * 2;
+                var g = Util.MeshObj("island", Mound(rnd, r, h), ToonMat, null); g.transform.position = at + Vector3.down * 1.5f;
+                g.transform.rotation = Quaternion.Euler(0, (float)rnd.NextDouble() * 360, 0);
                 g.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             }
+            var bed = Util.MeshObj("seabed", Seabed(), ToonMat, null);
+            bed.transform.position = Landing.I != null ? new Vector3(Landing.I.transform.position.x, 0, Landing.I.transform.position.z + 30) : Vector3.zero;
+            bed.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         }
+
+        static float Hash(float x, float y) { float h = Mathf.Sin(x * 127.1f + y * 311.7f) * 43758.5453f; return h - Mathf.Floor(h); }
 
         static Mesh Mound(System.Random rnd, float r, float h)
         {
-            int rings = 10, seg = 28; float ph = (float)rnd.NextDouble() * 10;
-            var v = new List<Vector3>(); var c = new List<Color>(); var t = new List<int>();
-            Color rock = Ponyo.Hex("9A93A6"), rockD = Ponyo.Hex("7C7690"), grass = Ponyo.Hex("8CC46A"), grassD = Ponyo.Hex("6FAF5A"), sand = Ponyo.Hex("EAD7A8");
+            int rings = 14, seg = 40; float ph = (float)rnd.NextDouble() * 10;
+            var v = new List<Vector3>(); var t = new List<int>();
             for (int i = 0; i <= rings; i++)
                 for (int j = 0; j < seg; j++)
                 {
                     float u = i / (float)rings, a = j * Mathf.PI * 2 / seg;
-                    float wob = 1 + 0.18f * Mathf.Sin(a * 3 + ph) + 0.1f * Mathf.Sin(a * 7 + ph * 2);
-                    float rr = r * (1 - u * u * 0.92f) * wob;
-                    float y = h * Mathf.Pow(Mathf.Sin(u * Mathf.PI / 2), 0.7f) * (1 + 0.15f * Mathf.Sin(a * 5 + ph));
+                    float wob = 1 + 0.22f * Mathf.Sin(a * 2 + ph) + 0.12f * Mathf.Sin(a * 5 + ph * 2) + 0.05f * Hash(i, j);
+                    float rr = r * (1 - u * 0.93f) * wob;
+                    float y = u > 0 ? h * Mathf.Pow(Mathf.Clamp01(u * 1.15f), 0.55f) * (0.85f + 0.3f * Mathf.Sin(a * 3 + ph * 1.7f)) : -3f;
                     v.Add(new Vector3(Mathf.Cos(a) * rr, y, Mathf.Sin(a) * rr));
-                    c.Add(u < 0.08f ? sand : u < 0.45f ? (j % 3 == 0 ? rockD : rock) : (j % 2 == 0 ? grass : grassD));
                 }
             for (int i = 0; i < rings; i++) for (int j = 0; j < seg; j++)
                 {
                     int a0 = i * seg + j, a1 = i * seg + (j + 1) % seg, b0 = a0 + seg, b1 = a1 + seg;
                     t.AddRange(new[] { a0, b0, a1, a1, b0, b1 });
                 }
-            // flat-shaded facets (painted, chunky)
+            Color sand = Ponyo.Hex("EAD7A8"), rock = Ponyo.Hex("9A93A6"), rock2 = Ponyo.Hex("8A84A0"), grass = Ponyo.Hex("8CC46A"), grass2 = Ponyo.Hex("7DBA60");
             var fv = new List<Vector3>(); var fc = new List<Color>(); var ft = new List<int>();
-            for (int k = 0; k < t.Count; k++) { fv.Add(v[t[k]]); fc.Add(c[t[k - k % 3]]); ft.Add(k); }
+            for (int k = 0; k < t.Count; k += 3)
+            {
+                var p0 = v[t[k]]; var p1 = v[t[k + 1]]; var p2 = v[t[k + 2]];
+                float y = (p0.y + p1.y + p2.y) / 3 / h, n = Hash(p0.x, p0.z);
+                var n3 = Vector3.Cross(p1 - p0, p2 - p0).normalized;
+                Color c = y < 0.06f ? sand : (y > 0.45f && Mathf.Abs(n3.y) > 0.55f) ? (n > 0.5f ? grass : grass2) : (n > 0.5f ? rock : rock2);
+                for (int q = 0; q < 3; q++) { fv.Add(v[t[k + q]]); fc.Add(c); ft.Add(k + q); }
+            }
             var m = new Mesh { indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 }; m.SetVertices(fv); m.SetColors(fc); m.SetTriangles(ft, 0); m.RecalculateNormals(); m.RecalculateBounds();
+            return m;
+        }
+
+        // A wide shallow bowl: -3 m by the shore down to -28 m 260 m out (sand colour, seen through the shallows).
+        static Mesh Seabed()
+        {
+            int rings = 24, seg = 48; var v = new List<Vector3>(); var c = new List<Color>(); var t = new List<int>();
+            for (int i = 0; i <= rings; i++)
+                for (int j = 0; j < seg; j++)
+                {
+                    float u = i / (float)rings, r = 4 + 600 * u * u, a = j * Mathf.PI * 2 / seg, k = Mathf.Clamp01(r / 260f);
+                    float y = -3.2f - 25f * k * k * (3 - 2 * k) - (r > 260 ? (r - 260) * 0.02f : 0);
+                    v.Add(new Vector3(Mathf.Cos(a) * r, y, Mathf.Sin(a) * r));
+                    c.Add(Color.Lerp(Ponyo.Hex("D8C69A"), Ponyo.Hex("7FA6A0"), u));
+                }
+            for (int i = 0; i < rings; i++) for (int j = 0; j < seg; j++)
+                {
+                    int a0 = i * seg + j, a1 = i * seg + (j + 1) % seg, b0 = a0 + seg, b1 = a1 + seg;
+                    t.AddRange(new[] { a0, a1, b0, a1, b1, b0 });
+                }
+            var m = new Mesh(); m.SetVertices(v); m.SetColors(c); m.SetTriangles(t, 0); m.RecalculateNormals(); m.RecalculateBounds();
             return m;
         }
 
