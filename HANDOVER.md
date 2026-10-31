@@ -407,10 +407,11 @@ Proven headless:
 7. A Ponyo sky/sea pass: towering cumulus, turquoise depth bands, contact foam.
 
 <!-- M1B-RESULT -->
-**M1b result:** *(Kufu fills this in before merging: build path, commit on `main`, what passed, what is still open.)*
-- Build: `…`
-- Commit: `…`
-- Still open: `…`
+**M1b result (Kufu, 2026-11-01):** M1b is built and checked by hidden runs; Manan has not played it yet.
+- Build: `Desktop/Port Boss/builds/20261101-0521-M1b/PortBoss.exe` (Manan's PC; HOW-TO-TEST.md beside it). Proof: `Desktop/Port Boss/proof/M1b/` (66 s capture, frame sheets, test logs).
+- Commit: M1b code `8b5cfa0`, merged to `main` together with this handover.
+- Passed: animation-clean pass (keyed cast/wait/strike/fight/reel/hold-up/tiller clips, no rod Z-kinks, line is a sag curve); faces the cast direction (worst error 178° → 0° in 8 directions, `-pb-cast8`); seated, LEFT hand on the tiller; painted rod icon; minigame = one stop, green 1/8 width, bar only, Basic/Rare with Rare = ×2; heavy fish Fight it / Let it go, one retry, 2nd miss snaps, normal fish never snap; mouse-wheel hotbar (`-pb-scrolltest` 16/16); Ponyo sky + sea (the white "foam blobs" were the sun's specular, gone); fishtest 500×8 bite timer 4.0–9.96 s, 40 casts at 1× on screen PASS; pack check 0.
+- Still open: Manan hasn't played M1b. FLAG for Manan: Rare is only ~15% for a practised player, so average fish income is ~46% below the economy model, and a fought heavy fish snaps ~73%. Tiller sits chest-high (lower it in the Blender boat; swing limited to ±12°); the rod on his back rises ~0.7 m over his head; fingers don't wrap the grip; arms are IK, less lively than mocap; worker model is still a placeholder.
 <!-- /M1B-RESULT -->
 
 **Known issues / not yet proven (from M1):**
