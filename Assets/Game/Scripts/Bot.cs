@@ -86,7 +86,12 @@ namespace PortBoss.M1
             if (Arg("-pb-dumpnear") != null) // debug: everything drawn near the water round the boat
                 foreach (var r in Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None))
                 {
-                    var b = r.bounds; if (Vector3.Distance(Flat(b.center), Flat(s.transform.position)) > 30 || b.center.y > 1.5f || !r.enabled || !r.gameObject.activeInHierarchy) continue;
+                    var b = r.bounds; if (!r.enabled || !r.gameObject.activeInHierarchy) continue;
+                    // only what covers the screen point -pb-dumpnear x,y (viewport) at this shot
+                    var at = Arg("-pb-dumpnear").Split(','); var vp = new Vector2(float.Parse(at[0], CultureInfo.InvariantCulture), float.Parse(at[1], CultureInfo.InvariantCulture));
+                    var cam = CameraRig.I.Cam; float x0 = 9, x1 = -9, y0 = 9, y1 = -9; bool front = false;
+                    for (int c = 0; c < 8; c++) { var w = b.center + Vector3.Scale(b.extents, new Vector3((c & 1) * 2 - 1, (c >> 1 & 1) * 2 - 1, (c >> 2 & 1) * 2 - 1)); var v = cam.WorldToViewportPoint(w); if (v.z > 0) front = true; x0 = Mathf.Min(x0, v.x); x1 = Mathf.Max(x1, v.x); y0 = Mathf.Min(y0, v.y); y1 = Mathf.Max(y1, v.y); }
+                    if (!front || vp.x < x0 || vp.x > x1 || vp.y < y0 || vp.y > y1 || b.size.x > 500) continue;
                     Debug.Log($"[PB] near: {r.name} ({r.GetType().Name}) parent {(r.transform.parent ? r.transform.parent.name : "-")} mat {(r.sharedMaterial ? r.sharedMaterial.name + "/" + r.sharedMaterial.shader.name : "none")} at {b.center} size {b.size}");
                 }
         }

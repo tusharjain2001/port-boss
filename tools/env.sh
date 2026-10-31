@@ -5,3 +5,5 @@ UNITY=${UNITY:-"/c/Program Files/Unity/Hub/Editor/6000.5.6f1/Editor/Unity.exe"}
 PB_LOGS=${PB_LOGS:-$PROJECT/Logs/pb}                                        # build + test logs (Logs/ is gitignored)
 RELEASE_DIR=${RELEASE_DIR:-$PROJECT/Builds/releases}                        # stamped releases (Builds/ is gitignored)
 mkdir -p "$PB_LOGS"
+# Run a program with no visible window and wait (Unity, the game, anything that could pop up on Manan's screen).
+hidden() { powershell -NoProfile -ExecutionPolicy Bypass -File "$(cygpath -w "$TOOLS/run-hidden.ps1")" "$@"; }

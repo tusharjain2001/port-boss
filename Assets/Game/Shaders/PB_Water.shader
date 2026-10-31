@@ -146,11 +146,14 @@ Shader "PortBoss/M1/Water"
                 float3 r = reflect(-v, n); r.y = abs(r.y);
                 col = lerp(col, LDSkyNoDisc(r) * _ReflTint.rgb, saturate(fres * _Reflect));
 
-                // glint: small crisp sparkles on the facets that catch the sun, over a soft broad sheen
+                // glint: a soft broad sheen toward the sun, and a glitter path of tiny sparkles inside it. (One crisp
+                // specular lobe on these big smooth waves drew the sun as a single white blob per wave facet.)
                 float rl = saturate(dot(reflect(-L.direction, n), v));
-                float g = pow(rl, _SunPow);
-                if (_SpecToon > 0) g = smoothstep(0.5 - _SpecToon, 0.5 + _SpecToon, g);
-                col += L.color * (g * _SunSpec + pow(rl, 48) * _Sheen) * L.shadowAttenuation;
+                float lobe = pow(rl, _SunPow);
+                float2 gp = i.ws.xz * 11.0;
+                float spk = LDNoise(gp + _LDTime * float2(0.7, 0.45)) * LDNoise(gp * 1.7 - _LDTime * float2(0.4, 0.6));
+                float glitter = smoothstep(0.62, 0.64, spk) * lobe;
+                col += L.color * (glitter * _SunSpec + pow(rl, 48) * _Sheen) * L.shadowAttenuation;
 
                 // contact foam: a crisp, broken white band where the hull, pilings and shore meet the water
                 float fn = LDNoise(i.ws.xz * _FoamScale + _LDTime * 0.2) * 0.6 + LDNoise(i.ws.xz * _FoamScale * 2.3) * 0.4;

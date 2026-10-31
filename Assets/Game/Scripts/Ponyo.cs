@@ -77,7 +77,7 @@ namespace PortBoss.M1
             // where hull, pilings and shore meet the water; crest foam only on waves steeper than a calm sea's
             w.SetColor("_Shallow", Hex("46D6C8")); w.SetColor("_Deep", Hex("2160B8")); w.SetFloat("_DepthDist", 3.2f); w.SetFloat("_MinOpacity", 0.3f);
             w.SetFloat("_Bands", 0); w.SetFloat("_Refraction", 0.03f); w.SetFloat("_Reflect", 0.34f); w.SetColor("_ReflTint", Hex("F4F8FF"));
-            w.SetFloat("_FresnelPow", 4); w.SetFloat("_SunSpec", 0.9f); w.SetFloat("_SunPow", 900); w.SetFloat("_SpecToon", 0.2f); w.SetFloat("_Sheen", 0.12f);
+            w.SetFloat("_FresnelPow", 4); w.SetFloat("_SunSpec", 1.1f); w.SetFloat("_SunPow", 140); w.SetFloat("_SpecToon", 0f); w.SetFloat("_Sheen", 0.1f); // glitter lobe width, sheen
             w.SetColor("_Foam", Color.white); w.SetFloat("_FoamDist", 0.5f); w.SetFloat("_FoamScale", 1.4f); w.SetFloat("_FoamSharp", 0.04f);
             w.SetFloat("_CrestFoam", 1f); w.SetFloat("_CrestSteep", 0.2f); // whitecaps only in rough weather (a Clear sea peaks ~0.1)
             var args = System.Environment.GetCommandLineArgs(); // debug: -pb-nocrest / -pb-nocontact (find what draws a foam patch)

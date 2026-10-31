@@ -4,7 +4,7 @@
 . "$(dirname "$0")/env.sh"
 EXE=$1; NAME=$2; shift 2
 D=$PB_LOGS/m1/$NAME; mkdir -p "$D"
-"$EXE" -batchmode -logFile "$(cygpath -m "$D/log.txt")" "$@"
+hidden "$EXE" -batchmode -logFile "$(cygpath -m "$D/log.txt")" "$@"
 echo "exit $? -> $D/log.txt"
 echo "exceptions: $(grep -c Exception "$D/log.txt")"
 grep -E "\[PB\] (RESULT|M1|hotbar|boat|fishtest|alert Warning)|Exception|NullReference" "$D/log.txt" | head -40

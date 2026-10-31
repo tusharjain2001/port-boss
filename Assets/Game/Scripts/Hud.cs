@@ -409,7 +409,7 @@ namespace PortBoss.M1
                 var c = fish.Catch; var sp = c.Species;
                 rvFish.texture = BigIcon(sp.Id);
                 rvName.text = sp.Name.Replace(" (Walt's legend grouper)", "");
-                rvSub.text = $"caught on {(fish.BaitId == "None" ? "a bare hook" : FishDb.Baits[fish.BaitI].Name.ToLower())} off Walt's Landing, at golden hour · {sp.Class} species";
+                rvSub.text = $"caught on {(fish.BaitId == "None" ? "a bare hook" : FishDb.Baits[fish.BaitI].Name.ToLower())} off Walt's Landing, late afternoon · {sp.Class} species";
                 rvGrade.text = (c.Grade > 0 ? "★ " : "") + Ponyo.GradeName[c.Grade].ToUpper();
                 UiKit.Fill(rvGradePill).color = Ponyo.GradeCol[c.Grade];
                 rvGrade.color = Ponyo.Ink;
