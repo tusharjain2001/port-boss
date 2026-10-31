@@ -24,6 +24,18 @@ float LDFbm(float2 p)
     return v;
 }
 
+// The sky without the sun disc (the glow stays): what the sea reflects. A reflected disc made soft white blobs
+// drift over the waves wherever a facet tilted to the sun; the sea draws its own glint instead.
+float3 LDSkyNoDisc(float3 dir)
+{
+    float y = dir.y;
+    float3 mid = _LDSkyMid.a > 0 ? _LDSkyMid.rgb : lerp(_LDSkyHorizon.rgb, _LDSkyTop.rgb, 0.5);
+    float3 c = y > 0 ? lerp(lerp(_LDSkyHorizon.rgb, mid, smoothstep(0.0, 0.16, y)), _LDSkyTop.rgb, smoothstep(0.16, 0.75, y))
+                     : lerp(_LDSkyHorizon.rgb, _LDSkyBottom.rgb, saturate(-y * 6));
+    float s = saturate(dot(dir, normalize(_LDSunDir.xyz)));
+    return c + _LDSunSky.rgb * pow(s, max(_LDSunDir.w, 1)) * 0.6;
+}
+
 float3 LDSkyGradient(float3 dir)
 {
     float y = dir.y;

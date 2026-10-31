@@ -489,7 +489,7 @@ namespace PortBoss.M1
             if (f.State == Fishing.St.Waiting) sb.AppendLine($"bite in {f.BiteAt - Time.time:F2} s of {f.BiteWait:F2} · nibbles {f.NibblesDone}/{f.Nibbles}");
             if (f.Hooked != null) sb.AppendLine($"hooked: {f.Hooked.Name} ({f.Hooked.Class})");
             if (f.State is Fishing.St.Minigame && f.Hooked != null) sb.AppendLine($"window {f.ZoneW / f.PtrSpeed * 1000:0} ms · zone {f.ZoneW:P0} · speed {f.PtrSpeed:F2}/s · passes {f.Passes:F1}");
-            sb.AppendLine($"stop errors: {f.ErrMs[0]:0} / {f.ErrMs[1]:0} / {f.ErrMs[2]:0} ms (≤ 0 = in the green) · offset {Settings.TimingOffsetMs:0} ms");
+            sb.AppendLine($"stop error: {f.ErrMs[0]:0} ms{(f.HeavyFight ? $" · retry {f.ErrMs[1]:0} ms" : "")} (≤ 0 = in the green) · offset {Settings.TimingOffsetMs:0} ms");
             var s = Skiff.I; if (s != null) sb.AppendLine($"Biscuit {s.Speed:F1} m/s notch {s.Notch} {(s.Moored ? "moored" : s.Anchored ? "anchored" : "free")} roll {Mathf.DeltaAngle(0, s.transform.eulerAngles.z):F1}°");
             dbg.text = sb.ToString();
         }

@@ -23,6 +23,8 @@ Shader "PortBoss/M1/Water"
         _FoamScale ("Foam noise scale", Float) = 0.6
         _FoamSharp ("Foam edge sharpness", Range(0.01,0.5)) = 0.1
         _CrestFoam ("Crest foam", Range(0,1)) = 0.2
+        _CrestSteep ("Crest foam from steepness (1 - normal.y)", Range(0,0.5)) = 0.08
+        _Sheen ("Soft sun sheen", Float) = 0.15
         _WaveAmp ("Wave height", Float) = 0.25
         _WaveLen ("Wave length", Float) = 14
         _WaveSteep ("Wave steepness", Range(0,1)) = 0.4
@@ -57,9 +59,11 @@ Shader "PortBoss/M1/Water"
             CBUFFER_START(UnityPerMaterial)
                 float4 _Shallow, _Deep, _ReflTint, _Foam;
                 float _DepthDist, _MinOpacity, _Bands, _Refraction, _Reflect, _FresnelPow, _SunSpec, _SunPow, _SpecToon;
+                float _CrestSteep, _Sheen;
                 float _FoamDist, _FoamScale, _FoamSharp, _CrestFoam, _WaveAmp, _WaveLen, _WaveSteep, _DetailNormal, _DetailScale, _ShadowAmt, _Lift;
             CBUFFER_END
             float4 _PBSeaCam; // the camera the CPU wave sampler uses (Sea.cs sets it each frame)
+            float4x4 _PBHullW2L; float4 _PBHull; // Biscuit's world->local and hull half size (x, z) + gunwale y (Skiff sets them)
 
             struct A { float4 pos : POSITION; };
             struct V { float4 cs : SV_POSITION; float3 ws : TEXCOORD0; float3 n : TEXCOORD1; float4 sp : TEXCOORD2; float h : TEXCOORD3; float fog : TEXCOORD4; };
@@ -95,6 +99,13 @@ Shader "PortBoss/M1/Water"
 
             half4 frag(V i, bool front : SV_IsFrontFace) : SV_Target
             {
+                // no sea inside the boat: a wave crest must not show through Biscuit's floor
+                if (_PBHull.x > 0)
+                {
+                    float3 hl = mul(_PBHullW2L, float4(i.ws, 1)).xyz;
+                    float2 e = hl.xz / _PBHull.xy;
+                    if (dot(e, e) < 1 && hl.y < _PBHull.z) discard; // an ellipse sits inside the skiff's plan everywhere
+                }
                 float2 uv = i.sp.xy / i.sp.w;
                 float surf = i.sp.w;
 
@@ -108,13 +119,19 @@ Shader "PortBoss/M1/Water"
                 float3 n = normalize(i.n + float3(n0 - nx, 0, n0 - nz) * _DetailNormal / e * 0.15);
 
                 float raw = SampleSceneDepth(uv);
-                float depth = LinearEyeDepth(raw, _ZBufferParams) - surf;
+                float sceneEye = LinearEyeDepth(raw, _ZBufferParams);
+                float depth = sceneEye - surf;
                 float2 ruv = uv + n.xz * _Refraction * saturate(depth * 0.5);
                 float rdepth = LinearEyeDepth(SampleSceneDepth(ruv), _ZBufferParams) - surf;
                 if (rdepth < 0) { ruv = uv; rdepth = depth; }
                 float3 scene = SampleSceneColor(ruv);
+                // the water's VERTICAL depth here (the scene point under this pixel, rebuilt from the depth buffer):
+                // colour and contact foam follow how deep the water really is, not how long the view ray is in it, so
+                // a grazing look over deep water is never "shallow" and foam only rings what pierces the surface
+                float3 scenePos = _WorldSpaceCameraPos + (i.ws - _WorldSpaceCameraPos) * (sceneEye / max(surf, 1e-3));
+                float vdepth = raw <= 0.0001 || raw >= 0.9999 ? 1000 : max(i.ws.y - scenePos.y, 0);
 
-                float absorb = Band(saturate(1 - exp(-max(rdepth, 0) / _DepthDist)));
+                float absorb = Band(saturate(1 - exp(-vdepth / _DepthDist)));
                 float3 body = lerp(_Shallow.rgb, _Deep.rgb, absorb);
                 float3 col = lerp(scene * _Shallow.rgb, body, saturate(absorb + _MinOpacity));
 
@@ -127,16 +144,21 @@ Shader "PortBoss/M1/Water"
                 float fres = pow(1 - saturate(dot(n, v)), _FresnelPow);
                 fres = _Bands < 0.5 ? fres : smoothstep(0.35, 0.45, fres) * 0.6 + fres * 0.4;
                 float3 r = reflect(-v, n); r.y = abs(r.y);
-                col = lerp(col, LDSkyGradient(r) * _ReflTint.rgb, saturate(fres * _Reflect));
+                col = lerp(col, LDSkyNoDisc(r) * _ReflTint.rgb, saturate(fres * _Reflect));
 
-                float g = pow(saturate(dot(reflect(-L.direction, n), v)), _SunPow);
+                // glint: small crisp sparkles on the facets that catch the sun, over a soft broad sheen
+                float rl = saturate(dot(reflect(-L.direction, n), v));
+                float g = pow(rl, _SunPow);
                 if (_SpecToon > 0) g = smoothstep(0.5 - _SpecToon, 0.5 + _SpecToon, g);
-                col += L.color * g * _SunSpec * L.shadowAttenuation;
+                col += L.color * (g * _SunSpec + pow(rl, 48) * _Sheen) * L.shadowAttenuation;
 
+                // contact foam: a crisp, broken white band where the hull, pilings and shore meet the water
                 float fn = LDNoise(i.ws.xz * _FoamScale + _LDTime * 0.2) * 0.6 + LDNoise(i.ws.xz * _FoamScale * 2.3) * 0.4;
-                float contact = 1 - saturate(depth / _FoamDist);
+                float contact = 1 - saturate(vdepth / _FoamDist);
                 float foam = smoothstep(fn - _FoamSharp, fn + _FoamSharp, contact * 1.1);
-                foam = max(foam, smoothstep(0.88 - _FoamSharp, 0.88 + _FoamSharp, i.h * 0.5 + 0.5 + (fn - 0.5) * 0.25) * _CrestFoam);
+                // crest foam only where a wave is steeper than the threshold (none on a calm Clear sea)
+                float steep = 1 - i.n.y;
+                foam = max(foam, smoothstep(_CrestSteep, _CrestSteep + 0.03, steep + (fn - 0.5) * 0.04) * step(0.2, i.h) * _CrestFoam);
                 col = lerp(col, _Foam.rgb * lerp(0.6, 1, shadow) * (LDAmbient(float3(0,1,0)) + L.color * 0.8), foam * _Foam.a);
 
                 col = MixFog(col, i.fog);

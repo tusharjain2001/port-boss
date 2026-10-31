@@ -83,6 +83,12 @@ namespace PortBoss.M1
             Debug.Log($"[PB] sailed out {Vector3.Distance(Flat(start), Flat(s.transform.position)):F0} m from the berth, anchored at {s.transform.position}");
             Board(); yield return new WaitForSeconds(0.8f);
             if (shotsOn) yield return Shot("0-anchored-open-sea");
+            if (Arg("-pb-dumpnear") != null) // debug: everything drawn near the water round the boat
+                foreach (var r in Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None))
+                {
+                    var b = r.bounds; if (Vector3.Distance(Flat(b.center), Flat(s.transform.position)) > 30 || b.center.y > 1.5f || !r.enabled || !r.gameObject.activeInHierarchy) continue;
+                    Debug.Log($"[PB] near: {r.name} ({r.GetType().Name}) parent {(r.transform.parent ? r.transform.parent.name : "-")} mat {(r.sharedMaterial ? r.sharedMaterial.name + "/" + r.sharedMaterial.shader.name : "none")} at {b.center} size {b.size}");
+                }
         }
 
         IEnumerator CastOnce(float power)
@@ -126,7 +132,7 @@ namespace PortBoss.M1
                     if (Time.timeAsDouble >= plannedPress)
                     {
                         Bot.PressAt = plannedPress; Ctl.BotStrike = true;
-                        if (shots != null && fish.Stop == 1) yield return Shot("4-minigame");
+                        if (shots != null && fish.Stop == 0) yield return Shot("4-minigame");
                         yield return null; Ctl.BotStrike = false; plannedPress = -1;
                     }
                 }

@@ -60,7 +60,7 @@ namespace PortBoss.M1
         {
             engine = gameObject.AddComponent<AudioSource>();
             engine.clip = Synth.Engine; engine.loop = true; engine.spatialBlend = 0.85f; engine.volume = 0; engine.minDistance = 4; engine.Play();
-            wake = Particles(Motor != null ? Motor : transform, new Vector3(0, -0.1f, -0.4f), 0.55f, 2.2f);
+            wake = Particles(Motor != null ? Motor : transform, new Vector3(0, -0.1f, -0.4f), 0.8f, 2.4f);
             bowSpray = Particles(transform, new Vector3(0, 0.05f, 2.4f), 0.35f, 1.0f);
         }
 
@@ -150,10 +150,13 @@ namespace PortBoss.M1
             if (Prop != null) Prop.Rotate(0, Speed * 900f * dt, 0, Space.Self);
             engineVol = Mathf.MoveTowards(engineVol, Moored ? 0.12f : 0.25f + 0.5f * Mathf.Abs(Notch) / 3f, dt);
             engine.volume = engineVol; engine.pitch = 0.75f + 0.55f * Mathf.Abs(Speed) / MaxSpeed;
+            // the sea is cut out inside the hull (PB_Water): its footprint, inset a little from the planking
+            Shader.SetGlobalMatrix("_PBHullW2L", transform.worldToLocalMatrix);
+            Shader.SetGlobalVector("_PBHull", new Vector4(Hull.extents.x - 0.1f, Hull.extents.z - 0.12f, Hull.max.y, 0));
             // foam is born on the water: behind the prop, and either side of the bow
             if (Prop != null) wake.transform.position = OnSea(Prop.position);
             if (AnchorPt != null) bowSpray.transform.position = OnSea(AnchorPt.position);
-            var we = wake.emission; we.rateOverTime = Mathf.Abs(Speed) > 0.3f ? 18f * Mathf.Abs(Speed) : 0;
+            var we = wake.emission; we.rateOverTime = Mathf.Abs(Speed) > 0.3f ? 26f * Mathf.Abs(Speed) : 0; // overlapping: one continuous band
             var be = bowSpray.emission; be.rateOverTime = Speed > 2.5f ? 10f * Speed : 0;
 
             if (AnchorT >= 0)

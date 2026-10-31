@@ -4,7 +4,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace PortBoss.M1
 {
-    // Ponyo Coast lighting, fixed at golden hour for M1 (M1-BRIEF: "a nice fixed Golden-hour light"; the day cycle is M3).
+    // Ponyo Coast lighting, fixed for M1 at late afternoon in the approved sheet's palette (artdir §4; the day cycle is M3).
     // Values from the art direction (#4) blended with the systems §4.4 "Golden" state. Every number is a knob.
     public static class Ponyo
     {
@@ -27,29 +27,31 @@ namespace PortBoss.M1
         {
             if (a.Pipeline != null) { GraphicsSettings.defaultRenderPipeline = a.Pipeline; QualitySettings.renderPipeline = a.Pipeline; }
 
-            // sun: low warm golden-hour light from behind-left of the pier (long soft shadows over the deck)
+            // sun: low late-afternoon light from behind-left of the pier (long soft shadows over the deck)
             var sg = new GameObject("Sun");
             Sun = sg.AddComponent<Light>();
-            Sun.type = LightType.Directional; Sun.color = Hex("FFD9A0"); Sun.intensity = 1.75f;
+            // Ponyo Coast sheet (artdir §4): late-afternoon sun, warm white (#FFF3DC), still low enough for long shadows
+            Sun.type = LightType.Directional; Sun.color = Hex("FFEACB"); Sun.intensity = 1.8f;
             Sun.shadows = LightShadows.Soft; Sun.shadowStrength = 0.85f; Sun.shadowBias = 0.04f; Sun.shadowNormalBias = 0.3f;
-            sg.transform.rotation = Quaternion.Euler(24f, -125f, 0);
+            sg.transform.rotation = Quaternion.Euler(30f, -125f, 0);
             RenderSettings.sun = Sun;
 
-            Color ambSky = Hex("8E9EDC"), ambEq = Hex("C0A8A8"), ambGround = Hex("6C6070");
+            Color ambSky = Hex("98A6EA"), ambEq = Hex("C4C2D2"), ambGround = Hex("6C6A80"); // the painted blue-violet shade
             RenderSettings.ambientMode = AmbientMode.Trilight;
             RenderSettings.ambientSkyColor = ambSky; RenderSettings.ambientEquatorColor = ambEq; RenderSettings.ambientGroundColor = ambGround;
             RenderSettings.fog = true; RenderSettings.fogMode = FogMode.Linear;
-            RenderSettings.fogColor = Hex("F7CFA4"); RenderSettings.fogStartDistance = 260; RenderSettings.fogEndDistance = 1900;
+            RenderSettings.fogColor = Hex("DCE6EE"); RenderSettings.fogStartDistance = 260; RenderSettings.fogEndDistance = 1900;
 
             SkyMat = new Material(a.Sky);
-            SkyMat.SetColor("_CloudColor", Hex("FFF0DC")); SkyMat.SetColor("_CloudShade", Hex("D8A8B8"));
-            SkyMat.SetFloat("_CloudCover", 0.4f); SkyMat.SetFloat("_CloudSharp", 0.09f); SkyMat.SetFloat("_CloudScale", 0.9f);
-            SkyMat.SetFloat("_CloudBank", 1f); SkyMat.SetFloat("_CloudBankHeight", 0.2f);
+            // towering cumulus round the horizon, sunlit cream tops, blue-violet shade (#98A6EA); thin cloud overhead
+            SkyMat.SetColor("_CloudColor", Hex("FFF8EC")); SkyMat.SetColor("_CloudShade", Hex("98A6EA"));
+            SkyMat.SetFloat("_CloudCover", 0.28f); SkyMat.SetFloat("_CloudSharp", 0.1f); SkyMat.SetFloat("_CloudScale", 0.9f);
+            SkyMat.SetFloat("_CloudBank", 1f); SkyMat.SetFloat("_CloudBankHeight", 1f);
             RenderSettings.skybox = SkyMat;
 
-            Shader.SetGlobalColor("_LDSkyTop", Hex("2F6FD0")); Shader.SetGlobalColor("_LDSkyHorizon", Hex("FFC48E")); Shader.SetGlobalColor("_LDSkyBottom", Hex("F0B890"));
-            var mid = Hex("5EA6EE"); mid.a = 1; Shader.SetGlobalColor("_LDSkyMid", mid);
-            var sunSky = Hex("FFD08A"); sunSky.a = 0.0025f; Shader.SetGlobalColor("_LDSunSky", sunSky);
+            Shader.SetGlobalColor("_LDSkyTop", Hex("3A86E0")); Shader.SetGlobalColor("_LDSkyHorizon", Hex("D6E8F2")); Shader.SetGlobalColor("_LDSkyBottom", Hex("CFE6F5"));
+            var mid = Hex("7DB4EC"); mid.a = 1; Shader.SetGlobalColor("_LDSkyMid", mid);
+            var sunSky = Hex("FFF3DC"); sunSky.a = 0.0025f; Shader.SetGlobalColor("_LDSunSky", sunSky);
             var sd = -sg.transform.forward; Shader.SetGlobalVector("_LDSunDir", new Vector4(sd.x, sd.y, sd.z, 10));
             Shader.SetGlobalColor("_LDAmbSky", ambSky); Shader.SetGlobalColor("_LDAmbEq", ambEq); Shader.SetGlobalColor("_LDAmbGround", ambGround);
 
@@ -66,15 +68,21 @@ namespace PortBoss.M1
             vol.sharedProfile = p;
         }
 
-        // The sea, golden-hour Ponyo (luminous turquoise-cobalt, soft glint, crisp white foam)
+        // The sea, Ponyo Coast (luminous turquoise-cobalt by depth, soft glint, crisp white foam)
         public static Material SeaMaterial(M1Assets a)
         {
             var w = new Material(a.Water);
-            w.SetColor("_Shallow", Hex("4FD8C8")); w.SetColor("_Deep", Hex("2468B8")); w.SetFloat("_DepthDist", 2.6f); w.SetFloat("_MinOpacity", 0.35f);
-            w.SetFloat("_Bands", 0); w.SetFloat("_Refraction", 0.03f); w.SetFloat("_Reflect", 0.38f); w.SetColor("_ReflTint", Hex("FFF2E0"));
-            w.SetFloat("_FresnelPow", 4); w.SetFloat("_SunSpec", 0.3f); w.SetFloat("_SunPow", 2200); w.SetFloat("_SpecToon", 0f);
-            w.SetColor("_Foam", Color.white); w.SetFloat("_FoamDist", 1.1f); w.SetFloat("_FoamScale", 0.6f); w.SetFloat("_FoamSharp", 0.05f);
-            w.SetFloat("_CrestFoam", 0f); w.SetFloat("_DetailNormal", 0.14f); w.SetFloat("_DetailScale", 0.35f); w.SetFloat("_ShadowAmt", 0.5f); w.SetFloat("_Lift", 0.35f);
+            // luminous turquoise shallows (#46D6C8) to deep cobalt (#2160B8) by the water's real depth; the sky's
+            // reflection without the sun disc; a soft sheen + small crisp sparkles; crisp white contact foam only
+            // where hull, pilings and shore meet the water; crest foam only on waves steeper than a calm sea's
+            w.SetColor("_Shallow", Hex("46D6C8")); w.SetColor("_Deep", Hex("2160B8")); w.SetFloat("_DepthDist", 3.2f); w.SetFloat("_MinOpacity", 0.3f);
+            w.SetFloat("_Bands", 0); w.SetFloat("_Refraction", 0.03f); w.SetFloat("_Reflect", 0.34f); w.SetColor("_ReflTint", Hex("F4F8FF"));
+            w.SetFloat("_FresnelPow", 4); w.SetFloat("_SunSpec", 0.9f); w.SetFloat("_SunPow", 900); w.SetFloat("_SpecToon", 0.2f); w.SetFloat("_Sheen", 0.12f);
+            w.SetColor("_Foam", Color.white); w.SetFloat("_FoamDist", 0.5f); w.SetFloat("_FoamScale", 1.4f); w.SetFloat("_FoamSharp", 0.04f);
+            w.SetFloat("_CrestFoam", 1f); w.SetFloat("_CrestSteep", 0.2f); // whitecaps only in rough weather (a Clear sea peaks ~0.1)
+            var args = System.Environment.GetCommandLineArgs(); // debug: -pb-nocrest / -pb-nocontact (find what draws a foam patch)
+            if (System.Array.IndexOf(args, "-pb-nocrest") >= 0) w.SetFloat("_CrestFoam", 0);
+            if (System.Array.IndexOf(args, "-pb-nocontact") >= 0) w.SetFloat("_FoamDist", 0.0001f); w.SetFloat("_DetailNormal", 0.14f); w.SetFloat("_DetailScale", 0.35f); w.SetFloat("_ShadowAmt", 0.5f); w.SetFloat("_Lift", 0.35f);
             return w;
         }
 
