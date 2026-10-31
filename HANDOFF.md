@@ -1,3 +1,5 @@
+> **HISTORICAL (1 Nov 2026).** This file describes the OLD dock-work version of Port Boss, which Manan replaced on 31 Oct with the fishing-first game. **Read `HANDOVER.md` instead**: it is the one entry point, and its rules win over anything below. Kept only as history.
+
 # HANDOFF (portboss-w1, night 28→29 Oct; resume here after any pause)
 
 Branch `panoptes/w-portboss-w1` (Kufu pushes). Every step: `LOG.md`. Open tasks from Kufu: t-6ccc7f36, t-ceaece1c, t-4ae2d153, t-fea759f1,

@@ -1,3 +1,5 @@
+> **HISTORICAL (1 Nov 2026):** about the OLD dock-work game (code in `Assets/Scripts/`), replaced on 31 Oct by the fishing-first game. Current docs: `HANDOVER.md` and `docs/plan/`.
+
 # Port Boss: art plan (draft for Kufu + Manan, 29 Oct 2026)
 
 **Target:** the cp1/cp2 look (build `20261029-0003`), polished. Stylised, warm, clean, toy-*adjacent* but not a kids' game: chunky readable shapes, flat colour, golden-hour light. **No photoreal**: no scanned/PBR textures, no HDRI photo skies, no realistic humans. "Oomph" = light, shadow, colour, motion and life, not surface detail.

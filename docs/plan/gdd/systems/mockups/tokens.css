@@ -1,0 +1,89 @@
+/* Port Boss UI tokens v2: PONYO COAST (art direction #4, Manan 2026-10-31). gdd-systems.
+   The same names become USS variables in Unity UI Toolkit (Assets/UI/Tokens.uss).
+   Palette roots from replan/artdir README §4: sky #3A86E0, horizon #CFE6F5, sun #FFF3DC, shade #98A6EA,
+   sea #46D6C8 / #2160B8, line #805C52, paper #FFFBF2. */
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,400..800,0..100;1,9..144,400..700,0..100&family=Zen+Maru+Gothic:wght@500;700;900&display=swap');
+
+:root {
+  /* paper (cards, panels) */
+  --paper:   #FFFBF2;
+  --paper-2: #F8EFDD;
+  --paper-3: #EEDFC4;
+  --paper-4: #DCC7A4;
+  /* line + ink (the warm-brown outline from the 3D look, also our text) */
+  --line:     #805C52;
+  --line-soft: rgba(128, 92, 82, 0.28);
+  --ink:      #3F2C27;
+  --ink-soft: #7A625A;
+  /* shade (painted blue-violet: every shadow uses it, never black) */
+  --shade:      #98A6EA;
+  --shade-deep: #5B5E9E;
+  --night:      #1D2748;
+  --night-2:    #2B3766;
+  /* sea + sky */
+  --sky:       #3A86E0;
+  --horizon:   #CFE6F5;
+  --sea:       #46D6C8;
+  --sea-deep:  #2160B8;
+  --sun:       #FFF3DC;
+  /* accents */
+  --sunflower: #F7C548;   /* money, selection, Prized */
+  --sunflower-d: #C9921C;
+  --poppy:     #E2553F;   /* alerts, danger, Ponyo red */
+  --leaf:      #7DBE6A;   /* success, the minigame green zone */
+  --leaf-d:    #4F9442;
+  --peach:     #F6A27A;   /* dusk */
+
+  /* rarity / grade (names agreed with fishing.md) */
+  --r-common: #CDBFA8;
+  --r-fine:   #46D6C8;
+  --r-rare:   #3A86E0;
+  --r-prized: #F7C548;
+
+  /* type */
+  --f-display: 'Fraunces', Georgia, serif;          /* SOFT 100: storybook serif, titles, clock, fish names */
+  --f-ui: 'Zen Maru Gothic', 'Segoe UI', sans-serif; /* rounded, warm: everything else */
+
+  /* type scale, 1080p reference, major third 1.25 */
+  --t-xs: 13px; --t-sm: 16px; --t-md: 20px; --t-lg: 25px; --t-xl: 31px; --t-2xl: 39px; --t-3xl: 49px; --t-4xl: 61px;
+
+  /* space (4 px grid) */
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 24px; --s-6: 32px; --s-7: 48px; --s-8: 64px;
+  /* radius: soft, never sharp */
+  --r-sm: 8px; --r-md: 14px; --r-lg: 20px; --r-xl: 28px;
+
+  /* elevation: a printed offset in line colour + a blue-violet painted shadow */
+  --sh-1: 0 2px 0 rgba(128,92,82,.22), 0 8px 18px rgba(91,94,158,.22);
+  --sh-2: 0 3px 0 rgba(128,92,82,.25), 0 18px 40px rgba(91,94,158,.32);
+  --text-halo: 0 0 1px rgba(63,44,39,.9), 0 2px 0 rgba(63,44,39,.35), 0 0 16px rgba(29,39,72,.35);
+
+  /* paper grain (inline SVG noise, 7%) */
+  --grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .5  0 0 0 0 .36  0 0 0 0 .32  0 0 0 .55 0'/></filter><rect width='160' height='160' filter='url(%23n)' opacity='.13'/></svg>");
+  /* aliases (v1 names, kept so every mockup reads one palette) */
+  --paper-50: var(--paper); --paper-100: var(--paper-2); --paper-200: var(--paper-3); --paper-400: var(--paper-4); --paper-600: var(--ink-soft); --paper-ink: var(--ink);
+  --ink-950: var(--night); --ink-900: var(--night); --ink-800: var(--night-2); --ink-700: #3A4A7E; --ink-line: var(--line-soft); --ink-glass: rgba(255,251,242,.94);
+  --brass-300: #FFE09A; --brass-400: var(--sunflower); --brass-500: var(--sunflower-d); --brass-700: #9C6A12; --lamp: #FFB060;
+  --teal-300: #9DEBE2; --teal-400: var(--sea); --teal-600: #2BA79B; --sky-400: var(--sky); --coral-400: #F07A64; --coral-500: var(--poppy); --kelp-400: var(--leaf); --kelp-500: var(--leaf-d);
+  --f-label: var(--f-ui);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1920px; height: 1080px; overflow: hidden; }
+body { font-family: var(--f-ui); color: var(--ink); background: var(--horizon); -webkit-font-smoothing: antialiased; }
+.num { font-variant-numeric: tabular-nums lining-nums; }
+.label { font-family: var(--f-ui); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; font-size: var(--t-xs); }
+.display { font-family: var(--f-display); font-variation-settings: 'SOFT' 100, 'opsz' 72; }
+svg.i { width: 1em; height: 1em; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+/* the paper card: cream + grain + a warm-brown line + violet shadow */
+.paper { background: var(--grain), var(--paper); border: 2px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--sh-1); color: var(--ink); }
+
+/* key cap: a little paper tile */
+.key { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; height: 28px; padding: 0 7px;
+  border-radius: 8px; background: var(--paper); color: var(--ink); font: 900 14px/1 var(--f-ui);
+  border: 1.5px solid var(--line); box-shadow: 0 2px 0 var(--line); }
+.pad { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; font: 900 13px var(--f-ui); color: #fff; border: 1.5px solid rgba(63,44,39,.4); box-shadow: 0 2px 0 rgba(63,44,39,.4); }
+
+/* mockup caption strip (not game UI) */
+.cap { position: absolute; right: 24px; bottom: 12px; font: 700 11px var(--f-ui); letter-spacing: .1em; text-transform: uppercase; color: rgba(63,44,39,.55); }
+.cap.on-dark { color: rgba(255,251,242,.55); }

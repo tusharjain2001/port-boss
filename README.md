@@ -1,8 +1,8 @@
 # Port Boss
 
-New here? Start with `HANDOVER-TUSHAR.md` (setup, the paid-pack rule), then `HANDOVER-MANAN.md` (everything changed in the five playtest rounds since). Headless build/test scripts: `tools/` (`tools/README.md`).
+**New here? Read `HANDOVER.md` first.** It is the one entry point: the game, every rule, the current state and the next steps. The plan is in `docs/plan/`, Manan's own words in `docs/handover/MANAN-PROMPTS.md`. Headless build/test scripts: `tools/` (`tools/README.md`).
 
-Co-op port game (1–4 players, Steam). Plan: `C:/Users/asus/Desktop/Port Boss/plan/`.
+Fishing-first open-sea co-op game (1–4 players, also fully fun solo), Steam. Plan: `docs/plan/` (copy of Manan's plan folder).
 
 ## Setup
 - Unity 6000.5.6f1, URP (Universal 3D template)

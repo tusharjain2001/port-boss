@@ -1,3 +1,5 @@
+> **HISTORICAL (1 Nov 2026):** about the OLD dock-work game (code in `Assets/Scripts/`), replaced on 31 Oct by the fishing-first game. Current docs: `HANDOVER.md` and `docs/plan/`.
+
 # Port Boss: the five port stages (planned against real Toon Harbor assets)
 
 The player's own port grows from a scrappy wooden fishing pier (stage 1, tonight's build) into the Toon Harbor

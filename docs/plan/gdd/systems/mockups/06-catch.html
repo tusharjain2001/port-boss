@@ -1,0 +1,99 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Catch</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+body { position: relative; background: #5B5E9E; }
+.bg { position: absolute; inset: -40px; background: url('../../../replan/artdir/concepts/4-ponyo-coast-concept.png') center/cover; filter: blur(10px); }
+.dusk { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(246,150,110,.85) 0%, rgba(150,120,190,.75) 45%, rgba(43,55,102,.85) 100%); mix-blend-mode: multiply; }
+.dim { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 45%, rgba(29,39,72,.05), rgba(29,39,72,.55)); }
+/* sunburst behind the card, rotating slowly in game */
+.rays { position: absolute; left: 50%; top: 44%; width: 1500px; height: 1500px; margin: -750px 0 0 -750px; border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, rgba(255,243,220,.20) 0deg 7deg, rgba(255,243,220,0) 7deg 18deg);
+  -webkit-mask-image: radial-gradient(circle, #000 0%, #000 25%, transparent 62%); }
+.spark { position: absolute; color: #FFF3DC; }
+.spark .i { stroke-width: 1.4; fill: #FFE7A3; }
+
+.card { position: absolute; left: 50%; top: 92px; transform: translateX(-50%); width: 860px; padding: 26px 40px 30px; border-radius: 32px; text-align: center; }
+.top { display: flex; justify-content: center; gap: 10px; }
+.stamp { display: inline-flex; align-items: center; gap: 7px; padding: 6px 14px; border-radius: 999px; font: 900 13px var(--f-ui); letter-spacing: .14em; text-transform: uppercase; border: 2px solid var(--line); }
+.stamp.new { background: var(--sea); color: #fff; transform: rotate(-3deg); }
+.stamp.pb { background: var(--sunflower); color: var(--ink); transform: rotate(2deg); }
+.stamp .i { font-size: 16px; }
+.fishart { position: relative; height: 290px; margin: 6px auto 0; width: 640px; }
+.fishart .pool { position: absolute; left: 50%; bottom: 8px; width: 560px; height: 70px; margin-left: -280px; border-radius: 50%; background: radial-gradient(ellipse, rgba(70,214,200,.45), rgba(70,214,200,0) 70%); }
+.fishart svg { position: absolute; left: 50%; top: 10px; width: 600px; margin-left: -300px; transform: rotate(-6deg); filter: drop-shadow(0 10px 0 rgba(91,94,158,.25)); }
+.grade { display: inline-flex; align-items: center; gap: 10px; padding: 8px 20px 9px; border-radius: 999px; background: var(--sky); color: #fff; border: 2.5px solid var(--line); box-shadow: 0 3px 0 var(--line); font: 900 16px var(--f-ui); letter-spacing: .2em; text-transform: uppercase; }
+.grade .pips { display: flex; gap: 4px; } .grade .pips i { width: 12px; height: 12px; border-radius: 50%; background: #FFF3DC; border: 1.5px solid var(--line); } .grade .pips i.o { background: rgba(255,255,255,.25); }
+h1 { font: 600 66px/1 var(--f-display); font-variation-settings: 'SOFT' 100, 'opsz' 144; letter-spacing: -.01em; margin-top: 14px; }
+.latin { font: italic 500 18px var(--f-display); color: var(--ink-soft); margin-top: 4px; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); margin: 22px 0 0; border-top: 2px dashed var(--line-soft); border-bottom: 2px dashed var(--line-soft); }
+.stats div { padding: 14px 6px; } .stats div + div { border-left: 2px dashed var(--line-soft); }
+.stats small { display: block; font: 700 12px var(--f-ui); letter-spacing: .14em; text-transform: uppercase; color: var(--line); }
+.stats b { display: block; font: 600 30px var(--f-display); font-variation-settings: 'SOFT' 100; margin-top: 2px; }
+.stats b.money { color: var(--sunflower-d); }
+.stats span { font: 500 13px var(--f-ui); color: var(--ink-soft); }
+.note { margin-top: 16px; font: 500 16px var(--f-ui); color: var(--ink-soft); }
+.note b { color: var(--ink); }
+.btns { display: flex; justify-content: center; gap: 14px; margin-top: 20px; }
+.btn { min-width: 220px; height: 58px; border-radius: 18px; display: flex; align-items: center; justify-content: center; gap: 12px; font: 900 19px var(--f-ui); border: 2.5px solid var(--line); box-shadow: 0 4px 0 var(--line); }
+.btn.keep { background: linear-gradient(180deg, #FBD873, #F7C548); }
+.btn.rel { background: var(--paper-2); color: var(--ink-soft); }
+.btn .k2 { font: 700 13px var(--f-ui); color: var(--ink-soft); }
+.slotto { position: absolute; left: 50%; bottom: 40px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; font: 700 15px var(--f-ui); color: #fff; text-shadow: var(--text-halo); }
+.minislot { width: 46px; height: 46px; border-radius: 10px; background: var(--paper); border: 2px solid var(--line); display: grid; place-items: center; color: var(--line); font-size: 28px; position: relative; text-shadow: none; }
+.minislot .i { fill: #BBD6F6; stroke-width: 1.5; }
+.minislot b { position: absolute; right: 3px; bottom: 1px; font: 900 12px var(--f-ui); color: var(--ink); }
+</style></head>
+<body>
+<div class="bg"></div><div class="dusk"></div><div class="dim"></div><div class="rays"></div>
+<div class="spark" style="left:520px;top:200px;font-size:46px"><i data-i="sparkle"></i></div>
+<div class="spark" style="left:1380px;top:150px;font-size:34px"><i data-i="sparkle"></i></div>
+<div class="spark" style="left:1420px;top:520px;font-size:24px"><i data-i="sparkle"></i></div>
+<div class="spark" style="left:470px;top:600px;font-size:28px"><i data-i="sparkle"></i></div>
+
+<div class="card paper">
+  <div class="top"><span class="stamp new"><i data-i="book"></i>New in Journal</span><span class="stamp pb"><i data-i="star"></i>Personal best</span></div>
+  <div class="fishart">
+    <div class="pool"></div>
+    <svg viewBox="0 0 400 200">
+      <defs>
+        <linearGradient id="body" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#D9533F"/><stop offset=".55" stop-color="#F08A6E"/><stop offset="1" stop-color="#FBD9C4"/></linearGradient>
+        <linearGradient id="fin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E2553F"/><stop offset="1" stop-color="#F6A27A"/></linearGradient>
+        <radialGradient id="sheen" cx=".35" cy=".35" r=".6"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+      </defs>
+      <g stroke="#805C52" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+        <path d="M110 57 L118 30 L134 46 L148 20 L164 40 L180 18 L197 39 L214 22 L229 45 L250 38 L262 62 C 212 48, 162 48, 110 57 Z" fill="url(#fin)"/>
+        <path d="M222 150 L234 178 L250 160 L266 176 L278 140 Z" fill="url(#fin)"/>
+        <path d="M322 100 L374 60 C 362 90, 362 118, 376 148 L322 112 Z" fill="url(#fin)"/>
+        <path d="M30 104 C 58 52, 170 32, 262 60 C 292 70, 312 86, 324 100 L 324 112 C 300 136, 250 160, 170 158 C 100 156, 52 140, 30 104 Z" fill="url(#body)"/>
+        <path d="M30 104 C 58 52, 170 32, 262 60 C 200 60, 120 70, 30 104 Z" fill="url(#sheen)" stroke="none"/>
+        <path d="M100 68 C 114 94, 114 122, 98 144" fill="none"/>
+        <path d="M122 110 C 144 116, 156 134, 146 150 C 132 142, 120 128, 122 110 Z" fill="#F6A27A"/>
+        <path d="M30 104 L 46 108" fill="none"/>
+      </g>
+      <g stroke="#805C52" stroke-width="1.6" stroke-opacity=".45" fill="none">
+        <path d="M150 80 q8 8 0 16 M175 76 q8 8 0 16 M200 74 q8 8 0 16 M225 76 q8 8 0 16 M250 80 q8 8 0 16 M162 100 q8 8 0 16 M187 98 q8 8 0 16 M212 98 q8 8 0 16 M237 100 q8 8 0 16 M270 92 q7 7 0 14"/>
+      </g>
+      <circle cx="68" cy="90" r="11" fill="#FFFBF2" stroke="#805C52" stroke-width="3"/>
+      <circle cx="70" cy="90" r="5.5" fill="#3F2C27"/><circle cx="72" cy="88" r="1.8" fill="#fff"/>
+    </svg>
+  </div>
+  <span class="grade"><span class="pips"><i></i><i></i><i class="o"></i></span>Rare</span>
+  <h1>Red Snapper</h1>
+  <div class="latin">caught on squid strip off Gullrock Reef, at dusk</div>
+  <div class="stats">
+    <div><small>Length</small><b>62 cm</b><span>best so far</span></div>
+    <div><small>Weight</small><b>3.4 kg</b><span>line held</span></div>
+    <div><small>Worth now</small><b class="money">$46</b><span>at June's, ×1.7</span></div>
+    <div><small>Fresh for</small><b>2 days</b><span>then it's bait</span></div>
+  </div>
+  <div class="note">2 of 3 stops hit. <b>Prized</b> needs all three.</div>
+  <div class="btns">
+    <div class="btn keep"><span class="key">E</span>Keep</div>
+    <div class="btn rel"><span class="key">Q</span>Let it go<span class="k2">· +1 Journal</span></div>
+  </div>
+</div>
+<div class="slotto">Goes to <span class="minislot"><i data-i="fish"></i><b>1</b></span> slot 4 · auto-keeps in 6 s</div>
+<div class="cap" style="color:#fff">Port Boss · catch reveal · species, sizes and prices illustrative (gdd/fishing + gdd/economy own them) · dusk grade over concept #4</div>
+<script src="icons.js"></script>
+</body></html>

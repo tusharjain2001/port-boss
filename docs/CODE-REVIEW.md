@@ -1,3 +1,5 @@
+> **HISTORICAL (1 Nov 2026):** about the OLD dock-work game (code in `Assets/Scripts/`), replaced on 31 Oct by the fishing-first game. Current docs: `HANDOVER.md` and `docs/plan/`.
+
 # Port Boss: code review (refine pass, 2026-10-30)
 
 Scope: every script in `Assets/Scripts` (about 10,200 lines) at `main` 4cf4ed8. Paths are relative to `Assets/Scripts/`

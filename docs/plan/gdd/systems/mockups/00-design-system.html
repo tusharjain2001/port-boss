@@ -1,0 +1,98 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Design system</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+body { background: var(--grain), linear-gradient(180deg, #E4F0F6, #F8EFDD); padding: 44px 60px; }
+h1 { font: 600 40px var(--f-display); font-variation-settings: 'SOFT' 100, 'opsz' 96; }
+.sub { font: 500 17px var(--f-ui); color: var(--ink-soft); margin-top: 2px; }
+.g { display: grid; grid-template-columns: 1.15fr 1fr; gap: 24px; margin-top: 22px; }
+.box { padding: 20px 24px; }
+.lab { font: 700 12px var(--f-ui); letter-spacing: .14em; text-transform: uppercase; color: var(--line); margin-bottom: 10px; }
+.fonts { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.spec .big { font: 600 72px/1 var(--f-display); font-variation-settings: 'SOFT' 100, 'opsz' 144; }
+.spec .big2 { font: 700 60px/1 var(--f-ui); }
+.spec p { font: 500 14px/1.45 var(--f-ui); color: var(--ink-soft); margin-top: 8px; }
+.spec b { font: 700 15px var(--f-ui); color: var(--ink); }
+.scale { margin-top: 16px; display: grid; gap: 4px; }
+.row { display: grid; grid-template-columns: 70px 74px 1fr; align-items: baseline; gap: 10px; border-top: 1px dashed var(--line-soft); padding-top: 4px; }
+.row small { font: 700 12px var(--f-ui); color: var(--line); letter-spacing: .06em; }
+.sw { display: grid; grid-template-columns: repeat(8, 1fr); gap: 10px; }
+.c { border-radius: 14px; border: 2px solid var(--line); height: 64px; position: relative; }
+.cn { font: 700 11px var(--f-ui); margin-top: 5px; color: var(--ink); } .cn span { display: block; font-weight: 500; color: var(--ink-soft); }
+.states { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+.st { border-radius: 16px; border: 2px solid var(--line); overflow: hidden; }
+.st .sky { height: 74px; position: relative; }
+.st .chip { position: absolute; left: 8px; bottom: 8px; padding: 4px 9px; border-radius: 10px; font: 600 15px var(--f-display); font-variation-settings: 'SOFT' 100; border: 1.5px solid var(--line); }
+.st .t { padding: 7px 9px 9px; font: 700 12px var(--f-ui); background: var(--paper); } .st .t span { display: block; font-weight: 500; color: var(--ink-soft); }
+.motion { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.m { padding: 10px 12px; border-radius: 14px; background: #fff; border: 1.5px solid var(--line-soft); font: 500 13px/1.4 var(--f-ui); color: var(--ink-soft); }
+.m b { display: block; font: 700 14px var(--f-ui); color: var(--ink); margin-bottom: 3px; }
+.m svg { width: 100%; height: 34px; margin-bottom: 4px; }
+</style></head>
+<body>
+<h1>Port Boss UI · Ponyo Coast</h1>
+<div class="sub">Warm letter paper, a warm-brown line and blue-violet painted shade. Two free OFL font families. Every shadow is violet, never black.</div>
+<div class="g">
+  <div class="box paper">
+    <div class="lab">Type · 2 families (SIL OFL, Google Fonts)</div>
+    <div class="fonts">
+      <div class="spec"><div class="big">Fraunces</div><p><b>Display.</b> A soft, old-style serif with a SOFT axis (set to 100) that rounds every corner, so it reads like a storybook title. Used for the clock, names, prices and fish. Undercase Type, OFL.</p></div>
+      <div class="spec"><div class="big2">Zen Maru</div><p><b>UI text.</b> Zen Maru Gothic is a rounded gothic and the font art direction §4 names. It's warm and friendly, and still legible at 13 px. Yoshimichi Ohira, OFL. <b>Accessibility option:</b> Atkinson Hyperlegible Next (OFL).</p></div>
+    </div>
+    <div class="scale">
+      <div class="row"><small>4xl · 61</small><small>Fraunces</small><span style="font:600 61px/1.05 var(--f-display);font-variation-settings:'SOFT' 100,'opsz' 144">Red Snapper</span></div>
+      <div class="row"><small>3xl · 49</small><small>Fraunces</small><span style="font:600 49px/1.1 var(--f-display);font-variation-settings:'SOFT' 100,'opsz' 144">7:42 AM</span></div>
+      <div class="row"><small>xl · 31</small><small>Fraunces</small><span style="font:600 31px var(--f-display);font-variation-settings:'SOFT' 100">Hook, Line &amp; Sinker</span></div>
+      <div class="row"><small>lg · 25</small><small>Fraunces</small><span style="font:600 25px var(--f-display);font-variation-settings:'SOFT' 100">Grandpa's Rod</span></div>
+      <div class="row"><small>md · 20</small><small>Zen Maru</small><span style="font:500 20px var(--f-ui)">Rain from about 5 PM. Small boats in by six.</span></div>
+      <div class="row"><small>sm · 16</small><small>Zen Maru</small><span style="font:500 16px var(--f-ui)">Worm bait ×12 · line 4 kg · fresh for 2 days</span></div>
+      <div class="row"><small>xs · 13</small><small>Zen Maru</small><span style="font:700 13px var(--f-ui);letter-spacing:.14em;text-transform:uppercase;color:var(--line)">Tuesday · Day 3 · Company</span></div>
+    </div>
+  </div>
+  <div style="display:grid;gap:20px">
+    <div class="box paper">
+      <div class="lab">Colour tokens</div>
+      <div class="sw">
+        <div><div class="c" style="background:#FFFBF2"></div><div class="cn">paper<span>#FFFBF2</span></div></div>
+        <div><div class="c" style="background:#805C52"></div><div class="cn">line<span>#805C52</span></div></div>
+        <div><div class="c" style="background:#3F2C27"></div><div class="cn">ink<span>#3F2C27</span></div></div>
+        <div><div class="c" style="background:#98A6EA"></div><div class="cn">shade<span>#98A6EA</span></div></div>
+        <div><div class="c" style="background:#46D6C8"></div><div class="cn">sea<span>#46D6C8</span></div></div>
+        <div><div class="c" style="background:#2160B8"></div><div class="cn">sea-deep<span>#2160B8</span></div></div>
+        <div><div class="c" style="background:#3A86E0"></div><div class="cn">sky<span>#3A86E0</span></div></div>
+        <div><div class="c" style="background:#1D2748"></div><div class="cn">night<span>#1D2748</span></div></div>
+        <div><div class="c" style="background:#F7C548"></div><div class="cn">sunflower<span>money · select</span></div></div>
+        <div><div class="c" style="background:#E2553F"></div><div class="cn">poppy<span>alert · danger</span></div></div>
+        <div><div class="c" style="background:#7DBE6A"></div><div class="cn">leaf<span>success · zone</span></div></div>
+        <div><div class="c" style="background:#F6A27A"></div><div class="cn">peach<span>dusk</span></div></div>
+        <div><div class="c" style="background:#CDBFA8"></div><div class="cn">Common<span>grade 0 · dot</span></div></div>
+        <div><div class="c" style="background:#46D6C8"></div><div class="cn">Fine<span>grade 1 · ring</span></div></div>
+        <div><div class="c" style="background:#3A86E0"></div><div class="cn">Rare<span>grade 2 · diamond</span></div></div>
+        <div><div class="c" style="background:#F7C548"></div><div class="cn">Prized<span>grade 3 · star</span></div></div>
+      </div>
+    </div>
+    <div class="box paper">
+      <div class="lab">The UI follows the light · 6 lighting states</div>
+      <div class="states">
+        <div class="st"><div class="sky" style="background:linear-gradient(180deg,#8D7FC4,#F6A27A 70%,#FFE1B0)"><span class="chip" style="background:var(--paper)">5:40</span></div><div class="t">Dawn<span>paper as is</span></div></div>
+        <div class="st"><div class="sky" style="background:linear-gradient(180deg,#3A86E0,#8EC1F0 65%,#CFE6F5)"><span class="chip" style="background:var(--paper)">11:20</span></div><div class="t">Day<span>paper as is</span></div></div>
+        <div class="st"><div class="sky" style="background:linear-gradient(180deg,#5DA0EA,#F7C548 75%,#FFE1B0)"><span class="chip" style="background:#FFF6E2">5:50</span></div><div class="t">Golden<span>paper +4% warm</span></div></div>
+        <div class="st"><div class="sky" style="background:linear-gradient(180deg,#5B5E9E,#8D7FC4 45%,#F6A27A)"><span class="chip" style="background:#FFF1E6">7:30</span></div><div class="t">Dusk<span>lamp glow on cards</span></div></div>
+        <div class="st"><div class="sky" style="background:linear-gradient(180deg,#121B36,#2B3766 70%,#6E4A6B)"><span class="chip" style="background:#F1E6D2;box-shadow:0 0 14px #FFB060">10:15</span></div><div class="t">Night<span>paper −12%, lamp rim</span></div></div>
+        <div class="st"><div class="sky" style="background:linear-gradient(180deg,#4A5470,#7C8AA3 60%,#A9B3C4)"><span class="chip" style="background:#EEF0F2">3:05</span></div><div class="t">Storm<span>cool paper, poppy alerts</span></div></div>
+      </div>
+    </div>
+    <div class="box paper">
+      <div class="lab">Motion rules</div>
+      <div class="motion">
+        <div class="m"><svg viewBox="0 0 120 34"><path d="M4 30 C 40 30, 50 4, 116 4" stroke="#805C52" stroke-width="2.5" fill="none"/></svg><b>In: 220 ms</b>ease-out-back (overshoot 1.1). Cards slide 24 px from the LEFT.</div>
+        <div class="m"><svg viewBox="0 0 120 34"><path d="M4 4 C 70 4, 80 30, 116 30" stroke="#805C52" stroke-width="2.5" fill="none"/></svg><b>Out: 160 ms</b>ease-in, fade + 8 px. Nothing ever pops out without motion.</div>
+        <div class="m"><svg viewBox="0 0 120 34"><path d="M4 30 L 30 4 L 50 22 L 64 12 L 76 18 L 116 16" stroke="#805C52" stroke-width="2.5" fill="none"/></svg><b>Juice: hits</b>Zone hit: 60 ms hold, then a scale of 1.08 and back. Money ticks up over 400 ms.</div>
+        <div class="m"><svg viewBox="0 0 120 34"><path d="M4 17 H116" stroke="#805C52" stroke-width="2.5" stroke-dasharray="4 6" fill="none"/></svg><b>Reduce motion</b>A setting: everything fades in 120 ms. No shakes, no overshoot, no rays.</div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="cap">Port Boss · UI tokens v2 (Ponyo Coast) · source: gdd/systems/mockups/tokens.css</div>
+<script src="icons.js"></script>
+</body></html>

@@ -1,0 +1,3 @@
+I'll read the brief and the image-generation skill first so the picture matches the style lock exactly.The brief locks a painterly working-harbour look. I'll check this folder for earlier concept art so the new shot matches that style.The style lock is a painterly indie-game harbour at late afternoon. I'll generate the comedy departure as one 16:9 shot and save it as `s2-ship-leaves.png`.The shot is generated. I'll convert it to PNG and save it in this folder as `s2-ship-leaves.png`.Saved the 16:9 shot as `s2-ship-leaves.png` in this folder (1280×720).
+
+Preview: `images/1.jpg`

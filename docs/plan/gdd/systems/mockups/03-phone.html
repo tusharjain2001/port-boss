@@ -1,0 +1,271 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Phone</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+body { background: var(--horizon); position: relative; }
+.bg { position: absolute; inset: -40px; background: url('../../../replan/artdir/concepts/4-ponyo-coast-concept.png') center/cover; filter: blur(16px) saturate(1.05) brightness(1.02); opacity: .9; }
+.head { position: absolute; left: 72px; top: 40px; }
+.head h1 { color: var(--ink); font: 600 40px var(--f-display); font-variation-settings: 'SOFT' 100, 'opsz' 96; }
+.head p { font: 500 18px var(--f-ui); color: var(--ink); margin-top: 4px; }
+.row { position: absolute; left: 0; right: 0; top: 150px; display: flex; justify-content: center; gap: 44px; }
+.col { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.col .label { color: var(--ink); font-size: 14px; background: var(--paper); border: 1.5px solid var(--line); padding: 4px 12px; border-radius: 999px; }
+
+/* the phone: Grandpa's old rugged phone */
+.phone { width: 392px; height: 820px; border-radius: 52px; padding: 16px; position: relative;
+  background: linear-gradient(160deg, #EE6A4E, #D2482F 60%, #B23A26); border: 2.5px solid var(--line);
+  box-shadow: inset 0 2px 0 rgba(255,220,200,.45), inset 0 -3px 0 rgba(90,30,20,.3), 0 4px 0 var(--line), 0 30px 60px rgba(91,94,158,.45); }
+.phone::before, .phone::after { content: ''; position: absolute; width: 56px; height: 56px; border-radius: 20px; background: #8E2E1E; opacity: .5; }
+.phone::before { left: 6px; top: 6px; border-radius: 46px 14px 14px 14px; }
+.phone::after { right: 6px; bottom: 6px; border-radius: 14px 14px 46px 14px; }
+.screen { position: relative; z-index: 1; width: 100%; height: 100%; border-radius: 38px; overflow: hidden; background: var(--grain), var(--paper); color: var(--ink);
+  box-shadow: inset 0 0 0 2.5px var(--line); display: flex; flex-direction: column; }
+.crack { position: absolute; right: 0; top: 0; width: 120px; height: 90px; z-index: 5; pointer-events: none; opacity: .5; }
+.sb { display: flex; justify-content: space-between; align-items: center; padding: 16px 26px 6px; font: 700 16px var(--f-ui); }
+.sb .r { display: flex; gap: 6px; align-items: center; font-size: 13px; }
+.sb .r .i { font-size: 18px; }
+.content { padding: 8px 20px 20px; flex: 1; display: flex; flex-direction: column; gap: 14px; }
+.lab { font: 700 12px var(--f-label); letter-spacing: .14em; text-transform: uppercase; color: var(--paper-600); }
+.card { border-radius: 18px; background: #fff; border: 1.5px solid var(--line-soft); box-shadow: 0 2px 0 rgba(128,92,82,.12); padding: 14px 16px; }
+
+/* home */
+.bigtime { font: 600 64px/1 var(--f-display); font-variation-settings: 'SOFT' 100, 'opsz' 144; letter-spacing: -.02em; }
+.bigtime small { font: 600 18px var(--f-label); letter-spacing: .1em; color: var(--brass-700); margin-left: 6px; }
+.fc { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+.fc div { text-align: center; padding: 10px 4px; border-radius: 12px; background: var(--paper-100); }
+.fc div.now { background: var(--ink-800); color: var(--paper-50); }
+.fc .i { font-size: 30px; display: block; margin: 4px auto; }
+.fc b { display: block; font: 600 22px var(--f-display); font-variation-settings: 'SOFT' 100; }
+.fc span { font: 600 12px var(--f-label); letter-spacing: .08em; text-transform: uppercase; opacity: .7; }
+.fc em { display: block; font: 500 12px var(--f-ui); font-style: normal; opacity: .75; margin-top: 2px; }
+.conf { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font: 500 13px var(--f-ui); color: var(--paper-600); }
+.dots { display: flex; gap: 4px; } .dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--teal-600); } .dots i.o { background: rgba(43,33,22,.15); }
+.next { display: flex; gap: 12px; align-items: center; border-left: 4px solid var(--teal-400); }
+.next .av { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; font: 700 15px var(--f-label); color: #fff; flex: none; }
+.next b { font: 600 16px var(--f-ui); display: block; } .next span { font: 500 14px var(--f-ui); color: var(--paper-600); }
+.apps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px 8px; margin-top: auto; }
+.app { display: flex; flex-direction: column; align-items: center; gap: 6px; font: 600 12px var(--f-label); letter-spacing: .04em; }
+.app .t { width: 62px; height: 62px; border-radius: 20px; display: grid; place-items: center; color: #fff; position: relative;
+  background: linear-gradient(160deg, var(--a1), var(--a2)); border: 2px solid var(--line); box-shadow: 0 2px 0 var(--line), inset 0 2px 0 rgba(255,255,255,.35); }
+.app .t .i { font-size: 30px; }
+.badge { position: absolute; right: -5px; top: -5px; min-width: 22px; height: 22px; border-radius: 11px; background: var(--coral-500); color: #fff; font: 700 12px var(--f-ui); display: grid; place-items: center; border: 2px solid var(--paper-50); }
+
+/* messages */
+.th { display: flex; gap: 12px; align-items: center; padding: 6px 18px 12px; border-bottom: 1px solid rgba(43,33,22,.08); }
+.th .i.back { font-size: 24px; color: var(--paper-600); }
+.th .av { width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(160deg, #3FD1C2, #1E8C86); color: #fff; display: grid; place-items: center; font: 700 15px var(--f-label); }
+.th b { font: 600 18px var(--f-ui); display: block; } .th span { font: 500 13px var(--f-ui); color: var(--paper-600); }
+.bub { max-width: 82%; padding: 10px 14px; border-radius: 18px 18px 18px 6px; background: var(--paper-2); border: 1.5px solid var(--line-soft); font: 500 15px/1.4 var(--f-ui); }
+.bub.me { align-self: flex-end; border-radius: 18px 18px 6px 18px; background: var(--ink-800); color: var(--paper-50); }
+.ts { align-self: center; font: 600 11px var(--f-label); letter-spacing: .1em; text-transform: uppercase; color: var(--paper-600); }
+.offer { border-radius: 18px; overflow: hidden; background: #fff; box-shadow: 0 3px 0 var(--line), 0 10px 22px rgba(91,94,158,.2); border: 2px solid var(--line); }
+.offer .h { padding: 12px 16px; background: linear-gradient(120deg, #2160B8, #3A86E0); border-bottom: 2px solid var(--line); color: var(--paper-50); display: flex; align-items: center; gap: 10px; }
+.offer .h .i { font-size: 22px; color: var(--brass-300); }
+.offer .h b { font: 600 18px var(--f-display); font-variation-settings: 'SOFT' 100; }
+.offer dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; padding: 12px 16px; font: 500 14px var(--f-ui); }
+.offer dt { color: var(--paper-600); } .offer dd { text-align: right; font-weight: 600; }
+.offer dd.money { font: 600 20px var(--f-display); font-variation-settings: 'SOFT' 100; color: var(--brass-700); }
+.offer .btns { display: grid; grid-template-columns: 1fr 1.4fr; gap: 8px; padding: 0 12px 12px; }
+.btn { height: 46px; border-radius: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; font: 700 15px var(--f-ui); }
+.btn.ghost { background: var(--paper-2); color: var(--ink); border: 2px solid var(--line-soft); }
+.btn.go { background: linear-gradient(180deg, #FBD873, #F7C548); color: var(--ink); border: 2px solid var(--line); box-shadow: 0 3px 0 var(--line); }
+.btn .key { height: 22px; min-width: 22px; font-size: 11px; background: rgba(255,255,255,.55); box-shadow: none; }
+.quick { display: flex; gap: 8px; margin-top: auto; }
+.quick span { padding: 8px 12px; border-radius: 999px; border: 1.5px solid rgba(43,33,22,.15); font: 600 13px var(--f-ui); }
+
+/* crew */
+.tabs { display: grid; grid-template-columns: 1fr 1fr; background: var(--paper-100); border-radius: 14px; padding: 4px; }
+.tabs span { text-align: center; padding: 9px 0; border-radius: 11px; font: 700 14px var(--f-ui); color: var(--paper-600); }
+.tabs span.on { background: #fff; color: var(--paper-ink); box-shadow: 0 2px 6px rgba(43,33,22,.1); }
+.boat { border-radius: 18px; background: #fff; border: 2px solid var(--line); box-shadow: 0 3px 0 rgba(128,92,82,.3); overflow: hidden; }
+.boat .top { display: flex; gap: 12px; align-items: center; padding: 14px 16px; }
+.boat .ic { width: 46px; height: 46px; border-radius: 14px; background: var(--paper-100); display: grid; place-items: center; font-size: 28px; color: var(--brass-700); }
+.boat b { font: 600 20px var(--f-display); font-variation-settings: 'SOFT' 100; display: block; }
+.boat .top span { font: 500 13px var(--f-ui); color: var(--paper-600); }
+.status { margin-left: auto; font: 700 11px var(--f-label); letter-spacing: .1em; text-transform: uppercase; padding: 5px 9px; border-radius: 999px; background: rgba(93,184,102,.15); color: #2F7A38; }
+.assign { padding: 0 16px 14px; display: grid; gap: 8px; }
+.fld { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-radius: 12px; background: var(--paper-50); font: 500 14px var(--f-ui); }
+.fld span { color: var(--paper-600); } .fld b { font-family: var(--f-ui); font-size: 15px; display: flex; align-items: center; gap: 6px; font-weight: 600; }
+.fld b .i { font-size: 16px; color: var(--paper-600); }
+.who { display: flex; align-items: center; gap: 8px; }
+.who i.av { width: 26px; height: 26px; border-radius: 50%; display: inline-grid; place-items: center; font: 700 11px var(--f-label); color: #fff; font-style: normal; }
+.prog { height: 6px; border-radius: 3px; background: var(--paper-100); overflow: hidden; margin: 2px 16px 14px; }
+.prog i { display: block; height: 100%; width: 62%; background: linear-gradient(90deg, var(--teal-600), var(--teal-400)); }
+.boat.locked { background: transparent; box-shadow: none; border: 1.5px dashed rgba(43,33,22,.2); }
+.boat.locked .top { opacity: .65; }
+.cand { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 16px; background: #fff; border: 1.5px solid var(--line-soft); }
+.cand .av { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font: 700 14px var(--f-label); color: #fff; flex: none; }
+.cand b { font: 600 15px var(--f-ui); display: block; } .cand span { font: 500 12px var(--f-ui); color: var(--paper-600); }
+.cand .w { margin-left: auto; text-align: right; font: 600 16px var(--f-display); font-variation-settings: 'SOFT' 100; }
+.cand .w small { display: block; font: 600 10px var(--f-label); letter-spacing: .1em; color: var(--paper-600); text-transform: uppercase; }
+
+/* map */
+.mapwrap { position: relative; flex: 1; border-radius: 20px; overflow: hidden; background: #BFE3E0; border: 2px solid var(--line); }
+.mapwrap svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.mapcard { position: absolute; left: 12px; right: 12px; bottom: 12px; padding: 12px 14px; border-radius: 16px; background: rgba(251,245,234,.96); box-shadow: 0 8px 20px rgba(11,30,42,.2); }
+.mapcard b { font: 600 18px var(--f-display); font-variation-settings: 'SOFT' 100; }
+.mapcard p { font: 500 13px var(--f-ui); color: var(--paper-600); margin-top: 2px; }
+.legend { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; font: 600 11px var(--f-label); letter-spacing: .06em; text-transform: uppercase; color: var(--paper-600); }
+.legend span { display: flex; align-items: center; gap: 4px; }
+.legend i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.mapfilters { position: absolute; left: 12px; top: 12px; display: flex; gap: 6px; }
+.mapfilters span { padding: 6px 10px; border-radius: 999px; background: rgba(251,245,234,.92); font: 700 11px var(--f-label); letter-spacing: .08em; text-transform: uppercase; }
+.mapfilters span.on { background: var(--ink-800); color: var(--paper-50); }
+</style></head>
+<body>
+<div class="bg"></div>
+<div class="head">
+  <h1>The phone · <span style="color:var(--sunflower-d)">Tab</span></h1>
+  <p>Grandpa Walt's old phone in a rubber case. It is never in the hotbar. The world keeps running while it's open, and the time sits top-left on every screen.</p>
+</div>
+
+<div class="row">
+  <!-- HOME -->
+  <div class="col"><span class="label">1 · Home</span>
+  <div class="phone"><div class="screen">
+    <svg class="crack" viewBox="0 0 120 90"><path d="M120 6 L92 22 L80 18 L64 34 M92 22 L98 40 L88 58 M80 18 L70 8" stroke="#2B2116" stroke-width="1" fill="none"/></svg>
+    <div class="sb"><span class="num">7:42</span><span class="r"><i data-i="signal"></i>Gull Tel<i data-i="battery"></i></span></div>
+    <div class="content">
+      <div>
+        <div class="lab">Tuesday · Day 3</div>
+        <div class="bigtime num">7:42<small>AM</small></div>
+      </div>
+      <div class="card">
+        <div class="lab" style="display:flex;justify-content:space-between"><span>Dot's forecast</span><span>Swell 0.4 m</span></div>
+        <div class="fc">
+          <div class="now"><span>Morning</span><i data-i="cloudsun"></i><b>24°</b><em>W 9 kn</em></div>
+          <div><span>Afternoon</span><i data-i="wind"></i><b>26°</b><em>W 16 kn</em></div>
+          <div><span>Evening</span><i data-i="rain"></i><b>21°</b><em>SW 18 kn</em></div>
+        </div>
+        <div class="conf"><span>How sure Dot is</span><span class="dots"><i></i><i></i><i></i><i class="o"></i></span></div>
+      </div>
+      <div class="card next">
+        <div class="av" style="background:linear-gradient(160deg,#3FD1C2,#1E8C86)">MD</div>
+        <div><b>Mari wants to moor here</b><span>Mooring request · waiting for you</span></div>
+      </div>
+      <div class="card" style="display:flex;justify-content:space-between;align-items:center">
+        <div><div class="lab">Company bank</div><div style="font:600 26px var(--f-display);font-variation-settings:'SOFT' 100">$1,240</div></div>
+        <div style="text-align:right;font:500 13px var(--f-ui);color:var(--ink-soft)">Pip's wage at 7 AM<br><b style="color:var(--poppy)">−$30</b></div>
+      </div>
+      <div class="apps">
+        <div class="app"><div class="t" style="--a1:#3FD1C2;--a2:#1E8C86"><i data-i="msg"></i><span class="badge">1</span></div>Messages</div>
+        <div class="app"><div class="t" style="--a1:#EDB46A;--a2:#B8742F"><i data-i="contract"></i></div>Contracts</div>
+        <div class="app"><div class="t" style="--a1:#5B6FB8;--a2:#3A4A8E"><i data-i="crew"></i></div>Crew</div>
+        <div class="app"><div class="t" style="--a1:#6FA8FF;--a2:#3B6FC4"><i data-i="map"></i></div>Map</div>
+        <div class="app"><div class="t" style="--a1:#8FD18A;--a2:#4E9A57"><i data-i="bank"></i></div>Bank</div>
+        <div class="app"><div class="t" style="--a1:#7FB2D9;--a2:#3E6E94"><i data-i="cloudsun"></i></div>Forecast</div>
+        <div class="app"><div class="t" style="--a1:#C98F6B;--a2:#8C5537"><i data-i="book"></i></div>Journal</div>
+        <div class="app"><div class="t" style="--a1:#8A7759;--a2:#5B4A35"><i data-i="gear"></i></div>Settings</div>
+      </div>
+    </div>
+  </div></div></div>
+
+  <!-- MESSAGES -->
+  <div class="col"><span class="label">2 · Messages: the first income</span>
+  <div class="phone"><div class="screen">
+    <svg class="crack" viewBox="0 0 120 90"><path d="M120 6 L92 22 L80 18 L64 34 M92 22 L98 40 L88 58 M80 18 L70 8" stroke="#2B2116" stroke-width="1" fill="none"/></svg>
+    <div class="sb"><span class="num">7:42</span><span class="r"><i data-i="signal"></i><i data-i="battery"></i></span></div>
+    <div class="th"><i data-i="back" class="back"></i><div class="av">MD</div><div><b>Mari Duarte</b><span>Mari's Tacos · boat</span></div></div>
+    <div class="content">
+      <div class="ts">Today 7:38</div>
+      <div class="bub">Hi! Walt said the old Hale dock is yours now.</div>
+      <div class="bub">Can I moor my taco boat at your place? $40 a day, paid every morning. Plus tacos. 🌮</div>
+      <div class="offer">
+        <div class="h"><i data-i="anchor"></i><b>Mooring request</b></div>
+        <dl>
+          <dt>Boat</dt><dd>Mari's Tacos · 7 m</dd>
+          <dt>Berth</dt><dd>B1 · old pier</dd>
+          <dt>From</dt><dd>Tomorrow, 7 AM</dd>
+          <dt>Pays</dt><dd class="money">$40 / day</dd>
+        </dl>
+        <div class="btns"><div class="btn ghost">Decline</div><div class="btn go">Accept</div></div>
+      </div>
+      <div class="quick"><span>Sounds good!</span><span>Can you pay more?</span></div>
+    </div>
+  </div></div></div>
+
+  <!-- CREW -->
+  <div class="col"><span class="label">3 · Crew: hire and assign</span>
+  <div class="phone"><div class="screen">
+    <svg class="crack" viewBox="0 0 120 90"><path d="M120 6 L92 22 L80 18 L64 34 M92 22 L98 40 L88 58 M80 18 L70 8" stroke="#2B2116" stroke-width="1" fill="none"/></svg>
+    <div class="sb"><span class="num">2:15</span><span class="r"><i data-i="signal"></i><i data-i="battery"></i></span></div>
+    <div class="content">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font:600 28px var(--f-display);font-variation-settings:'SOFT' 100">Crew</span><span class="lab">2 hired</span></div>
+      <div class="tabs"><span class="on">Boats</span><span>Hire at Rosie's</span></div>
+      <div class="boat">
+        <div class="top"><div class="ic"><i data-i="boat"></i></div><div><b>Biscuit</b><span>5 m skiff · The Shallows</span></div><span class="status">Fishing</span></div>
+        <div class="prog"><i></i></div>
+        <div class="assign">
+          <div class="fld"><span>Skipper</span><b class="who"><i class="av" style="background:#6B8CC7">PP</i>Pip</b></div>
+          <div class="fld"><span>Bait</span><b>Worm × 20 <i data-i="chev"></i></b></div>
+          <div class="fld"><span>Back by</span><b>5:00 PM <i data-i="chev"></i></b></div>
+          <div class="fld"><span>So far</span><b>7 fish · 2 h left</b></div>
+        </div>
+      </div>
+      <div class="boat locked"><div class="top"><div class="ic"><i data-i="lock"></i></div><div><b>Second boat</b><span>Fergus sells boats at the yard</span></div></div></div>
+      <div class="lab" style="margin-top:2px">Free hands</div>
+      <div class="cand"><div class="av" style="background:#B5654A">BR</div><div><b>Bruno</b><span>Strong · slow · never seasick</span></div><div class="w">$30<small>per day</small></div></div>
+    </div>
+  </div></div></div>
+
+  <!-- MAP -->
+  <div class="col"><span class="label">4 · Map</span>
+  <div class="phone"><div class="screen">
+    <svg class="crack" viewBox="0 0 120 90"><path d="M120 6 L92 22 L80 18 L64 34 M92 22 L98 40 L88 58 M80 18 L70 8" stroke="#2B2116" stroke-width="1" fill="none"/></svg>
+    <div class="sb"><span class="num">2:15</span><span class="r"><i data-i="signal"></i><i data-i="battery"></i></span></div>
+    <div class="content" style="padding-bottom:16px">
+      <div class="mapwrap">
+        <svg viewBox="0 0 352 660" preserveAspectRatio="xMidYMid slice">
+          <defs>
+            <pattern id="waves" width="22" height="12" patternUnits="userSpaceOnUse"><path d="M0 8 Q5.5 3 11 8 T22 8" stroke="#9FD0CC" stroke-width="1" fill="none"/></pattern>
+            <linearGradient id="land" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E9DCB8"/><stop offset="1" stop-color="#D8C79C"/></linearGradient>
+            <linearGradient id="rain" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#3B6FC4" stop-opacity=".35"/><stop offset="1" stop-color="#3B6FC4" stop-opacity="0"/></linearGradient>
+          </defs>
+          <rect width="352" height="660" fill="#BFE3E0"/>
+          <rect width="352" height="660" fill="url(#waves)" opacity=".7"/>
+          <!-- shallows ring -->
+          <path d="M40 300 C 30 230, 90 175, 170 182 C 250 170, 330 215, 322 300 C 330 380, 260 420, 180 412 C 100 425, 48 380, 40 300 Z" fill="#A6DCD4"/>
+          <!-- Saltmouth Island -->
+          <path d="M62 298 C 56 246, 104 204, 168 210 C 236 200, 302 236, 298 296 C 304 352, 250 388, 182 384 C 120 394, 66 356, 62 298 Z" fill="url(#land)" stroke="#BCA67A" stroke-width="1.5"/>
+          <path d="M120 270 C 150 250, 190 262, 214 248 C 236 268, 228 300, 196 312 C 160 326, 128 310, 120 270 Z" fill="#B8C98E" opacity=".8"/>
+          <path d="M150 262 L168 236 L186 262 Z" fill="#A9B47A"/>
+          <!-- rain front coming from SW -->
+          <path d="M0 520 C 80 470, 120 560, 190 540 L 190 660 L 0 660 Z" fill="url(#rain)"/>
+          <g stroke="#3B6FC4" stroke-opacity=".45" stroke-width="1.2"><path d="M40 560 l-5 10M70 548 l-5 10M100 570 l-5 10M130 556 l-5 10M60 600 l-5 10M95 610 l-5 10"/></g>
+          <!-- Hale's Landing (west) -->
+          <path d="M62 300 L36 300" stroke="#8C5537" stroke-width="4" stroke-linecap="round"/>
+          <circle cx="64" cy="300" r="9" fill="#D9944A" stroke="#fff" stroke-width="2.5"/>
+          <!-- Old Saltmouth town -->
+          <g fill="#C98F6B"><rect x="84" y="320" width="9" height="8" rx="1.5"/><rect x="96" y="326" width="8" height="7" rx="1.5"/><rect x="88" y="332" width="7" height="6" rx="1.5"/><rect x="100" y="314" width="7" height="7" rx="1.5"/></g>
+          <!-- Voss Harbour (east): no docking -->
+          <g fill="#5B4A35"><rect x="276" y="270" width="16" height="9" rx="1"/><rect x="280" y="284" width="20" height="9" rx="1"/><rect x="272" y="298" width="18" height="9" rx="1"/></g>
+          <path d="M300 250 C 330 262, 338 300, 318 330" stroke="#E85A43" stroke-width="2.5" stroke-dasharray="5 5" fill="none"/>
+          <!-- fishing spots -->
+          <g fill="#1E8C86"><circle cx="150" cy="140" r="16" opacity=".18"/><circle cx="150" cy="140" r="5"/><circle cx="96" cy="470" r="18" opacity=".18"/><circle cx="96" cy="470" r="5"/><circle cx="252" cy="456" r="14" opacity=".18"/><circle cx="252" cy="456" r="5"/></g>
+          <!-- player & mate & worker boat -->
+          <g transform="translate(118 150) rotate(30)"><path d="M0 -12 L8 8 L0 3 L-8 8 Z" fill="#11293A" stroke="#fff" stroke-width="2"/></g>
+          <circle cx="160" cy="132" r="6" fill="#E85A43" stroke="#fff" stroke-width="2"/>
+          <g transform="translate(96 462)"><circle r="7" fill="#fff"/><circle r="4.5" fill="#3FD1C2"/></g>
+          <!-- labels -->
+          <g font-family="Zen Maru Gothic" font-weight="700" font-size="11" letter-spacing="1" fill="#2B2116">
+            <text x="40" y="282" text-anchor="start">HALE'S LANDING</text>
+            <text x="82" y="352">OLD SALTMOUTH</text>
+            <text x="196" y="236" fill="#5B4A35">VOSS HARBOUR</text>
+            <text x="120" y="120" fill="#1E8C86">GULLROCK REEF</text>
+            <text x="60" y="498" fill="#1E8C86">THE SHELF</text>
+            <text x="222" y="484" fill="#1E8C86">KELP GARDEN</text>
+          </g>
+          <text x="176" y="300" font-family="Fraunces" font-weight="600" font-size="17" fill="#8A7759" text-anchor="middle" font-style="italic">Saltmouth Island</text>
+        </svg>
+        <div class="mapfilters"><span class="on">All</span><span>Fish</span><span>Shops</span><span>Crew</span></div>
+        <div class="mapcard">
+          <b>The Shallows</b><p>You're here · 1.1 km from Hale's Landing · Mackerel, Sea Bream</p>
+          <div class="legend"><span><i style="background:#11293A"></i>You</span><span><i style="background:#E85A43"></i>Rani</span><span><i style="background:#3FD1C2"></i>Biscuit (Pip)</span><span><i style="background:#3B6FC4;opacity:.5"></i>Rain 5 PM</span></div>
+        </div>
+      </div>
+    </div>
+  </div></div></div>
+</div>
+<div class="cap" style="color:var(--ink)">Port Boss · phone v1 mockup · names from gdd/world, prices illustrative (economy.md owns them) · map layout illustrative</div>
+<script src="icons.js"></script>
+</body></html>

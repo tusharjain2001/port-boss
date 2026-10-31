@@ -1,0 +1,160 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>HUD</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+body { background: url('../../../replan/artdir/concepts/4-ponyo-coast-concept.png') center/cover; position: relative; }
+
+/* ---- clock card: REMOVED from the HUD (Manan 31 Oct); styles kept unused for the phone ---- */
+.clock { position: absolute; left: 40px; top: 32px; width: 452px; padding: 16px 20px 14px; }
+.clock .row { display: flex; align-items: center; justify-content: space-between; }
+.time { font: 600 62px/0.95 var(--f-display); font-variation-settings: 'SOFT' 100, 'opsz' 144; letter-spacing: -0.02em; color: var(--ink); }
+.time .ampm { font: 700 18px var(--f-ui); letter-spacing: .1em; color: var(--line); margin-left: 6px; vertical-align: 8px; }
+.day { font: 700 13px var(--f-ui); letter-spacing: .16em; text-transform: uppercase; color: var(--line); margin-top: 6px; }
+.wx { display: flex; align-items: center; gap: 12px; }
+.wx .disc { width: 58px; height: 58px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #FFF7E2, #CFE6F5 70%); border: 2px solid var(--line); display: grid; place-items: center; }
+.wx .disc .i { font-size: 36px; color: var(--line); fill: #FFE7A3; stroke-width: 1.6; }
+.wx .t b { display: block; font: 600 26px var(--f-display); font-variation-settings: 'SOFT' 100; }
+.wx .t span { font: 500 14px var(--f-ui); color: var(--ink-soft); }
+/* the sky strip: the waking day 05:00 → 02:00 painted as its sky colour */
+.sky { margin-top: 14px; position: relative; height: 16px; border-radius: 8px; border: 1.5px solid var(--line);
+  background: linear-gradient(90deg, #2B3766 0%, #F6A27A 9%, #FFE1B0 14%, #8EC1F0 24%, #5DA0EA 50%, #8EC1F0 62%, #F7C548 70%, #F6A27A 75%, #8D7FC4 81%, #2B3766 90%, #1D2748 100%); }
+.sun { position: absolute; top: 50%; left: 15.5%; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 50%;
+  background: radial-gradient(circle at 40% 40%, #FFF9E8, #F7C548 75%); border: 2px solid var(--line); box-shadow: 0 0 0 4px rgba(247,197,72,.35); }
+.blocks { display: grid; grid-template-columns: 1fr 1fr 1fr; margin-top: 8px; font: 700 12px var(--f-ui); color: var(--ink-soft); }
+.blocks span { display: flex; align-items: center; gap: 5px; }
+.blocks span:nth-child(2) { justify-content: center; } .blocks span:nth-child(3) { justify-content: flex-end; }
+.blocks .i { font-size: 16px; color: var(--line); }
+.blocks .now { color: var(--ink); }
+
+/* ---- notifications: LEFT (MUST) ---- */
+.toasts { position: absolute; left: 40px; top: 32px; width: 452px; display: flex; flex-direction: column; gap: 10px; }
+.toast { display: flex; gap: 14px; align-items: flex-start; padding: 13px 16px 15px 13px; position: relative; overflow: hidden; border-radius: var(--r-md); }
+.toast .st { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; flex: none; background: var(--acc); color: #fff; border: 2px solid var(--line); font-size: 21px; }
+.toast .st .i { stroke-width: 2; }
+.toast .who { font: 700 12px var(--f-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--line); }
+.toast .txt { font: 500 18px/1.35 var(--f-ui); color: var(--ink); margin-top: 1px; }
+.toast .hint { margin-top: 8px; display: flex; align-items: center; gap: 8px; font: 700 14px var(--f-ui); color: var(--ink-soft); }
+.toast .hint .key { min-width: 26px; height: 24px; font-size: 12px; }
+.toast .life { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: var(--paper-3); }
+.toast .life i { display: block; height: 100%; background: var(--acc); }
+.toast.old { opacity: .9; transform: scale(.97); transform-origin: left center; }
+.toast .amt { font: 600 24px var(--f-display); font-variation-settings: 'SOFT' 100; color: var(--sunflower-d); }
+
+/* ---- top-right: company bank + today ---- */
+.tr { position: absolute; right: 40px; top: 32px; display: flex; flex-direction: column; align-items: flex-end; gap: 12px; }
+.bank { display: flex; align-items: center; gap: 12px; padding: 8px 18px 8px 10px; border-radius: 999px; }
+.bank .coin { width: 40px; height: 40px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #FFE89A, #F7C548 70%); border: 2px solid var(--line); display: grid; place-items: center; color: var(--line); font-size: 22px; }
+.bank .lab { font: 700 11px var(--f-ui); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-soft); display: block; }
+.bank .amt { font: 600 32px/1 var(--f-display); font-variation-settings: 'SOFT' 100, 'opsz' 72; }
+.today { width: 300px; padding: 12px 16px 14px; }
+.today .lab { font: 700 12px var(--f-ui); letter-spacing: .14em; text-transform: uppercase; color: var(--line); margin-bottom: 6px; }
+.goal { display: flex; align-items: center; gap: 10px; font: 500 17px var(--f-ui); padding: 4px 0; }
+.goal .tick { width: 20px; height: 20px; border-radius: 6px; border: 2px solid var(--line); display: grid; place-items: center; font-size: 15px; flex: none; }
+.goal.done { color: var(--ink-soft); text-decoration: line-through; text-decoration-color: rgba(128,92,82,.5); }
+.goal.done .tick { background: var(--leaf); color: #fff; }
+.goal .prog { margin-left: auto; font: 700 14px var(--f-ui); color: var(--sea-deep); }
+
+/* ---- compass ribbon (top-centre, at sea) ---- */
+.compass { position: absolute; left: 50%; top: 34px; transform: translateX(-50%); width: 500px; height: 44px; border-radius: 22px; overflow: hidden; }
+.compass .track { position: absolute; inset: 0; display: flex; justify-content: space-around; align-items: center; font: 700 15px var(--f-ui); letter-spacing: .1em; color: var(--ink-soft);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent); }
+.compass .track .big { color: var(--ink); font-size: 19px; font-weight: 900; }
+.compass .needle { position: absolute; left: 50%; top: 0; bottom: 0; width: 3px; margin-left: -1.5px; background: var(--poppy); }
+.poi { position: absolute; top: 88px; transform: translateX(-50%); white-space: nowrap; display: flex; align-items: center; gap: 6px; padding: 4px 11px 5px 6px; border-radius: 999px; font: 700 13px var(--f-ui); }
+.poi .d { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-size: 13px; border: 1.5px solid var(--line); }
+
+/* ---- hotbar ---- */
+.hotwrap { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.itemname { display: flex; align-items: baseline; gap: 12px; padding: 6px 18px 8px; border-radius: 999px; }
+.itemname .n { font: 600 24px var(--f-display); font-variation-settings: 'SOFT' 100, 'opsz' 48; }
+.itemname .s { font: 500 15px var(--f-ui); color: var(--ink-soft); }
+.hotbar { display: flex; gap: 8px; padding: 9px; border-radius: 22px; }
+.slot { width: 80px; height: 80px; border-radius: 14px; position: relative; display: grid; place-items: center;
+  background: var(--paper-2); border: 1.5px solid var(--line-soft); box-shadow: inset 0 -3px 0 rgba(128,92,82,.12); color: var(--line); }
+.slot .k { position: absolute; left: 8px; top: 5px; font: 900 12px var(--f-ui); color: rgba(128,92,82,.6); }
+.slot .i { font-size: 46px; stroke-width: 1.5; fill: var(--fill, #FFF3DC); }
+.slot .cnt { position: absolute; right: 8px; bottom: 11px; font: 900 16px var(--f-ui); color: var(--ink); text-shadow: 0 0 3px var(--paper), 0 0 3px var(--paper); }
+.slot .rar { position: absolute; right: 8px; top: 8px; width: 11px; height: 11px; border-radius: 50%; background: var(--rc); border: 1.5px solid var(--line); }
+.slot .fresh { position: absolute; left: 8px; right: 8px; bottom: 6px; height: 4px; border-radius: 2px; background: rgba(128,92,82,.15); }
+.slot .fresh i { display: block; height: 100%; border-radius: 2px; }
+.slot.sel { transform: translateY(-8px); border: 2.5px solid var(--line); background: linear-gradient(180deg, #FFF0C2, #FBE3A0); box-shadow: 0 3px 0 var(--line), 0 12px 22px rgba(91,94,158,.35); }
+.slot.sel .k { color: var(--line); }
+.slot.empty { background: rgba(248,239,221,.6); }
+
+/* ---- prompts over the world ---- */
+.prompts { position: absolute; left: 50%; bottom: 200px; transform: translateX(-50%); display: flex; gap: 22px; font: 700 18px var(--f-ui); color: #fff; text-shadow: var(--text-halo); }
+.prompts span { display: flex; align-items: center; gap: 9px; }
+.mouse { width: 22px; height: 30px; border: 2px solid var(--line); background: var(--paper); border-radius: 11px; position: relative; overflow: hidden; box-shadow: 0 2px 0 var(--line); }
+.mouse::after { content: ''; position: absolute; left: 0; top: 0; width: 50%; height: 45%; background: var(--sunflower); border-right: 1.5px solid var(--line); border-bottom: 1.5px solid var(--line); }
+.mouse.r::after { left: 50%; border-right: 0; border-left: 1.5px solid var(--line); }
+
+/* cast aim ring painted on the water */
+.aim { position: absolute; left: 1560px; top: 760px; width: 150px; height: 44px; border-radius: 50%; border: 3px solid rgba(255,251,242,.95); box-shadow: 0 0 0 3px rgba(128,92,82,.35); }
+.aim::after { content: '14 m'; position: absolute; left: 50%; top: -32px; transform: translateX(-50%); font: 900 15px var(--f-ui); color: #fff; text-shadow: var(--text-halo); }
+</style></head>
+<body>
+
+<!-- Manan 31 Oct: no HUD clock card; the time is read on the phone (Tab: Home + Forecast). -->
+<div class="toasts">
+  <div class="toast paper" style="--acc: var(--sea)">
+    <div class="st"><i data-i="msg"></i></div>
+    <div><div class="who">Mari Duarte · new message</div>
+      <div class="txt">"Is the old Hale dock yours now? I need a spot for my taco boat."</div>
+      <div class="hint"><span class="key">Tab</span>Open phone</div></div>
+    <div class="life"><i style="width:82%"></i></div>
+  </div>
+  <div class="toast paper old" style="--acc: var(--sunflower)">
+    <div class="st" style="color:var(--line)"><i data-i="coin"></i></div>
+    <div><div class="who">Hook, Line &amp; Sinker · June</div>
+      <div class="txt"><span class="amt">+$18</span> &nbsp;for 3 Mackerel</div></div>
+    <div class="life"><i style="width:40%"></i></div>
+  </div>
+  <div class="toast paper old" style="--acc: var(--sea-deep)">
+    <div class="st"><i data-i="rain"></i></div>
+    <div><div class="who">Dot · harbour master</div>
+      <div class="txt">Rain from about 5 PM. Small boats in by six, please.</div></div>
+    <div class="life"><i style="width:18%"></i></div>
+  </div>
+</div>
+
+<div class="compass paper">
+  <div class="track"><span>W</span><span>·</span><span class="big">NW</span><span>·</span><span>N</span><span>·</span><span>NE</span></div>
+  <div class="needle"></div>
+</div>
+<div class="poi paper" style="left: 835px"><span class="d" style="background:var(--sunflower);color:var(--line)"><i data-i="pin"></i></span>Hale's Landing · 320 m</div>
+<div class="poi paper" style="left: 1090px"><span class="d" style="background:var(--sea)"><i data-i="fish"></i></span>Birds working</div>
+
+<div class="tr">
+  <div class="bank paper"><div class="coin"><i data-i="dollar"></i></div><div><span class="lab">Company</span><span class="amt num">$1,240</span></div></div>
+  <div class="today paper">
+    <div class="lab">Today</div>
+    <div class="goal done"><span class="tick"><i data-i="check"></i></span>Buy worm bait</div>
+    <div class="goal"><span class="tick"></span>Fish for June <span class="prog">3 / 5</span></div>
+    <div class="goal"><span class="tick"></span>Answer Mari</div>
+  </div>
+</div>
+
+<div class="aim"></div>
+
+<div class="prompts">
+  <span><span class="mouse"></span>Hold to cast</span>
+  <span><span class="mouse r"></span>Aim</span>
+  <span><span class="key">Tab</span>Phone</span>
+</div>
+
+<div class="hotwrap">
+  <div class="itemname paper"><span class="n">Grandpa's Rod</span><span class="s">worm bait ×12 · line 4 kg</span></div>
+  <div class="hotbar paper">
+    <div class="slot sel"><span class="k">1</span><i data-i="rod"></i></div>
+    <div class="slot" style="--rc: var(--r-fine); --fill: #BFF0EA"><span class="k">2</span><span class="rar"></span><i data-i="fish"></i><span class="cnt">3</span><span class="fresh"><i style="width:92%;background:var(--leaf)"></i></span></div>
+    <div class="slot" style="--rc: var(--r-common); --fill: #EFE6D6"><span class="k">3</span><span class="rar"></span><i data-i="fish"></i><span class="cnt">5</span><span class="fresh"><i style="width:46%;background:var(--sunflower)"></i></span></div>
+    <div class="slot" style="--rc: var(--r-rare); --fill: #BBD6F6"><span class="k">4</span><span class="rar"></span><i data-i="fish"></i><span class="cnt">1</span><span class="fresh"><i style="width:100%;background:var(--leaf)"></i></span></div>
+    <div class="slot" style="--fill: #F7B9A9"><span class="k">5</span><i data-i="flare"></i></div>
+    <div class="slot" style="--fill: #FAD9C5"><span class="k">6</span><i data-i="shell"></i></div>
+    <div class="slot empty"><span class="k">7</span></div>
+    <div class="slot empty"><span class="k">8</span></div>
+  </div>
+</div>
+<div class="cap" style="color:rgba(255,251,242,.85)">Port Boss · HUD v2 · Ponyo Coast · daytime · background: art-direction concept #4 (stand-in for the game scene)</div>
+<script src="icons.js"></script>
+</body></html>

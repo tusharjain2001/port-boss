@@ -1,3 +1,5 @@
+> **HISTORICAL (1 Nov 2026):** about the OLD dock-work game (code in `Assets/Scripts/`), replaced on 31 Oct by the fishing-first game. Current docs: `HANDOVER.md` and `docs/plan/`.
+
 # Port Boss: morning build (29 Oct 2026)
 
 Double-click **PortBoss.exe**. It opens windowed (drag the edge to resize, or pick a window mode in Settings). Have Steam running for co-op; solo works without it.
