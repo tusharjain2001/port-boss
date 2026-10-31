@@ -8,7 +8,8 @@ namespace PortBoss.M1
     // hands and sways with the boat.
     public class RodView : MonoBehaviour
     {
-        public Transform Root, Tip;
+        public Transform Root, Tip, Reel, Handle;
+        public float Crank; // reel handle angle (degrees): Fishing turns it while reeling
         readonly Transform[] seg = new Transform[6];
         static readonly float[] W = { 0.05f, 0.08f, 0.12f, 0.18f, 0.25f, 0.32f };
         public float Tension;              // 0..1 target
@@ -27,8 +28,12 @@ namespace PortBoss.M1
             Util.MeshObj("cork", Util.Cylinder(10, 0.02f * thick, 0.017f * thick, 0.5f, Ponyo.Hex("C9A27A"), Ponyo.Hex("B88E66")), toon, g.transform);
             var reel = Util.MeshObj("reel", Util.Cylinder(12, 0.045f, 0.045f, 0.035f, Ponyo.Hex("5E5A66"), Ponyo.Hex("7A7684")), toon, g.transform);
             reel.transform.localPosition = new Vector3(0, -0.06f, 0.36f); reel.transform.localRotation = Quaternion.Euler(0, 90, 0);
-            var handle = Util.MeshObj("crank", Util.Cylinder(6, 0.006f, 0.006f, 0.06f, Ponyo.Hex("F7C548"), Ponyo.Hex("F7C548")), toon, reel.transform);
-            handle.transform.localPosition = new Vector3(0, 0.03f, 0.035f);
+            // the crank on the left side, for the left hand (right hand on the grip over the reel)
+            var arm = Util.MeshObj("crankArm", Util.Cylinder(6, 0.004f, 0.004f, 0.045f, Ponyo.Hex("5E5A66"), Ponyo.Hex("5E5A66")), toon, reel.transform);
+            arm.transform.localPosition = new Vector3(0, 0, -0.04f); arm.transform.localRotation = Quaternion.Euler(-90, 0, 0);
+            var handle = Util.MeshObj("crank", Util.Cylinder(6, 0.007f, 0.007f, 0.03f, Ponyo.Hex("F7C548"), Ponyo.Hex("F7C548")), toon, reel.transform);
+            handle.transform.localPosition = new Vector3(0, 0.045f, -0.07f);
+            r.Reel = reel.transform; r.Handle = handle.transform;
             var foot = Util.MeshObj("foot", Util.Cylinder(6, 0.008f, 0.008f, 0.06f, Ponyo.Hex("5E5A66"), Ponyo.Hex("5E5A66")), toon, g.transform);
             foot.transform.localPosition = new Vector3(0, -0.005f, 0.36f); foot.transform.localRotation = Quaternion.Euler(90, 0, 0);
             float len = (Length - 0.5f) / 6f, r0 = 0.016f * thick;
@@ -51,9 +56,11 @@ namespace PortBoss.M1
 
         void LateUpdate()
         {
+            if (Reel != null) Reel.localRotation = Quaternion.Euler(0, 90, 0) * Quaternion.Euler(0, 0, Crank);
             // spring 8 Hz, damping 0.4 toward the tension's tip angle (0..70°)
+            // implicit step: stable at any frame rate (the explicit one blew up below ~40 fps and zig-zagged the rod)
             float target = Mathf.Clamp01(Tension) * 70f, w = 2 * Mathf.PI * 8f, dt = Mathf.Min(Time.deltaTime, 0.05f);
-            bendV += (-(w * w) * (bend - target) - 2 * 0.4f * w * bendV) * dt;
+            bendV = (bendV - w * w * (bend - target) * dt) / (1 + 2 * 0.4f * w * dt + w * w * dt * dt);
             bend += bendV * dt;
             // bend toward the line: rotate each joint about the axis perpendicular to the rod and the pull
             var axisW = Vector3.Cross(Root.forward, BendDir);
@@ -78,6 +85,7 @@ namespace PortBoss.M1
         readonly Vector3[] p = new Vector3[N], prev = new Vector3[N];
         LineRenderer lr;
         public Transform A; public Vector3 B; public float Slack = 0.04f; public bool Live;
+        float sag;
         public bool Arc; // paying out during the cast: a clean curve from the tip to the bobber (no rope sim, no tangles)
 
         public static LineView Make()
@@ -113,30 +121,27 @@ namespace PortBoss.M1
                     float u = i / (N - 1f);
                     p[i] = prev[i] = Vector3.Lerp(a, B, u) + Vector3.down * Mathf.Sin(u * Mathf.PI) * len * 0.06f;
                 }
+                sag = len * 0.06f;
                 lr.SetPositions(p);
                 return;
             }
-            float rest = Vector3.Distance(a, B) * (1 + Slack) / (N - 1);
-            for (int i = 1; i < N - 1; i++)
-            {
-                var v = (p[i] - prev[i]) * 0.96f; prev[i] = p[i];
-                p[i] += v + Vector3.down * 9.8f * 0.6f * dt * dt;
-            }
-            p[0] = a; p[N - 1] = B;
+            // A slack line hangs as a parabola from the tip to the float (sag from how much line is out over the
+            // straight distance) and lies on the water where it reaches it; taut, it is straight. No rope sim: it can
+            // never tangle, loop or kink. The sag eases so a strike or a slackening line moves, not jumps.
+            float dist = Vector3.Distance(a, B);
+            sag = Mathf.Lerp(sag, dist * Mathf.Sqrt(0.375f * Mathf.Max(0, Slack)), 1 - Mathf.Exp(-6f * dt));
             var s = Skiff.I;
-            for (int it = 0; it < 12; it++)
+            for (int i = 0; i < N; i++)
             {
-                for (int i = 0; i < N - 1; i++)
+                float u = i / (N - 1f);
+                var q = Vector3.Lerp(a, B, u) + Vector3.down * sag * 4 * u * (1 - u);
+                if (i > 0 && i < N - 1)
                 {
-                    var d = p[i + 1] - p[i]; float len = d.magnitude; if (len < 1e-5f) continue;
-                    var c = d * (1 - rest / len) * 0.5f;
-                    if (i > 0) p[i] += c; if (i + 1 < N - 1) p[i + 1] -= c;
+                    float floor = Sea.Height(q) + 0.01f;
+                    if (q.y < floor) q.y = floor;
+                    if (s != null && s.Inside(q, 0.05f)) { float gy = s.GunwaleY(q) + 0.04f; if (q.y < gy) q.y = gy; }
                 }
-                for (int i = 1; i < N - 1; i++)
-                {
-                    if (p[i].y < Sea.Level - 0.25f) p[i].y = Sea.Level - 0.25f; // floats just under the surface
-                    if (s != null && s.Inside(p[i], 0.05f)) { float gy = s.GunwaleY(p[i]) + 0.04f; if (p[i].y < gy) p[i].y = gy; }
-                }
+                p[i] = prev[i] = q;
             }
             lr.SetPositions(p);
             // ~1.5 px at any distance (screen-constant width, fishing §3.3)

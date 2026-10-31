@@ -15,9 +15,10 @@ namespace PortBoss.M1
             Ink = Hex("3F2C27"), InkSoft = Hex("7A625A"), Shade = Hex("98A6EA"), ShadeDeep = Hex("5B5E9E"), SeaC = Hex("46D6C8"),
             SeaDeep = Hex("2160B8"), Sky = Hex("3A86E0"), Night = Hex("1D2748"), Sunflower = Hex("F7C548"), Poppy = Hex("E2553F"),
             Leaf = Hex("7DBE6A"), Peach = Hex("F6A27A");
-        public static readonly Color[] GradeCol = { Hex("CDBFA8"), Hex("46D6C8"), Hex("3A86E0"), Hex("F7C548") };
-        public static readonly string[] GradeName = { "Common", "Fine", "Rare", "Prized" };
-        public static readonly float[] GradeMul = { 1.0f, 1.3f, 1.7f, 2.5f };
+        // Two grades (Manan 1 Nov): the one stop in the green = Rare, anything else = Basic. Rare sells for x2 (Manan, confirmed).
+        public static readonly Color[] GradeCol = { Hex("CDBFA8"), Hex("F7C548") };
+        public static readonly string[] GradeName = { "Basic", "Rare" };
+        public static readonly float[] GradeMul = { 1.0f, 2.0f };
 
         public static Light Sun;
         public static Material SkyMat, Outline;

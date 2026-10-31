@@ -50,6 +50,7 @@ namespace PortBoss.EditorTools
             pb.GetMethod("MixamoClips", BindingFlags.NonPublic | BindingFlags.Static).Invoke(null, new object[] { skin });
             a.Idle = skin.Idle; a.Walk = skin.Walk; a.Run = skin.Run; a.Sprint = skin.Sprint; a.Jump = skin.Jump; a.Land = skin.Land;
             a.SwimIdle = skin.SwimIdle; a.Swim = skin.Swim; a.Climb = skin.Climb; a.Drive = skin.Drive;
+            M1Anim.Make(a.Worker, a.Idle, a);
             Debug.Log($"[M1Build] clips idle={a.Idle?.name} walk={a.Walk?.name} run={a.Run?.name} swim={a.Swim?.name} tread={a.SwimIdle?.name} climb={a.Climb?.name}");
 
             AudioClip Au(string n) => AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Resources/Audio/" + n);

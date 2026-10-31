@@ -41,6 +41,12 @@ namespace PortBoss
         public World.Ladder? Ladder;  // on this ladder: hands and feet on the rungs, from how high the player is
         public float LadderW;
         public float WaterY = float.NaN; // treading water at this surface height: arms down in the water, sculling
+        // An action clip (M1 fishing: rod idle, cast, fight, reel, hold-up) that stands in for Idle: the gaits still
+        // blend over it by speed. ActTime >= 0 drives its time from outside (the cast follows the charge); < 0 plays
+        // it at its own speed. Switching clips crossfades like every other weight here (~0.2 s).
+        public AnimationClip Act;
+        public float ActTime = -1;
+        readonly List<AnimationClipPlayable> actP = new(); readonly List<float> actW = new();
 
         void LateUpdate() { if (armLU != null && armRU != null) PostPose(); }
 
@@ -122,6 +128,9 @@ namespace PortBoss
             var target = new float[w.Length];
             if (onFoot) GaitWeights(speedS, target); else target[(int)want] = 1;
             if (land > 0) { for (int i = 0; i < target.Length; i++) target[i] *= 1 - land; target[(int)Slot.Land] = land; }
+            int act = Act != null ? ActIndex(Act) : -1;
+            float actT = 0;
+            if (act >= 0) { actT = target[(int)Slot.Idle]; target[(int)Slot.Idle] = 0; }
             // Into the water: no lingering in the air pose, straight to treading.
             bool wet = want == Slot.Swim || want == Slot.SwimIdle;
             float k = 1 - Mathf.Exp(-(wet && last != Slot.Swim && last != Slot.SwimIdle ? 22f : land > 0 ? 25f : 10f) * dt);
@@ -130,6 +139,13 @@ namespace PortBoss
             {
                 w[i] = Mathf.Lerp(w[i], target[i], k);
                 if (plays[i].IsValid()) mixer.SetInputWeight(i, w[i]);
+            }
+            for (int i = 0; i < actP.Count; i++)
+            {
+                if (i == act && actW[i] < 0.02f && ActTime < 0 && !Act.isLooping) actP[i].SetTime(0); // a one-shot starts over
+                actW[i] = Mathf.Lerp(actW[i], i == act ? actT : 0, k);
+                mixer.SetInputWeight(w.Length + i, actW[i]);
+                if (i == act) { if (ActTime >= 0) { actP[i].SetSpeed(0); actP[i].SetTime(ActTime); } else actP[i].SetSpeed(1); }
             }
             // Advance the shared stride over the blended stride length (m per cycle) of the gaits now playing.
             float stride = 0, sw = 0;
@@ -170,6 +186,16 @@ namespace PortBoss
                     return;
                 }
             t[(int)gaits[gaits.Count - 1]] = 1;
+        }
+
+        int ActIndex(AnimationClip c)
+        {
+            for (int i = 0; i < actP.Count; i++) if (actP[i].GetAnimationClip() == c) return i;
+            var p = AnimationClipPlayable.Create(graph, c); // foot IK on, like the gaits (M1Anim keys foot goals)
+            mixer.SetInputCount(w.Length + actP.Count + 1);
+            graph.Connect(p, 0, mixer, w.Length + actP.Count);
+            actP.Add(p); actW.Add(0);
+            return actP.Count - 1;
         }
 
         float Len(Slot s) => plays[(int)s].IsValid() ? Mathf.Max(0.1f, plays[(int)s].GetAnimationClip().length) : 1f;

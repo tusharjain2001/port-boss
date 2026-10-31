@@ -90,7 +90,7 @@ namespace PortBoss.M1
             return Mathf.Clamp01((0.16f - d) * 24f);
         });
         public static Sprite Circle => circle; public static Sprite RingSprite => ringS; public static Sprite RingThin => ringThin;
-        public static Sprite GradeShape(int g) => g switch { 0 => dotS, 1 => ringS, 2 => diamond, _ => star };
+        public static Sprite GradeShape(int g) => g == 0 ? dotS : star;
 
         // ---- builders ----
         public static RectTransform Rect(string name, Transform parent)
@@ -158,6 +158,119 @@ namespace PortBoss.M1
             var t = Txt(k, label, Bold, Mathf.RoundToInt(h * 0.5f), Ponyo.Ink, TextAnchor.MiddleCenter); t.rectTransform.Stretch();
             return k;
         }
+
+        // The hotbar's rod icon, painted (Manan 1 Nov: the baked 3D rod read as a toothpick at slot size): a slightly
+        // bent, tapered bamboo blank with red thread wraps and guide rings, a speckled cork handle with a butt cap, a
+        // reel with its crank and yellow knob, and a short line down to the red-and-white float. Warm brown outline
+        // (the paper UI's ink), drawn with antialiased distance fields at 256 px.
+        public static Texture2D RodIcon(int tier = 1)
+        {
+            const int S = 256; const float OL = 4.5f; // outline px
+            var ink = Ponyo.Line;
+            Color blank = tier switch { 1 => Ponyo.Hex("D8B070"), 2 => Ponyo.Hex("F2E2C0"), 3 => Ponyo.Hex("4A4A5C"), 4 => Ponyo.Hex("2E70C8"), _ => Ponyo.Hex("7A5638") };
+            Color blankHi = Color.Lerp(blank, Color.white, 0.45f), cork = Ponyo.Hex("C9A27A"), corkDk = Ponyo.Hex("A07850"), wrap = Ponyo.Hex("D9483B");
+            Color metal = Ponyo.Hex("8A8696"), metalDk = Ponyo.Hex("5E5A66"), knob = Ponyo.Hex("F7C548"), lineC = Ponyo.Hex("FFF6E2"), red = Ponyo.Hex("E2553F"), white = Ponyo.Hex("FFFBF2");
+            // the rod's spine: a quadratic curve from the butt (lower left) to the tip (upper right), bowed up a little
+            // (texture y goes up)
+            Vector2 A = new(34, 34), C = new(150, 128), B = new(222, 226);
+            Vector2 P(float t) => (1 - t) * (1 - t) * A + 2 * (1 - t) * t * C + t * t * B;
+            const int N = 48; var pts = new Vector2[N + 1]; for (int i = 0; i <= N; i++) pts[i] = P(i / (float)N);
+            // width along the rod: the handle, then the blank tapering to the tip
+            float W(float t) => t < 0.3f ? Mathf.Lerp(13f, 11f, t / 0.3f) : Mathf.Lerp(7.5f, 3.2f, (t - 0.3f) / 0.7f);
+            float RodD(Vector2 q, float t0, float t1, out float tAt)
+            {
+                float best = 1e9f; tAt = t0;
+                int i0 = Mathf.FloorToInt(t0 * N), i1 = Mathf.Min(N, Mathf.CeilToInt(t1 * N));
+                for (int i = i0; i < i1; i++)
+                {
+                    Vector2 a = pts[i], b = pts[i + 1], ab = b - a; float h = Mathf.Clamp01(Vector2.Dot(q - a, ab) / ab.sqrMagnitude);
+                    float t = Mathf.Clamp((i + h) / N, t0, t1);
+                    float d = (q - (a + ab * h)).magnitude - W(t);
+                    if (d < best) { best = d; tAt = t; }
+                }
+                return best;
+            }
+            Vector2 Tan(float t) => (P(Mathf.Min(1, t + 0.01f)) - P(Mathf.Max(0, t - 0.01f))).normalized;
+            Vector2 Nrm(float t) { var d = Tan(t); return new Vector2(d.y, -d.x); } // the rod's underside (down-right)
+            float Circle(Vector2 q, Vector2 c, float r) => (q - c).magnitude - r;
+            float Seg(Vector2 q, Vector2 a, Vector2 b, float r) { var ab = b - a; float h = Mathf.Clamp01(Vector2.Dot(q - a, ab) / ab.sqrMagnitude); return (q - (a + ab * h)).magnitude - r; }
+            // the line: from the tip, a soft curve down to the float
+            Vector2 tip = P(1), fl = new(210, 104), lc = new(236, 160);
+            float LineD(Vector2 q)
+            {
+                float best = 1e9f; Vector2 prev = tip;
+                for (int i = 1; i <= 16; i++) { float u = i / 16f; var p = (1 - u) * (1 - u) * tip + 2 * (1 - u) * u * lc + u * u * (fl + new Vector2(0, 20)); /* to the antenna */ best = Mathf.Min(best, Seg(q, prev, p, 1.2f)); prev = p; }
+                return best;
+            }
+            var reelC = P(0.2f) + Nrm(0.2f) * 26f;
+            float[] guides = { 0.46f, 0.62f, 0.77f, 0.9f };
+            var px = new Color[S * S];
+            for (int y = 0; y < S; y++)
+                for (int x = 0; x < S; x++)
+                {
+                    var q = new Vector2(x + 0.5f, y + 0.5f);
+                    var col = new Color(0, 0, 0, 0);
+                    void Lay(float d, Color c, bool outline = true)
+                    {
+                        if (outline) col = Over(col, new Color(ink.r, ink.g, ink.b, Mathf.Clamp01(0.5f - (d - OL))));
+                        col = Over(col, new Color(c.r, c.g, c.b, Mathf.Clamp01(0.5f - d) * c.a));
+                    }
+                    // line + float (behind the rod)
+                    float ld = LineD(q);
+                    col = Over(col, new Color(ink.r, ink.g, ink.b, Mathf.Clamp01(0.5f - (ld - 1.6f))));
+                    col = Over(col, new Color(lineC.r, lineC.g, lineC.b, Mathf.Clamp01(0.5f - ld)));
+                    Lay(Seg(q, fl + new Vector2(0, 10), fl + new Vector2(0, 20), 2.2f), red); // the antenna on top
+                    float fd = Circle(q, fl, 11f);
+                    if (fd < OL + 1)
+                    {
+                        Lay(fd, white);
+                        if (q.y > fl.y && fd < 0) col = Over(col, new Color(red.r, red.g, red.b, Mathf.Clamp01(0.5f - fd) * Mathf.Clamp01(q.y - fl.y)));
+                    }
+                    // guide rings under the blank
+                    foreach (var g in guides)
+                    {
+                        var gc = P(g) + Nrm(g) * (W(g) + 5f); float rr = Mathf.Lerp(6f, 4f, g);
+                        float ring = Mathf.Abs(Circle(q, gc, rr)) - 1.6f;
+                        Lay(Mathf.Min(ring, Seg(q, P(g), gc - Nrm(g) * rr, 1.4f)), metal);
+                    }
+                    // reel: foot to the rod, body, spool, crank and knob
+                    Lay(Seg(q, P(0.2f), reelC, 4f), metalDk);
+                    Lay(Circle(q, reelC, 20f), metal);
+                    Lay(Circle(q, reelC, 11f), Ponyo.Hex("B7B3C2"), false);
+                    Lay(Circle(q, reelC, 4f), metalDk, false);
+                    var crank = reelC + new Vector2(-18f, -14f);
+                    Lay(Seg(q, reelC, crank, 3f), metalDk);
+                    Lay(Circle(q, crank, 7.5f), knob);
+                    // the blank: highlight along its top edge, red wraps at the guides
+                    float rd = RodD(q, 0.3f, 1f, out float tb);
+                    if (rd < OL + 1)
+                    {
+                        Lay(rd, blank);
+                        var side = Vector2.Dot(q - P(tb), Nrm(tb));
+                        if (rd < -1.2f && side < -W(tb) * 0.25f) col = Over(col, new Color(blankHi.r, blankHi.g, blankHi.b, 0.8f));
+                        foreach (var g in guides) if (Mathf.Abs(tb - g) < 0.012f && rd < 0) col = Over(col, new Color(wrap.r, wrap.g, wrap.b, Mathf.Clamp01(0.5f - rd)));
+                    }
+                    // the cork handle with a dark butt cap, speckles, a red wrap where the blank starts
+                    float hd = RodD(q, 0f, 0.31f, out float th);
+                    if (hd < OL + 1)
+                    {
+                        Lay(hd, th < 0.035f ? Ponyo.Hex("6E5040") : cork);
+                        if (hd < -1f && th >= 0.035f && Hash(x / 3, y / 3) > 0.83f) col = Over(col, new Color(corkDk.r, corkDk.g, corkDk.b, 0.9f));
+                        if (hd < 0 && th > 0.29f) col = Over(col, new Color(wrap.r, wrap.g, wrap.b, Mathf.Clamp01(0.5f - hd)));
+                    }
+                    px[y * S + x] = col;
+                }
+            var tex = new Texture2D(S, S, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Clamp, name = "RodIcon" };
+            tex.SetPixels(px); tex.Apply(true);
+            return tex;
+        }
+        static Color Over(Color under, Color over)
+        {
+            float a = over.a + under.a * (1 - over.a);
+            if (a < 1e-4f) return new Color(0, 0, 0, 0);
+            return new Color((over.r * over.a + under.r * under.a * (1 - over.a)) / a, (over.g * over.a + under.g * under.a * (1 - over.a)) / a, (over.b * over.a + under.b * under.a * (1 - over.a)) / a, a);
+        }
+        static float Hash(int x, int y) { uint h = (uint)(x * 374761393 + y * 668265263); h = (h ^ (h >> 13)) * 1274126177; return (h & 0xffff) / 65535f; }
 
         public static Texture2D Stripes(Color a, Color b, int s = 32)
         {

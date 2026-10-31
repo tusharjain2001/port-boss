@@ -14,6 +14,7 @@ namespace PortBoss.M1
         public string[] FishIds; public GameObject[] Fish;
         public TextAsset FishCsv;
         public AnimationClip Idle, Walk, Run, Sprint, Jump, Land, SwimIdle, Swim, Climb, Drive;
+        public AnimationClip RodIdle, Wait, Cast, Strike, Fight, Reel, HoldUp, Helm; // keyed fishing clips (M1Anim, Assets/Game/Anim)
         public AudioClip Waves, Splash, Gull, Thud, Kaching, Click;
         public AudioClip[] Steps;
         public Texture2D WorkerPalette;

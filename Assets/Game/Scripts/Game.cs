@@ -80,10 +80,7 @@ namespace PortBoss.M1
                 var pf = a.FishPrefab(s.Id);
                 if (pf != null) Hud.Icons[s.Id] = IconBaker.Bake(pf, 192, 96, FishMat(s));
             }
-            // a chunky stand-in rod (3.5x thicker) so the icon reads like the painted fish icons
-            var rod = RodView.Make(ToonMat, 1, 6f);
-            Hud.RodIcon = IconBaker.Bake(rod.gameObject, 160, 160, null, new Vector3(0.7f, -0.25f, 0.68f), 0.52f);
-            Destroy(rod.gameObject);
+            Hud.RodIcon = UiKit.RodIcon(1); // painted (UiKit): the baked 3D rod was a hairline at slot size
         }
 
         // Distant islands on the horizon (code-made, fogged) and a sandy seabed that slopes away from the shore, so the

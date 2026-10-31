@@ -83,16 +83,23 @@ namespace PortBoss.M1
                 return -1;
             }
         }
+        // Hotbar wheel: down = next slot, up = previous, one slot per notch (several notches in a frame move several;
+        // a touchpad's small deltas add up to a notch). Read once per frame (Angler).
         public static int SlotScroll
         {
             get
             {
-                if (Bot) return 0;
                 if (P != null) { if (P.rightShoulder.wasPressedThisFrame) return 1; if (P.leftShoulder.wasPressedThisFrame) return -1; }
                 float s = M != null ? M.scroll.ReadValue().y : 0;
-                return s > 0.1f ? -1 : s < -0.1f ? 1 : 0;
+                wheelAcc -= s / WheelNotch;
+                int n = (int)wheelAcc; wheelAcc -= n;
+                if (s == 0 && Mathf.Abs(wheelAcc) < 0.5f) wheelAcc = 0; // a half-notch left over from a touchpad doesn't linger
+                return n;
             }
         }
+        static float wheelAcc;
+        // One notch: 120 raw on Windows; the Input System's uniform scroll (1.8+) reports 1.
+        public static float WheelNotch => UnityEngine.InputSystem.InputSystem.settings.scrollDeltaBehavior == InputSettings.ScrollDeltaBehavior.UniformAcrossAllPlatforms ? 1f : 120f;
 
         public static bool Key_(Key k) => KD(k);
         public static bool Escape => KD(Key.Escape) || (P != null && P.startButton.wasPressedThisFrame);

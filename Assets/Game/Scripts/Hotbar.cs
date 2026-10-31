@@ -50,30 +50,28 @@ namespace PortBoss.M1
 
         public int FishCount { get { int n = 0; foreach (var s in S) n += s.Fish.Count; return n; } }
 
+        // Stacks by species + grade (Basic 0 / Rare 1), 5 to a stack, rod in slot 1. Logged at every start (Game).
         public static string SelfTest()
         {
-            var a = new FishSpecies { Id = "a", Name = "A", Price = 10 };
-            var b = new FishSpecies { Id = "b", Name = "B", Price = 10 };
+            FishSpecies Sp(string id) => new() { Id = id, Name = id, Price = 10 };
+            var a = Sp("a"); var b = Sp("b"); var c = Sp("c");
             var h = new Hotbar();
-            if (h.Add(new Fish { Species = a, Grade = 1 }) != 1) return "first fish not in slot 2";
-            for (int i = 0; i < 4; i++) h.Add(new Fish { Species = a, Grade = 1 });
-            if (h.S[1].Fish.Count != 5) return "stack of 5 not filled";
-            if (h.Add(new Fish { Species = a, Grade = 1 }) != 2) return "6th same fish did not start a new stack";
-            if (h.Add(new Fish { Species = a, Grade = 2 }) != 3) return "other grade stacked";
-            if (h.Add(new Fish { Species = b, Grade = 1 }) != 4) return "other species stacked";
-            h.Add(new Fish { Species = b, Grade = 0 }); h.Add(new Fish { Species = b, Grade = 3 }); h.Add(new Fish { Species = a, Grade = 0 });
-            if (h.Add(new Fish { Species = a, Grade = 1 }) != 2) return "did not top up the partial stack";
-            for (int i = 0; i < 3; i++) h.Add(new Fish { Species = a, Grade = 1 }); // slot 3 now 5
-            for (int i = 0; i < 4; i++) h.Add(new Fish { Species = a, Grade = 2 });
-            for (int i = 0; i < 4; i++) h.Add(new Fish { Species = b, Grade = 1 });
-            for (int i = 0; i < 4; i++) h.Add(new Fish { Species = b, Grade = 0 });
-            for (int i = 0; i < 4; i++) h.Add(new Fish { Species = b, Grade = 3 });
+            if (h.Add(new Fish { Species = a, Grade = 0 }) != 1) return "first fish not in slot 2";
             for (int i = 0; i < 4; i++) h.Add(new Fish { Species = a, Grade = 0 });
+            if (h.S[1].Fish.Count != 5) return "stack of 5 not filled";
+            if (h.Add(new Fish { Species = a, Grade = 0 }) != 2) return "6th same fish did not start a new stack";
+            if (h.Add(new Fish { Species = a, Grade = 1 }) != 3) return "Rare stacked on Basic";
+            if (h.Add(new Fish { Species = b, Grade = 0 }) != 4) return "other species stacked";
+            h.Add(new Fish { Species = b, Grade = 1 }); h.Add(new Fish { Species = c, Grade = 0 }); h.Add(new Fish { Species = c, Grade = 1 });
+            if (h.Add(new Fish { Species = a, Grade = 0 }) != 2) return "did not top up the partial stack";
+            foreach (var (sp, g, n) in new[] { (a, 0, 3), (a, 1, 4), (b, 0, 4), (b, 1, 4), (c, 0, 4), (c, 1, 4) })
+                for (int i = 0; i < n; i++) h.Add(new Fish { Species = sp, Grade = g });
             if (!h.Full) return "not full with 7 full stacks + rod";
-            if (h.Add(new Fish { Species = b, Grade = 2 }) != -1) return "accepted a fish when full";
+            if (h.Add(new Fish { Species = b, Grade = 1 }) != -1) return "accepted a fish when full";
             var first = h.S[1].Fish[0];
             if (h.TakeOne(1) != first) return "TakeOne not oldest first";
             if (h.Full) return "still full after taking one";
+            if (System.Math.Abs(new Fish { Species = a, Grade = 1 }.Value - 2 * new Fish { Species = a, Grade = 0 }.Value) > 1e-4) return "Rare is not x2 Basic";
             return "PASS";
         }
     }

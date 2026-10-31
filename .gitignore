@@ -126,3 +126,7 @@ InitTestScene*.unity*
 /art-src/worker/out/
 # Blender output scratch of art-src/m1/build_fish.py (FBX go to Assets/Game/Art/Fish)
 /art-src/m1/out/
+
+# keyed fishing clips: generated at build time by Assets/Game/Editor/M1Anim.cs from the (gitignored) Mixamo idle
+/Assets/Game/Anim/
+/Assets/Game/Anim.meta

@@ -90,6 +90,28 @@ namespace PortBoss.M1
         static Texture2D dot, ring;
         public static Texture2D Dot { get { if (dot == null) dot = Radial(64, d => Mathf.SmoothStep(1, 0, Mathf.InverseLerp(0.4f, 1f, d))); return dot; } }
         public static Texture2D Ring { get { if (ring == null) ring = Radial(128, d => Mathf.Clamp01(1 - Mathf.Abs(d - 0.88f) / 0.035f) * 0.85f); return ring; } }
+        // A toon foam patch: a lumpy ring of white with a crisp edge and a broken, holey middle (wake, bow wave).
+        public static Texture2D Foam
+        {
+            get
+            {
+                if (foam != null) return foam;
+                const int s = 128; foam = new Texture2D(s, s, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Clamp };
+                for (int y = 0; y < s; y++) for (int x = 0; x < s; x++)
+                    {
+                        float u = (x + 0.5f) / s * 2 - 1, v = (y + 0.5f) / s * 2 - 1, d = Mathf.Sqrt(u * u + v * v), th = Mathf.Atan2(v, u);
+                        float outer = 0.8f + 0.12f * Mathf.Sin(th * 3 + 1.3f) * Mathf.Sin(th * 5 + 0.4f);
+                        float holes = Mathf.PerlinNoise(u * 2.6f + 7.1f, v * 2.6f + 3.3f);
+                        float inner = 0.32f + 0.3f * holes;
+                        float px = 2.5f / s; // ~1 px soft edge
+                        float a = Mathf.Clamp01((outer - d) / px) * Mathf.Clamp01((d - inner) / (px * 3));
+                        foam.SetPixel(x, y, new Color(1, 1, 1, a));
+                    }
+                foam.Apply(); return foam;
+            }
+        }
+        static Texture2D foam;
+
         static Texture2D Radial(int s, System.Func<float, float> a)
         {
             var t = new Texture2D(s, s, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Clamp };

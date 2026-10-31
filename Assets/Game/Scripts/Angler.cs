@@ -33,6 +33,7 @@ namespace PortBoss.M1
         Vector3 lastPos; float animSpeed;
         float stepT; int stepI;
         bool wasSwim; float dunkT = -1;
+        float sit, lastYaw;
 
         public static Angler Create(M1Assets a, Vector3 at, float yaw)
         {
@@ -83,10 +84,10 @@ namespace PortBoss.M1
             if (helm) { Helm(dt); Track(); Animate(dt); return; }
 
             // hotbar
-            if (!Busy && !Fish.Locked)
+            if (!Busy && !Fish.BarLocked)
             {
                 int k = Ctl.SlotKey; if (k >= 0) Select(k);
-                int sc = Ctl.SlotScroll; if (sc != 0) Select((Bar.Selected + sc + Hotbar.Slots) % Hotbar.Slots);
+                int sc = Ctl.SlotScroll; if (sc != 0) Select(((Bar.Selected + sc) % Hotbar.Slots + Hotbar.Slots) % Hotbar.Slots);
             }
 
             float surface = Sea.Height(transform.position);
@@ -141,7 +142,24 @@ namespace PortBoss.M1
             Vel = Vector3.zero; vy = 0; Track();
         }
 
-        public void TakeHelm() { var s = Skiff.I; if (s == null) return; helm = true; s.AtHelm = true; Fish.Stow(); }
+        public void TakeHelm() { var s = Skiff.I; if (s == null) return; BeginHelm(s); Fish.Stow(); }
+        void BeginHelm(Skiff s)
+        {
+            helm = true; s.AtHelm = true; helmT = 0;
+            helmFrom = s.transform.InverseTransformPoint(transform.position); helmFromYaw = transform.eulerAngles.y - s.transform.eulerAngles.y;
+        }
+        float helmT = 1, helmFromYaw; Vector3 helmFrom;
+
+        // Where he sits at the tiller: on the stern bench, starboard of the tiller (Manan: the LEFT hand always on the
+        // tiller, the right hand free), placed from the tiller's centred position so a full swing stays clear of him.
+        Vector3 SeatLocal(Skiff s)
+        {
+            var m = s.Motor; var g = s.TillerGrip;
+            Vector3 rest = m != null && g != null
+                ? s.transform.InverseTransformPoint(m.parent.TransformPoint(m.localPosition + Vector3.Scale(m.localScale, m.InverseTransformPoint(g.position))))
+                : s.transform.InverseTransformPoint(s.Helm.position);
+            return new Vector3(rest.x + 0.6f, s.transform.InverseTransformPoint(s.Helm.position).y, rest.z + 0.03f);
+        }
         public void LeaveHelm() { var s = Skiff.I; helm = false; if (s != null) { s.AtHelm = false; s.Steer = 0; } if (CameraRig.I != null) CameraRig.I.M = CameraRig.Mode.Follow; }
 
         public void Select(int i)
@@ -181,7 +199,7 @@ namespace PortBoss.M1
                 return;
             }
             if (s == null) return;
-            if (OnBoat && s.Helm != null && Near(s.Helm.position, 1.3f)) { Prompt = s.Moored ? "Take the tiller" : "Take the tiller"; if (Ctl.Interact) { helm = true; s.AtHelm = true; Fish.Stow(); } return; }
+            if (OnBoat && s.Helm != null && Near(s.Helm.position, 1.3f)) { Prompt = "Take the tiller"; if (Ctl.Interact) { BeginHelm(s); Fish.Stow(); } return; }
             if (OnBoat && s.AnchorPt != null && Near(s.AnchorPt.position, 1.4f) && !s.Moored) { Prompt = s.AnchorT >= 0 ? "…" : s.Anchored ? "Raise the anchor" : "Drop the anchor"; if (Ctl.Interact) s.ToggleAnchor(); return; }
             var pick = FishPickup.Nearest(transform.position, 1.6f);
             if (pick != null) { Prompt = Bar.Full ? "Hotbar full" : "Pick up " + pick.F.Species.Name; if (Ctl.Interact && !Bar.Full) pick.Take(this); return; }
@@ -194,7 +212,10 @@ namespace PortBoss.M1
             var s = Skiff.I;
             Prompt = s.Moored ? "W  Cast off   ·   E  Leave the tiller" : s.CanMoor ? "F  Moor   ·   E  Leave the tiller" : "W/S  Throttle   ·   A/D  Steer   ·   E  Leave";
             Cc.enabled = false;
-            transform.position = s.Helm.position; transform.rotation = Quaternion.Euler(0, s.transform.eulerAngles.y, 0);
+            // slide onto the seat (0.35 s) instead of jumping there
+            helmT = Mathf.Min(1, helmT + dt / 0.35f); float k = Mathf.SmoothStep(0, 1, helmT);
+            transform.position = s.transform.TransformPoint(Vector3.Lerp(helmFrom, SeatLocal(s), k));
+            transform.rotation = Quaternion.Euler(0, s.transform.eulerAngles.y + Mathf.LerpAngle(helmFromYaw, 0, k), 0);
             Cc.enabled = true;
             int th = Ctl.Throttle;
             if (s.Moored) { if (th > 0) { s.CastOff(); s.Notch = 1; Snd.Play2D(Synth.Ratchet, 0.4f); } }
@@ -245,8 +266,18 @@ namespace PortBoss.M1
             float sp = new Vector3(Vel.x, 0, Vel.z).magnitude;
             animSpeed = sp;
             CharAnim.Slot slot;
-            Model.localPosition = Vector3.zero; Model.localRotation = Quaternion.identity;
+            // at the tiller: sat on the stern bench (Fish_Helm sits the hips down and back; this slides the body the
+            // rest of the way back onto the bench), easing in and out so standing up is a move, not a pop
+            sit = Util.Damp(sit, helm ? 1 : 0, 9f, dt);
+            Model.localPosition = new Vector3(0, 0, -0.17f * sit); Model.localRotation = Quaternion.identity;
             Anim.Ladder = null; Anim.WaterY = float.NaN;
+            if (helm) { Anim.Act = M1Assets.I.Helm; Anim.ActTime = -1; }
+            else if (sit > 0.02f && Anim.Act == M1Assets.I.Helm) Anim.Act = null;
+            // turning on the spot: the feet step round with it (a little walk-cycle), instead of sliding
+            float yawNow = OnBoat && Skiff.I != null ? transform.eulerAngles.y - Skiff.I.transform.eulerAngles.y : transform.eulerAngles.y;
+            float turnRate = Mathf.Abs(Mathf.DeltaAngle(lastYaw, yawNow)) / dt; lastYaw = yawNow;
+            float animSp = sp;
+            if (!helm && !Swimming && climbT < 0) animSp = Mathf.Max(sp, Mathf.Clamp01((turnRate - 60f) / 300f) * 0.8f);
             if (climbT >= 0) slot = CharAnim.Slot.Climb;
             else if (helm) slot = CharAnim.Slot.Idle;
             else if (Swimming)
@@ -260,11 +291,15 @@ namespace PortBoss.M1
             // hands: the rod (Fishing sets Grip) or the tiller
             if (helm && Skiff.I.TillerGrip != null)
             {
-                Anim.Grip = Skiff.I.TillerGrip; Anim.GripL = new Vector3(-0.04f, 0, -0.06f); Anim.GripR = new Vector3(0.04f, 0, 0.02f);
-                Anim.GripElbow = new Vector3(0, -0.8f, -0.2f); Anim.GripFingers = new Vector3(0, -0.3f, 1);
+                // left hand on the tiller's grip, right hand resting on the right knee
+                var tg = Skiff.I.TillerGrip;
+                Anim.Grip = tg; Anim.GripL = new Vector3(0.0f, 0.01f, 0.0f);
+                Anim.GripR = tg.InverseTransformPoint(transform.TransformPoint(new Vector3(0.15f, 0.52f, -0.02f)));
+                // elbows down and back; +x cancels the left arm's built-in outward hint, so its elbow stays off the tiller bar
+                Anim.GripElbow = new Vector3(0.38f, -0.8f, -0.45f); Anim.GripFingers = new Vector3(0, -0.3f, 1);
             }
             else if (!Fish.Holding || Swimming || climbT >= 0) Anim.Grip = null;
-            Anim.Tick(slot, sp);
+            Anim.Tick(slot, animSp);
 
             // footsteps on the stride (wood on the deck and pier)
             if (!Swimming && climbT < 0 && sp > 0.5f && Cc.isGrounded)

@@ -46,8 +46,8 @@ namespace PortBoss.M1
         // cast
         Image arc; Text distLabel;
         // minigame
-        RectTransform mg; Text mgTitle, mgSub, mgStopLbl, mgHeavy; readonly Image[] pip = new Image[3]; readonly Text[] pipX = new Text[3]; readonly Image[] pipChk = new Image[3];
-        RectTransform bar, zone, pointer, ghost; Text barNote; readonly RectTransform[] ladder = new RectTransform[4];
+        RectTransform mg;
+        RectTransform bar, zone, pointer;
         float mgIn;
         // heavy
         RectTransform heavy; Text heavyT;
@@ -126,34 +126,17 @@ namespace PortBoss.M1
             fade = UiKit.Img(root, null, new Color(0.11f, 0.15f, 0.28f, 0), "fade"); fade.rectTransform.Stretch(); fade.transform.SetAsLastSibling();
         }
 
+        // The minigame is the bar and nothing else (Manan 1 Nov: no card, no title, no stop dots, grade chips or keys).
         void BuildMinigame()
         {
-            mg = UiKit.Card(root, "minigame", 26, Ponyo.Paper, true);
-            mg.Place(new Vector2(0.5f, 0), new Vector2(0, 168), new Vector2(900, 262), new Vector2(0.5f, 0));
-            var stamp = UiKit.Img(mg, UiKit.Circle, Ponyo.SeaDeep, "stamp"); stamp.rectTransform.Place(new Vector2(0, 1), new Vector2(32, -26), new Vector2(46, 46), new Vector2(0, 1));
-            var st = UiKit.Txt(stamp.transform, "><>", UiKit.Black, 16, Ponyo.Paper, TextAnchor.MiddleCenter); st.rectTransform.Stretch();
-            mgTitle = UiKit.Txt(mg, "Fighting!", UiKit.Display, 34, Ponyo.Ink, TextAnchor.MiddleLeft); mgTitle.rectTransform.Place(new Vector2(0, 1), new Vector2(92, -18), new Vector2(500, 42), new Vector2(0, 1));
-            mgSub = UiKit.Txt(mg, "Take your time · a miss only lowers the grade", UiKit.Body, 17, Ponyo.InkSoft, TextAnchor.MiddleLeft); mgSub.rectTransform.Place(new Vector2(0, 1), new Vector2(94, -56), new Vector2(560, 26), new Vector2(0, 1));
-            mgStopLbl = UiKit.Txt(mg, "STOP", UiKit.Bold, 14, Ponyo.InkSoft, TextAnchor.MiddleRight); mgStopLbl.rectTransform.Place(new Vector2(1, 1), new Vector2(-170, -30), new Vector2(80, 30), new Vector2(1, 1));
-            for (int i = 0; i < 3; i++)
-            {
-                var p = UiKit.Img(mg, UiKit.Circle, Ponyo.Paper2, "pip" + i); p.rectTransform.Place(new Vector2(1, 1), new Vector2(-130 + i * 42, -28), new Vector2(32, 32), new Vector2(0.5f, 1));
-                var e = UiKit.Img(p.transform, UiKit.RingSprite, Ponyo.Line, "edge"); e.rectTransform.Stretch(-1);
-                pipX[i] = UiKit.Txt(p.transform, "", UiKit.Black, 16, Ponyo.Paper, TextAnchor.MiddleCenter); pipX[i].rectTransform.Stretch();
-                pipChk[i] = UiKit.Img(p.transform, UiKit.Check, Ponyo.Paper, "chk"); pipChk[i].rectTransform.Stretch(6); pipChk[i].enabled = false;
-                pip[i] = p;
-            }
-            mgHeavy = UiKit.Txt(mg, "", UiKit.Black, 15, Ponyo.Poppy, TextAnchor.MiddleRight); mgHeavy.rectTransform.Place(new Vector2(1, 1), new Vector2(-32, -64), new Vector2(420, 24), new Vector2(1, 1));
-            // the bar
-            bar = UiKit.Card(mg, "bar", 24, Ponyo.Hex("CFF2F0"), false); bar.Place(new Vector2(0.5f, 1), new Vector2(0, -136), new Vector2(830, 46), new Vector2(0.5f, 0.5f));
+            mg = UiKit.Rect("minigame", root).Place(new Vector2(0.5f, 0), new Vector2(0, 168), new Vector2(900, 262), new Vector2(0.5f, 0));
+            mg.gameObject.AddComponent<CanvasGroup>();
+            bar = UiKit.Card(mg, "bar", 24, Ponyo.Hex("CFF2F0"), true); bar.Place(new Vector2(0.5f, 1), new Vector2(0, -136), new Vector2(830, 46), new Vector2(0.5f, 0.5f));
             var wave = UiKit.Img(bar, null, new Color(0.27f, 0.84f, 0.78f, 0.25f), "tide"); wave.rectTransform.Stretch(6); wave.rectTransform.offsetMax = new Vector2(-6, -24);
             zone = UiKit.Rect("zone", bar); zone.anchorMin = new Vector2(0.4f, 0); zone.anchorMax = new Vector2(0.6f, 1); zone.offsetMin = new Vector2(0, 3); zone.offsetMax = new Vector2(0, -3);
             var zr = zone.gameObject.AddComponent<RawImage>(); zr.texture = UiKit.Stripes(Ponyo.Leaf, Ponyo.Hex("6AAE58"), 32); zr.raycastTarget = false;
             var zl = UiKit.Img(zone, null, Ponyo.Hex("4E8C40"), "l"); zl.rectTransform.anchorMin = new Vector2(0, 0); zl.rectTransform.anchorMax = new Vector2(0, 1); zl.rectTransform.sizeDelta = new Vector2(3, 0);
             var zr2 = UiKit.Img(zone, null, Ponyo.Hex("4E8C40"), "r"); zr2.rectTransform.anchorMin = new Vector2(1, 0); zr2.rectTransform.anchorMax = new Vector2(1, 1); zr2.rectTransform.sizeDelta = new Vector2(3, 0);
-            var sweet = UiKit.Img(zone, null, new Color(1, 1, 1, 0.9f), "sweet"); sweet.rectTransform.anchorMin = new Vector2(0.5f, 0.2f); sweet.rectTransform.anchorMax = new Vector2(0.5f, 0.8f); sweet.rectTransform.sizeDelta = new Vector2(3, 0);
-            ghost = UiKit.Rect("ghost", bar); ghost.anchorMin = new Vector2(0.3f, 0); ghost.anchorMax = new Vector2(0.3f, 1); ghost.sizeDelta = new Vector2(2, -10);
-            var gi = ghost.gameObject.AddComponent<Image>(); gi.color = new Color(0.31f, 0.55f, 0.25f, 0.8f); gi.raycastTarget = false;
             // pointer: a little red-and-white bobber riding a stick above the bar
             pointer = UiKit.Rect("pointer", bar); pointer.anchorMin = pointer.anchorMax = new Vector2(0, 0.5f); pointer.sizeDelta = new Vector2(30, 80); pointer.anchoredPosition = Vector2.zero;
             var stick = UiKit.Img(pointer, null, Ponyo.Line, "stick"); stick.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0, -6), new Vector2(4, 56));
@@ -161,34 +144,20 @@ namespace PortBoss.M1
             var bw = UiKit.Img(pointer, UiKit.Circle, Ponyo.Paper, "bob"); bw.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0, 28), new Vector2(28, 28));
             var br = UiKit.Img(bw.transform, UiKit.Circle, Ponyo.Poppy, "red"); br.type = Image.Type.Filled; br.fillMethod = Image.FillMethod.Vertical; br.fillOrigin = 1; br.fillAmount = 0.52f; br.rectTransform.Stretch(2);
             UiKit.Img(bw.transform, UiKit.RingSprite, Ponyo.Line, "edge").rectTransform.Stretch(-1);
-            barNote = UiKit.Txt(mg, "", UiKit.Bold, 14, Ponyo.Hex("4E8C40"), TextAnchor.MiddleCenter); barNote.rectTransform.Place(new Vector2(0.5f, 1), new Vector2(0, -172), new Vector2(300, 22), new Vector2(0.5f, 0.5f));
-            // grade ladder + key hint
-            string[] g = Ponyo.GradeName;
-            for (int i = 0; i < 4; i++)
-            {
-                var pill = UiKit.Card(mg, "ladder" + i, 18, Ponyo.Paper2, false, Ponyo.Paper3);
-                pill.Place(new Vector2(0, 0), new Vector2(32 + i * 122, 22), new Vector2(108, 36), new Vector2(0, 0));
-                var d = UiKit.Img(pill, UiKit.GradeShape(i), Ponyo.GradeCol[i], "dot"); d.rectTransform.Place(new Vector2(0, 0.5f), new Vector2(14, 0), new Vector2(14, 14), new Vector2(0, 0.5f));
-                var t = UiKit.Txt(pill, g[i], UiKit.Bold, 16, Ponyo.InkSoft, TextAnchor.MiddleLeft); t.rectTransform.Stretch(); t.rectTransform.offsetMin = new Vector2(34, 0);
-                ladder[i] = pill;
-                if (i < 3) { var ch = UiKit.Txt(mg, "›", UiKit.Bold, 20, Ponyo.InkSoft, TextAnchor.MiddleCenter); ch.rectTransform.Place(new Vector2(0, 0), new Vector2(32 + i * 122 + 115, 26), new Vector2(10, 30), new Vector2(0.5f, 0)); }
-            }
-            var kh = UiKit.Rect("keys", mg).Place(new Vector2(1, 0), new Vector2(-30, 24), new Vector2(300, 34), new Vector2(1, 0));
-            var khl = kh.gameObject.AddComponent<HorizontalLayoutGroup>(); khl.spacing = 8; khl.childAlignment = TextAnchor.MiddleRight; khl.childControlWidth = khl.childControlHeight = false; khl.childForceExpandWidth = false;
-            UiKit.Key(kh, "Space", 32); UiKit.Key(kh, "LMB", 32); UiKit.Txt(kh, "Stop", UiKit.Bold, 19, Ponyo.Ink, TextAnchor.MiddleLeft).rectTransform.sizeDelta = new Vector2(52, 32);
             mg.gameObject.SetActive(false);
         }
 
+        // A heavy fish: a small paper prompt before the bar (Manan 1 Nov): Fight it / Let it go, lets go by itself in 4 s.
         void BuildHeavy()
         {
-            heavy = UiKit.Card(root, "heavy", 26, Ponyo.Paper, true);
-            heavy.Place(new Vector2(0.5f, 0), new Vector2(0, 220), new Vector2(720, 170), new Vector2(0.5f, 0));
-            var t = UiKit.Txt(heavy, "Something HEAVY!", UiKit.Display, 36, Ponyo.Poppy, TextAnchor.UpperLeft); t.rectTransform.Stretch(26);
-            heavyT = UiKit.Txt(heavy, "", UiKit.Body, 19, Ponyo.Ink, TextAnchor.UpperLeft); heavyT.rectTransform.Stretch(26); heavyT.rectTransform.offsetMax = new Vector2(-26, -72);
-            var kh = UiKit.Rect("keys", heavy).Place(new Vector2(1, 0), new Vector2(-26, 22), new Vector2(460, 34), new Vector2(1, 0));
-            var hl = kh.gameObject.AddComponent<HorizontalLayoutGroup>(); hl.spacing = 8; hl.childAlignment = TextAnchor.MiddleRight; hl.childControlWidth = hl.childControlHeight = false; hl.childForceExpandWidth = false;
-            UiKit.Key(kh, "E", 32); UiKit.Txt(kh, "Fight it", UiKit.Bold, 19, Ponyo.Ink).rectTransform.sizeDelta = new Vector2(90, 32);
-            UiKit.Key(kh, "Q", 32); UiKit.Txt(kh, "Let it go", UiKit.Bold, 19, Ponyo.Ink).rectTransform.sizeDelta = new Vector2(100, 32);
+            heavy = UiKit.Card(root, "heavy", 22, Ponyo.Paper, true);
+            heavy.Place(new Vector2(0.5f, 0), new Vector2(0, 250), new Vector2(430, 104), new Vector2(0.5f, 0));
+            var t = UiKit.Txt(heavy, "Something HEAVY!", UiKit.Display, 28, Ponyo.Poppy, TextAnchor.UpperLeft); t.rectTransform.Stretch(18); t.rectTransform.offsetMax = new Vector2(-18, -12);
+            heavyT = UiKit.Txt(heavy, "", UiKit.Bold, 16, Ponyo.InkSoft, TextAnchor.UpperRight); heavyT.rectTransform.Stretch(18); heavyT.rectTransform.offsetMax = new Vector2(-18, -20);
+            var kh = UiKit.Rect("keys", heavy).Place(new Vector2(0, 0), new Vector2(18, 14), new Vector2(400, 32), new Vector2(0, 0));
+            var hl = kh.gameObject.AddComponent<HorizontalLayoutGroup>(); hl.spacing = 8; hl.childAlignment = TextAnchor.MiddleLeft; hl.childControlWidth = hl.childControlHeight = false; hl.childForceExpandWidth = false;
+            UiKit.Key(kh, "E", 30); UiKit.Txt(kh, "Fight it", UiKit.Bold, 18, Ponyo.Ink).rectTransform.sizeDelta = new Vector2(96, 30);
+            UiKit.Key(kh, "Q", 30); UiKit.Txt(kh, "Let it go", UiKit.Bold, 18, Ponyo.Ink).rectTransform.sizeDelta = new Vector2(100, 30);
             heavy.gameObject.SetActive(false);
         }
 
@@ -410,18 +379,10 @@ namespace PortBoss.M1
             mg.gameObject.SetActive(mgIn > 0.001f);
             if (!mg.gameObject.activeSelf || fish.Hooked == null) return;
             mg.anchoredPosition = new Vector2(0, 168 - 24 * (1 - Util.EaseOutBack(mgIn)));
-            var cg = mg.GetComponent<CanvasGroup>() ?? mg.gameObject.AddComponent<CanvasGroup>(); cg.alpha = mgIn;
-            mgTitle.text = FishDb.Hint[(int)fish.Hooked.Class];
-            mgHeavy.text = fish.HeavyFight ? "HEAVY · 2 misses snap the line" : "";
-            int shownStop = Mathf.Min(fish.Stop, 2);
-            for (int i = 0; i < 3; i++)
-            {
-                int r = fish.Result[i];
-                pip[i].color = r > 0 ? Ponyo.Leaf : r < 0 ? Ponyo.Hex("C9C2BA") : i == fish.Stop && !fish.Frozen ? Ponyo.Sunflower : Ponyo.Paper2;
-                pipX[i].text = r < 0 ? "x" : ""; pipChk[i].enabled = r > 0;
-                float pop = fish.Frozen && i == fish.Stop - 1 ? 1.08f : 1f;
-                pip[i].rectTransform.localScale = Vector3.one * Mathf.Lerp(pip[i].rectTransform.localScale.x, pop, 1 - Mathf.Exp(-dt / 0.03f));
-            }
+            mg.GetComponent<CanvasGroup>().alpha = mgIn;
+            // a heavy fight shows the bar in red (one more try after a miss; the second miss snaps the line)
+            UiKit.Fill(bar).color = fish.HeavyFight ? Ponyo.Hex("F6C9BE") : Ponyo.Hex("CFF2F0");
+            UiKit.Edge(bar).color = fish.HeavyFight ? Ponyo.Poppy : Ponyo.Line;
             double now = Time.timeAsDouble;
             float zc = fish.Frozen ? fish.ZoneC : fish.ZoneAt(now);
             zone.anchorMin = new Vector2(zc - fish.ZoneW / 2, 0); zone.anchorMax = new Vector2(zc + fish.ZoneW / 2, 1);
@@ -430,27 +391,13 @@ namespace PortBoss.M1
             pointer.anchorMin = pointer.anchorMax = new Vector2(p, 0.5f); pointer.anchoredPosition = new Vector2(0, 8);
             var flash = fish.Frozen && fish.Stop > 0 ? (fish.Result[fish.Stop - 1] > 0 ? Ponyo.Leaf : Ponyo.Hex("C9C2BA")) : Ponyo.Paper;
             pointer.Find("bob").GetComponent<Image>().color = flash;
-            bool hasGhost = fish.Stop > 0 && !fish.Frozen;
-            ghost.gameObject.SetActive(hasGhost);
-            if (hasGhost) { ghost.anchorMin = new Vector2(lastStopAt, 0); ghost.anchorMax = new Vector2(lastStopAt, 1); }
-            if (fish.Frozen && fish.Stop > 0) { lastStopAt = fish.PointerShown; barNote.text = $"stop {fish.Stop} · {(fish.Result[fish.Stop - 1] > 0 ? "hit" : "miss: one grade lower")}"; }
-            else if (fish.Stop == 0) barNote.text = "";
-            barNote.rectTransform.anchoredPosition = new Vector2(Mathf.Clamp((lastStopAt - 0.5f) * 830, -300, 300), -172);
-            barNote.color = fish.Stop > 0 && fish.Result[Mathf.Max(0, fish.Stop - 1)] > 0 ? Ponyo.Hex("4E8C40") : Ponyo.InkSoft;
-            for (int i = 0; i < 4; i++)
-            {
-                bool cur = i == fish.Hits;
-                UiKit.Fill(ladder[i]).color = cur ? Ponyo.Paper : Ponyo.Paper2;
-                UiKit.Edge(ladder[i]).color = cur ? Ponyo.Line : Ponyo.Paper3;
-            }
         }
-        float lastStopAt = 0.5f;
 
         void Heavy()
         {
             bool on = fish.State == Fishing.St.Heavy;
             heavy.gameObject.SetActive(on);
-            if (on && fish.Catch != null) heavyT.text = $"Your line is rated {fish.Rod.LineKg:0} kg; this feels like {fish.Catch.Kg:0} kg. Fight it, and 2 misses snap the line. Let it go and nothing is lost (it lets go by itself in {Mathf.Max(0, 4 - fish.StateT):0} s).";
+            if (on) heavyT.text = $"{Mathf.CeilToInt(Mathf.Max(0, 4 - fish.StateT))}";
         }
 
         void Reveal(float dt)
@@ -463,15 +410,14 @@ namespace PortBoss.M1
                 rvFish.texture = BigIcon(sp.Id);
                 rvName.text = sp.Name.Replace(" (Walt's legend grouper)", "");
                 rvSub.text = $"caught on {(fish.BaitId == "None" ? "a bare hook" : FishDb.Baits[fish.BaitI].Name.ToLower())} off Walt's Landing, at golden hour · {sp.Class} species";
-                rvGrade.text = new string('●', c.Grade) + new string('○', 3 - c.Grade) + "  " + Ponyo.GradeName[c.Grade].ToUpper();
-                rvGrade.text = Ponyo.GradeName[c.Grade].ToUpper();
+                rvGrade.text = (c.Grade > 0 ? "★ " : "") + Ponyo.GradeName[c.Grade].ToUpper();
                 UiKit.Fill(rvGradePill).color = Ponyo.GradeCol[c.Grade];
-                rvGrade.color = c.Grade == 0 || c.Grade == 3 ? Ponyo.Ink : Ponyo.Paper;
+                rvGrade.color = Ponyo.Ink;
                 rvStat[0].text = c.Cm >= 100 ? $"{c.Cm / 100f:0.00} m" : $"{c.Cm:0} cm"; rvStatSub[0].text = fish.IsNew ? "first one!" : fish.IsBest ? "best so far" : "";
                 rvStat[1].text = c.Kg < 1 ? $"{c.Kg * 1000:0} g" : $"{c.Kg:0.0} kg"; rvStatSub[1].text = fish.HeavyFight ? "line held!" : "";
                 rvStat[2].text = $"${Mathf.Max(1, Mathf.RoundToInt(c.Value * 0.6f))}"; rvStatSub[2].text = $"at the market, ×{Ponyo.GradeMul[c.Grade]:0.0}";
                 rvStat[3].text = "2 days"; rvStatSub[3].text = "then it's bait";
-                rvHits.text = c.Grade == 3 ? "3 of 3 stops hit. <b>Prized!</b>" : $"{c.Grade} of 3 stops hit. <b>Prized</b> needs all three.";
+                rvHits.text = c.Grade > 0 ? "Stopped in the green. <b>Rare!</b>" : "Missed the green: a Basic catch. Stop in the green for <b>Rare</b>.";
                 rvNew.gameObject.SetActive(fish.IsNew); rvBest.gameObject.SetActive(fish.IsBest);
             }
             if (!on && rv.gameObject.activeSelf)

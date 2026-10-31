@@ -5,7 +5,8 @@ namespace PortBoss.M1
 {
     // Fishing, F1–F6 of gdd/fishing §8, as one state machine on the player. Every timing is a number below (fishing §3).
     //   Stowed ─(rod slot)→ Drawing → Ready ─hold LMB→ Charging ─release→ Flight → Settle → Waiting (nibbles)
-    //   → Bite (1.2 s strike window) ─strike→ [Heavy? ask] → Minigame (3 stops) → Reel → Reveal → Ready
+    //   → Bite (1.2 s strike window) ─strike→ [Heavy? ask] → Minigame (ONE stop: green = Rare, else Basic; a heavy
+    //   fish gets one more try and the second miss snaps) → Reel → Reveal → Ready
     //   strike early = "Too soon!", late = "It swam off." (bait kept, Recover → Ready)
     public class Fishing : MonoBehaviour
     {
@@ -16,6 +17,8 @@ namespace PortBoss.M1
         // --- tunables (fishing §3) ---
         public const float DrawT = 0.35f, StowT = 0.30f, ChargePeriod = 1.10f, Sweet = 0.92f, SettleT = 0.6f, StrikeWindow = 1.20f,
             Freeze = 0.45f, RevealMin = 0.5f, RevealAuto = 6f, CancelHold = 0.3f, WalkAway = 2f, DragSpeed = 2f, DragT = 1.5f;
+        // the cast's body beats (Fish_Cast clip, M1Anim): wind-up apex, end of the whip, end of the clip. Visual only.
+        public const float CastApex = 0.38f, CastWhip = 0.52f, CastLen = 1.5f;
 
         // --- gear (debug keys F5 / F6; M1 has no shop) ---
         public int RodTier = 1;
@@ -29,15 +32,20 @@ namespace PortBoss.M1
         public Vector3 CastFrom;
         public FishSpecies Hooked; public Fish Catch; public float BiteSeenAt, BiteAt, BiteWait, WaitStart; public int Nibbles, NibblesDone;
         readonly List<float> nibbleAt = new();
-        public int Stop, Hits, Misses; public readonly int[] Result = new int[3]; // 0 pending, 1 hit, -1 miss
-        public readonly float[] ErrMs = new float[3];
+        public int Stop, Hits, Misses; public readonly int[] Result = new int[2]; // per try: 0 pending, 1 hit, -1 miss (try 2 = heavy retry)
+        public readonly float[] ErrMs = new float[2];
+        public const float ZoneScale = 1f / 8f; // Manan 1 Nov: the green is 1/8 of the old width (FishDb.Green × rod)
         public float ZoneC, ZoneW, PtrSpeed; double sweepT0, freezeUntil; public float PointerShown; public bool Frozen;
         public bool HeavyFight; public bool Snapped;
         public bool IsNew, IsBest; public int TargetSlot;
         public float ReelLen;
         public string LastOutcome;
-        public bool Locked => State >= St.Charging && State != St.Recover;      // no slot switching
+        public bool Locked => State >= St.Charging && State != St.Recover;      // no interacting (tiller, anchor, pickups)
+        // The hotbar (keys 1-8, mouse wheel) is locked only in the active beats; with the line out waiting, switching
+        // away reels in (bait kept). (Locking it whenever the line was out made the wheel look broken, Manan 1 Nov.)
+        public bool BarLocked => State is St.Charging or St.Flight or St.Bite or St.Strike or St.Heavy or St.Minigame or St.Reel or St.Reveal;
         public bool Holding => State != St.Stowed;
+        public Vector3 BobPos => bob.Pos;
         public bool BiteIcon;  // accessibility "!" (off by default)
 
         readonly HashSet<string> seen = new(); readonly Dictionary<string, float> best = new();
@@ -65,6 +73,7 @@ namespace PortBoss.M1
         {
             RodTier = Mathf.Clamp(tier, 1, 5);
             Destroy(rod.gameObject); rod = RodView.Make(Game.ToonMat, RodTier); line.A = rod.Tip;
+            if (Hud.RodIcon != null) Destroy(Hud.RodIcon); Hud.RodIcon = UiKit.RodIcon(RodTier); // the icon wears the rod's colour
             Alerts.Push("Debug", $"Rod: {Rod.Name} (bites {Rod.BiteLo:0}–{Rod.BiteHi:0} s, green ×{Rod.GreenMul:0.00}, line {Rod.LineKg:0} kg)", Alerts.Kind.Info);
         }
 
@@ -105,6 +114,7 @@ namespace PortBoss.M1
 
             // cancel / quick reel-in (hold RMB 0.3 s), keeps the bait
             if (State == St.Charging && Ctl.CancelPressed) { Go(St.Ready); }
+            if (State is St.Waiting or St.Settle && !rodSel) { ReelIn("switched"); return; }
             if (State is St.Waiting or St.Settle or St.Flight)
             {
                 cancelHeld = Ctl.CancelHeld ? cancelHeld + dt : 0;
@@ -208,7 +218,8 @@ namespace PortBoss.M1
             float d = Vector3.Distance(Flat(flightFrom), Flat(Marker));
             float apex = Mathf.Min(6f, 0.25f * d);
             var target = new Vector3(Marker.x, Sea.Height(Marker), Marker.z);
-            var p = Vector3.Lerp(flightFrom, target, u) + Vector3.up * apex * 4 * u * (1 - u);
+            // leaves from where the tip is now: the bobber rides the whipping rod out (same flight time)
+            var p = Vector3.Lerp(rod.Tip.position, target, u) + Vector3.up * apex * 4 * u * (1 - u);
             bob.transform.position = p; bob.transform.rotation = Quaternion.identity; bob.transform.localScale = Vector3.one;
             line.B = p; line.Slack = 0.0f;
             if (u >= 1)
@@ -321,17 +332,17 @@ namespace PortBoss.M1
             FishDb.RollSize(Rng, Hooked, out f.Cm, out f.Kg);
             Catch = f;
             Hits = Misses = 0; Stop = 0; Snapped = false; HeavyFight = false;
-            for (int i = 0; i < 3; i++) { Result[i] = 0; ErrMs[i] = 0; }
+            for (int i = 0; i < Result.Length; i++) { Result[i] = 0; ErrMs[i] = 0; }
             fishUnder = bob.Pos; fightPh = Random.value * 10;
             bob.gameObject.SetActive(false); bob.Floating = false;
-            if (f.Kg > Rod.LineKg) { Go(St.Heavy); OnLog?.Invoke($"heavy {f.Kg:F1} kg > line {Rod.LineKg} kg"); return; }
+            if (f.Kg > Rod.LineKg || Bot.ForceHeavy) { Go(St.Heavy); OnLog?.Invoke($"heavy {f.Kg:F1} kg > line {Rod.LineKg} kg"); return; }
             StartMinigame();
         }
 
         void HeavyAsk()
         {
             FightLine();
-            if (Ctl.Keep || Ctl.Bot && Bot.FightHeavy) { HeavyFight = true; StartMinigame(); return; }
+            if (Ctl.Keep || Ctl.Bot && Bot.FightHeavy && StateT > 1.2f) { HeavyFight = true; StartMinigame(); return; } // the bot reads the prompt for 1.2 s
             if (Ctl.LetGo || StateT > 4f || Ctl.Bot && !Bot.FightHeavy && StateT > 0.5f)
             {
                 LastOutcome = "letgo"; Alerts.Push("Let it go", "A stronger line would hold it (June's shop, later). Bait's still on.", Alerts.Kind.Info);
@@ -348,9 +359,9 @@ namespace PortBoss.M1
         void NextStop(bool first)
         {
             int c = (int)Hooked.Class;
-            ZoneW = Mathf.Min(0.6f, FishDb.Green[c] * Rod.GreenMul);
-            PtrSpeed = FishDb.Speed[c] * Rod.SpeedMul * new[] { 1.00f, 1.08f, 1.16f }[Mathf.Min(Stop, 2)];
-            // stop 1: the green column in the middle (Manan); stops 2–3: 50% ± 8–18% on a random side
+            ZoneW = Mathf.Min(0.6f, FishDb.Green[c] * Rod.GreenMul * ZoneScale);
+            PtrSpeed = FishDb.Speed[c] * Rod.SpeedMul * (first ? 1.00f : 1.08f);
+            // the stop: the green in the middle (Manan); a heavy fish's retry: 50% ± 8–18% on a random side
             ZoneC = first ? 0.5f : 0.5f + (Rng.Next(2) == 0 ? -1 : 1) * (0.08f + 0.10f * (float)Rng.NextDouble());
             ZoneC = Mathf.Clamp(ZoneC, ZoneW / 2 + 0.02f, 1 - ZoneW / 2 - 0.02f);
             sweepT0 = Time.timeAsDouble; Frozen = false;
@@ -376,7 +387,8 @@ namespace PortBoss.M1
         {
             FightLine();
             double now = Time.timeAsDouble;
-            if (Frozen) { if (now >= freezeUntil) { if (Stop >= 3 || Snapped) EndFight(); else NextStop(false); } return; }
+            // one stop; only a heavy fish that missed gets a second try
+            if (Frozen) { if (now >= freezeUntil) { if (Hits > 0 || !HeavyFight || Snapped || Stop >= 2) EndFight(); else NextStop(false); } return; }
             PointerShown = PointerAt(now);
             bool press = Ctl.Strike;
             bool timeout = PtrSpeed * (now - sweepT0) >= 3.0; // 3 full passes, no press = a miss
@@ -410,7 +422,7 @@ namespace PortBoss.M1
             OnLog?.Invoke($"stop {Stop + 1}: {(hit ? "hit" : timeout ? "timeout" : "miss")} err {ErrMs[Stop]:F0} ms zone {ZoneW:F2} speed {PtrSpeed:F2}");
             Stop++;
             Frozen = true; freezeUntil = now + Freeze;
-            if (Stop >= 3 && Hits == 3) Snd.Play2D(Synth.Fanfare, 0.6f);
+            if (hit) Snd.Play2D(Synth.Fanfare, 0.6f);
         }
 
         void FightLine()
@@ -426,7 +438,7 @@ namespace PortBoss.M1
         void EndFight()
         {
             if (Snapped) { line.Live = false; LastOutcome = "snap"; OnLog?.Invoke("snap"); Go(St.Ready); return; }
-            Catch.Grade = Hits;
+            Catch.Grade = Hits > 0 && Misses == 0 ? 1 : 0; // Rare only on the first try; a heavy fish landed on its retry is Basic
             BaitCount[BaitI] = Mathf.Max(0, BaitCount[BaitI] - (BaitCount[BaitI] > 0 ? 1 : 0)); // 1 bait per landed fish
             ReelLen = Mathf.Clamp(1.0f + 0.25f * Mathf.Sqrt(Catch.Kg), 1.0f, 3.5f);
             fishGo = FishView.Make(Catch, null);
@@ -534,7 +546,7 @@ namespace PortBoss.M1
         }
 
         // ---------------- body + rod pose ----------------
-        static readonly Vector3 RestButt = new(0.2f, 0.98f, 0.22f);
+        static readonly Vector3 RestButt = new(0.17f, 0.97f, 0.1f); // butt by the right hip, elbows soft (not held out stiff)
         void PlaceRod(float dt, bool snap = false)
         {
             float tElev = 35, tYaw = 0; Vector3 tButt = RestButt; float tension = 0.03f; bool onBack = false;
@@ -543,15 +555,28 @@ namespace PortBoss.M1
             switch (State)
             {
                 case St.Stowed: onBack = true; break;
-                case St.Drawing: { float u = StateT / DrawT; tElev = Mathf.Lerp(80, 35, u); tButt = Vector3.Lerp(new Vector3(0.15f, 1.3f, 0), RestButt, u); break; }
-                case St.Ready: tElev = 35 + Mathf.Sin(Time.time * 1.1f) * 2f; break;
+                case St.Drawing: case St.Ready: tElev = 35 + Mathf.Sin(Time.time * 1.1f) * 2f; break;
                 case St.Charging:
-                    // wind-up: back over the right shoulder (0 → −110°), weight on the back foot, trembling at 100%
-                    tElev = 35 + 120 * Power + (Power > 0.98f ? Mathf.Sin(Time.time * 60) * 1.5f : 0);
-                    tButt = Vector3.Lerp(RestButt, new Vector3(0.28f, 1.42f, 0.0f), Power); tension = 0.05f + 0.1f * Power; break;
-                case St.Flight:
-                    { float u = Mathf.Clamp01(StateT / 0.18f); tElev = u < 1 ? Mathf.Lerp(150, 12, u) : 18; tButt = Vector3.Lerp(new Vector3(0.28f, 1.42f, 0.0f), new Vector3(0.18f, 1.15f, 0.35f), u); tension = 0.05f; break; }
-                case St.Settle: case St.Waiting:
+                {
+                    // wind-up with the body (Fish_Cast 0 → apex): hands up by the right ear, the rod back over the
+                    // shoulder; then held loaded while the power swings, trembling at 100%
+                    float u = Mathf.SmoothStep(0, 1, Mathf.Max(0, castClock) / CastApex);
+                    tElev = Mathf.Lerp(35, 150, u) + 10 * Power * u + (Power > 0.98f ? Mathf.Sin(Time.time * 60) * 1.5f : 0);
+                    tButt = Vector3.Lerp(RestButt, OverShoulder, u); tYaw = 14 * u; tension = 0.05f + 0.1f * Power; break;
+                }
+                case St.Flight: case St.Settle: case St.Waiting:
+                    if (castClock >= 0 && castClock < CastLen)
+                    {
+                        // the whip (apex → CastWhip): the hips drive, the rod comes over fast and low; follow-through,
+                        // then up into the wait
+                        float c = castClock;
+                        float k = Mathf.SmoothStep(0, 1, (c - CastApex) / (CastWhip - CastApex));
+                        float f = Mathf.SmoothStep(0, 1, (c - 0.85f) / (CastLen - 0.85f));
+                        tElev = c < CastApex ? Mathf.Lerp(35, 160, c / CastApex) : Mathf.Lerp(Mathf.Lerp(160, 10, k), 28, f);
+                        tButt = c < CastApex ? OverShoulder : Vector3.Lerp(Vector3.Lerp(OverShoulder, Forward, k), RestButt, f);
+                        tYaw = Mathf.Lerp(Mathf.Lerp(14, -6, k), Mathf.Clamp(yawToBob, -40, 40), f); tension = 0.05f;
+                        break;
+                    }
                     tElev = 28 + (nibT >= 0 ? -4 : 0); tYaw = Mathf.Clamp(yawToBob, -40, 40); tension = 0.05f + (nibT >= 0 ? 0.15f : 0); break;
                 case St.Bite: tElev = 20; tYaw = Mathf.Clamp(yawToBob, -40, 40); tension = 0.6f; break;
                 case St.Strike: tElev = Mathf.Lerp(20, 70, StateT / 0.2f); tYaw = Mathf.Clamp(yawToBob, -40, 40); tension = 0.6f; tButt = RestButt + new Vector3(0, 0.15f, -0.05f); break;
@@ -564,30 +589,115 @@ namespace PortBoss.M1
                 case St.Reveal: onBack = true; break;
                 case St.Recover: tElev = 70; tension = 0.1f; break;
             }
+            if (rod.Root.parent != me.Model) rod.Root.SetParent(me.Model, false);
+            if (onBack != wasBack || snap)
+            {
+                // from the hand to the back or back again: the rod travels there (0.3 s), no jump
+                swapT = snap ? 1 : 0; swapP = rod.Root.localPosition; swapR = rod.Root.localRotation; wasBack = onBack;
+            }
+            swapT = Mathf.Min(1, swapT + dt / 0.3f);
+            float sw = Mathf.SmoothStep(0, 1, swapT);
             if (onBack)
             {
-                // on the back strap (systems H7: long items show on your back when not in hand)
-                rod.Root.SetParent(me.Model, false);
-                // butt at the right hip behind, tip up over the left shoulder
-                rod.Root.localRotation = Quaternion.LookRotation(new Vector3(-0.32f, 0.93f, -0.12f), Vector3.back);
-                rod.Root.localPosition = new Vector3(0.2f, 0.72f, -0.24f);
-                rod.Tension = 0; if (me.Anim.Grip == rod.Root) me.Anim.Grip = null;
-                elev = 35; butt = RestButt; return;
+                // on the back strap (systems H7: long items show on your back when not in hand): diagonally across the
+                // back at 45 degrees (Kufu: not an antenna), butt low by the right hip, tip out past the left shoulder.
+                // It rides the chest bone, so it sits down with him at the tiller and leans when he leans.
+                var (bp, br) = BackStrap();
+                rod.Root.localRotation = Quaternion.Slerp(swapR, br, sw);
+                rod.Root.localPosition = Vector3.Lerp(swapP, bp, sw);
+                rod.Tension = 0;
+                if (swapT < 0.55f && State != St.Reveal && !me.Swimming) GripRod(); // the hands carry it over the shoulder, then let go
+                else if (me.Anim.Grip == rod.Root) me.Anim.Grip = null;
+                elev = 35; elevV = 0; butt = RestButt; castClock = -1; return;
             }
-            rod.Root.SetParent(transform, false);
             if (snap) { elev = tElev; butt = tButt; }
             // the rod follows its targets on a spring (lags the hands a little, sways with the boat)
             float w = State is St.Flight or St.Strike ? 40f : 16f;
-            elevV += (w * w * (tElev - elev) - 2 * 0.7f * w * elevV) * dt; elev += elevV * dt;
+            elevV = (elevV + w * w * (tElev - elev) * dt) / (1 + 2 * 0.7f * w * dt + w * w * dt * dt); elev += elevV * dt; // implicit: stable at any fps
             yawOff = Mathf.LerpAngle(yawOff, tYaw, 1 - Mathf.Exp(-8f * dt));
             butt = Vector3.SmoothDamp(butt, tButt, ref buttV, State == St.Flight ? 0.03f : 0.08f);
-            var boatRoll = Skiff.I != null && me.OnBoat ? Skiff.I.transform.eulerAngles.z : 0;
-            rod.Root.localPosition = butt;
-            rod.Root.localRotation = Quaternion.Euler(0, yawOff, 0) * Quaternion.Euler(-elev, 0, -Mathf.DeltaAngle(0, boatRoll) * 0.6f + Mathf.Sin(Time.time * 0.9f) * 1.5f);
-            rod.Tension = tension;
-            rod.BendDir = line.Live ? (line.B - rod.Tip.position).normalized : Vector3.down;
+            // the tip rides the boat: it rolls with the hull and nods with its pitch, plus a slow breath
+            var sk = Skiff.I; bool afloat = sk != null && me.OnBoat;
+            float boatRoll = afloat ? Mathf.DeltaAngle(0, sk.transform.eulerAngles.z) : 0, boatPitch = afloat ? Mathf.DeltaAngle(0, sk.transform.eulerAngles.x) : 0;
+            float calm = State is St.Ready or St.Drawing or St.Settle or St.Waiting or St.Bite ? 1 : 0.3f;
+            float nod = (boatPitch * 0.8f + Mathf.Sin(Time.time * 1.7f) * 1.2f + Mathf.Sin(Time.time * 0.45f) * 2.2f) * calm;
+            var handR = Quaternion.Euler(0, yawOff, 0) * Quaternion.Euler(-elev - nod, 0, -boatRoll * 0.6f + Mathf.Sin(Time.time * 0.9f) * 1.5f);
+            rod.Root.localPosition = Vector3.Lerp(swapP, butt, sw); rod.Root.localRotation = Quaternion.Slerp(swapR, handR, sw);
+            // the rod loads against its own swing (the whip bends it back), and against the line when the line pulls
+            var tipV = dt > 0 ? (rod.Tip.position - lastTip) / dt : Vector3.zero; lastTip = rod.Tip.position;
+            float whip = State is St.Charging or St.Flight or St.Strike ? Mathf.Clamp01(Mathf.Abs(elevV) / 900f) * 0.6f : 0;
+            rod.Tension = Mathf.Max(tension, whip);
+            rod.BendDir = whip > tension && tipV.sqrMagnitude > 0.5f ? -tipV.normalized : line.Live ? (line.B - rod.Tip.position).normalized : Vector3.down;
+            GripRod();
+            // reeling: the left hand turns the crank (2.5 turns a second), the right holds the grip over the reel
+            bool cranking = State is St.Reel or St.Recover;
+            if (cranking) { rod.Crank += 360f * 2.5f * dt; me.Anim.GripL = rod.Root.InverseTransformPoint(rod.Handle.position); }
+        }
+        Transform chestBone;
+        (Vector3, Quaternion) BackStrap()
+        {
+            if (chestBone == null) { var an = me.Anim.GetComponent<Animator>(); chestBone = an.GetBoneTransform(HumanBodyBones.Chest) ?? an.GetBoneTransform(HumanBodyBones.Spine); }
+            var m = me.Model;
+            // the chest's height and lean, in the model's frame (its offset from where it stands in the bind pose)
+            var chest = chestBone != null ? m.InverseTransformPoint(chestBone.position) : new Vector3(0, 1.25f, 0);
+            var dir = new Vector3(-0.68f, 0.70f, -0.2f).normalized; // 45 degrees, leaning a little back off the body
+            var butt = chest + new Vector3(0.24f, -0.5f, -0.2f);
+            return (butt, Quaternion.LookRotation(dir, Vector3.back));
+        }
+        static readonly Vector3 OverShoulder = new(0.27f, 1.5f, 0.0f), Forward = new(0.16f, 1.24f, 0.46f);
+        bool wasBack = true; float swapT = 1; Vector3 swapP; Quaternion swapR = Quaternion.identity; Vector3 lastTip;
+        float castClock = -1; St bodySt = St.Stowed;
+
+        // Rod in hand and not cast: the float hangs a hand's span under the tip on a short line and swings a little
+        // with the walk and the boat (Kufu: at idle the rod reads as a rod, with the line hanging from the tip).
+        Vector3 hangP, hangPrev; const float Hang = 0.45f;
+        void Dangle(float dt)
+        {
+            bool dangle = State is St.Ready or St.Drawing or St.Charging && rod.Root.parent == me.Model;
+            if (dangle && dt > 0)
+            {
+                var tip = rod.Tip.position;
+                if (!bob.gameObject.activeSelf) { bob.gameObject.SetActive(true); hangP = hangPrev = tip + Vector3.down * Hang; }
+                bob.Floating = false; bob.Dip = bob.Yank = 0; bob.transform.localScale = Vector3.one;
+                var np = hangP + (hangP - hangPrev) * 0.94f + Vector3.down * 9.8f * dt * dt;
+                hangPrev = hangP; hangP = tip + (np - tip).normalized * Hang;
+                bob.transform.SetPositionAndRotation(hangP, Quaternion.FromToRotation(Vector3.up, tip - hangP));
+                line.Live = true; line.Arc = false; line.Slack = 0; line.B = hangP + (tip - hangP).normalized * 0.1f;
+            }
+            else if (State == St.Stowed && bob.gameObject.activeSelf && !bob.Floating) { bob.gameObject.SetActive(false); line.Live = false; }
+        }
+
+        void GripRod()
+        {
             me.Anim.Grip = rod.Root; me.Anim.GripL = RodView.GripL; me.Anim.GripR = RodView.GripR;
             me.Anim.GripElbow = new Vector3(0, -0.8f, -0.25f); me.Anim.GripFingers = new Vector3(0, 0.2f, 1);
+        }
+
+        // The body: one keyed clip per fishing beat (M1Anim), crossfaded by CharAnim; the cast clip runs on the charge.
+        void Body(float dt)
+        {
+            var a = M1Assets.I; var an = me.Anim;
+            if (State != bodySt) { if (State == St.Charging) castClock = 0; bodySt = State; }
+            AnimationClip c; float t = -1;
+            switch (State)
+            {
+                case St.Charging: castClock = Mathf.Min(castClock + dt, CastApex); c = a.Cast; t = castClock; break;
+                case St.Flight: case St.Settle: case St.Waiting:
+                    // released before the wind-up finished: it finishes fast, then the whip plays at its own speed
+                    if (castClock >= 0) castClock += dt * (castClock < CastApex ? 3f : 1f);
+                    if (castClock >= 0 && castClock < CastLen) { c = a.Cast; t = castClock; } else { castClock = -1; c = a.Wait; }
+                    break;
+                case St.Bite: c = a.Wait; break;
+                case St.Strike: c = a.Strike; break;
+                case St.Heavy: case St.Minigame: c = a.Fight; break;
+                case St.Reel: case St.Recover: c = a.Reel; break;
+                case St.Reveal: c = a.HoldUp; break;
+                case St.Drawing: case St.Ready: c = a.RodIdle; break;
+                default: c = null; break;
+            }
+            if (me.AtHelm) return; // the helm sets its own (Angler)
+            if (me.Swimming || me.Climbing) c = null;
+            an.Act = c; an.ActTime = t;
         }
 
         float AngleTo(Vector3 p)
@@ -598,17 +708,25 @@ namespace PortBoss.M1
 
         void Pose(float dt)
         {
+            Body(dt);
             PlaceRod(dt);
+            Dangle(dt);
             creak.volume = Mathf.MoveTowards(creak.volume, State == St.Charging ? creakVol : 0, dt * 4);
             if (State != St.Reel && State != St.Recover) reelSnd.volume = Mathf.MoveTowards(reelSnd.volume, 0, dt * 3);
             // face the aim / the bobber / the fish
+            // The aim marker while charging (it can snap off the camera line, round the boat or land) and in flight
+            // (bob.Pos still holds the LAST cast's spot until splashdown: facing it turned him away mid-cast);
+            // the bobber once it is down; the fish in the fight and the reel. Hold-up / recover: as he stands.
             me.FaceYaw = State switch
             {
-                St.Charging => CameraRig.I != null ? CameraRig.I.Yaw : float.NaN,
-                St.Flight or St.Settle or St.Waiting or St.Bite or St.Strike or St.Heavy or St.Minigame => YawTo(bob.Pos),
+                St.Charging or St.Flight => YawTo(Marker),
+                St.Settle or St.Waiting or St.Bite or St.Strike => YawTo(bob.Pos),
+                St.Heavy or St.Minigame => YawTo(fishUnder),
+                St.Reel => fishGo != null ? YawTo(fishGo.transform.position) : YawTo(fishUnder),
                 _ => float.NaN,
             };
-            if (State is St.Heavy or St.Minigame) me.FaceYaw = YawTo(fishUnder);
+            if (Bot.OldFacing) // the M1 rule, kept only so -pb-cast8 can show the before (camera yaw, then the last bobber spot)
+                me.FaceYaw = State == St.Charging ? CameraRig.I.Yaw : State is St.Flight or St.Settle or St.Waiting or St.Bite or St.Strike ? YawTo(bob.Pos) : me.FaceYaw;
             // hands on the fish for the hold-up
             if (State == St.Reveal && fishGo != null && Catch.Cm <= 140)
             {
@@ -635,6 +753,6 @@ namespace PortBoss.M1
         }
 
         // The test bot's knobs (Bot.cs sets them).
-        public static class Bot { public static bool FightHeavy; }
+        public static class Bot { public static bool FightHeavy, OldFacing, ForceHeavy; }
     }
 }

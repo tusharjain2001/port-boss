@@ -60,25 +60,36 @@ namespace PortBoss.M1
         {
             engine = gameObject.AddComponent<AudioSource>();
             engine.clip = Synth.Engine; engine.loop = true; engine.spatialBlend = 0.85f; engine.volume = 0; engine.minDistance = 4; engine.Play();
-            wake = Particles(Motor != null ? Motor : transform, new Vector3(0, -0.1f, -0.4f), 0.5f, 1.6f);
-            bowSpray = Particles(transform, new Vector3(0, 0.05f, 2.4f), 0.25f, 0.8f);
+            wake = Particles(Motor != null ? Motor : transform, new Vector3(0, -0.1f, -0.4f), 0.55f, 2.2f);
+            bowSpray = Particles(transform, new Vector3(0, 0.05f, 2.4f), 0.35f, 1.0f);
         }
 
+        // Wake and bow wave as flat toon foam lying on the sea (not rising puffs): crisp-edged patches that spread
+        // sideways, grow and thin out, then fade.
         ParticleSystem Particles(Transform at, Vector3 off, float size, float life)
         {
             var g = new GameObject("fx"); g.transform.SetParent(at, false); g.transform.localPosition = off;
             var ps = g.AddComponent<ParticleSystem>();
-            var m = ps.main; m.startLifetime = life; m.startSpeed = 0.4f; m.startSize = size; m.simulationSpace = ParticleSystemSimulationSpace.World;
-            m.startColor = new Color(1, 1, 1, 0.75f); m.maxParticles = 300; m.gravityModifier = 0.05f;
+            var m = ps.main; m.startLifetime = new ParticleSystem.MinMaxCurve(life * 0.7f, life); m.startSpeed = 0; m.startSize = new ParticleSystem.MinMaxCurve(size * 0.7f, size);
+            m.startRotation = new ParticleSystem.MinMaxCurve(0, 2 * Mathf.PI); m.simulationSpace = ParticleSystemSimulationSpace.World;
+            m.startColor = new Color(1, 1, 1, 0.9f); m.maxParticles = 400; m.gravityModifier = 0;
             var e = ps.emission; e.rateOverTime = 0;
-            var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Sphere; sh.radius = 0.25f;
-            var sz = ps.sizeOverLifetime; sz.enabled = true; sz.size = new ParticleSystem.MinMaxCurve(1, AnimationCurve.Linear(0, 0.6f, 1, 1.6f));
+            var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Box; sh.scale = new Vector3(0.35f, 0.01f, 0.1f);
+            // spread out to both sides behind the boat (a V), in the emitter's frame
+            var vel = ps.velocityOverLifetime; vel.enabled = true; vel.space = ParticleSystemSimulationSpace.Local;
+            vel.x = new ParticleSystem.MinMaxCurve(-0.7f, 0.7f); vel.y = new ParticleSystem.MinMaxCurve(0, 0); vel.z = new ParticleSystem.MinMaxCurve(-0.1f, 0.1f);
+            var sz = ps.sizeOverLifetime; sz.enabled = true; sz.size = new ParticleSystem.MinMaxCurve(1, new AnimationCurve(new Keyframe(0, 0.5f), new Keyframe(0.3f, 1f), new Keyframe(1, 1.5f)));
             var co = ps.colorOverLifetime; co.enabled = true;
-            var gr = new Gradient(); gr.SetKeys(new[] { new GradientColorKey(Color.white, 0), new GradientColorKey(Color.white, 1) }, new[] { new GradientAlphaKey(0.8f, 0), new GradientAlphaKey(0, 1) });
+            var gr = new Gradient(); gr.SetKeys(new[] { new GradientColorKey(Color.white, 0), new GradientColorKey(Color.white, 1) },
+                new[] { new GradientAlphaKey(0, 0), new GradientAlphaKey(0.85f, 0.08f), new GradientAlphaKey(0.55f, 0.6f), new GradientAlphaKey(0, 1) });
             co.color = gr;
-            g.GetComponent<ParticleSystemRenderer>().sharedMaterial = Util.Soft(Color.white);
+            var r = g.GetComponent<ParticleSystemRenderer>();
+            r.sharedMaterial = Util.Soft(Color.white, Util.Foam); r.renderMode = ParticleSystemRenderMode.HorizontalBillboard;
+            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.sortingFudge = 10;
             return ps;
         }
+
+        static Vector3 OnSea(Vector3 p) => new(p.x, Sea.Height(p) + 0.04f, p.z);
 
         public float TargetSpeed => Notch < 0 ? -Reverse : Notch * MaxSpeed / 3f;
 
@@ -135,10 +146,13 @@ namespace PortBoss.M1
             Spring(ref y, ref vy, ty, 3.2f, dt); Spring(ref pitch, ref vp, tp, 2.6f, dt); Spring(ref roll, ref vr, tr, 2.4f, dt);
             transform.SetPositionAndRotation(new Vector3(pos.x, y, pos.z), q * Quaternion.Euler(pitch, 0, roll));
 
-            if (Motor != null) Motor.localRotation = Quaternion.Euler(0, Rudder * 0.9f, 0);
+            if (Motor != null) Motor.localRotation = Quaternion.Euler(0, Rudder * 0.34f, 0); // ±12°: the tiller swings clear of the helmsman (visual only)
             if (Prop != null) Prop.Rotate(0, Speed * 900f * dt, 0, Space.Self);
             engineVol = Mathf.MoveTowards(engineVol, Moored ? 0.12f : 0.25f + 0.5f * Mathf.Abs(Notch) / 3f, dt);
             engine.volume = engineVol; engine.pitch = 0.75f + 0.55f * Mathf.Abs(Speed) / MaxSpeed;
+            // foam is born on the water: behind the prop, and either side of the bow
+            if (Prop != null) wake.transform.position = OnSea(Prop.position);
+            if (AnchorPt != null) bowSpray.transform.position = OnSea(AnchorPt.position);
             var we = wake.emission; we.rateOverTime = Mathf.Abs(Speed) > 0.3f ? 18f * Mathf.Abs(Speed) : 0;
             var be = bowSpray.emission; be.rateOverTime = Speed > 2.5f ? 10f * Speed : 0;
 
