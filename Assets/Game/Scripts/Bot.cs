@@ -297,6 +297,11 @@ namespace PortBoss.M1
             Ctl.BotMove = Vector2.zero; yield return new WaitForSeconds(0.7f);
             Ctl.BotMove = new Vector2(-1, 0); yield return new WaitForSeconds(0.9f);
             Ctl.BotMove = Vector2.zero; yield return new WaitForSeconds(0.9f);
+            // once more, then stand a moment (the idle: breathing, the float hanging from the tip)
+            Ctl.BotMove = new Vector2(1, 0); yield return new WaitForSeconds(0.8f);
+            Ctl.BotMove = Vector2.zero; yield return new WaitForSeconds(0.5f);
+            Ctl.BotMove = new Vector2(-1, 0); yield return new WaitForSeconds(0.8f);
+            Ctl.BotMove = Vector2.zero; yield return new WaitForSeconds(2.0f);
             for (int i = 0; i < 2; i++)
             {
                 Debug.Log($"[PB] tour cast {i + 1} at {Time.time:F2}");
@@ -320,7 +325,7 @@ namespace PortBoss.M1
             if (s.Anchored) s.ToggleAnchor();
             yield return new WaitForSeconds(1.8f);
             Ctl.BotThrottle = 1; yield return new WaitForSeconds(0.4f); Ctl.BotThrottle = 1;
-            for (t = 0; t < 9; t += Time.deltaTime) { Ctl.BotSteer = t > 2 && t < 5 ? 0.5f : 0; yield return null; }
+            for (t = 0; t < 26; t += Time.deltaTime) { Ctl.BotSteer = t > 3 && t < 7 ? 0.5f : t > 11 && t < 15 ? -0.6f : 0; yield return null; } // a turn each way
             Debug.Log("[PB] RESULT tour done " + Time.time);
             Application.Quit();
         }

@@ -158,7 +158,7 @@ namespace PortBoss.M1
             Vector3 rest = m != null && g != null
                 ? s.transform.InverseTransformPoint(m.parent.TransformPoint(m.localPosition + Vector3.Scale(m.localScale, m.InverseTransformPoint(g.position))))
                 : s.transform.InverseTransformPoint(s.Helm.position);
-            return new Vector3(rest.x + 0.6f, s.transform.InverseTransformPoint(s.Helm.position).y, rest.z + 0.03f);
+            return new Vector3(rest.x + 0.6f, s.transform.InverseTransformPoint(s.Helm.position).y, rest.z - 0.02f);
         }
         public void LeaveHelm() { var s = Skiff.I; helm = false; if (s != null) { s.AtHelm = false; s.Steer = 0; } if (CameraRig.I != null) CameraRig.I.M = CameraRig.Mode.Follow; }
 
@@ -296,7 +296,7 @@ namespace PortBoss.M1
                 Anim.Grip = tg; Anim.GripL = new Vector3(0.0f, 0.01f, 0.0f);
                 Anim.GripR = tg.InverseTransformPoint(transform.TransformPoint(new Vector3(0.15f, 0.52f, -0.02f)));
                 // elbows down and back; +x cancels the left arm's built-in outward hint, so its elbow stays off the tiller bar
-                Anim.GripElbow = new Vector3(0.38f, -0.8f, -0.45f); Anim.GripFingers = new Vector3(0, -0.3f, 1);
+                Anim.GripElbow = new Vector3(0.62f, -0.8f, -0.35f); Anim.GripFingers = new Vector3(0, -0.3f, 1); // left elbow tucked in to his side
             }
             else if (!Fish.Holding || Swimming || climbT >= 0) Anim.Grip = null;
             Anim.Tick(slot, animSp);

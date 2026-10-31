@@ -188,6 +188,7 @@ namespace PortBoss.M1
 
         void LateUpdate()
         {
+            if (halo != null && !Floating) halo.gameObject.SetActive(false); // the glow is for spotting it on the water only
             if (!Floating) return;
             float h = Sea.Height(Pos);
             var n = Sea.Normal(Pos.x, Pos.z, 0.25f);
