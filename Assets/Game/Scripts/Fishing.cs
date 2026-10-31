@@ -161,7 +161,7 @@ namespace PortBoss.M1
                 CastFrom = transform.position;
                 flightT0 = Time.time; flightLen = 0.55f + 0.03f * dist; flightFrom = rod.Tip.position;
                 bob.gameObject.SetActive(true); bob.Floating = false; bob.Dip = bob.Yank = 0;
-                line.Live = true; line.Slack = 0.02f; line.Reset(rod.Tip.position, rod.Tip.position);
+                line.Live = true; line.Slack = 0.02f; line.Arc = true; line.Reset(rod.Tip.position, rod.Tip.position);
                 Snd.Play(Synth.Whoosh, transform.position, 0.3f + 0.5f * Power, 1.1f);
                 Snd.Play(Synth.Zing, transform.position, 0.35f, Mathf.Lerp(1.2f, 0.8f, Power));
                 if (sweet) Fx.Splash(rod.Tip.position, 0.1f, 4); // a little sparkle on a clean cast
@@ -226,7 +226,7 @@ namespace PortBoss.M1
             float u = StateT / SettleT;
             bob.Dip = 0.08f * Mathf.Exp(-u * 3.5f) * Mathf.Cos(u * Mathf.PI * 4f);
             line.B = bob.transform.position + Vector3.up * 0.08f; line.Slack = Mathf.Lerp(0, 0.05f, u);
-            if (u >= 1) { bob.Dip = 0; StartWait(); }
+            if (u >= 1) { bob.Dip = 0; line.Arc = false; StartWait(); }
         }
 
         // ---------------- wait, nibbles, bite ----------------
@@ -299,7 +299,7 @@ namespace PortBoss.M1
             }
         }
 
-        void Recover() { Go(St.Recover); bob.Dip = 0; }
+        void Recover() { Go(St.Recover); bob.Dip = 0; line.Arc = false; }
 
         void ReelIn(string why) { LastOutcome = "reeled"; Recover(); }
 

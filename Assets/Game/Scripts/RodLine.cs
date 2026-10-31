@@ -78,6 +78,7 @@ namespace PortBoss.M1
         readonly Vector3[] p = new Vector3[N], prev = new Vector3[N];
         LineRenderer lr;
         public Transform A; public Vector3 B; public float Slack = 0.04f; public bool Live;
+        public bool Arc; // paying out during the cast: a clean curve from the tip to the bobber (no rope sim, no tangles)
 
         public static LineView Make()
         {
@@ -103,6 +104,18 @@ namespace PortBoss.M1
             if (!lr.enabled) return;
             float dt = Mathf.Min(Time.deltaTime, 1 / 30f);
             var a = A.position;
+            if (Arc)
+            {
+                // a gentle belly under the straight line, like line peeling off in the air
+                float len = Vector3.Distance(a, B);
+                for (int i = 0; i < N; i++)
+                {
+                    float u = i / (N - 1f);
+                    p[i] = prev[i] = Vector3.Lerp(a, B, u) + Vector3.down * Mathf.Sin(u * Mathf.PI) * len * 0.06f;
+                }
+                lr.SetPositions(p);
+                return;
+            }
             float rest = Vector3.Distance(a, B) * (1 + Slack) / (N - 1);
             for (int i = 1; i < N - 1; i++)
             {
