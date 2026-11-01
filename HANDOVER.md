@@ -468,7 +468,6 @@ Differences now:
 - **The Toon Harbor pack is optional for M1** (the new game doesn't use it). You need it only to build the old game or for
   Voss Harbour later. Manan sends the `.unitypackage` privately. It goes to `Assets/ThirdParty/ToonHarbor` (gitignored).
 - **The Mixamo clips are needed for M1's animations, and they aren't in git** (`Assets/ThirdParty/` is gitignored).
-| Character kit: Pip (Blender CLI, headless) | `"/c/Program Files/Blender Foundation/Blender 5.2/blender.exe" -b -P art-src/kit/build_kit.py -- [path/to/X Bot.fbx] [norender]` → `Assets/Game/Art/PB_Char_Pip.fbx`, then the M1 build picks her up |
   1. Tushar (a person, with any free Adobe account) downloads them per `docs/plan/mixamo-list.md`. The settings are FBX for
      Unity, Without Skin, 30 fps, In Place where listed.
   2. Also download the **X Bot** character **With Skin** in its T-pose. The build uses the one FBX without "@" in its name
@@ -488,6 +487,7 @@ Differences now:
 |---|---|
 | Compile check (seconds) | `bash tools/cc.sh` |
 | M1 headless setup + Win64 build | `bash tools/m1build.sh "$PWD/Builds/m1"` (add `-pbDev` for a dev build; log `Logs/pb/m1build.log`) |
+| Character kit: Pip (Blender CLI, headless) | `"/c/Program Files/Blender Foundation/Blender 5.2/blender.exe" -b -P art-src/kit/build_kit.py -- [path/to/X Bot.fbx] [norender]` → `Assets/Game/Art/PB_Char_Pip.fbx`, then the M1 build picks her up |
 | Fishing bot, N casts (bite timer, grade mix) | `bash tools/m1test.sh Builds/m1/PortBoss.exe fish500 -pb-fishtest 500 -pb-timescale 8` (expect all bites in [4.0, 10.0] s; `-pb-sigma 70` = practised player; `-pb-rod n`, `-pb-bait id`, `-pb-fightheavy`) |
 | Boat test (drive, roll, anchor hold) | `bash tools/m1test.sh Builds/m1/PortBoss.exe boat -pb-boattest` |
 | Swim test (overboard, ladder back) | `bash tools/m1test.sh Builds/m1/PortBoss.exe swim -pb-swimtest` |
