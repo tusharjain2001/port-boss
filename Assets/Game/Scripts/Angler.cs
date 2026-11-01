@@ -42,6 +42,7 @@ namespace PortBoss.M1
             var p = g.AddComponent<Angler>(); I = p;
             p.Cc = g.AddComponent<CharacterController>();
             p.Cc.height = 1.75f; p.Cc.radius = 0.3f; p.Cc.center = new Vector3(0, 0.875f, 0); p.Cc.stepOffset = 0.42f; p.Cc.slopeLimit = 50; p.Cc.skinWidth = 0.03f;
+            p.Cc.minMoveDistance = 0; // the default 1 mm drops every step at high frame rates (uncapped test runs: the swimmer barely moved)
             p.Model = new GameObject("model").transform; p.Model.SetParent(g.transform, false);
             // Our own dock worker (Assets/Art/Worker, Blender + Mixamo rig) in the toon shader with his palette texture.
             PortBoss.Art.Lit = new Material(a.Toon);
