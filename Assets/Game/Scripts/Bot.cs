@@ -577,16 +577,14 @@ namespace PortBoss.M1
             Ctl.BotMove = Vector2.zero;
             Debug.Log($"[PB] swim: reached the ladder in {t:F1} s (prompt: {me.Prompt})");
             Ctl.BotInteract = true; yield return null; Ctl.BotInteract = false;
-            t = 0; while (me.Climbing && t < 8) { t += Time.deltaTime; yield return null; }
-            Debug.Log($"[PB] swim: climbed aboard in {t:F1} s");
             yield return new WaitForSeconds(1f);
             if (shots != null) yield return Shot("swim-back-aboard");
             Debug.Log($"[PB] RESULT swim: back aboard {(me.OnBoat ? "PASS" : "FAIL")} (swimming {me.Swimming})");
             Application.Quit();
         }
 
-        // -pb-laddertest <dir>: in the water by the pier ladder, E, climb out (Tushar 1 Nov: he kept the climb pose on top
-        // and hung in the air past the edge). Shots through the climb; PASS = standing on the pier deck, not swimming.
+        // -pb-laddertest <dir>: in the water by the pier ladder, E: straight up onto the pier (Tushar 1 Nov). Shots before
+        // and after; PASS = standing on the pier deck, not swimming.
         IEnumerator LadderTest(string dir)
         {
             shots = dir; Directory.CreateDirectory(dir);
@@ -600,13 +598,7 @@ namespace PortBoss.M1
             Debug.Log($"[PB] ladder: in the water {me.Swimming}, prompt '{me.Prompt}'");
             yield return Shot("ladder-0-water");
             Ctl.BotInteract = true; yield return null; Ctl.BotInteract = false;
-            float t = 0, next = 0; int n = 1;
-            while (me.Climbing && t < 8)
-            {
-                if (t >= next) { yield return Shot($"ladder-{n++}-climb"); next += 0.3f; Debug.Log($"[PB] ladder: t {t:F2} at {me.transform.position:F2} prompt '{me.Prompt}'"); }
-                t += Time.deltaTime; yield return null;
-            }
-            Debug.Log($"[PB] ladder: climbed out in {t:F1} s");
+            int n = 1; yield return null;
             yield return Shot($"ladder-{n++}-top");
             yield return new WaitForSeconds(1f);
             yield return Shot($"ladder-{n++}-after");

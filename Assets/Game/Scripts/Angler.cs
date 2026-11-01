@@ -20,7 +20,6 @@ namespace PortBoss.M1
         public bool OnBoat { get; private set; }
         public bool Swimming { get; private set; }
         public bool AtHelm => helm;
-        public bool Climbing => climbSeg >= 0;
         public bool Busy;                 // fishing owns the body (fight, reveal): no walking
         public float FaceYaw = float.NaN; // fishing faces the aim
         public Vector3 Vel;               // own walking velocity (not the boat's)
@@ -29,9 +28,6 @@ namespace PortBoss.M1
         Vector3 localOnBoat; float localYaw;
         float vy, coyote, lastGround;
         bool helm;
-        // climbing: a path in the ladder owner's space (it rides the boat): swim in to the ladder, up the rungs, step off
-        int climbSeg = -1; float climbU; readonly Vector3[] climbPath = new Vector3[4]; Transform climbRef;
-        Vector3 ladBottom, ladTop; float ladStep;
         Vector3 lastPos; float animSpeed;
         float stepT; int stepI;
         bool wasSwim; float dunkT = -1;
@@ -83,7 +79,6 @@ namespace PortBoss.M1
                 transform.rotation = Quaternion.Euler(0, s.transform.eulerAngles.y + localYaw, 0);
             }
 
-            if (climbSeg >= 0) { Climb(dt); Track(); Animate(dt); return; }
             if (helm) { Helm(dt); Track(); Animate(dt); return; }
 
             // hotbar
@@ -179,7 +174,7 @@ namespace PortBoss.M1
             bool on = false;
             if (s != null && !Swimming && Physics.Raycast(transform.position + Vector3.up * 0.4f, Vector3.down, out var hit, 0.9f, ~0, QueryTriggerInteraction.Ignore))
                 on = hit.transform.IsChildOf(s.transform);
-            if (helm || climbSeg >= 0) on = climbSeg >= 0 ? climbRef != null && climbRef.IsChildOf(s.transform) : true;
+            if (helm) on = true;
             OnBoat = on;
             if (on) { localOnBoat = s.transform.InverseTransformPoint(transform.position); localYaw = transform.eulerAngles.y - s.transform.eulerAngles.y; }
             if (CameraRig.I != null) CameraRig.I.OnDeck = on;
@@ -230,66 +225,22 @@ namespace PortBoss.M1
             Vel = Vector3.zero;
         }
 
-        // Climbing (like the dock game's Player.Climb): in to the ladder, up the rungs at the speed the climb clip steps
-        // (CharAnim puts hands and feet on the rungs from our height), then up and over onto the deck on our feet.
-        // (Tushar 1 Nov: he went up at ~3 m/s in one glide, kept the climb pose on top, and stepped off 0.7 m OUT over
-        // the water at the pier, so he hung in the air past the edge.)
-        const float ClimbOut = 0.38f;                                  // how far out from the rungs the body hangs
-        static readonly float[] ClimbSpeed = { 1.6f, 1.25f, 1.4f };     // m/s: in to the ladder, up the rungs, step off
-
+        // A ladder from the water: E puts you straight on top (Tushar 1 Nov: the climb animation went up and down the
+        // rungs a few times before he got off; he wants E = up). Onto the pier, or in over the gunwale toward the middle
+        // of the boat, standing on whatever is under that spot.
         void StartClimb(Transform bottom, Transform top, Transform reference)
         {
-            climbRef = reference; climbSeg = 0; climbU = 0; Prompt = null;
-            ladBottom = reference.InverseTransformPoint(bottom.position); ladTop = reference.InverseTransformPoint(top.position);
+            var inward = top.position - bottom.position; inward.y = 0;
+            var toCentre = reference.position - top.position; toCentre.y = 0;
             bool boat = reference == Skiff.I?.transform;
-            ladStep = boat ? 0.4f : 0.3f; // the rung spacing in art-src/m1/build_boat_landing.py
-            var inward = LadderIn();
-            var line = ladBottom - inward * ClimbOut;
-            var from = reference.InverseTransformPoint(transform.position);
-            climbPath[0] = from;
-            climbPath[1] = new Vector3(line.x, from.y, line.z);
-            climbPath[2] = new Vector3(line.x, ladTop.y - 0.45f, line.z); // feet on the top rungs, hands on the deck
-            // over the top: onto the pier, or in over the gunwale toward the middle of the boat
-            var toCentre = -ladTop; toCentre.y = 0;
-            climbPath[3] = ladTop + (boat && toCentre.sqrMagnitude > 0.01f ? toCentre.normalized : inward) * 0.7f;
+            var dir = (boat && toCentre.sqrMagnitude > 0.01f ? toCentre : inward).normalized;
+            var p = top.position + dir * 0.7f;
+            if (Physics.Raycast(p + Vector3.up * 1.5f, Vector3.down, out var hit, 3f, ~0, QueryTriggerInteraction.Ignore) && hit.collider.GetComponentInParent<Angler>() == null)
+                p.y = hit.point.y;
             Fish.Stow();
+            Teleport(p + Vector3.up * 0.02f, Mathf.Atan2(dir.x, dir.z) * Mathf.Rad2Deg);
+            vy = -2f; Swimming = false; wasSwim = false; lastGround = Time.time; Prompt = null;
             Snd.Play(M1Assets.I.Splash, transform.position, 0.3f, 1.4f);
-        }
-
-        Vector3 LadderIn() { var d = ladTop - ladBottom; d.y = 0; return d.normalized; }
-
-        // The ladder as CharAnim reads it, in the world (the boat's moves with the boat).
-        PortBoss.World.Ladder ClimbLadder()
-        {
-            var b = climbRef.TransformPoint(ladBottom); var t = climbRef.TransformPoint(ladTop);
-            var inW = climbRef.TransformDirection(LadderIn()); inW.y = 0;
-            return new PortBoss.World.Ladder { Bottom = b, Top = t, Edge = b, In = inW.normalized, FirstRung = b.y, TopY = t.y, Step = ladStep };
-        }
-
-        void Climb(float dt)
-        {
-            Prompt = null;
-            Vector3 a = climbPath[climbSeg], b = climbPath[climbSeg + 1];
-            climbU += dt * ClimbSpeed[climbSeg] / Mathf.Max(0.05f, Vector3.Distance(a, b));
-            float u = Mathf.Clamp01(climbU);
-            Vector3 l;
-            if (climbSeg < 2) l = Vector3.Lerp(a, b, climbSeg == 0 ? Mathf.SmoothStep(0, 1, u) : u);
-            else
-            {
-                // up first (a step up onto the edge), then walk in
-                l = Vector3.Lerp(a, b, Mathf.SmoothStep(0, 1, u));
-                l.y = Mathf.Lerp(a.y, b.y, Mathf.SmoothStep(0, 1, Mathf.Clamp01(u / 0.5f)));
-            }
-            Cc.enabled = false; transform.position = climbRef.TransformPoint(l); Cc.enabled = true;
-            var face = climbSeg < 2 ? climbRef.TransformDirection(LadderIn()) : climbRef.TransformPoint(climbPath[3]) - climbRef.TransformPoint(climbPath[2]);
-            face.y = 0;
-            if (face.sqrMagnitude > 0.0001f) transform.rotation = Quaternion.LookRotation(face);
-            if (climbU < 1) return;
-            climbSeg++; climbU = 0;
-            if (climbSeg < 3) return;
-            // standing on the deck: grounded now, so the first frame off the ladder isn't read as a fall (it flashed the
-            // falling pose, then the landing crouch)
-            climbSeg = -1; vy = -2f; Vel = Vector3.zero; Swimming = false; wasSwim = false; lastGround = Time.time;
         }
 
         void Splash(float surface, float size)
@@ -316,21 +267,8 @@ namespace PortBoss.M1
             float yawNow = OnBoat && Skiff.I != null ? transform.eulerAngles.y - Skiff.I.transform.eulerAngles.y : transform.eulerAngles.y;
             float turnRate = Mathf.Abs(Mathf.DeltaAngle(lastYaw, yawNow)) / dt; lastYaw = yawNow;
             float animSp = sp;
-            if (!helm && !Swimming && climbSeg < 0) animSp = Mathf.Max(sp, Mathf.Clamp01((turnRate - 60f) / 300f) * 0.8f);
-            if (climbSeg >= 0)
-            {
-                // on the rungs: hands and feet on them (eased on as he reaches the ladder); stepping off: on his feet,
-                // walking in, the hands leaving the top
-                var lad = ClimbLadder(); Anim.Ladder = lad;
-                if (climbSeg < 2)
-                {
-                    slot = CharAnim.Slot.Climb;
-                    var off = transform.position - (lad.Edge - lad.In * ClimbOut); off.y = 0;
-                    Anim.LadderW = 1f - Mathf.Clamp01((off.magnitude - 0.1f) / 0.6f);
-                }
-                else { slot = CharAnim.Slot.Idle; animSp = ClimbSpeed[2]; Anim.LadderW = 1f - Mathf.Clamp01(climbU / 0.4f); }
-            }
-            else if (helm) slot = CharAnim.Slot.Idle;
+            if (!helm && !Swimming) animSp = Mathf.Max(sp, Mathf.Clamp01((turnRate - 60f) / 300f) * 0.8f);
+            if (helm) slot = CharAnim.Slot.Idle;
             else if (Swimming)
             {
                 bool stroke = sp > 0.6f;
@@ -349,11 +287,11 @@ namespace PortBoss.M1
                 // elbows down and back; +x cancels the left arm's built-in outward hint, so its elbow stays off the tiller bar
                 Anim.GripElbow = new Vector3(0.62f, -0.8f, -0.35f); Anim.GripFingers = new Vector3(0, -0.3f, 1); // left elbow tucked in to his side
             }
-            else if (!Fish.Holding || Swimming || climbSeg >= 0) Anim.Grip = null;
+            else if (!Fish.Holding || Swimming) Anim.Grip = null;
             Anim.Tick(slot, animSp);
 
             // footsteps on the stride (wood on the deck and pier)
-            if (!Swimming && climbSeg < 0 && sp > 0.5f && Cc.isGrounded)
+            if (!Swimming && sp > 0.5f && Cc.isGrounded)
             {
                 stepT += dt * sp / 0.75f;
                 if (stepT >= 1) { stepT -= 1; Snd.Play(M1Assets.I.Steps != null && M1Assets.I.Steps.Length > 0 ? M1Assets.I.Steps[stepI++ % M1Assets.I.Steps.Length] : null, transform.position, 0.25f, Random.Range(0.92f, 1.08f)); }

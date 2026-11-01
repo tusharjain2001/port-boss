@@ -86,7 +86,7 @@ namespace PortBoss.M1
         void Update()
         {
             float dt = Time.deltaTime; StateT += dt;
-            bool rodSel = me.Bar.Sel.Rod && !me.Swimming && !me.AtHelm && !me.Climbing;
+            bool rodSel = me.Bar.Sel.Rod && !me.Swimming && !me.AtHelm;
             DebugKeys();
 
             switch (State)
@@ -701,7 +701,7 @@ namespace PortBoss.M1
                 default: c = null; break;
             }
             if (me.AtHelm) return; // the helm sets its own (Angler)
-            if (me.Swimming || me.Climbing) c = null;
+            if (me.Swimming) c = null;
             an.Act = c; an.ActTime = t;
         }
 
