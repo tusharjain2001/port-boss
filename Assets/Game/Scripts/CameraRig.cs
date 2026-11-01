@@ -21,8 +21,9 @@ namespace PortBoss.M1
         public float FovPunch;            // the bite's -3° punch
         public float RevealSide = -1;     // which 3/4 side the reveal frames from (Fishing picks the one with a clear view)
 
-        Vector3 pivot, pos;
-        float dist = 6, fov = 55, side, pitchOff, focusW, lastLook, roll;
+        public string Blocker;            // what the camera is pulled in by this frame (tests)
+        Vector3 pivot, pos, focus;
+        float dist = 6, fov = 55, side, pitchOff, focusW, lastLook, roll, reach = 99, distV, fovV, sideV, pitchV, focusV;
         static float shake;
 
         public static CameraRig Create(Transform target)
@@ -68,9 +69,11 @@ namespace PortBoss.M1
                     if (s != null && Time.time - lastLook > 2f) Yaw = Mathf.LerpAngle(Yaw, s.transform.eulerAngles.y, 1 - Mathf.Exp(-1.2f * dt)); // recentre
                     break;
             }
-            float ease = 1 - Mathf.Exp(-dt / 0.12f);
-            dist = Mathf.Lerp(dist, tDist, ease * 0.6f); fov = Mathf.Lerp(fov, tFov, ease * 0.6f); side = Mathf.Lerp(side, tSide, ease * 0.6f);
-            pitchOff = Mathf.Lerp(pitchOff, tPitchOff, ease * 0.5f); focusW = Mathf.Lerp(focusW, tFocus, ease * 0.5f);
+            // springs, not exponential eases: a framing change (aim -> wait on the bobber) starts and stops gently instead
+            // of setting off at full speed in one frame
+            dist = Mathf.SmoothDamp(dist, tDist, ref distV, 0.3f, Mathf.Infinity, dt); fov = Mathf.SmoothDamp(fov, tFov, ref fovV, 0.3f, Mathf.Infinity, dt);
+            side = Mathf.SmoothDamp(side, tSide, ref sideV, 0.3f, Mathf.Infinity, dt);
+            pitchOff = Mathf.SmoothDamp(pitchOff, tPitchOff, ref pitchV, 0.35f, Mathf.Infinity, dt); focusW = Mathf.SmoothDamp(focusW, tFocus, ref focusV, 0.35f, Mathf.Infinity, dt);
             if (M == Mode.Reveal)
             {
                 // 3/4 front: swing round to face the player and the fish they hold up
@@ -84,15 +87,30 @@ namespace PortBoss.M1
             var p = pivot + rot * new Vector3(side, 0, -dist);
 
             // keep off the land and the pier (the boat itself never pushes the camera: a 5 m deck would jitter it)
-            var dir = p - pivot; float len = dir.magnitude;
-            if (Physics.SphereCast(pivot, 0.3f, dir / len, out var hit, len, ~0, QueryTriggerInteraction.Ignore)
-                && (Skiff.I == null || !hit.transform.IsChildOf(Skiff.I.transform)) && hit.collider.GetComponentInParent<Angler>() == null)
-                p = pivot + dir / len * Mathf.Max(0.6f, hit.distance);
+            // (pulled in over a few frames and let out slowly; thin posts are ignored: the lamp post at the pier end
+            // squashed the camera into his head and swung the view 7° in a frame while casting there)
+            var dir = p - pivot; float len = dir.magnitude, room = len;
+            Blocker = null;
+            foreach (var hit in Physics.SphereCastAll(pivot, 0.3f, dir / len, len, ~0, QueryTriggerInteraction.Ignore))
+            {
+                var bs = hit.collider.bounds.size;
+                if (hit.distance <= 0 || bs.x < 0.5f && bs.z < 0.5f) continue; // (SphereCast never saw start overlaps either)
+                if (Skiff.I != null && hit.transform.IsChildOf(Skiff.I.transform) || hit.collider.GetComponentInParent<Angler>() != null) continue;
+                if (hit.distance < room) { room = Mathf.Max(0.6f, hit.distance); Blocker = hit.collider.name; }
+            }
+            reach = Mathf.Min(reach, len);
+            reach = Mathf.Lerp(reach, room, 1 - Mathf.Exp(-dt / (room < reach ? 0.05f : 0.35f)));
+            p = pivot + dir / len * reach;
             // never under the water
             float wy = Sea.Height(p) + 0.35f; if (p.y < wy) p.y = wy;
 
-            var aimAt = Vector3.Lerp(pivot, Focus, focusW);
-            var fwd = M == Mode.Reveal || focusW > 0.01f ? (aimAt - p) : rot * Vector3.forward;
+            // The focus glides (a jump in Focus, e.g. the marker 12 m out -> the bobber at the rod tip on release, snapped
+            // the view: Tushar's "the screen stutters when I cast"), and the look blends into the focus framing instead
+            // of switching to it at a threshold.
+            if (focusW < 0.01f) focus = Focus;
+            else focus = Vector3.Lerp(focus, Focus, 1 - Mathf.Exp(-dt / 0.25f));
+            var aimAt = Vector3.Lerp(pivot, focus, focusW);
+            var fwd = M == Mode.Reveal ? (aimAt - p) : Vector3.Lerp(rot * Vector3.forward, (aimAt - p).normalized, Mathf.Clamp01(focusW / 0.05f));
             if (M == Mode.Reveal) fwd = (Target.position + Vector3.up * 1.3f + Target.forward * 0.25f) - p;
             // a little roll with the deck (systems §1.6.1: roll follow is a setting; calm default)
             float tRoll = OnDeck && Skiff.I != null ? -Mathf.DeltaAngle(0, Skiff.I.transform.eulerAngles.z) * 0.25f : 0;

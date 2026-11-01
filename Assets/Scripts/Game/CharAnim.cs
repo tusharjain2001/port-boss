@@ -162,7 +162,7 @@ namespace PortBoss
             if (Ladder != null && plays[(int)Slot.Climb].IsValid())
             {
                 var p = plays[(int)Slot.Climb];
-                p.SetSpeed(0); p.SetTime(Mathf.Repeat((transform.position.y - Ladder.Value.FirstRung) / (2 * World.Ladder.RungStep), 1f) * Len(Slot.Climb));
+                p.SetSpeed(0); p.SetTime(Mathf.Repeat((transform.position.y - Ladder.Value.FirstRung) / (2 * Ladder.Value.Rung), 1f) * Len(Slot.Climb));
             }
             if (layers.GetInputCount() > 1 && layers.GetInput(1).IsValid()) layers.SetInputWeight(1, boxW);
         }
@@ -422,15 +422,15 @@ namespace PortBoss
         // speed, up or down, on every peer.
         void LadderLimbs(Transform t, World.Ladder l, float wgt)
         {
-            float u = (t.position.y - l.FirstRung) / World.Ladder.RungStep;
-            int handOff = Mathf.CeilToInt((ShoulderY + 0.3f) / World.Ladder.RungStep);
+            float u = (t.position.y - l.FirstRung) / l.Rung;
+            int handOff = Mathf.CeilToInt((ShoulderY + 0.3f) / l.Rung);
             var toUs = -l.In;
             Vector3 Rung(float side, int limbPhase, int above, float outward)
             {
                 float s = (u - limbPhase) / 2f, k = Mathf.Floor(s), f = s - k;
                 float m = Mathf.SmoothStep(0, 1, Mathf.Clamp01((f - 0.55f) / 0.45f));
                 float rung = 2 * k + limbPhase + above + 2 * m;
-                float y = Mathf.Clamp(l.FirstRung + rung * World.Ladder.RungStep, l.FirstRung, l.TopY);
+                float y = Mathf.Clamp(l.FirstRung + rung * l.Rung, l.FirstRung, l.TopY);
                 return new Vector3(l.Edge.x, y, l.Edge.z) + t.right * side * 0.15f + toUs * (outward + Mathf.Sin(m * Mathf.PI) * 0.12f);
             }
             if (legLF != null)

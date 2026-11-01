@@ -743,7 +743,7 @@ namespace PortBoss.M1
             switch (State)
             {
                 case St.Charging: c.M = CameraRig.Mode.Shoulder; c.Focus = Marker; break;
-                case St.Flight: c.M = CameraRig.Mode.Shoulder; c.Focus = bob.transform.position; break;
+                case St.Flight: c.M = CameraRig.Mode.Shoulder; c.Focus = Marker; break; // where it will land, not the bobber leaving the tip
                 case St.Settle: case St.Waiting: case St.Bite: case St.Strike: c.M = CameraRig.Mode.Wait; c.Focus = bob.transform.position; break;
                 case St.Heavy: case St.Minigame: c.M = CameraRig.Mode.Fight; c.Focus = fishUnder; break;
                 case St.Reel: c.M = CameraRig.Mode.Fight; c.Focus = fishGo != null ? fishGo.transform.position : fishUnder; break;

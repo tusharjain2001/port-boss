@@ -29,7 +29,9 @@ namespace PortBoss
         {
             public Vector3 Bottom, Top, Edge, In;
             public float FirstRung, TopY;
+            public float Step;  // this ladder's rung spacing (0 = RungStep)
             public const float RungStep = 0.32f;
+            public float Rung => Step > 0 ? Step : RungStep;
         }
         public static readonly List<Ladder> Ladders = new();
         public static readonly List<Renderer> WaterRenderers = new();

@@ -38,6 +38,8 @@ namespace PortBoss.M1
             else if (Arg("-pb-shots") != null) { shots = Arg("-pb-shots"); Directory.CreateDirectory(shots); yield return ShotTour(); }
             else if (Arg("-pb-boattest") != null) yield return BoatTest();
             else if (Arg("-pb-swimtest") != null) yield return SwimTest();
+            else if (Arg("-pb-laddertest") != null) yield return LadderTest(Arg("-pb-laddertest"));
+            else if (Arg("-pb-camtest") != null) yield return CamTest((int)ArgF("-pb-camtest", 6));
             else if (Arg("-pb-helmshots") != null) { shots = Arg("-pb-helmshots"); Directory.CreateDirectory(shots); yield return HelmShots(); }
             else if (Arg("-pb-scrolltest") != null) yield return ScrollTest();
             else if (Arg("-pb-idleshots") != null) { shots = Arg("-pb-idleshots"); Directory.CreateDirectory(shots); yield return IdleShots(); }
@@ -575,10 +577,88 @@ namespace PortBoss.M1
             Ctl.BotMove = Vector2.zero;
             Debug.Log($"[PB] swim: reached the ladder in {t:F1} s (prompt: {me.Prompt})");
             Ctl.BotInteract = true; yield return null; Ctl.BotInteract = false;
-            yield return new WaitForSeconds(2f);
+            t = 0; while (me.Climbing && t < 8) { t += Time.deltaTime; yield return null; }
+            Debug.Log($"[PB] swim: climbed aboard in {t:F1} s");
+            yield return new WaitForSeconds(1f);
             if (shots != null) yield return Shot("swim-back-aboard");
             Debug.Log($"[PB] RESULT swim: back aboard {(me.OnBoat ? "PASS" : "FAIL")} (swimming {me.Swimming})");
             Application.Quit();
+        }
+
+        // -pb-laddertest <dir>: in the water by the pier ladder, E, climb out (Tushar 1 Nov: he kept the climb pose on top
+        // and hung in the air past the edge). Shots through the climb; PASS = standing on the pier deck, not swimming.
+        IEnumerator LadderTest(string dir)
+        {
+            shots = dir; Directory.CreateDirectory(dir);
+            yield return new WaitForSeconds(0.5f);
+            var l = Landing.I; Ctl.Bot = true;
+            var inward = l.LadderTop.position - l.LadderBottom.position; inward.y = 0; inward.Normalize();
+            var at = l.LadderBottom.position - inward * 1.2f; at.y = Sea.Height(at) - Angler.SwimDepth;
+            me.Teleport(at, Mathf.Atan2(inward.x, inward.z) * Mathf.Rad2Deg);
+            CameraRig.I.Yaw = Mathf.Atan2(inward.x, inward.z) * Mathf.Rad2Deg + 55; CameraRig.I.Pitch = 14;
+            yield return new WaitForSeconds(1.5f);
+            Debug.Log($"[PB] ladder: in the water {me.Swimming}, prompt '{me.Prompt}'");
+            yield return Shot("ladder-0-water");
+            Ctl.BotInteract = true; yield return null; Ctl.BotInteract = false;
+            float t = 0, next = 0; int n = 1;
+            while (me.Climbing && t < 8)
+            {
+                if (t >= next) { yield return Shot($"ladder-{n++}-climb"); next += 0.3f; Debug.Log($"[PB] ladder: t {t:F2} at {me.transform.position:F2} prompt '{me.Prompt}'"); }
+                t += Time.deltaTime; yield return null;
+            }
+            Debug.Log($"[PB] ladder: climbed out in {t:F1} s");
+            yield return Shot($"ladder-{n++}-top");
+            yield return new WaitForSeconds(1f);
+            yield return Shot($"ladder-{n++}-after");
+            var p = me.transform.position;
+            float deckY = l.LadderTop.position.y, inPast = Vector3.Dot(p - l.LadderTop.position, inward);
+            bool ok = !me.Swimming && me.Cc.isGrounded && Mathf.Abs(p.y - deckY) < 0.15f && inPast > 0.3f;
+            Debug.Log($"[PB] RESULT ladder: {(ok ? "PASS" : "FAIL")} (swimming {me.Swimming}, grounded {me.Cc.isGrounded}, feet {p.y - deckY:F2} m from the deck, {inPast:F2} m in from the ladder top)");
+            Application.Quit();
+        }
+
+        // -pb-camtest N: N casts from the pier at 60 fps, the camera's turn per frame measured round each release
+        // (Tushar 1 Nov: "the screen stutters when I cast"). A snap is one frame turning far more than its neighbours.
+        IEnumerator CamTest(int n)
+        {
+            Application.targetFrameRate = 60;
+            yield return new WaitForSeconds(0.5f);
+            var l = Landing.I; Ctl.Bot = true;
+            var outward = l.LadderBottom.position - l.LadderTop.position; outward.y = 0;
+            me.Teleport(l.LadderTop.position - outward.normalized * 0.6f, Mathf.Atan2(outward.x, outward.z) * Mathf.Rad2Deg);
+            CameraRig.I.Yaw = Mathf.Atan2(outward.x, outward.z) * Mathf.Rad2Deg;
+            me.Select(0); yield return new WaitForSeconds(1f);
+            StartCoroutine(CamWatch());
+            for (int i = 0; i < n; i++)
+            {
+                CameraRig.I.Yaw = Mathf.Atan2(outward.x, outward.z) * Mathf.Rad2Deg + (i - n / 2) * 12; // the test turns the view: not counted
+                yield return new WaitForSeconds(0.8f);
+                camWorst = camJerk = camMove = 0; camJerkState = "";
+                yield return CastOnce(0.3f + 0.65f * i / Mathf.Max(1, n - 1));
+                while (fish.State is Fishing.St.Flight or Fishing.St.Settle) yield return null;
+                yield return new WaitForSeconds(0.5f);
+                Ctl.BotCancel = true; float h = 0; while (fish.State != Fishing.St.Ready && h < 4) { h += Time.deltaTime; yield return null; }
+                Ctl.BotCancel = false; yield return new WaitForSeconds(0.6f);
+                Debug.Log($"[PB] camtest cast {i}: biggest turn in one frame {camWorst:F2} deg, biggest jump in turn speed {camJerk:F2} deg/frame (in {camJerkState}), biggest move in one frame {camMove:F2} m");
+                worstAll = Mathf.Max(worstAll, camWorst); jerkAll = Mathf.Max(jerkAll, camJerk);
+            }
+            Debug.Log($"[PB] RESULT camtest: {(jerkAll < 1.0f ? "PASS" : "FAIL")} (worst one-frame turn {worstAll:F2} deg, worst jump in turn speed {jerkAll:F2} deg/frame, 60 fps)");
+            Application.Quit();
+        }
+        float camWorst, camJerk, camMove, worstAll, jerkAll; string camJerkState;
+
+        // Every frame after the camera moved: how far it turned, and how much that differs from the frame before.
+        IEnumerator CamWatch()
+        {
+            var cam = CameraRig.I.transform; var last = cam.forward; var lastP = cam.position; float lastA = -1;
+            while (true)
+            {
+                yield return new WaitForEndOfFrame();
+                float a = Vector3.Angle(last, cam.forward); last = cam.forward;
+                camWorst = Mathf.Max(camWorst, a); camMove = Mathf.Max(camMove, Vector3.Distance(lastP, cam.position)); lastP = cam.position;
+                if (lastA >= 0 && Mathf.Abs(a - lastA) > camJerk) { camJerk = Mathf.Abs(a - lastA); camJerkState = fish.State + (CameraRig.I.Blocker != null ? ", camera pulled in by " + CameraRig.I.Blocker : ""); }
+                lastA = a;
+            }
         }
     }
 }
