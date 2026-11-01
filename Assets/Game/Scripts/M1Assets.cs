@@ -10,7 +10,7 @@ namespace PortBoss.M1
         public Shader Toon, Water, Sky, Particle;
         public Material SoftParticle;   // a transparent particle material ASSET, so the build keeps its shader variant
         public Font Display, DisplayBold, Ui, UiBold, UiBlack; // Fraunces 600 / 700, Zen Maru Gothic 500 / 700 / 900
-        public GameObject Boat, Landing, Worker;
+        public GameObject Boat, Landing, Worker, Pip;    // Pip: the character kit's first body (replaces the placeholder Worker when present)
         public string[] FishIds; public GameObject[] Fish;
         public TextAsset FishCsv;
         public AnimationClip Idle, Walk, Run, Sprint, Jump, Land, SwimIdle, Swim, Climb, Drive;

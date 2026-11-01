@@ -489,6 +489,17 @@ namespace PortBoss.M1
                     ct.SetPositionAndRotation(keep.position, keep.rotation);
                 }
             }
+            if (Arg("-pb-norod") != null)
+            {
+                // empty hands (the arms hang free: do they clear the body?), standing, then walking the deck
+                me.Select(1); yield return new WaitForSeconds(1.5f);
+                yield return Three("hands");
+                Ctl.BotMove = Vector2.up; yield return new WaitForSeconds(0.6f);
+                yield return Three("walk");
+                Ctl.BotMove = Vector2.zero;
+                Debug.Log("[PB] RESULT idleshots 6 (no rod)");
+                Application.Quit(); yield break;
+            }
             yield return Three("ready");
             yield return CastOnce(0.6f); while (fish.State != Fishing.St.Waiting) yield return null;
             yield return new WaitForSeconds(1.0f);

@@ -67,7 +67,7 @@ namespace PortBoss.M1
             markerT = Hud.MakeMarker(); markerR = markerT.GetComponent<Renderer>(); markerT.gameObject.SetActive(false);
             creak = gameObject.AddComponent<AudioSource>(); creak.clip = Synth.Creak; creak.loop = true; creak.volume = 0; creak.Play();
             reelSnd = gameObject.AddComponent<AudioSource>(); reelSnd.clip = Synth.Reel; reelSnd.loop = true; reelSnd.volume = 0; reelSnd.Play();
-            butt = RestButt; PlaceRod(0, true);
+            butt = RestButt * me.Size; PlaceRod(0, true);
         }
 
         void Go(St s) { State = s; StateT = 0; OnLog?.Invoke("state " + s); }
@@ -511,7 +511,7 @@ namespace PortBoss.M1
             }
         }
 
-        Vector3 HoldPoint() => transform.TransformPoint(new Vector3(0, 1.32f, 0.45f));
+        Vector3 HoldPoint() => transform.TransformPoint(new Vector3(0, 1.32f, 0.45f) * me.Size);
 
         void Reveal()
         {
@@ -594,6 +594,9 @@ namespace PortBoss.M1
                 case St.Reveal: onBack = true; break;
                 case St.Recover: tElev = 70; tension = 0.1f; break;
             }
+            // the poses were made on the 1.78 m worker: a smaller body holds the rod lower and closer, but no narrower (a
+            // wide hat and belly: Pip's hands went through her brim on the wind-up)
+            tButt = new Vector3(tButt.x, tButt.y * me.Size, tButt.z * me.Size);
             if (rod.Root.parent != me.Model) rod.Root.SetParent(me.Model, false);
             if (onBack != wasBack || snap)
             {
@@ -613,7 +616,7 @@ namespace PortBoss.M1
                 rod.Tension = 0;
                 if (swapT < 0.55f && State != St.Reveal && !me.Swimming) GripRod(); // the hands carry it over the shoulder, then let go
                 else if (me.Anim.Grip == rod.Root) me.Anim.Grip = null;
-                elev = 35; elevV = 0; butt = RestButt; castClock = -1; return;
+                elev = 35; elevV = 0; butt = RestButt * me.Size; castClock = -1; return;
             }
             if (snap) { elev = tElev; butt = tButt; }
             // the rod follows its targets on a spring (lags the hands a little, sways with the boat)

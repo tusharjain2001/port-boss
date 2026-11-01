@@ -51,6 +51,7 @@ namespace PortBoss.EditorTools
             a.Idle = skin.Idle; a.Walk = skin.Walk; a.Run = skin.Run; a.Sprint = skin.Sprint; a.Jump = skin.Jump; a.Land = skin.Land;
             a.SwimIdle = skin.SwimIdle; a.Swim = skin.Swim; a.Climb = skin.Climb; a.Drive = skin.Drive;
             M1Anim.Make(a.Worker, a.Idle, a);
+            a.Pip = Character(Root + "/Art/PB_Char_Pip.fbx", -25);
             Debug.Log($"[M1Build] clips idle={a.Idle?.name} walk={a.Walk?.name} run={a.Run?.name} swim={a.Swim?.name} tread={a.SwimIdle?.name} climb={a.Climb?.name}");
 
             AudioClip Au(string n) => AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Resources/Audio/" + n);
@@ -88,6 +89,32 @@ namespace PortBoss.EditorTools
                 mi.isReadable = true; // collider meshes are read at runtime
                 mi.SaveAndReimport();
             }
+            return AssetDatabase.LoadAssetAtPath<GameObject>(path);
+        }
+
+        // A character from the kit (art-src/kit/build_kit.py): a Humanoid on X Bot's joints, so the Mixamo clips play on it.
+        // armDown: the lowest the upper arms go (the muscle "Arm Down-Up" range, default -60): a round body keeps every
+        // clip's arms out from the belly instead of through it (the joints stay Mixamo-shaped, editor-kit §2b).
+        static GameObject Character(string path, float armDown = -60)
+        {
+            if (AssetImporter.GetAtPath(path) is not ModelImporter mi) { Debug.LogWarning("[M1Build] missing " + path); return null; }
+            if (mi.animationType != ModelImporterAnimationType.Human || mi.materialImportMode != ModelImporterMaterialImportMode.None || mi.importAnimation)
+            {
+                mi.animationType = ModelImporterAnimationType.Human; mi.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
+                mi.materialImportMode = ModelImporterMaterialImportMode.None; mi.importAnimation = false; mi.importCameras = false; mi.importLights = false;
+                mi.importBlendShapes = false; mi.SaveAndReimport();
+            }
+            var hd = mi.humanDescription; var hb = hd.human; bool changed = false;
+            for (int i = 0; i < hb.Length; i++)
+            {
+                if (hb[i].humanName != "LeftUpperArm" && hb[i].humanName != "RightUpperArm") continue;
+                var want = new HumanLimit { useDefaultValues = false, min = new Vector3(-90, -100, armDown), max = new Vector3(90, 100, 100), center = Vector3.zero };
+                if (!hb[i].limit.useDefaultValues && hb[i].limit.min == want.min) continue;
+                hb[i].limit = want; changed = true;
+            }
+            if (changed) { hd.human = hb; mi.humanDescription = hd; mi.SaveAndReimport(); }
+            var avatar = AssetDatabase.LoadAssetAtPath<Avatar>(path);
+            Debug.Log($"[M1Build] {Path.GetFileName(path)}: avatar valid={avatar != null && avatar.isValid} human={avatar != null && avatar.isHuman}");
             return AssetDatabase.LoadAssetAtPath<GameObject>(path);
         }
 

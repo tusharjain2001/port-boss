@@ -23,6 +23,7 @@ namespace PortBoss.M1
         public bool Busy;                 // fishing owns the body (fight, reveal): no walking
         public float FaceYaw = float.NaN; // fishing faces the aim
         public Vector3 Vel;               // own walking velocity (not the boat's)
+        public float Size = 1;            // body height / the 1.78 m worker the rod and hold poses were made on
         public const float SwimDepth = 1.3f;
 
         Vector3 localOnBoat; float localYaw;
@@ -42,20 +43,33 @@ namespace PortBoss.M1
             p.Cc.height = 1.75f; p.Cc.radius = 0.3f; p.Cc.center = new Vector3(0, 0.875f, 0); p.Cc.stepOffset = 0.42f; p.Cc.slopeLimit = 50; p.Cc.skinWidth = 0.03f;
             p.Cc.minMoveDistance = 0; // the default 1 mm drops every step at high frame rates (uncapped test runs: the swimmer barely moved)
             p.Model = new GameObject("model").transform; p.Model.SetParent(g.transform, false);
-            // Our own dock worker (Assets/Art/Worker, Blender + Mixamo rig) in the toon shader with his palette texture.
             PortBoss.Art.Lit = new Material(a.Toon);
             PortBoss.Art.Lit.SetFloat("_PaintNoise", 0.12f);
-            var w = PortBoss.Worker.Make(a.Worker, p.Model);
-            w.Apply(new PortBoss.Look
+            GameObject body;
+            if (a.Pip != null)
             {
-                Set = 1, Face = 0, Hair = 3, Beard = 2, Hat = 2, Top = 2, Gloves = 0,
-                SkinTone = 2, HairColor = 2, TopColor = 1, AccentColor = 4, LegsColor = 4, BootsColor = 7, GloveColor = 4, HatColor = 2,
-            });
-            foreach (var c in w.GetComponentsInChildren<Collider>()) Destroy(c);
-            var rs = w.GetComponentsInChildren<Renderer>(); var bb = rs[0].bounds; foreach (var r in rs) bb.Encapsulate(r.bounds);
-            if (bb.size.y > 0.5f) w.transform.localScale = Vector3.one * Mathf.Clamp(1.78f / bb.size.y, 0.8f, 1.25f);
+                // Pip, the character kit's first body (art-src/kit): vertex-coloured like the boat, in the toon shader
+                body = Instantiate(a.Pip, p.Model, false); body.name = "pip";
+                body.transform.localRotation = Quaternion.Euler(0, 180, 0); // exported facing -Z, like the worker
+                foreach (var r in body.GetComponentsInChildren<SkinnedMeshRenderer>(true)) { r.sharedMaterial = PortBoss.Art.Lit; r.updateWhenOffscreen = true; }
+                p.Size = 1.47f / 1.78f;                                     // Pip is 1.47 m (base 1.75 x her 0.84)
+            }
+            else
+            {
+                // the placeholder dock worker (Assets/Art/Worker) with his palette texture
+                var w = PortBoss.Worker.Make(a.Worker, p.Model);
+                w.Apply(new PortBoss.Look
+                {
+                    Set = 1, Face = 0, Hair = 3, Beard = 2, Hat = 2, Top = 2, Gloves = 0,
+                    SkinTone = 2, HairColor = 2, TopColor = 1, AccentColor = 4, LegsColor = 4, BootsColor = 7, GloveColor = 4, HatColor = 2,
+                });
+                var rs = w.GetComponentsInChildren<Renderer>(); var bb = rs[0].bounds; foreach (var r in rs) bb.Encapsulate(r.bounds);
+                if (bb.size.y > 0.5f) w.transform.localScale = Vector3.one * Mathf.Clamp(1.78f / bb.size.y, 0.8f, 1.25f);
+                body = w.gameObject;
+            }
+            foreach (var c in body.GetComponentsInChildren<Collider>()) Destroy(c);
             p.Bar.Selected = 1; // empty hands at the start: "1" draws the rod (F1)
-            var anim = w.GetComponentInChildren<Animator>();
+            var anim = body.GetComponentInChildren<Animator>();
             var skin = ScriptableObject.CreateInstance<PortBoss.Skin>();
             skin.Idle = a.Idle; skin.Walk = a.Walk; skin.Run = a.Run; skin.Sprint = a.Sprint; skin.Jump = a.Jump; skin.Land = a.Land;
             skin.SwimIdle = a.SwimIdle; skin.Swim = a.Swim; skin.Climb = a.Climb; skin.Drive = a.Drive ?? a.Idle; skin.Push = a.Idle;
