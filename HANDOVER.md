@@ -416,6 +416,25 @@ Proven headless:
 
 **M1 closed (2026-11-01):** Tushar showed M1b (with his play-test fixes on `main` at `479c285`: smooth cast camera, E = straight up a ladder, Rare 25%, F7 every fish heavy) to Manan, who said to move forward. Next: §7 Step 2, the character kit, Pip first (branch `pip-kit`).
 
+**Pip v1 (Tushar's PC, 2026-11-01), waiting for Manan's verdict on looks:**
+- Built by `art-src/kit/build_kit.py` (Blender 5.2, headless): `blender -b -P art-src/kit/build_kit.py -- [X Bot.fbx] [norender]`.
+  It reads `Assets/ThirdParty/Mixamo/X Bot.fbx` (pass another path if yours is elsewhere), scales X Bot's joints so the Head
+  joint is at 82% of her 1.47 m (base 1.75 m x Pip's 0.84) and asserts the editor-kit §2b joint table. Output:
+  `Assets/Game/Art/PB_Char_Pip.fbx` (committed) + renders in `art-src/kit/out/` (gitignored).
+- One mesh, one material, colour from vertex colours like the boat (no palette texture yet), 8,670 tris. Egg body, big head
+  with flat toon face decals (eyes, brows, nose, grin, cheeks), sou'wester, two hair puffs, striped top, yellow overalls
+  with straps, buckles and pocket, orange mitts (thumb + index bones only), navy boots. Player colour (slot 0 orange) on
+  the left armband and a back patch.
+- In the game: `M1Build.Character()` imports her as a Humanoid with the upper-arm Down-Up limit at -25 (default -60),
+  so every clip keeps her arms out of her belly. `Angler` uses her when `M1Assets.Pip` is set (else the old worker) with
+  `Size` 0.83: the rod hold poses scale down in height and depth, not width.
+- Proof (Tushar's PC, `Logs/pb/m1/pip/`): `compare.png` (concept / model / in game), `tour2/tour.mp4` (walk, cast, wait,
+  catch, tiller). fish60, swim, cast8, boat, scroll all PASS with her, 0 exceptions. New test switch: `-pb-idleshots <dir>
+  -pb-norod` (empty-handed standing + walking close-ups).
+- Known: on the cast wind-up her raised mitt touches the hat brim for a moment; the yellow still reads bright through
+  the toon shader; one face only (no expression shape keys); no other bodies, no Look v2 / editor yet; the feel spec
+  (Step 2 item 2) not started.
+
 **Known issues / not yet proven (from M1):**
 - **The worker model is a placeholder** (the old code-generated worker in a fisherman outfit). The real cast comes with the
   character kit (§7 step 2).
@@ -449,6 +468,7 @@ Differences now:
 - **The Toon Harbor pack is optional for M1** (the new game doesn't use it). You need it only to build the old game or for
   Voss Harbour later. Manan sends the `.unitypackage` privately. It goes to `Assets/ThirdParty/ToonHarbor` (gitignored).
 - **The Mixamo clips are needed for M1's animations, and they aren't in git** (`Assets/ThirdParty/` is gitignored).
+| Character kit: Pip (Blender CLI, headless) | `"/c/Program Files/Blender Foundation/Blender 5.2/blender.exe" -b -P art-src/kit/build_kit.py -- [path/to/X Bot.fbx] [norender]` → `Assets/Game/Art/PB_Char_Pip.fbx`, then the M1 build picks her up |
   1. Tushar (a person, with any free Adobe account) downloads them per `docs/plan/mixamo-list.md`. The settings are FBX for
      Unity, Without Skin, 30 fps, In Place where listed.
   2. Also download the **X Bot** character **With Skin** in its T-pose. The build uses the one FBX without "@" in its name
@@ -512,7 +532,7 @@ M1 is done when the systems §5.2 M1 checklist and his "15 minutes, do you want 
      - camera ~7.5 m / 30° / FOV 55 / 0.15 s damping;
      - ragdoll-lite + get-up;
      - jump and throw clips with real anticipation.
-  3. Manan judges Pip on looks in M1.
+  3. Manan judges Pip on looks in M1. **(Pip v1 is in, see §4; waiting for his verdict.)**
   4. Then the other 5. The clothes-only wardrobe comes later (M5).
 - **Risk:** modelling quality. The old worker was generated from code and read lumpy. Judge every pass against the concept
   sheets, but flatter, low-poly toon, not Pixar.
