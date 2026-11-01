@@ -414,6 +414,8 @@ Proven headless:
 - Still open: Manan hasn't played M1b. FLAG for Manan: Rare was only ~15% for a practised player (fish income ~46% below the economy model) and a fought heavy fish snapped ~73%. **Tushar 1 Nov: Rare raised to 25% by slowing the pointer to 0.59× (green stays 1/8), so a fought heavy fish now snaps ~60% (67 of 100 in a forced-heavy run). F7 in game makes every fish heavy, to try it.** Tiller sits chest-high (lower it in the Blender boat; swing limited to ±12°); the rod on his back rises ~0.7 m over his head; fingers don't wrap the grip; arms are IK, less lively than mocap; worker model is still a placeholder.
 <!-- /M1B-RESULT -->
 
+**M1 closed (2026-11-01):** Tushar showed M1b (with his play-test fixes on `main` at `479c285`: smooth cast camera, E = straight up a ladder, Rare 25%, F7 every fish heavy) to Manan, who said to move forward. Next: §7 Step 2, the character kit, Pip first (branch `pip-kit`).
+
 **Known issues / not yet proven (from M1):**
 - **The worker model is a placeholder** (the old code-generated worker in a fisherman outfit). The real cast comes with the
   character kit (§7 step 2).
