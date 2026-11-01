@@ -411,7 +411,7 @@ Proven headless:
 - Build: `Desktop/Port Boss/builds/20261101-0521-M1b/PortBoss.exe` (Manan's PC; HOW-TO-TEST.md beside it). Proof: `Desktop/Port Boss/proof/M1b/` (66 s capture, frame sheets, test logs).
 - Commit: M1b code `8b5cfa0`, merged to `main` together with this handover.
 - Passed: animation-clean pass (keyed cast/wait/strike/fight/reel/hold-up/tiller clips, no rod Z-kinks, line is a sag curve); faces the cast direction (worst error 178° → 0° in 8 directions, `-pb-cast8`); seated, LEFT hand on the tiller; painted rod icon; minigame = one stop, green 1/8 width, bar only, Basic/Rare with Rare = ×2; heavy fish Fight it / Let it go, one retry, 2nd miss snaps, normal fish never snap; mouse-wheel hotbar (`-pb-scrolltest` 16/16); Ponyo sky + sea (the white "foam blobs" were the sun's specular, gone); fishtest 500×8 bite timer 4.0–9.96 s, 40 casts at 1× on screen PASS; pack check 0.
-- Still open: Manan hasn't played M1b. FLAG for Manan: Rare is only ~15% for a practised player, so average fish income is ~46% below the economy model, and a fought heavy fish snaps ~73%. Tiller sits chest-high (lower it in the Blender boat; swing limited to ±12°); the rod on his back rises ~0.7 m over his head; fingers don't wrap the grip; arms are IK, less lively than mocap; worker model is still a placeholder.
+- Still open: Manan hasn't played M1b. FLAG for Manan: Rare was only ~15% for a practised player (fish income ~46% below the economy model) and a fought heavy fish snapped ~73%. **Tushar 1 Nov: Rare raised to 25% by slowing the pointer to 0.59× (green stays 1/8), so a fought heavy fish now snaps ~60% (67 of 100 in a forced-heavy run). F7 in game makes every fish heavy, to try it.** Tiller sits chest-high (lower it in the Blender boat; swing limited to ±12°); the rod on his back rises ~0.7 m over his head; fingers don't wrap the grip; arms are IK, less lively than mocap; worker model is still a placeholder.
 <!-- /M1B-RESULT -->
 
 **Known issues / not yet proven (from M1):**
@@ -475,7 +475,7 @@ Differences now:
 - Logs go to `Logs/pb/m1/<name>/log.txt`, and every run prints its exception count: it must be 0.
 - Paths (Unity exe, project, logs) are in `tools/env.sh`; override them from the environment.
 - M1 composites its UI into batchmode screenshots (a two-pass black/white capture), so the HUD shows in `-pb-shots`; look at every PNG yourself.
-- In-game debug keys: F3 overlay (bite timer, window ms, stop errors), F5 rod tier, F6 bait.
+- In-game debug keys: F3 overlay (bite timer, window ms, stop errors), F5 rod tier, F6 bait, F7 every fish heavy (on/off).
 - The old game's scripts (`ubuild.sh`, `reg2.sh`, `regress.sh`, `release.sh`, `morning.sh`, `capture.sh`) are in
   `tools/README.md`.
 - **Release for Manan:**

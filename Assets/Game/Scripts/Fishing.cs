@@ -35,6 +35,9 @@ namespace PortBoss.M1
         public int Stop, Hits, Misses; public readonly int[] Result = new int[2]; // per try: 0 pending, 1 hit, -1 miss (try 2 = heavy retry)
         public readonly float[] ErrMs = new float[2];
         public const float ZoneScale = 1f / 8f; // Manan 1 Nov: the green is 1/8 of the old width (FishDb.Green × rod)
+        // Tushar 1 Nov: Rare 25% for a practised player (70 ms timing spread) on the starter rod, was 15%. The green stays
+        // 1/8 (rule 29), so the pointer moves slower: 0.59 × the gdd speeds (a pass takes ~1.9 s instead of ~1.1 s).
+        public const float SpeedScale = 0.59f;
         public float ZoneC, ZoneW, PtrSpeed; double sweepT0, freezeUntil; public float PointerShown; public bool Frozen;
         public bool HeavyFight; public bool Snapped;
         public bool IsNew, IsBest; public int TargetSlot;
@@ -137,6 +140,8 @@ namespace PortBoss.M1
         {
             if (Ctl.Key_(UnityEngine.InputSystem.Key.F5) && !Locked) SetRod(RodTier % 5 + 1);
             if (Ctl.Key_(UnityEngine.InputSystem.Key.F6) && !Locked) { BaitI = (BaitI + 1) % FishDb.Baits.Length; Alerts.Push("Debug", "Bait: " + FishDb.Baits[BaitI].Name, Alerts.Kind.Info); }
+            // F7: every hook is a heavy fish (to try Fight it / Let it go without hunting a big conger)
+            if (Ctl.Key_(UnityEngine.InputSystem.Key.F7) && !Locked) { Bot.ForceHeavy = !Bot.ForceHeavy; Alerts.Push("Debug", Bot.ForceHeavy ? "Every fish is HEAVY (F7 to stop)" : "Heavy fish: normal again", Alerts.Kind.Info); }
         }
 
         // ---------------- cast ----------------
@@ -360,7 +365,7 @@ namespace PortBoss.M1
         {
             int c = (int)Hooked.Class;
             ZoneW = Mathf.Min(0.6f, FishDb.Green[c] * Rod.GreenMul * ZoneScale);
-            PtrSpeed = FishDb.Speed[c] * Rod.SpeedMul * (first ? 1.00f : 1.08f);
+            PtrSpeed = FishDb.Speed[c] * Rod.SpeedMul * SpeedScale * (first ? 1.00f : 1.08f);
             // the stop: the green in the middle (Manan); a heavy fish's retry: 50% ± 8–18% on a random side
             ZoneC = first ? 0.5f : 0.5f + (Rng.Next(2) == 0 ? -1 : 1) * (0.08f + 0.10f * (float)Rng.NextDouble());
             ZoneC = Mathf.Clamp(ZoneC, ZoneW / 2 + 0.02f, 1 - ZoneW / 2 - 0.02f);

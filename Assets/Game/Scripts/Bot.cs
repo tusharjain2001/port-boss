@@ -205,7 +205,7 @@ namespace PortBoss.M1
         {
             // Everyday on this rod (the starter's three fish are all Everyday): ONE stop, a hit when |error| <= half the
             // window (window = zone / speed, rod-scaled, zone 1/8 of the old width) -> Rare, else Basic
-            float zone = FishDb.Green[0] * fish.Rod.GreenMul * Fishing.ZoneScale, sp = FishDb.Speed[0] * fish.Rod.SpeedMul;
+            float zone = FishDb.Green[0] * fish.Rod.GreenMul * Fishing.ZoneScale, sp = FishDb.Speed[0] * fish.Rod.SpeedMul * Fishing.SpeedScale;
             float p = Erf(zone / 2 / sp / (sigma * Mathf.Sqrt(2)));
             return new[] { 1 - p, p };
         }
