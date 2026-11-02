@@ -299,6 +299,9 @@ namespace PortBoss.M1
         public void Moor() { Moored = true; Anchored = false; moorBlend = 0; Notch = 0; Speed = 0; Alerts.Push("Biscuit", "Moored at Walt's Landing.", Alerts.Kind.Info); }
         static Vector3 Flat(Vector3 v) => new Vector3(v.x, 0, v.z);
 
+        // M3: a boat left loose for the night anchors itself where it is (systems §1.4.2)
+        public void AnchorNow() { if (Moored || Anchored) return; AnchorT = -1; Anchored = true; anchorAt = pos; Notch = 0; Speed = 0; Steer = 0; }
+
         public void ToggleAnchor() { if (AnchorT < 0 && !Moored) { AnchorT = 0; Snd.Play(Synth.Ratchet, AnchorPt != null ? AnchorPt.position : transform.position, 0.6f); } }
 
         // Is this world point inside the hull's footprint (for the fishing line and the cast marker)?

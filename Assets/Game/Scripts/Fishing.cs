@@ -348,6 +348,11 @@ namespace PortBoss.M1
             }
         }
 
+        // M3: the night is skipped with a line out: it reels in by itself, bait kept (systems §1.1.5). A fight already on
+        // finishes first (the skip waits for it).
+        public void Abort() { if (State == St.Charging) Go(St.Ready); else if (State is St.Flight or St.Settle or St.Waiting or St.Bite or St.Strike) { LastOutcome = "reeled"; OnLog?.Invoke("reeled in for the night"); Recover(); } }
+        public bool Fighting => State is St.Strike or St.Heavy or St.Minigame or St.Reel;
+
         void Recover(float len = 0.6f) { recoverLen = len; Go(St.Recover); bob.Dip = 0; line.Arc = false; }
 
         // Tangled with a crewmate's line (the host saw them cross, fishing §4.2): the rod jerks, a boing, "Tangled!", and it
@@ -401,7 +406,7 @@ namespace PortBoss.M1
         // ---------------- the fight ----------------
         void BeginFight()
         {
-            var f = new Fish { Species = Hooked, CaughtAt = Time.time };
+            var f = new Fish { Species = Hooked, CaughtAt = (float)Sky.Minutes };
             if (RolledByHost) { f.Cm = rolledCm; f.Kg = rolledKg; f.Id = rolledFish; } else FishDb.RollSize(Rng, Hooked, out f.Cm, out f.Kg);
             Catch = f; stopTimes.Clear(); fightT0 = Time.timeAsDouble;
             Hits = Misses = 0; Stop = 0; Snapped = false; HeavyFight = false;

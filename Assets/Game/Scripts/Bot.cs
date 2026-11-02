@@ -11,7 +11,7 @@ namespace PortBoss.M1
     //   -pb-shots <dir>       the bot fishes and saves screenshots at each step (cast, bobber, bite, minigame, catch, hotbar)
     //   -pb-boattest          drive, turn, anchor: logs roll/pitch and the anchor's hold
     //   -pb-timescale x, -pb-quit s, -pb-rod n, -pb-bait id, -pb-fightheavy, -pb-film <dir> <secs> (30 fps frames)
-    public class Bot : MonoBehaviour
+    public partial class Bot : MonoBehaviour
     {
         static string Arg(string n) { var a = System.Environment.GetCommandLineArgs(); for (int i = 0; i < a.Length; i++) if (a[i] == n) return i + 1 < a.Length ? a[i + 1] : ""; return null; }
         static float ArgF(string n, float d) { var s = Arg(n); return s != null && float.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var f) ? f : d; }
@@ -53,6 +53,7 @@ namespace PortBoss.M1
             else if (Arg("-pb-cooptest") != null) yield return CoopTest(Arg("-pb-cooptest"), (int)ArgF("-pb-coopn", 1));
             else if (Arg("-pb-tosstest") != null) yield return TossTest();
             else if (Arg("-pb-menutest") != null) yield return MenuTest(Arg("-pb-menutest"));
+            else if (DayTests() is IEnumerator m3) yield return m3; // M3 (BotDay.cs)
         }
 
         // -pb-menutest host|join [-pb-menuaddr <address>] [-pb-menushots <dir>] (tools/menutest.sh, M2 step 6): plays the
@@ -912,6 +913,7 @@ namespace PortBoss.M1
             Save(path);
         }
 
+        public static double LastBright;
         public static void Save(string path, int w = 1920, int h = 1080)
         {
             if (!Application.isBatchMode || CameraRig.I == null) { ScreenCapture.CaptureScreenshot(path); return; }
@@ -933,7 +935,8 @@ namespace PortBoss.M1
             }
             tex.SetPixels32(a); tex.Apply();
             File.WriteAllBytes(path, path.EndsWith(".jpg") ? tex.EncodeToJPG(90) : tex.EncodeToPNG()); Destroy(tex); Destroy(ub); Destroy(uw);
-            if (!path.EndsWith(".jpg")) Debug.Log($"[PB] shot {path} (scene brightness {sum / (3.0 * a.Length):F0})");
+            LastBright = sum / (3.0 * a.Length);
+            if (!path.EndsWith(".jpg")) Debug.Log($"[PB] shot {path} (scene brightness {LastBright:F0})");
         }
 
         static Texture2D Grab(Camera c, int w, int h, bool alpha)

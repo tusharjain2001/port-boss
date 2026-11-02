@@ -23,6 +23,7 @@ namespace PortBoss.M1
         public bool Swimming { get; private set; }
         public bool AtHelm => helm;
         public bool Busy;                 // fishing owns the body (fight, reveal): no walking
+        public float Lie, LieH;           // M3: 0..1 lying down on a bed, the bed's height
         public float FaceYaw = float.NaN; // fishing faces the aim
         public Vector3 Vel;               // own walking velocity (not the boat's)
         public float Size = 1;            // body height / the 1.78 m worker the rod and hold poses were made on
@@ -313,7 +314,7 @@ namespace PortBoss.M1
 
             // walking
             var cam = CameraRig.I;
-            var input = Busy ? Vector2.zero : Ctl.Move;
+            var input = Busy || Sleep.Frozen ? Vector2.zero : Ctl.Move;
             var fwd = cam != null ? Quaternion.Euler(0, cam.Yaw, 0) : transform.rotation;
             var wish = fwd * new Vector3(input.x, 0, input.y);
             float load = Load;
@@ -324,7 +325,7 @@ namespace PortBoss.M1
             float run = Mathf.Lerp(4.2f, 5.8f, Mathf.SmoothStep(0, 1, SprintW)) * (1 - 0.08f * load);
             float max = Swimming ? (Ctl.Sprint ? 2.2f : 1.4f) : Ctl.Walk ? 1.4f : OnBoat ? 2.6f : run;
             if (Fish.Holding && !Swimming) max = Mathf.Min(max, OnBoat ? 2.2f : 3.6f); // careful with a rod out
-            var target = wish * max;
+            var target = wish * max * Sleep.WalkMul; // (M3: -10% from 01:30, tired)
             bool grounded = Cc.isGrounded;
             // A hard reverse at speed (> 120°, over 60% of a run): a 0.15 s skid, feet planted, leaning back, then the turn.
             if (skidT <= 0 && grounded && !Swimming && Vel.magnitude > 0.6f * 4.2f && wish.sqrMagnitude > 0.25f && Vector3.Angle(wish, Vel) > 120f)
@@ -530,6 +531,7 @@ namespace PortBoss.M1
                 Prompt = "Take the tiller"; if (Ctl.Interact) { BeginHelm(s); Fish.Stow(); } return;
             }
             if (OnBoat && s.AnchorPt != null && Near(s.AnchorPt.position, 1.4f) && !s.Moored) { Prompt = s.AnchorT >= 0 ? "…" : s.Anchored ? "Raise the anchor" : "Drop the anchor"; if (Ctl.Interact) { if (s.Remote) Coop.Request(Coop.Ask.Anchor); else s.ToggleAnchor(); } return; }
+            var bed = Sleep.BedPrompt(this); if (bed != null) { Prompt = bed; return; } // M3: Walt's cot
             var pick = FishPickup.Nearest(transform.position, 1.6f);
             if (pick != null) { Prompt = Bar.Full ? "Hotbar full" : "Pick up " + pick.F.Species.Name; if (Ctl.Interact && !Bar.Full) pick.Take(this); return; }
         }
@@ -799,6 +801,7 @@ namespace PortBoss.M1
             Spring(ref sq, ref sqV, crouchT >= 0 ? -0.08f : 0, 300f, 0.45f, dt); sq = Mathf.Clamp(sq, -0.12f, 0.1f);
             Model.localRotation = Quaternion.Euler(Mathf.Clamp(leanP, -15f, 12f), 0, -Mathf.Clamp(leanR, -10f, 10f));
             Model.localScale = new Vector3(1 - sq * 0.5f, 1 + sq, 1 - sq * 0.5f);
+            if (Lie > 0) { Model.localRotation = Quaternion.Euler(-86f * Lie, 0, 0); Model.localPosition += new Vector3(0, LieH * Lie, 0); } // M3: lying on a bed (Sleep.cs)
             Anim.Ladder = null; Anim.WaterY = float.NaN;
             if (helm) { Anim.Act = M1Assets.I.Helm; Anim.ActTime = -1; }
             else if (sit > 0.02f && Anim.Act == M1Assets.I.Helm) Anim.Act = null;

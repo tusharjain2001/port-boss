@@ -492,6 +492,7 @@ namespace PortBoss.M1
             dbg.enabled = ShowDebug;
             if (!ShowDebug) return;
             var f = fish; var sb = new System.Text.StringBuilder();
+            sb.AppendLine(Sky.DebugLine());
             sb.AppendLine($"F3 debug · {f.State} {f.StateT:F2}s · fps {1f / Mathf.Max(1e-4f, Time.smoothDeltaTime):0}");
             sb.AppendLine($"rod {f.RodTier} {f.Rod.Name} · bites {f.Rod.BiteLo:0}–{f.Rod.BiteHi:0} s · green ×{f.Rod.GreenMul:0.00} · speed ×{f.Rod.SpeedMul:0.00} (F5)");
             sb.AppendLine($"bait {FishDb.Baits[f.BaitI].Name} ×{f.BaitCount[f.BaitI]} (F6)");

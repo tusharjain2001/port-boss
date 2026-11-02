@@ -285,7 +285,7 @@ namespace PortBoss.M1
             {
                 if (Book.Bar(e.Id).FishCount >= below) continue;
                 var sp = FishDb.All[Fishing.Rng.Next(Mathf.Min(3, FishDb.All.Count))]; int g = Fishing.Rng.Next(2);
-                for (int i = 0; i < n; i++) { var f = Book.Make(e.Id, sp, g, 30, 0.4f, Now); if (!Book.Keep(e.Id, f.Id)) Book.Free(e.Id, f.Id); }
+                for (int i = 0; i < n; i++) { var f = Book.Make(e.Id, sp, g, 30, 0.4f, (float)Sky.Minutes); if (!Book.Keep(e.Id, f.Id)) Book.Free(e.Id, f.Id); }
                 SendBar(e.Id);
             }
         }

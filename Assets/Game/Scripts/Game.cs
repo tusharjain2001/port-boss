@@ -42,6 +42,7 @@ namespace PortBoss.M1
             var land = Landing.Create(a.Landing, ToonMat);
             Islands();
             Skiff.Create(a.Boat, ToonMat, land.Moor);
+            Sky.Create(); // M3: the world clock, the 6 lighting states, the weather
             var spawn = land.Spawn != null ? land.Spawn : land.transform;
             var p = Angler.Create(a, spawn.position + Vector3.up * 0.05f, Skiff.I != null ? Quaternion.LookRotation(Skiff.I.transform.position - spawn.position).eulerAngles.y : 0);
             var rig = CameraRig.Create(p.transform);
@@ -57,6 +58,7 @@ namespace PortBoss.M1
                 UiTarget = new RenderTexture(1920, 1080, 24, RenderTextureFormat.ARGB32) { name = "batchUi" }; ui.targetTexture = UiTarget;
             }
             Hud.Create(rig.UiCam, p);
+            Sleep.Create(); // M3: Walt's cot, tired, the night skip
             BakeIcons(a);
 
             sea = gameObject.AddComponent<AudioSource>(); sea.clip = a.Waves; sea.loop = true; sea.volume = 0.32f; sea.spatialBlend = 0; sea.Play();

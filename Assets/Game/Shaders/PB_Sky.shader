@@ -61,6 +61,17 @@ Shader "PortBoss/M1/Sky"
                 float el = asin(clamp(d.y, -1, 1));
                 float az = atan2(d.z, d.x);
 
+                // stars at night (M3): a sparse hashed field, twinkling, fading to the horizon; the clouds below cover them
+                if (_LDStars > 0.001 && d.y > 0.02)
+                {
+                    float2 g = d.xz / (d.y + 0.35) * 70;
+                    float2 c = floor(g);
+                    float h = LDHash(c);
+                    float2 f = frac(g) - 0.5 - (float2(LDHash(c + 3.1), LDHash(c + 7.7)) - 0.5) * 0.6;
+                    float s = step(0.955, h) * smoothstep(0.11, 0.0, length(f)) * (0.55 + 0.45 * sin(_LDTime * 1.7 + h * 60));
+                    col += float3(0.9, 0.93, 1.0) * s * _LDStars * smoothstep(0.02, 0.35, d.y) * (0.6 + 0.8 * frac(h * 37));
+                }
+
                 // overhead: thin fair-weather cloud, sun side lit, blue-violet shade
                 if (d.y > 0.0)
                 {

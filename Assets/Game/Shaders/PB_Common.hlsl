@@ -6,6 +6,8 @@ float  _LDTime;
 float4 _LDSkyTop, _LDSkyHorizon, _LDSkyBottom, _LDSunSky, _LDSkyMid; // rgb; _LDSunSky.a = sun disc size
 float4 _LDSunDir;                                          // xyz towards the sun, w = glow power
 float4 _LDAmbSky, _LDAmbEq, _LDAmbGround;                  // trilight ambient
+float4 _LDShadeTint;                                       // the painted shade of the hour (M3, Sky.cs); a = 0: the material's own
+float  _LDStars;                                           // 0..1 at night (Sky.cs)
 
 float LDHash(float2 p) { p = frac(p * float2(123.34, 456.21)); p += dot(p, p + 45.32); return frac(p.x * p.y); }
 

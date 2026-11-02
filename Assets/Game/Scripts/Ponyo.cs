@@ -22,6 +22,7 @@ namespace PortBoss.M1
 
         public static Light Sun;
         public static Material SkyMat, Outline;
+        public static Bloom Bloom; public static ColorAdjustments Grade; public static WhiteBalance Balance; public static Vignette Vig; // (Sky.cs moves them through the day)
 
         public static void Apply(M1Assets a)
         {
@@ -60,10 +61,10 @@ namespace PortBoss.M1
             var vol = vg.AddComponent<Volume>(); vol.isGlobal = true;
             var p = ScriptableObject.CreateInstance<VolumeProfile>();
             p.Add<Tonemapping>(true).mode.Override(TonemappingMode.Neutral);
-            var ca = p.Add<ColorAdjustments>(true); ca.postExposure.Override(0.1f); ca.contrast.Override(0); ca.saturation.Override(14);
-            var wb = p.Add<WhiteBalance>(true); wb.temperature.Override(6);
-            var bl = p.Add<Bloom>(true); bl.intensity.Override(0.5f); bl.threshold.Override(1.15f); bl.scatter.Override(0.8f); bl.tint.Override(Hex("FFE6C4")); bl.highQualityFiltering.Override(true);
-            var vi = p.Add<Vignette>(true); vi.intensity.Override(0.16f); vi.smoothness.Override(0.45f);
+            var ca = Grade = p.Add<ColorAdjustments>(true); ca.postExposure.Override(0.1f); ca.contrast.Override(0); ca.saturation.Override(14);
+            var wb = Balance = p.Add<WhiteBalance>(true); wb.temperature.Override(6);
+            var bl = Bloom = p.Add<Bloom>(true); bl.intensity.Override(0.5f); bl.threshold.Override(1.15f); bl.scatter.Override(0.8f); bl.tint.Override(Hex("FFE6C4")); bl.highQualityFiltering.Override(true);
+            var vi = Vig = p.Add<Vignette>(true); vi.intensity.Override(0.16f); vi.smoothness.Override(0.45f);
             var fg = p.Add<FilmGrain>(true); fg.type.Override(FilmGrainLookup.Medium1); fg.intensity.Override(0.12f);
             vol.sharedProfile = p;
         }

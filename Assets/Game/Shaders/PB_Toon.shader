@@ -133,7 +133,7 @@ Shader "PortBoss/M1/Toon"
 
                 float3 amb = LDAmbient(n) * _AmbientMul * aoI;
                 float3 col = alb * (amb + L.color * lit);
-                col *= lerp(_ShadowTint.rgb, 1, saturate(lit * 2)); // colour-shifted shade, never plain grey
+                col *= lerp(_LDShadeTint.a > 0 ? _LDShadeTint.rgb : _ShadowTint.rgb, 1, saturate(lit * 2)); // colour-shifted shade (the hour's, M3), never plain grey
 
                 float rim = pow(1 - saturate(dot(n, v)), _RimPower);
                 col += _RimColor.rgb * _RimColor.a * rim * lerp(0.35, 1, lit);

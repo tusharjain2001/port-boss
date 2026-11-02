@@ -81,7 +81,7 @@ namespace PortBoss.M1
             Reg(m, "pb.ask", OnAsk); Reg(m, "pb.clock", OnClock);
             Reg(m, "pb.roll", OnRoll); Reg(m, "pb.rolled", OnRolled);
             Reg(m, "pb.landed", OnLanded); Reg(m, "pb.tangle", OnTangle);
-            RegisterItems(m); Reg(m, "pb.voice", OnVoice); Reg(m, "pb.place", OnPlace);
+            RegisterItems(m); Reg(m, "pb.voice", OnVoice); Reg(m, "pb.place", OnPlace); RegisterDay(m); RegisterSleep(m);
             StartVoice();
             if (host)
             {
@@ -286,7 +286,7 @@ namespace PortBoss.M1
                 clockT = 1; float t = Now;
                 foreach (var id in nm.ConnectedClientsIds) if (id != nm.LocalClientId) SendTo(id, "pb.clock", w => w.WriteValueSafe(t), NetworkDelivery.Unreliable);
             }
-            if (nm.IsServer) { Tangles(Time.deltaTime); TickAir(); }
+            if (nm.IsServer) { Tangles(Time.deltaTime); TickAir(); TickDay(); }
             TickVoice();
             sendT -= Time.unscaledDeltaTime;
             if (sendT > 0) return;
@@ -364,7 +364,7 @@ namespace PortBoss.M1
         {
             var sp = FishDb.Roll(Fishing.Rng, rod, bait); FishDb.RollSize(Fishing.Rng, sp, out var cm, out var kg);
             Book.FreeHands(who); // the last cast's fish never came up
-            var f = Book.Make(who, sp, 0, cm, kg, Now); // in the book from the cast: in their hands once it's landed
+            var f = Book.Make(who, sp, 0, cm, kg, (float)Sky.Minutes); // in the book from the cast: in their hands once it's landed
             return rolls[who] = (id, sp, cm, kg, f.Id);
         }
 

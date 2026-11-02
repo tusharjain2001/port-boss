@@ -6,7 +6,8 @@ namespace PortBoss.M1
     // id the host gave it (Ledger): the same fish on every machine.
     public class Fish
     {
-        public ulong Id; public FishSpecies Species; public int Grade; public float Cm, Kg, CaughtAt;
+        public ulong Id; public FishSpecies Species; public int Grade; public float Cm, Kg, CaughtAt; // CaughtAt: the world clock (in-game minutes, M3)
+        public int Fresh => Rot.Stage(Sky.Minutes - CaughtAt);   // 0 Fresh .. 4 Rotten (fishing §5.6)
         public float Value => Species.Price * Ponyo.GradeMul[Grade];
     }
 
