@@ -23,12 +23,13 @@ namespace PortBoss.M1
         {
             var ts = Arg("-pb-timescale"); if (ts != null) Time.timeScale = ArgF("-pb-timescale", 1);
             var q = Arg("-pb-quit"); if (q != null) StartCoroutine(QuitAfter(ArgF("-pb-quit", 60)));
+            if (Arg("-pb-fps") != null) Time.captureFramerate = (int)ArgF("-pb-fps", 60); // -pb-fps n: game time steps 1/n s a frame, like a real PC (batch mode otherwise runs ~1000 fps)
             yield return null; yield return null;
             me = Angler.I; fish = me.Fish;
             var rod = Arg("-pb-rod"); if (rod != null) fish.SetRod((int)ArgF("-pb-rod", 1));
             var bait = Arg("-pb-bait"); if (bait != null) fish.BaitI = Mathf.Max(0, System.Array.FindIndex(FishDb.Baits, b => b.Id == bait));
             Fishing.Bot.FightHeavy = Arg("-pb-fightheavy") != null; Fishing.Bot.LetGo = Arg("-pb-letgo") != null; // -pb-letgo: every catch thrown back
-            Fishing.Bot.OldFacing = Arg("-pb-oldfacing") != null; Fishing.Bot.ForceHeavy = Arg("-pb-forceheavy") != null; // test: every hook is heavy
+            Fishing.Bot.OldFacing = Arg("-pb-oldfacing") != null; Fishing.Bot.NoGaze = Arg("-pb-nogaze") != null; Fishing.Bot.ForceHeavy = Arg("-pb-forceheavy") != null; // test: every hook is heavy
             sigma = ArgF("-pb-sigma", 70) / 1000f;
             fish.OnLog += s => Debug.Log("[PB] fish " + s);
             var icons = Arg("-pb-icons"); // the painted rod icon, as a file (proof)
@@ -1538,16 +1539,18 @@ namespace PortBoss.M1
         // Biscuit, rod in hand, then one fish played out. Logs where the face points (degrees below level, from the head's
         // bind pose: CharAnim.FaceDown) in each rod pose, the mean and the lowest of its sway, and saves a profile and a
         // 3/4 close-up of each. PASS = rod idle and waiting look 0-5° down on average and never dip past 8°.
+        // Run it with -pb-fps 60: at batch mode's ~1000 fps the standing-still deck hold never lands (a 2 mm step down a
+        // frame), so the jump tuck blends in and bends her over; -pb-gazenoshots measures without the screenshot frames.
         IEnumerator GazeShots()
         {
             yield return new WaitForSeconds(0.5f);
             yield return SailOut(false); Ctl.Bot = true;
             var names = M1Assets.I.CrewNames ?? new string[0]; bool ok = names.Length > 0;
-            var keep = me.transform.position; float keepYaw = me.transform.eulerAngles.y;
+            var sk = Skiff.I.transform; var keep = sk.InverseTransformPoint(me.transform.position); float keepYaw = me.transform.eulerAngles.y - sk.eulerAngles.y; // boat-relative: she swings on the anchor
             for (int i = 0; i < names.Length; i++)
             {
                 me.Select(1); yield return new WaitForSeconds(0.4f); // rod away before the body swap (as F9 does)
-                me.Teleport(keep, keepYaw); me.Wear(i, me.Colour); yield return null; me.Select(0);
+                me.Teleport(sk.TransformPoint(keep), sk.eulerAngles.y + keepYaw); me.Wear(i, me.Colour); yield return null; me.Select(0);
                 yield return new WaitForSeconds(1.5f);
                 var seen = new Dictionary<Fishing.St, (float sum, int n, float lo, float hi)>(); var shot = new HashSet<Fishing.St>();
                 IEnumerator Close(string what)
@@ -1563,17 +1566,22 @@ namespace PortBoss.M1
                     }
                     ct.SetPositionAndRotation(k.position, k.rotation);
                 }
-                bool sampling = true;
+                bool sampling = true, dipShot = false; int spikes = 0, landing = 0; var airS = new Dictionary<Fishing.St, (float sum, float max)>(); bool noShots = Arg("-pb-gazenoshots") != null;
                 IEnumerator Sample()
                 {
                     while (sampling)
                     {
                         var st = fish.State; float d = me.Anim.FaceDown;
+                        float air = me.Anim.AirW; // the jump tuck / landing crouch blended in (a long frame drops her off the rolling deck)
+                        if (!float.IsNaN(d) && fish.StateT > 0.4f) { var aw = airS.TryGetValue(st, out var av0) ? av0 : default; airS[st] = (aw.sum + air, Mathf.Max(aw.max, air)); if (air > 0.03f) landing++; }
                         if (!float.IsNaN(d) && fish.StateT > 0.4f)
                         {
                             var s = seen.TryGetValue(st, out var v) ? v : (sum: 0f, n: 0, lo: 99f, hi: -99f);
                             seen[st] = (s.sum + d, s.n + 1, Mathf.Min(s.lo, d), Mathf.Max(s.hi, d));
-                            if (fish.StateT > 0.8f && shot.Add(st) && st is Fishing.St.Ready or Fishing.St.Waiting or Fishing.St.Minigame or Fishing.St.Reel or Fishing.St.Reveal)
+                            if (d > 10f && st is Fishing.St.Ready or Fishing.St.Waiting && spikes++ < 12)
+                                Debug.Log($"[PB] gaze dip {names[i]} {st} t {fish.StateT:F2}: face {d:F1}° (before the aim {me.Anim.GazeRaw:F1}°, aim {me.Anim.GazeWant:F1}°), dt {Time.deltaTime * 1000:F0} ms, lean {me.Model.localEulerAngles}, clip {me.Anim.Act?.name}, frame {Time.frameCount}");
+                            if (d > 20f && !dipShot && !noShots) { dipShot = true; Debug.Log($"[PB] gaze big dip {names[i]} {st} t {fish.StateT:F2}: {d:F1}° (before the aim {me.Anim.GazeRaw:F1}°), clip {me.Anim.Act?.name}"); yield return Close("dip-" + st.ToString().ToLowerInvariant()); }
+                            if (!noShots && fish.StateT > 0.8f && shot.Add(st) && st is Fishing.St.Ready or Fishing.St.Waiting or Fishing.St.Minigame or Fishing.St.Reel or Fishing.St.Reveal)
                                 yield return Close(st.ToString().ToLowerInvariant());
                         }
                         yield return null;
@@ -1590,8 +1598,10 @@ namespace PortBoss.M1
                     float mean = s.sum / s.n; bool calm = st is Fishing.St.Ready or Fishing.St.Waiting;
                     bool good = !calm || (mean >= -1f && mean <= 5f && s.hi <= 8f);
                     ok &= good;
-                    Debug.Log($"[PB] gaze {names[i]} {st}: face {mean:F1}° down on average, {s.lo:F1}..{s.hi:F1}° (lowest dip {s.hi:F1}°){(calm ? good ? " ok" : " FAIL" : "")}");
+                    var ai = airS.TryGetValue(st, out var av) ? av : default;
+                    Debug.Log($"[PB] gaze {names[i]} {st}: face {mean:F1}° down on average, {s.lo:F1}..{s.hi:F1}° (lowest dip {s.hi:F1}°){(calm ? good ? " ok" : " FAIL" : "")}; jump/land blend mean {ai.sum / s.n:F3} max {ai.max:F2}");
                 }
+                Debug.Log($"[PB] gaze {names[i]}: {landing} frames with the jump tuck / landing blended in over 3%");
                 ok &= seen.ContainsKey(Fishing.St.Ready) && seen.ContainsKey(Fishing.St.Waiting);
                 while (fish.State != Fishing.St.Ready) yield return null;
             }

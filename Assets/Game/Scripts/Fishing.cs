@@ -901,7 +901,7 @@ namespace PortBoss.M1
                 _ => float.NaN,
             };
             // and the eyes with it (Manan 3 Nov: chin up): the horizon with the rod at rest, the aim, the bobber, the fish
-            me.Anim.LookAt = me.AtHelm || me.Swimming ? new Vector3(float.NaN, 0, 0) : State switch
+            me.Anim.LookAt = me.AtHelm || me.Swimming || Bot.NoGaze ? new Vector3(float.NaN, 0, 0) : State switch
             {
                 St.Drawing or St.Ready or St.Recover => transform.position + transform.forward * 40f,
                 St.Charging or St.Flight => Marker,
@@ -1090,6 +1090,6 @@ namespace PortBoss.M1
         }
 
         // The test bot's knobs (Bot.cs sets them).
-        public static class Bot { public static bool FightHeavy, OldFacing, ForceHeavy, LetGo; }
+        public static class Bot { public static bool FightHeavy, OldFacing, ForceHeavy, LetGo, NoGaze; } // NoGaze: -pb-nogaze, the eyes not aimed (the before, for -pb-gazeshots)
     }
 }

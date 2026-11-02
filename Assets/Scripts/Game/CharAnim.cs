@@ -103,27 +103,21 @@ namespace PortBoss
             legRU = B(HumanBodyBones.RightUpperLeg); legRL = B(HumanBodyBones.RightLowerLeg); legRF = B(HumanBodyBones.RightFoot);
             fingerL = B(HumanBodyBones.LeftMiddleProximal); fingerR = B(HumanBodyBones.RightMiddleProximal);
             if (armLU != null) shoulderY = armLU.position.y - a.transform.position.y; // in the bind pose, standing
-            neck = B(HumanBodyBones.Neck); faceLocal = FaceAxis(a, head);
+            neck = B(HumanBodyBones.Neck); faceLocal = FaceAxis();
         }
 
-        // Which way the face points, in the head bone's own space: from the skin's bind pose (modelled upright, looking
-        // ahead), ahead = where the toes point. Works on any body, whatever its bone axes; zero if it can't tell.
-        static Vector3 FaceAxis(Animator a, Transform head)
+        // Which way the face points, in the head bone's own space, read off the rest pose the body is built in (Init runs
+        // before any clip: upright, arms out, looking ahead): up = hips to head, ahead = across the shoulders x up. Works
+        // on any body, whatever its bone axes (the toes were no good: on Pip they point down); zero if it can't tell.
+        Vector3 FaceAxis()
         {
-            Transform toeL = a.GetBoneTransform(HumanBodyBones.LeftToes), footL = a.GetBoneTransform(HumanBodyBones.LeftFoot), hips = a.GetBoneTransform(HumanBodyBones.Hips);
-            foreach (var smr in a.GetComponentsInChildren<SkinnedMeshRenderer>(true))
-            {
-                var bones = smr.bones; var bind = smr.sharedMesh != null ? smr.sharedMesh.bindposes : null;
-                int ih = System.Array.IndexOf(bones, head), it = System.Array.IndexOf(bones, toeL), iff = System.Array.IndexOf(bones, footL), ip = System.Array.IndexOf(bones, hips);
-                if (bind == null || ih < 0 || it < 0 || iff < 0 || ip < 0 || Mathf.Max(ih, it, iff, ip) >= bind.Length) continue;
-                Matrix4x4 H = bind[ih].inverse; Vector3 P(int i) => bind[i].inverse.GetColumn(3);
-                var up = (P(ih) - P(ip)).normalized; var fwd = Vector3.ProjectOnPlane(P(it) - P(iff), up).normalized;
-                if (fwd.sqrMagnitude < 0.5f) continue;
-                return Quaternion.Inverse(H.rotation) * fwd;
-            }
-            return Vector3.zero;
+            if (head == null || hips == null || armLU == null || armRU == null) return Vector3.zero;
+            var up = (head.position - hips.position).normalized;
+            var fwd = Vector3.Cross(Vector3.ProjectOnPlane(armRU.position - armLU.position, up), up);
+            return fwd.sqrMagnitude < 1e-4f ? Vector3.zero : Quaternion.Inverse(head.rotation) * fwd.normalized;
         }
         Transform neck; Vector3 faceLocal, lastLook; float lookW;
+        [System.NonSerialized] public float GazeRaw, GazeWant; // the last frame: where the face pointed before the aim, and the aim (tests)
         public float FaceDown => head != null && faceLocal != Vector3.zero ? Mathf.Asin(Mathf.Clamp((head.rotation * faceLocal).normalized.y, -1, 1)) * -Mathf.Rad2Deg : float.NaN; // degrees below level (tests)
 
         void Gaze(float ease)
@@ -134,7 +128,8 @@ namespace PortBoss
             if (lookW < 0.01f || head == null || faceLocal == Vector3.zero) return;
             var d = lastLook - head.position; float flat = new Vector2(d.x, d.z).magnitude;
             float want = Mathf.Clamp(Mathf.Atan2(-d.y, Mathf.Max(flat, 0.3f)) * Mathf.Rad2Deg * 0.5f, -8f, 22f); // degrees down
-            float turn = Mathf.Clamp(want - FaceDown, -35f, 35f) * lookW;
+            GazeRaw = FaceDown; GazeWant = want;
+            float turn = Mathf.Clamp(want - GazeRaw, -35f, 35f) * lookW;
             var face = head.rotation * faceLocal; face.y = 0;
             if (face.sqrMagnitude < 1e-4f) return;
             var axis = Vector3.Cross(Vector3.up, face.normalized); // + turns the face down
@@ -152,6 +147,7 @@ namespace PortBoss
         bool measuredGaits;
         float phase, speedS, airT, landT = -1;
         public float Phase => phase; // the shared stride: 0 = left heel strike, ~0.5 = right (footsteps)
+        public float AirW => w != null ? w[(int)Slot.Jump] + w[(int)Slot.Land] : 0; // how much of the jump tuck / landing crouch is blended in (tests)
         Slot last;
 
         public void Tick(Slot want, float speed)
