@@ -29,10 +29,10 @@ namespace PortBoss.M1
 
         void RegisterItems(CustomMessagingManager m)
         {
-            m.RegisterNamedMessageHandler("pb.inv", OnInv); m.RegisterNamedMessageHandler("pb.bar", OnBar);
-            m.RegisterNamedMessageHandler("pb.deck", OnDeck); m.RegisterNamedMessageHandler("pb.toss", OnToss);
-            m.RegisterNamedMessageHandler("pb.land", OnLand); m.RegisterNamedMessageHandler("pb.gave", OnGave);
-            m.RegisterNamedMessageHandler("pb.note", OnNote); m.RegisterNamedMessageHandler("pb.audit", OnAudit);
+            Reg(m, "pb.inv", OnInv); Reg(m, "pb.bar", OnBar);
+            Reg(m, "pb.deck", OnDeck); Reg(m, "pb.toss", OnToss);
+            Reg(m, "pb.land", OnLand); Reg(m, "pb.gave", OnGave);
+            Reg(m, "pb.note", OnNote); Reg(m, "pb.audit", OnAudit);
         }
 
         static void WriteFish(ref FastBufferWriter w, Fish f)

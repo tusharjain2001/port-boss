@@ -77,8 +77,9 @@ namespace PortBoss.M1
             if (l.GetData(LobbyKey) != LobbyVal) { l.Leave(); Status = "That isn't a Port Boss crew (or another version)."; return; }
             Lobby = l; var owner = l.Owner.Id;
             Debug.Log($"[PB] coop: joined the lobby of {l.Owner.Name} ({l.MemberCount} in it)");
-            // the same Steam account on this PC (testing two copies): Steam can't connect to itself, so locally
-            if (owner == SteamClient.SteamId) { JoinLan("127.0.0.1"); return; }
+            // my own crew (the same Steam account twice on one PC): Steam can't connect to itself, and a Steam crew has no
+            // LAN side, so say how to test on one PC instead
+            if (owner == SteamClient.SteamId) { l.Leave(); Lobby = null; Status = "That's your own crew (the same Steam account). On one PC, use Host / Join on this network."; return; }
             Make(MyName).plan = new Plan { Steam = true, SteamHost = owner };
             Title.Close();
         }

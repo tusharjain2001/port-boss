@@ -763,6 +763,8 @@ M1 is done when the systems §5.2 M1 checklist and his "15 minutes, do you want 
    **(Done 3 Nov, see §4; Steam itself needs the two-account test, step 7.)**
 
 7. Two real Steam accounts on two PCs for 30 minutes, the 150 ms + 2% test, the release and Manan's checklist ★.
+   **(3 Nov: Tushar and Manan run this themselves: `docs/M2-HOW-TO-TEST.md` has the steps and the checklist. Steps 1-6
+   merged to `main` so Manan can play.)**
 
 The plan as written:
 - Steam lobby (2–4) + LAN; boat-relative player sync; driver-owned boats;

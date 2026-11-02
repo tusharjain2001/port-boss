@@ -76,12 +76,12 @@ namespace PortBoss.M1
             Log($"{(host ? "hosting" : "joining")} {where}: {(ok ? "ok" : "FAILED")}{(simDelay > 0 ? $" (lag sim {simDelay * 2000:0} ms rtt, {simLoss * 100:0}% loss)" : "")}");
             if (!ok) { Status = host ? "Couldn't host (is another copy already hosting here?)." : "Couldn't connect."; Destroy(gameObject); I = null; return; }
             var m = nm.CustomMessagingManager;
-            m.RegisterNamedMessageHandler("pb.hello", OnHello); m.RegisterNamedMessageHandler("pb.roster", OnRoster);
-            m.RegisterNamedMessageHandler("pb.pose", OnPose); m.RegisterNamedMessageHandler("pb.boat", OnBoat);
-            m.RegisterNamedMessageHandler("pb.ask", OnAsk); m.RegisterNamedMessageHandler("pb.clock", OnClock);
-            m.RegisterNamedMessageHandler("pb.roll", OnRoll); m.RegisterNamedMessageHandler("pb.rolled", OnRolled);
-            m.RegisterNamedMessageHandler("pb.landed", OnLanded); m.RegisterNamedMessageHandler("pb.tangle", OnTangle);
-            RegisterItems(m); m.RegisterNamedMessageHandler("pb.voice", OnVoice); m.RegisterNamedMessageHandler("pb.place", OnPlace);
+            Reg(m, "pb.hello", OnHello); Reg(m, "pb.roster", OnRoster);
+            Reg(m, "pb.pose", OnPose); Reg(m, "pb.boat", OnBoat);
+            Reg(m, "pb.ask", OnAsk); Reg(m, "pb.clock", OnClock);
+            Reg(m, "pb.roll", OnRoll); Reg(m, "pb.rolled", OnRolled);
+            Reg(m, "pb.landed", OnLanded); Reg(m, "pb.tangle", OnTangle);
+            RegisterItems(m); Reg(m, "pb.voice", OnVoice); Reg(m, "pb.place", OnPlace);
             StartVoice();
             if (host)
             {
@@ -448,8 +448,13 @@ namespace PortBoss.M1
         void SendTo(ulong id, string msg, Action<FastBufferWriter> fill, NetworkDelivery d)
         {
             var w = new FastBufferWriter(256, Allocator.Temp, 4096);
-            try { fill(w); nm.CustomMessagingManager.SendNamedMessage(msg, id, w, d); } finally { w.Dispose(); }
+            try { fill(w); BytesOut += w.Length; nm.CustomMessagingManager.SendNamedMessage(msg, id, w, d); } finally { w.Dispose(); }
         }
+
+        // bytes this machine has sent and received in our messages (the soak test's bandwidth; NGO's own headers aside)
+        public static long BytesOut, BytesIn;
+        static void Reg(CustomMessagingManager m, string name, CustomMessagingManager.HandleNamedMessageDelegate h)
+            => m.RegisterNamedMessageHandler(name, (from, r) => { BytesIn += r.Length; h(from, r); });
 
         // what arrives is applied now, or after the simulated lag (and an unreliable message may be lost)
         void Deliver(Action a, bool reliable)
