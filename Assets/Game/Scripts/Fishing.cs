@@ -900,6 +900,18 @@ namespace PortBoss.M1
                 St.Toss => YawTo(tossTo),
                 _ => float.NaN,
             };
+            // and the eyes with it (Manan 3 Nov: chin up): the horizon with the rod at rest, the aim, the bobber, the fish
+            me.Anim.LookAt = me.AtHelm || me.Swimming ? new Vector3(float.NaN, 0, 0) : State switch
+            {
+                St.Drawing or St.Ready or St.Recover => transform.position + transform.forward * 40f,
+                St.Charging or St.Flight => Marker,
+                St.Settle or St.Waiting or St.Bite or St.Strike => bob.Pos,
+                St.Heavy or St.Minigame => fishUnder,
+                St.Reel => fishGo != null ? fishGo.transform.position : fishUnder,
+                St.Reveal => fishGo != null ? fishGo.transform.position : transform.position + transform.forward * 40f,
+                St.Toss => tossTo,
+                _ => new Vector3(float.NaN, 0, 0),
+            };
             if (Bot.OldFacing) // the M1 rule, kept only so -pb-cast8 can show the before (camera yaw, then the last bobber spot)
                 me.FaceYaw = State == St.Charging ? CameraRig.I.Yaw : State is St.Flight or St.Settle or St.Waiting or St.Bite or St.Strike ? YawTo(bob.Pos) : me.FaceYaw;
             // hands on the fish for the hold-up

@@ -49,6 +49,7 @@ namespace PortBoss.M1
             else if (Arg("-pb-knocktest") != null) yield return KnockTest(Arg("-pb-knocktest"));
             else if (Arg("-pb-crewshots") != null) { shots = Arg("-pb-crewshots"); Directory.CreateDirectory(shots); yield return CrewShots(); }
             else if (Arg("-pb-waitcam") != null) { shots = Arg("-pb-waitcam"); Directory.CreateDirectory(shots); yield return WaitCam(); }
+            else if (Arg("-pb-gazeshots") != null) { shots = Arg("-pb-gazeshots"); Directory.CreateDirectory(shots); yield return GazeShots(); }
             else if (Arg("-pb-fadetest") != null) { shots = Arg("-pb-fadetest"); Directory.CreateDirectory(shots); yield return FadeTest(); }
             else if (Arg("-pb-cooptest") != null) yield return CoopTest(Arg("-pb-cooptest"), (int)ArgF("-pb-coopn", 1));
             else if (Arg("-pb-tosstest") != null) yield return TossTest();
@@ -1530,6 +1531,71 @@ namespace PortBoss.M1
             yield return Shot("waitcam-high");
             ok &= y1 > y0 + 1f && fish.State == Fishing.St.Waiting;
             Debug.Log($"[PB] RESULT waitcam: {(ok ? "PASS" : "FAIL")}");
+            Application.Quit();
+        }
+
+        // -pb-gazeshots <dir> (Manan 3 Nov: "looks a little too much down while holding a fishing rod"): every body on
+        // Biscuit, rod in hand, then one fish played out. Logs where the face points (degrees below level, from the head's
+        // bind pose: CharAnim.FaceDown) in each rod pose, the mean and the lowest of its sway, and saves a profile and a
+        // 3/4 close-up of each. PASS = rod idle and waiting look 0-5° down on average and never dip past 8°.
+        IEnumerator GazeShots()
+        {
+            yield return new WaitForSeconds(0.5f);
+            yield return SailOut(false); Ctl.Bot = true;
+            var names = M1Assets.I.CrewNames ?? new string[0]; bool ok = names.Length > 0;
+            var keep = me.transform.position; float keepYaw = me.transform.eulerAngles.y;
+            for (int i = 0; i < names.Length; i++)
+            {
+                me.Select(1); yield return new WaitForSeconds(0.4f); // rod away before the body swap (as F9 does)
+                me.Teleport(keep, keepYaw); me.Wear(i, me.Colour); yield return null; me.Select(0);
+                yield return new WaitForSeconds(1.5f);
+                var seen = new Dictionary<Fishing.St, (float sum, int n, float lo, float hi)>(); var shot = new HashSet<Fishing.St>();
+                IEnumerator Close(string what)
+                {
+                    yield return new WaitForEndOfFrame();
+                    var ct = CameraRig.I.Cam.transform; var a = me.transform; var k = (ct.position, ct.rotation);
+                    float h = me.Size * 1.78f; var hd = me.Head.position;
+                    foreach (var (tag, off) in new[] { ("side", a.right * 0.75f + a.forward * 0.1f), ("34", a.forward * 0.6f - a.right * 0.45f) })
+                    {
+                        ct.position = hd + off * h + Vector3.up * 0.05f * h;
+                        ct.rotation = Quaternion.LookRotation(hd - Vector3.up * 0.12f * h + a.forward * 0.15f * h - ct.position);
+                        Save(Path.Combine(shots, $"gaze-{i}-{names[i]}-{what}-{tag}.png"));
+                    }
+                    ct.SetPositionAndRotation(k.position, k.rotation);
+                }
+                bool sampling = true;
+                IEnumerator Sample()
+                {
+                    while (sampling)
+                    {
+                        var st = fish.State; float d = me.Anim.FaceDown;
+                        if (!float.IsNaN(d) && fish.StateT > 0.4f)
+                        {
+                            var s = seen.TryGetValue(st, out var v) ? v : (sum: 0f, n: 0, lo: 99f, hi: -99f);
+                            seen[st] = (s.sum + d, s.n + 1, Mathf.Min(s.lo, d), Mathf.Max(s.hi, d));
+                            if (fish.StateT > 0.8f && shot.Add(st) && st is Fishing.St.Ready or Fishing.St.Waiting or Fishing.St.Minigame or Fishing.St.Reel or Fishing.St.Reveal)
+                                yield return Close(st.ToString().ToLowerInvariant());
+                        }
+                        yield return null;
+                    }
+                }
+                var sampler = StartCoroutine(Sample());
+                yield return new WaitForSeconds(4f); // a rod-idle sway
+                yield return CastOnce(0.6f);
+                yield return PlayFish(r => { });
+                yield return new WaitForSeconds(0.5f);
+                sampling = false; StopCoroutine(sampler);
+                foreach (var (st, s) in seen)
+                {
+                    float mean = s.sum / s.n; bool calm = st is Fishing.St.Ready or Fishing.St.Waiting;
+                    bool good = !calm || (mean >= -1f && mean <= 5f && s.hi <= 8f);
+                    ok &= good;
+                    Debug.Log($"[PB] gaze {names[i]} {st}: face {mean:F1}° down on average, {s.lo:F1}..{s.hi:F1}° (lowest dip {s.hi:F1}°){(calm ? good ? " ok" : " FAIL" : "")}");
+                }
+                ok &= seen.ContainsKey(Fishing.St.Ready) && seen.ContainsKey(Fishing.St.Waiting);
+                while (fish.State != Fishing.St.Ready) yield return null;
+            }
+            Debug.Log($"[PB] RESULT gazeshots {names.Length} bodies: {(ok ? "PASS" : "FAIL")}");
             Application.Quit();
         }
 

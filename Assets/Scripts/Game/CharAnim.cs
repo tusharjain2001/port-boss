@@ -41,6 +41,11 @@ namespace PortBoss
         public World.Ladder? Ladder;  // on this ladder: hands and feet on the rungs, from how high the player is
         public float LadderW;
         public float WaterY = float.NaN; // treading water at this surface height: arms down in the water, sculling
+        // Eyes on this point (x NaN = off): the neck and head tilt so the face looks at it, PITCH only (the clip keeps its
+        // glances side to side, and its sway never dips the head), the head taking half the angle (the eyes do the rest:
+        // ~5° down to a bobber 10 m out, ~1° to the horizon), at most 22° down (a fish held up) and 8° up.
+        // Manan 3 Nov: holding the rod he stared down at the deck.
+        public Vector3 LookAt = new(float.NaN, 0, 0);
         // An action clip (M1 fishing: rod idle, cast, fight, reel, hold-up) that stands in for Idle: the gaits still
         // blend over it by speed. ActTime >= 0 drives its time from outside (the cast follows the charge); < 0 plays
         // it at its own speed. Switching clips crossfades like every other weight here (~0.2 s).
@@ -98,6 +103,43 @@ namespace PortBoss
             legRU = B(HumanBodyBones.RightUpperLeg); legRL = B(HumanBodyBones.RightLowerLeg); legRF = B(HumanBodyBones.RightFoot);
             fingerL = B(HumanBodyBones.LeftMiddleProximal); fingerR = B(HumanBodyBones.RightMiddleProximal);
             if (armLU != null) shoulderY = armLU.position.y - a.transform.position.y; // in the bind pose, standing
+            neck = B(HumanBodyBones.Neck); faceLocal = FaceAxis(a, head);
+        }
+
+        // Which way the face points, in the head bone's own space: from the skin's bind pose (modelled upright, looking
+        // ahead), ahead = where the toes point. Works on any body, whatever its bone axes; zero if it can't tell.
+        static Vector3 FaceAxis(Animator a, Transform head)
+        {
+            Transform toeL = a.GetBoneTransform(HumanBodyBones.LeftToes), footL = a.GetBoneTransform(HumanBodyBones.LeftFoot), hips = a.GetBoneTransform(HumanBodyBones.Hips);
+            foreach (var smr in a.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            {
+                var bones = smr.bones; var bind = smr.sharedMesh != null ? smr.sharedMesh.bindposes : null;
+                int ih = System.Array.IndexOf(bones, head), it = System.Array.IndexOf(bones, toeL), iff = System.Array.IndexOf(bones, footL), ip = System.Array.IndexOf(bones, hips);
+                if (bind == null || ih < 0 || it < 0 || iff < 0 || ip < 0 || Mathf.Max(ih, it, iff, ip) >= bind.Length) continue;
+                Matrix4x4 H = bind[ih].inverse; Vector3 P(int i) => bind[i].inverse.GetColumn(3);
+                var up = (P(ih) - P(ip)).normalized; var fwd = Vector3.ProjectOnPlane(P(it) - P(iff), up).normalized;
+                if (fwd.sqrMagnitude < 0.5f) continue;
+                return Quaternion.Inverse(H.rotation) * fwd;
+            }
+            return Vector3.zero;
+        }
+        Transform neck; Vector3 faceLocal, lastLook; float lookW;
+        public float FaceDown => head != null && faceLocal != Vector3.zero ? Mathf.Asin(Mathf.Clamp((head.rotation * faceLocal).normalized.y, -1, 1)) * -Mathf.Rad2Deg : float.NaN; // degrees below level (tests)
+
+        void Gaze(float ease)
+        {
+            bool on = !float.IsNaN(LookAt.x);
+            if (on) lastLook = LookAt;
+            lookW = Mathf.Lerp(lookW, on ? 1f : 0f, ease * 0.5f);
+            if (lookW < 0.01f || head == null || faceLocal == Vector3.zero) return;
+            var d = lastLook - head.position; float flat = new Vector2(d.x, d.z).magnitude;
+            float want = Mathf.Clamp(Mathf.Atan2(-d.y, Mathf.Max(flat, 0.3f)) * Mathf.Rad2Deg * 0.5f, -8f, 22f); // degrees down
+            float turn = Mathf.Clamp(want - FaceDown, -35f, 35f) * lookW;
+            var face = head.rotation * faceLocal; face.y = 0;
+            if (face.sqrMagnitude < 1e-4f) return;
+            var axis = Vector3.Cross(Vector3.up, face.normalized); // + turns the face down
+            if (neck != null) neck.rotation = Quaternion.AngleAxis(turn * 0.4f, axis) * neck.rotation;
+            head.rotation = Quaternion.AngleAxis(neck != null ? turn * 0.6f : turn, axis) * head.rotation;
         }
 
         // ---------- locomotion ----------
@@ -386,6 +428,7 @@ namespace PortBoss
                 Aim(armLU, armLL, -t.up * 0.7f + t.forward * 0.4f - t.right * 0.3f, Laugh);
                 Aim(armLL, armLH, t.right * 0.8f + t.forward * 0.3f, Laugh);
             }
+            Gaze(ease);
         }
 
         float ArmLen => Dist(armLU, armLL) + Dist(armLL, armLH);

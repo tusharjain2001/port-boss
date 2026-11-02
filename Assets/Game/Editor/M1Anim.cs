@@ -36,10 +36,11 @@ namespace PortBoss.EditorTools
         }
         static float S(float t, float period, float phase = 0) => Mathf.Sin((t / period + phase) * 2 * Mathf.PI);
 
-        // The stance every rod clip shares: knees soft, a little forward over the rod, eyes on the water ahead.
-        static readonly P Stance = Pz(hy: -0.025f, pitch: 4, headPitch: 8);
+        // The stance every rod clip shares: knees soft, a little forward over the rod, chin level (the game aims the eyes:
+        // CharAnim.LookAt; Manan 3 Nov: the head was keyed 8° down on top of the lean and he stared at the deck).
+        static readonly P Stance = Pz(hy: -0.025f, pitch: 4);
         // Braced against a fish: sat back on the heels, knees bent, chest back.
-        static readonly P Brace = Pz(hy: -0.07f, hz: -0.05f, pitch: -9, headPitch: 6);
+        static readonly P Brace = Pz(hy: -0.07f, hz: -0.05f, pitch: -9);
 
         const float HelmDrop = 0.5f, HelmBack = 0.26f;
         const float CastApex = Fishing.CastApex, CastWhip = Fishing.CastWhip, CastLen = Fishing.CastLen; // the rod follows these beats in Fishing

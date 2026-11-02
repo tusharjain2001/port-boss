@@ -7,7 +7,7 @@ namespace PortBoss.M1
     // by sudden changes of speed and swings back on a damped spring, so the head nods into a stop and the hat wobbles on a
     // landing. It answers acceleration only (steady running or a boat under way leaves it upright), and stays within a
     // few degrees of the animated pose.
-    [DefaultExecutionOrder(50)] // after CharAnim's IK, before the ragdoll's blend
+    [DefaultExecutionOrder(1050)] // after CharAnim's IK and gaze (1000), so the nod rides on top of where the eyes look
     public class Jiggle : MonoBehaviour
     {
         class B
