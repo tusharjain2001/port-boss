@@ -312,7 +312,12 @@ namespace PortBoss.M1
                 slotIcon[i].texture = Icons.TryGetValue(f.Species.Id, out var tex) ? tex : null; slotIcon[i].enabled = slotIcon[i].texture != null; slotIcon[i].rectTransform.sizeDelta = new Vector2(74, 37);
                 slotCount[i].text = s.Fish.Count.ToString();
                 slotGrade[i].enabled = true; slotGrade[i].sprite = UiKit.GradeShape(f.Grade); slotGrade[i].color = Ponyo.GradeCol[f.Grade];
-                slotFresh[i].enabled = true; // ponytail: rot arrives in M3; full freshness until then
+                // freshness (fishing §5.6): the stack shows its oldest fish; the bar shrinks over the 48 h and turns
+                // green -> yellow-green -> sunflower -> peach -> brown by stage
+                float oldest = f.CaughtAt; foreach (var x in s.Fish) oldest = Mathf.Min(oldest, x.CaughtAt);
+                double age = Sky.Minutes - oldest; int st = Rot.Stage(age);
+                slotFresh[i].enabled = true; slotFresh[i].color = FreshCol[st];
+                slotFresh[i].rectTransform.sizeDelta = new Vector2(Mathf.Max(4, 40 * (1 - (float)(age / Rot.Full))), 4);
             }
             // the name of the selected item, 2.5 s after a switch (always while it's the rod and nothing else is going on)
             var sl = b.Sel;
@@ -320,12 +325,14 @@ namespace PortBoss.M1
             bool show = nameShow > 0 && (fish.State is not (Fishing.St.Minigame or Fishing.St.Reveal or Fishing.St.Heavy));
             namePill.gameObject.SetActive(show && !sl.Empty);
             if (sl.Rod) { nameT.text = fish.Rod.Name; nameSub.text = $"{BaitText()} · line {fish.Rod.LineKg:0} kg"; }
-            else if (sl.Fish.Count > 0) { var f = sl.Fish[0]; nameT.text = f.Species.Name; nameSub.text = $"{Ponyo.GradeName[f.Grade]} · {sl.Fish.Count} of 5 · about ${Mathf.RoundToInt(f.Value * 0.6f)} each"; }
+            else if (sl.Fish.Count > 0) { var f = sl.Fish[0]; float old = f.CaughtAt; foreach (var x in sl.Fish) old = Mathf.Min(old, x.CaughtAt); nameT.text = f.Species.Name; nameSub.text = $"{Ponyo.GradeName[f.Grade]} · {Rot.Names[Rot.Stage(Sky.Minutes - old)]} · {sl.Fish.Count} of 5 · about ${Mathf.RoundToInt(f.Value * 0.6f)} each"; }
             namePill.sizeDelta = new Vector2(Mathf.Max(460, nameT.preferredWidth + nameSub.preferredWidth + 70), 50);
             baitTag.text = sl.Rod && !me.AtHelm ? (fish.BaitCount[fish.BaitI] > 0 ? BaitText() : "<color=#E2553F>No bait: sprats only</color>") : "";
             baitChip.gameObject.SetActive(baitTag.text != "");
             baitChip.sizeDelta = new Vector2(baitTag.preferredWidth + 52, 38);
         }
+
+        static readonly Color[] FreshCol = { Ponyo.Leaf, Ponyo.Hex("B5C95A"), Ponyo.Sunflower, Ponyo.Peach, Ponyo.Hex("8A6A4E") };
 
         string BaitText() => fish.BaitCount[fish.BaitI] > 0 ? $"{FishDb.Baits[fish.BaitI].Name} × {fish.BaitCount[fish.BaitI]}" : "no bait";
 

@@ -19,6 +19,7 @@ namespace PortBoss.M1
             if (Arg("-pb-daytest") != null) { shots = Arg("-pb-daytest"); Directory.CreateDirectory(shots); return DayTest(); }
             if (Arg("-pb-weathertest") != null) return WeatherTest((int)ArgF("-pb-weathertest", 10000));
             if (Arg("-pb-sleeptest") != null) return SleepTest(Arg("-pb-sleeptest"));
+            if (Arg("-pb-stormtest") != null) { shots = Arg("-pb-stormtest"); Directory.CreateDirectory(shots); return StormTest(); }
             return null;
         }
 
@@ -86,6 +87,33 @@ namespace PortBoss.M1
             Application.Quit();
         }
 
+        // -pb-stormtest <dir>: Biscuit anchored in the open, then a storm blows in (held): the roll and pitch at anchor and
+        // under way stay under the storm limits (25° / 20°: heavy, never over), and you stay aboard (systems §5.2)
+        IEnumerator StormTest()
+        {
+            Sleep.Off = true; Sky.ForceWx = 1; Sky.Jump(DayTime.At(2, 14 * 60));
+            yield return new WaitForSeconds(0.5f);
+            yield return SailOut(false);
+            var s = Skiff.I;
+            if (shots != null) { CameraRig.I.Pitch = 14; yield return Shot("storm-0-fair"); }
+            Sky.ForceWx = 5; yield return new WaitForSeconds(6f); // (the look eases in over ~2 s)
+            float roll = 0, pitch = 0; bool aboard = true;
+            void Measure() { roll = Mathf.Max(roll, Mathf.Abs(Mathf.DeltaAngle(0, s.transform.eulerAngles.z))); pitch = Mathf.Max(pitch, Mathf.Abs(Mathf.DeltaAngle(0, s.transform.eulerAngles.x))); aboard &= me.OnBoat && !me.Swimming; }
+            for (float t = 0; t < 30; t += Time.deltaTime) { Measure(); if (shots != null && Mathf.Abs(t - 10) < Time.deltaTime) yield return Shot("storm-1-anchored"); yield return null; }
+            Debug.Log($"[PB] storm: anchored 30 s in a storm (wave amp {Sea.Amp:F2} m, len {Sea.Len:F0} m): max roll {roll:F1}°, pitch {pitch:F1}°, aboard {aboard}");
+            Check(roll <= 25 && pitch <= 20 && aboard, $"anchored in the storm: roll {roll:F1}° <= 25, pitch {pitch:F1}° <= 20, still aboard");
+            // under way: up anchor, full ahead, a turn
+            float r0 = roll, p0 = pitch; roll = pitch = 0;
+            s.ToggleAnchor(); yield return Until(() => !s.Anchored, 4);
+            me.Teleport(s.Helm.position + Vector3.up * 0.05f, s.transform.eulerAngles.y); yield return null; me.TakeHelm(); yield return new WaitForSeconds(0.4f);
+            s.Notch = 3;
+            for (float t = 0; t < 15; t += Time.deltaTime) { s.Steer = t > 6 && t < 10 ? 0.6f : 0; Measure(); if (shots != null && Mathf.Abs(t - 8) < Time.deltaTime) yield return Shot("storm-2-driving"); yield return null; }
+            Debug.Log($"[PB] storm: under way 15 s: max roll {roll:F1}°, pitch {pitch:F1}°, speed {s.Speed:F1} m/s");
+            Check(roll <= 25 && pitch <= 20 && aboard, $"driving in the storm: roll {roll:F1}° <= 25, pitch {pitch:F1}° <= 20, still aboard");
+            Debug.Log($"[PB] RESULT stormtest: {(dayFails == 0 ? "PASS" : "FAIL")}");
+            Application.Quit();
+        }
+
         // ---------------------------------------------------------------- sleep
         IEnumerator WaitSkip(float secs = 40)
         {
@@ -118,6 +146,7 @@ namespace PortBoss.M1
         IEnumerator SleepTest(string role)
         {
             Ctl.Bot = true; Application.targetFrameRate = 60;
+            shots = Arg("-pb-sleepshots"); if (shots != null) Directory.CreateDirectory(shots); // (-pb-shots is the M1 tour)
             if (role == "host" || role == "rider") { yield return CoopSleep(role == "host"); yield break; }
             yield return new WaitForSeconds(0.5f);
             var s = Skiff.I; Sky.ForceWx = 1;
@@ -131,6 +160,10 @@ namespace PortBoss.M1
             if (shots != null) yield return Shot("sleep-1-too-early");
             // 2) the cot at 21:00
             Sky.Jump(DayTime.At(1, 21 * 60)); yield return new WaitForSeconds(0.3f);
+            // a mackerel caught at dusk (18:00) rides in the hotbar through the night (rot: fishing §5.6)
+            var mack = new Fish { Species = FishDb.All.Find(x => x.Id == "mackerel") ?? FishDb.All[0], Cm = 30, Kg = 0.4f, CaughtAt = (float)DayTime.At(1, 18 * 60) };
+            me.Bar.S[2].Fish.Add(mack);
+            Check(mack.Fresh == 0, $"the dusk catch at 21:00 is {Rot.Names[mack.Fresh]}");
             LookAt(Sleep.Cot.position);
             yield return LieDown();
             Check(Sleep.I.Lying, "21:00: hold E 1 s on the cot lies down");
@@ -138,6 +171,8 @@ namespace PortBoss.M1
             yield return WaitSkip();
             Check(Sky.Day == 2 && Sky.Hour >= 7 && Sky.Hour < 7.25, "woke Day 2 at 7:00 AM: " + WakeLine());
             Check(Sleep.I.LastWake == "in bed" && Vector3.Distance(me.transform.position, Sleep.BedSide) < 0.6f, "woke beside the cot");
+            Check(mack.Fresh == 1, $"caught 18:00, slept 21:00 -> 07:00: the mackerel is {Rot.Names[mack.Fresh]} ({(Sky.Minutes - mack.CaughtAt) / 60:F1} h old; want Good)");
+            me.Select(2); // (its name pill shows the freshness in the morning shot)
             Debug.Log($"[PB] m3: Day 2 weather {Sky.W.Block(2, 0)}/{Sky.W.Block(2, 1)}/{Sky.W.Block(2, 2)} (seed {Sky.Seed})");
             if (shots != null) yield return Shot("sleep-3-morning");
             // 3) tired on the pier, pass out at 02:00
@@ -199,7 +234,7 @@ namespace PortBoss.M1
                         // fish off the pier end; the bite comes 2.5 s into the heads-up, the bar is held 4 s: the host must wait
                         me.Teleport(Landing.I.Spawn.position + Vector3.up * 0.05f, 0);
                         var sea = Flat(Landing.I.Spawn.position - Sleep.Cot.position).normalized; CameraRig.I.Yaw = Mathf.Atan2(sea.x, sea.z) * Mathf.Rad2Deg;
-                        me.Select(1); yield return new WaitForSeconds(0.6f);
+                        me.Select(0); yield return new WaitForSeconds(0.6f); // (slot 0 = the rod)
                         yield return CastOnce(0.55f);
                         yield return Until(() => fish.State == Fishing.St.Waiting, 6);
                         fish.BiteAt = Time.time + 60;                       // (no bite until the heads-up)
