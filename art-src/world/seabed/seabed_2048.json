@@ -1,0 +1,18 @@
+{
+ "file": "seabed_2048.png",
+ "size_px": 2048,
+ "metres_per_px": 2.44140625,
+ "world_min": [
+  -2840.0,
+  -2450.0
+ ],
+ "world_max": [
+  2160.0,
+  2550.0
+ ],
+ "axes": "pixel column -> world X (east), row 0 = north edge (world Y = 2550); Unity: X east, Z north",
+ "encoding": "16-bit grey, linear: height_m = value / 65535 * 320 + -160; sea level 0; depth = -height",
+ "origin_on_map_b": "world (0,0) = make_maps.py map point (2840, 2550), the island's bounding-box centre",
+ "walts_cut": "silted to 0.5 m with the Voss Causeway (1.7 m) across it; the dredged variant is cut_open=True",
+ "source": "art-src/world/island_shape.py heightfield(); regenerate: python art-src/world/island_shape.py"
+}

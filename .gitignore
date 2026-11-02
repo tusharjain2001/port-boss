@@ -132,3 +132,7 @@ InitTestScene*.unity*
 # keyed fishing clips: generated at build time by Assets/Game/Editor/M1Anim.cs from the (gitignored) Mixamo idle
 /Assets/Game/Anim/
 /Assets/Game/Anim.meta
+
+# Blender output scratch of art-src/world/build_island.py (renders, .blend)
+/art-src/world/out/
+/art-src/world/__pycache__/
