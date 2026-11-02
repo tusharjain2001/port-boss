@@ -27,7 +27,7 @@ namespace PortBoss.M1
             me = Angler.I; fish = me.Fish;
             var rod = Arg("-pb-rod"); if (rod != null) fish.SetRod((int)ArgF("-pb-rod", 1));
             var bait = Arg("-pb-bait"); if (bait != null) fish.BaitI = Mathf.Max(0, System.Array.FindIndex(FishDb.Baits, b => b.Id == bait));
-            Fishing.Bot.FightHeavy = Arg("-pb-fightheavy") != null;
+            Fishing.Bot.FightHeavy = Arg("-pb-fightheavy") != null; Fishing.Bot.LetGo = Arg("-pb-letgo") != null; // -pb-letgo: every catch thrown back
             Fishing.Bot.OldFacing = Arg("-pb-oldfacing") != null; Fishing.Bot.ForceHeavy = Arg("-pb-forceheavy") != null; // test: every hook is heavy
             sigma = ArgF("-pb-sigma", 70) / 1000f;
             fish.OnLog += s => Debug.Log("[PB] fish " + s);
@@ -45,6 +45,9 @@ namespace PortBoss.M1
             else if (Arg("-pb-idleshots") != null) { shots = Arg("-pb-idleshots"); Directory.CreateDirectory(shots); yield return IdleShots(); }
             else if (Arg("-pb-cast8") != null) { shots = Arg("-pb-cast8"); Directory.CreateDirectory(shots); yield return Cast8(); }
             else if (Arg("-pb-tour") != null) yield return Tour(Arg("-pb-tour"), Arg("-pb-side") != null);
+            else if (Arg("-pb-feeltest") != null) yield return FeelTest(Arg("-pb-feeltest"));
+            else if (Arg("-pb-knocktest") != null) yield return KnockTest(Arg("-pb-knocktest"));
+            else if (Arg("-pb-fadetest") != null) { shots = Arg("-pb-fadetest"); Directory.CreateDirectory(shots); yield return FadeTest(); }
         }
 
         IEnumerator QuitAfter(float s) { yield return new WaitForSecondsRealtime(s); Debug.Log("[PB] quit"); Application.Quit(); }
@@ -617,6 +620,220 @@ namespace PortBoss.M1
             float deckY = l.LadderTop.position.y, inPast = Vector3.Dot(p - l.LadderTop.position, inward);
             bool ok = !me.Swimming && me.Cc.isGrounded && Mathf.Abs(p.y - deckY) < 0.15f && inPast > 0.3f;
             Debug.Log($"[PB] RESULT ladder: {(ok ? "PASS" : "FAIL")} (swimming {me.Swimming}, grounded {me.Cc.isGrounded}, feet {p.y - deckY:F2} m from the deck, {inPast:F2} m in from the ladder top)");
+            Application.Quit();
+        }
+
+        // -pb-feeltest <dir> [-pb-side]: the feel spec (replan/feel) measured on the pier's longest straight, filmed:
+        // from a stand to a run (0 -> 90% in 0.22 s), the stop (to 10% in 0.18 s), the sprint's run-up (0.6 s), a hard
+        // reverse (a skid), a held and a tapped jump (0.8 / 0.45 m after a 0.08 s crouch), then 5 crates' worth of fish
+        // (50 kg): start 0.45 s, stop 0.55 s, top speed 2.5 m/s, no sprint. Crossing times are interpolated between frames.
+        IEnumerator FeelTest(string dir)
+        {
+            yield return new WaitForSeconds(0.5f);
+            var l = Landing.I; Ctl.Bot = true; me.Select(1);
+            // the longest straight run of level pier through the spawn (8 headings), started from its far end
+            var from = me.transform.position; float best = 0; Vector3 axis = Vector3.forward;
+            for (int k = 0; k < 8; k++)
+            {
+                var d = Quaternion.Euler(0, k * 45 + l.transform.eulerAngles.y, 0) * Vector3.forward;
+                float r = Room(from, d) + Room(from, -d);
+                if (r > best) { best = r; axis = d; }
+            }
+            var start = from - axis * Mathf.Max(0, Room(from, -axis) - 0.6f);
+            float axisYaw = Mathf.Atan2(axis.x, axis.z) * Mathf.Rad2Deg;
+            me.Teleport(start, axisYaw);
+            CameraRig.I.Yaw = axisYaw + 35; // 3/4 behind, so the runs read side-on too
+            Debug.Log($"[PB] feel: {best:F1} m of straight pier along {axis}");
+            yield return new WaitForSeconds(1f);
+            filmSide = Arg("-pb-side") != null; StartCoroutine(Film(dir, 999, 1280, 720));
+            yield return new WaitForSeconds(0.5f);
+            bool ok = true; float sign = 1;
+            void Check(string what, float got, float want, float tol) { bool p = Mathf.Abs(got - want) <= tol; ok &= p; Debug.Log($"[PB] feel {what}: {got:F2} (spec {want:F2} ± {tol:F2}) {(p ? "ok" : "OFF")}"); }
+            // the stick for "along the axis" (sign = which way), whatever the camera's yaw
+            Vector2 Fwd() { float a = (axisYaw - CameraRig.I.Yaw) * Mathf.Deg2Rad; return new Vector2(Mathf.Sin(a), Mathf.Cos(a)) * sign; }
+            float Sp() => new Vector3(me.Vel.x, 0, me.Vel.z).magnitude;
+            // time from now until the speed crosses `thr` (up or down), interpolated between frames; -1 after `max` s
+            float tOut = -1;
+            IEnumerator Until(float thr, bool up, float max)
+            {
+                float t0 = Time.time, lt = 0, lv = Sp(); tOut = -1;
+                while (Time.time - t0 < max)
+                {
+                    yield return null;
+                    float t = Time.time - t0, v = Sp();
+                    if (up ? v >= thr : v <= thr) { tOut = lt + (thr - lv) / (v - lv + 1e-6f) * (t - lt); yield break; }
+                    lt = t; lv = v;
+                }
+            }
+            IEnumerator StartStop(string tag, float run, float wantStart, float wantStop, float tol)
+            {
+                Ctl.BotMove = Fwd(); yield return Until(0.9f * run, true, 2); Check(tag + " start 0 -> 90%", tOut, wantStart, tol);
+                yield return new WaitForSeconds(0.8f);
+                Check(tag + " top speed", Sp(), run, 0.12f);
+                Ctl.BotMove = Vector2.zero; yield return Until(0.1f * run, false, 2); Check(tag + " stop to 10%", tOut, wantStop, tol);
+                yield return new WaitForSeconds(0.6f); sign = -sign;
+            }
+            Debug.Log("[PB] feel run " + Time.time);
+            yield return StartStop("run", 4.2f, 0.22f, 0.18f, 0.035f);
+            // sprint: from a run, the run-up to 90% of the way to 5.8 m/s
+            Debug.Log("[PB] feel sprint " + Time.time);
+            Ctl.BotMove = Fwd(); yield return new WaitForSeconds(0.6f);
+            Ctl.BotSprint = true; yield return Until(4.2f + 0.9f * 1.6f, true, 2); Check("sprint run-up to 90%", tOut, 0.6f, 0.15f);
+            yield return new WaitForSeconds(0.4f); Check("sprint top speed", Sp(), 5.8f, 0.12f);
+            Ctl.BotSprint = false; Ctl.BotMove = Vector2.zero; yield return new WaitForSeconds(0.9f); sign = -sign;
+            // a hard reverse at a run: the skid, then turned round and running the other way
+            Debug.Log("[PB] feel skid " + Time.time);
+            Ctl.BotMove = Fwd(); yield return new WaitForSeconds(0.9f);
+            sign = -sign; Ctl.BotMove = Fwd(); float ts = Time.time; bool skid = false;
+            while (Time.time - ts < 1.0f) { skid |= me.Skidding; yield return null; }
+            float off = Vector3.Angle(me.transform.forward, axis * sign);
+            Debug.Log($"[PB] feel skid: {(skid ? "yes" : "NO")}, then facing {off:F0}° off the new way {(skid && off < 15 ? "ok" : "OFF")}");
+            ok &= skid && off < 15;
+            Ctl.BotMove = Vector2.zero; yield return new WaitForSeconds(0.9f); sign = -sign;
+            // jumps, standing: held, then tapped
+            foreach (bool held in new[] { true, false })
+            {
+                Debug.Log($"[PB] feel jump {(held ? "held" : "tap")} " + Time.time);
+                float y0 = me.transform.position.y, peak = y0, tp = Time.time, up = -1;
+                Ctl.BotJumpHeld = held; Ctl.BotJump = true; yield return null; Ctl.BotJump = false;
+                while (Time.time - tp < 2f)
+                {
+                    float y = me.transform.position.y; peak = Mathf.Max(peak, y);
+                    if (up < 0 && y > y0 + 0.005f) up = Time.time - tp;
+                    if (up > 0 && me.Cc.isGrounded && Time.time - tp > up + 0.1f) break;
+                    yield return null;
+                }
+                Check((held ? "held" : "tapped") + " jump height", peak - y0, held ? 0.8f : 0.45f, 0.06f);
+                if (held) Check("crouch before leaving the ground (+ a frame)", up, 0.08f + Time.deltaTime, 0.04f);
+                Ctl.BotJumpHeld = true; yield return new WaitForSeconds(0.8f);
+            }
+            // 5 crates' worth of fish (50 kg in slot 8)
+            Debug.Log("[PB] feel loaded " + Time.time);
+            for (int i = 0; i < 5; i++) me.Bar.S[7].Fish.Add(new Fish { Species = FishDb.All[0], Kg = 10 });
+            Debug.Log($"[PB] feel load {me.Load:F1} crates");
+            yield return StartStop("loaded", 4.2f * (1 - 0.08f * 5), 0.45f, 0.55f, 0.05f);
+            Ctl.BotMove = Fwd(); Ctl.BotSprint = true; yield return new WaitForSeconds(1.2f);
+            Check("loaded, sprint held: speed", Sp(), 2.52f, 0.12f);
+            Ctl.BotSprint = false; Ctl.BotMove = Vector2.zero; yield return new WaitForSeconds(1f);
+            me.Bar.S[7].Fish.Clear();
+            Debug.Log($"[PB] RESULT feel: {(ok ? "PASS" : "FAIL")}");
+            Application.Quit();
+        }
+
+        // How far the pier runs level and clear from `p` along `d` (deck under the feet, nothing in the way), up to 30 m.
+        static float Room(Vector3 p, Vector3 d)
+        {
+            float r = 0;
+            for (; r < 30; r += 0.5f)
+            {
+                var q = p + d * (r + 0.5f);
+                if (!Physics.Raycast(q + Vector3.up * 1.2f, Vector3.down, out var hit, 2f, ~0, QueryTriggerInteraction.Ignore) || Mathf.Abs(hit.point.y - p.y) > 0.25f) break;
+                bool blocked = false;
+                foreach (var h in Physics.SphereCastAll(p + Vector3.up * 0.9f + d * r, 0.35f, d, 0.5f, ~0, QueryTriggerInteraction.Ignore))
+                    if (h.collider.GetComponentInParent<Angler>() == null) blocked = true;
+                if (blocked) break;
+            }
+            return r;
+        }
+
+        // -pb-knocktest <dir>: ragdoll-lite (replan/feel §4), filmed. On the pier, knocked over forward, back and sideways,
+        // then off the tiller as a crash would. Each must really go down (hips under 0.45 m off the floor), be up within
+        // 4.5 s (or treading water, if it flung her off the edge), stand up where she came to rest (within 1 m of her hips)
+        // and walk again.
+        IEnumerator KnockTest(string dir)
+        {
+            yield return new WaitForSeconds(0.5f);
+            Ctl.Bot = true; me.Select(1);
+            CameraRig.I.Yaw = me.transform.eulerAngles.y + 60;
+            yield return new WaitForSeconds(1f);
+            StartCoroutine(Film(dir, 999, 1280, 720));
+            yield return new WaitForSeconds(0.5f);
+            var hips = me.Anim.GetComponent<Ragdoll>().Hips;
+            bool ok = true;
+            foreach (var way in new[] { "forward", "back", "side", "tiller" })
+            {
+                if (way == "tiller") { me.TakeHelm(); yield return new WaitForSeconds(1.5f); }
+                var a = me.transform; var p0 = a.position; float floor = p0.y;
+                Debug.Log($"[PB] knock {way} {Time.time:F2}");
+                var push = way switch
+                {
+                    "forward" => a.forward * 2.5f + Vector3.up * 1.5f,
+                    "back" => -a.forward * 2.5f + Vector3.up * 1.5f,
+                    "side" => a.right * 2f + Vector3.up * 1.2f,
+                    _ => Skiff.I.transform.forward * 4.5f * 0.25f + Vector3.up * 0.8f, // as Skiff: a full-speed crash
+                };
+                me.Knock(push);
+                if (!me.Down) { Debug.Log($"[PB] knock {way}: NOT knocked over"); ok = false; continue; }
+                float t = 0, low = 9; var rest = hips.position;
+                while (me.Down && t < 6) { low = Mathf.Min(low, hips.position.y - floor); if (me.Limp) rest = hips.position; t += Time.deltaTime; yield return null; }
+                yield return new WaitForSeconds(0.3f);
+                float moved = Vector3.Distance(Flat(rest), Flat(me.transform.position)), stand = hips.position.y - me.transform.position.y;
+                var w0 = me.transform.position; Ctl.BotMove = Vector2.up; yield return new WaitForSeconds(0.6f); Ctl.BotMove = Vector2.zero;
+                float walked = Vector3.Distance(Flat(w0), Flat(me.transform.position));
+                bool pass = low < 0.45f && t < 4.5f && (moved < 1f || me.Swimming) && (stand > 0.55f || me.Swimming) && walked > 0.4f;
+                ok &= pass;
+                Debug.Log($"[PB] knock {way}: hips down to {low:F2} m, up in {t:F2} s, up {moved:F2} m from where she lay, hips {stand:F2} m up after, walked {walked:F2} m{(me.Swimming ? " (in the water)" : "")}{(me.OnBoat ? " (on the boat)" : "")} {(pass ? "ok" : "OFF")}");
+                yield return new WaitForSeconds(1f);
+                if (me.Swimming || me.OnBoat) { me.Teleport(Landing.I.Spawn.position + Vector3.up * 0.05f, me.transform.eulerAngles.y); yield return new WaitForSeconds(0.8f); }
+            }
+            // walking off the pier's end into the sea (Falling Into Pool's topple, then treading water)
+            var l = Landing.I; var outward = l.LadderBottom.position - l.LadderTop.position; outward.y = 0; outward.Normalize();
+            me.Teleport(l.LadderTop.position - outward * 0.8f, Mathf.Atan2(outward.x, outward.z) * Mathf.Rad2Deg);
+            CameraRig.I.Yaw = Mathf.Atan2(outward.x, outward.z) * Mathf.Rad2Deg - 70; yield return new WaitForSeconds(1f);
+            Debug.Log($"[PB] knock walk-off {Time.time:F2}");
+            Ctl.BotMove = new Vector2(Mathf.Sin(70 * Mathf.Deg2Rad), Mathf.Cos(70 * Mathf.Deg2Rad)) * 0.5f;
+            float tw = 0; while (!me.Swimming && tw < 4) { tw += Time.deltaTime; yield return null; }
+            Ctl.BotMove = Vector2.zero; yield return new WaitForSeconds(1.5f);
+            Debug.Log($"[PB] knock walk-off: in the water {(me.Swimming ? "yes" : "NO")} after {tw:F2} s");
+            ok &= me.Swimming;
+            Debug.Log($"[PB] RESULT knock: {(ok ? "PASS" : "FAIL")}");
+            Application.Quit();
+        }
+
+        // -pb-fadetest <dir>: walls between the camera and her fade (feel spec). Behind the shack, then swimming beside the
+        // boat with the camera across it: shots, and PASS when the blocker is fading (and nothing fades in the open).
+        IEnumerator FadeTest()
+        {
+            yield return new WaitForSeconds(0.5f);
+            Ctl.Bot = true; me.Select(1);
+            bool ok = true;
+            IEnumerator Look(string name, Vector3 at, Vector3 from, bool swim)
+            {
+                var y = swim ? Sea.Height(at) - Angler.SwimDepth : at.y;
+                if (!swim && Physics.Raycast(at + Vector3.up * 3, Vector3.down, out var g, 6f, ~0, QueryTriggerInteraction.Ignore)) y = g.point.y;
+                var dir = at - from; dir.y = 0;
+                me.Teleport(new Vector3(at.x, y, at.z), Mathf.Atan2(dir.x, dir.z) * Mathf.Rad2Deg);
+                CameraRig.I.Yaw = Mathf.Atan2(dir.x, dir.z) * Mathf.Rad2Deg; CameraRig.I.Pitch = swim ? 12 : 22;
+                yield return new WaitForSeconds(1.5f);
+                int n = CameraRig.I.Fading;
+                Debug.Log($"[PB] fade {name}: {n} model(s) fading");
+                yield return Shot("fade-" + name);
+                ok &= n > 0;
+            }
+            // behind the shack, looking across it
+            var shack = Util.Find(Landing.I.transform, "Shack").GetComponent<Renderer>().bounds;
+            var away = shack.center - Landing.I.Spawn.position; away.y = 0; away.Normalize();
+            yield return Look("shack", shack.center + away * (Mathf.Max(shack.extents.x, shack.extents.z) + 1.2f), shack.center - away * 6, false);
+            // in the water beside Biscuit, the camera across the boat
+            // the open-water spot round the boat farthest from the pier (nothing overhead), the camera across the boat from it
+            var hull = Skiff.I.Hull; var c = Skiff.I.transform.TransformPoint(hull.center); c.y = Skiff.I.transform.position.y;
+            Vector3 side = Vector3.zero; float far = -1;
+            for (int k = 0; k < 8; k++)
+            {
+                var d = Quaternion.Euler(0, k * 45, 0) * Vector3.forward;
+                var q = c + d * 1.7f;
+                if (Physics.Raycast(q + Vector3.down * 0.3f, Vector3.up, 8f, ~0, QueryTriggerInteraction.Ignore)) continue;
+                float dist = Vector3.Distance(Flat(q), Flat(Landing.I.Spawn.position));
+                if (dist > far) { far = dist; side = d; }
+            }
+            yield return Look("boat", c + side * 1.7f, c - side * 6, true);
+            // out in the open on the pier: nothing fades
+            me.Teleport(Landing.I.Spawn.position + Vector3.up * 0.05f, 0); CameraRig.I.Pitch = 30;
+            yield return new WaitForSeconds(1.5f);
+            Debug.Log($"[PB] fade open: {CameraRig.I.Fading} model(s) fading");
+            ok &= CameraRig.I.Fading == 0;
+            yield return Shot("fade-open");
+            Debug.Log($"[PB] RESULT fade: {(ok ? "PASS" : "FAIL")}");
             Application.Quit();
         }
 

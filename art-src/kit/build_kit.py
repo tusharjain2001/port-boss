@@ -75,6 +75,8 @@ def build_rig(xb):
     for n in KEEP:
         p = xb[n][2]
         if p: E[n].parent = E[p]; E[n].use_connect = False
+    # one of our own: the hat on its own bone (pivot on the hatband), so the game can let it wobble on the head
+    b = E.new('Hat'); b.head = Vector((0, -0.004, 1.372)); b.tail = Vector((0, -0.004, 1.53)); b.parent = E['Head']; b.use_connect = False
     for axis, vertical in (('GLOBAL_NEG_Y', True), ('GLOBAL_POS_Z', False)):
         for b in E: b.select = b.select_head = b.select_tail = (abs((b.tail - b.head).normalized().z) > 0.7) == vertical
         bpy.ops.armature.calculate_roll(type=axis)
@@ -191,6 +193,7 @@ def chain(pos, keys):
 def side(co): return 'Left' if co.x > 0 else 'Right'
 def W_torso(co): return chain(co.z, [(0.74, 'Hips'), (0.84, 'Spine'), (0.92, 'Spine1'), (1.0, 'Spine2')])
 def W_head(co): return {'Head': 1.0}
+def W_hat(co): return {'Hat': 1.0}
 def W_neck(co): return chain(co.z, [(1.08, 'Spine2'), (1.14, 'Neck'), (1.2, 'Head')])
 def W_arm(co): s = side(co); return chain(abs(co.x), [(0.27, s + 'Arm'), (0.35, s + 'ForeArm'), (0.5, s + 'ForeArm'), (0.56, s + 'Hand')])
 def W_hand(co): return {side(co) + 'Hand': 1.0}
@@ -440,7 +443,7 @@ def build_hair_puffs():
 
 def build_hat():
     yel = lambda c, n: 'yellow_dk' if c.z < 1.405 and c.z > 1.372 and (Vector((c.x, c.y - 0.0)).length < 0.2) else 'yellow'
-    P = Part('Hat', yel, W_head)
+    P = Part('Hat', yel, W_hat)
     cy = -0.004
     # crown: from the band up to a rounded top
     keys = [(1.372, 1.0), (1.42, 0.985), (1.47, 0.9), (1.505, 0.72), (1.522, 0.42), (1.528, 0.12)]

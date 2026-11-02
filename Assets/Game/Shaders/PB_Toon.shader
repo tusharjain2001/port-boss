@@ -1,7 +1,10 @@
 // Ponyo Coast toon lit (from the look-dev's LD_Stylized, art direction #4): one soft cel step, painted blue-violet
 // shade, paint-grain noise, rim. Colour = _BaseColor x vertex colour (our Blender assets are vertex-coloured, sRGB);
 // vertex alpha 0 marks a glowing part (the anglerfish bulb). Fish swim/flop by bending along their long axis (local
-// +Z = head) in the vertex shader, in every pass so the outline and shadows follow the body.
+// +Z = head) in the vertex shader, in every pass so the outline and shadows follow the body. _Fade (0..1, set per
+// renderer by the camera) dithers a wall away between the camera and the player: the colour pass drops that share of its
+// pixels in a 4x4 pattern, and the depth passes drop it whole, so the outline and the SSAO never draw the holes and the
+// player behind still draws (depth priming is off). Shadows stay.
 Shader "PortBoss/M1/Toon"
 {
     Properties
@@ -28,6 +31,7 @@ Shader "PortBoss/M1/Toon"
         _SwimFreq ("Swim beats per second", Float) = 2
         _SwimPhase ("Swim phase", Float) = 0
         _Wet ("Wet sheen", Range(0,1)) = 0
+        _Fade ("See-through (camera)", Range(0,1)) = 0
         [Enum(UnityEngine.Rendering.CullMode)] _Cull ("Cull", Float) = 2
     }
 
@@ -41,7 +45,7 @@ Shader "PortBoss/M1/Toon"
         CBUFFER_START(UnityPerMaterial)
             float4 _BaseMap_ST; float4 _BaseColor, _Tint, _ShadowTint, _RimColor, _GlowColor;
             float _Saturation, _Brightness, _RampSoft, _RampOffset, _Wrap, _AmbientMul, _AOMul;
-            float _RimPower, _PaintNoise, _PaintScale, _Emit, _GlowStrength, _Swim, _SwimFreq, _SwimPhase, _Wet, _Cull;
+            float _RimPower, _PaintNoise, _PaintScale, _Emit, _GlowStrength, _Swim, _SwimFreq, _SwimPhase, _Wet, _Cull, _Fade;
         CBUFFER_END
         TEXTURE2D(_BaseMap); SAMPLER(sampler_BaseMap);
 
@@ -53,6 +57,14 @@ Shader "PortBoss/M1/Toon"
             float w = along * along * 1.2 + 0.08;
             p.x += sin(p.z * 6.2 - _Time.y * _SwimFreq * 6.2832 + _SwimPhase) * _Swim * w;
             return p;
+        }
+
+        // 4x4 ordered dither threshold at a pixel (0..1)
+        float Bayer4(float2 px)
+        {
+            const float m[16] = { 0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5 };
+            uint2 q = uint2(px) & 3;
+            return (m[q.y * 4 + q.x] + 0.5) / 16;
         }
         ENDHLSL
 
@@ -93,6 +105,7 @@ Shader "PortBoss/M1/Toon"
 
             half4 frag(V i, bool front : SV_IsFrontFace) : SV_Target
             {
+                if (_Fade > 0.001) clip(Bayer4(i.cs.xy) - _Fade);
                 float3 alb = i.col.rgb * _BaseColor.rgb * SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, i.uv).rgb;
                 float lum = dot(alb, float3(0.299, 0.587, 0.114));
                 alb = lerp(lum.xxx, alb, _Saturation) * _Brightness * _Tint.rgb;
@@ -193,7 +206,7 @@ Shader "PortBoss/M1/Toon"
             #pragma vertex vert
             #pragma fragment frag
             float4 vert(float4 pos : POSITION) : SV_POSITION { return TransformObjectToHClip(SwimBend(pos.xyz)); }
-            half4 frag() : SV_Target { return 0; }
+            half4 frag() : SV_Target { clip(0.001 - _Fade); return 0; }
             ENDHLSL
         }
 
@@ -208,7 +221,7 @@ Shader "PortBoss/M1/Toon"
             struct A { float4 pos : POSITION; float3 n : NORMAL; };
             struct V { float4 cs : SV_POSITION; float3 n : TEXCOORD0; };
             V vert(A i) { V o; o.cs = TransformObjectToHClip(SwimBend(i.pos.xyz)); o.n = TransformObjectToWorldNormal(i.n); return o; }
-            half4 frag(V i) : SV_Target { return half4(SafeNormalize(i.n), 0); }
+            half4 frag(V i) : SV_Target { clip(0.001 - _Fade); return half4(SafeNormalize(i.n), 0); }
             ENDHLSL
         }
     }

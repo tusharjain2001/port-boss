@@ -87,3 +87,15 @@ Box Idle arms on top of Standard Walk legs, so nothing more to download for it.
 ## After downloading
 Tell Kufu "Mixamo files are in". I import them into `Assets/ThirdParty/Mixamo/` (gitignored, never committed), set them to
 Humanoid, and swap them in for the stand-in clips. Nothing to rename.
+
+## M1 feel pass (Tushar, 2 Nov 2026): the clips M1 drives itself
+Downloaded on X Bot (FBX for Unity, Without Skin, 30 fps), saved as `Assets/ThirdParty/Mixamo/X Bot@<name>.fbx` next to
+`X Bot.fbx`. `M1Build.Mixamo(name)` imports each by that exact file name; missing ones are skipped (the old behaviour).
+
+| File name (`X Bot@...`) | Used for | Which part |
+|---|---|---|
+| `Jumping Up` | the jump | 0-0.21 s squeezed into the 0.08 s crouch; 0.42-0.83 s (push, tuck) over the first 0.25 s of the rise |
+| `Falling Into Pool` | stepping off the pier into the sea | 0.85-1.5 s (the topple and drop) over 0.4 s |
+| `Getting Up` | getting up after a knock-down (face down start) | 0.95-4.9 s at 1.8x (2.2 s) |
+| `Standing Up` | the other get-up (picked at random) | 3.4-8.7 s at 2.2x (2.4 s) |
+| `Frisbee Throw` | letting a fish go: thrown back | 0.4-2.2 s at 1.5x, released at 1.5 s |

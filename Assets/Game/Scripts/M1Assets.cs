@@ -14,6 +14,20 @@ namespace PortBoss.M1
         public string[] FishIds; public GameObject[] Fish;
         public TextAsset FishCsv;
         public AnimationClip Idle, Walk, Run, Sprint, Jump, Land, SwimIdle, Swim, Climb, Drive;
+        public AnimationClip JumpUp, Throw, GetUpBack, GetUpFront, FallIn; // the feel pass's Mixamo clips (Jumping Up, Frisbee Throw, Getting Up, Standing Up, Falling Into Pool)
+        // sampled on Pip at build (M1Build.Feel): how far a clip lifts the hips above standing (the game takes it back out:
+        // the controller does the rising), and each get-up (one is picked at random)
+        public AnimationCurve JumpLift, FallLift;
+        public GetUpClip[] GetUps;
+
+        // A get-up: the part of the clip from lying still to standing, how fast it plays, where it starts (hips, hips ->
+        // head, measured from the body) and how it creeps along the ground (the game moves the body by that).
+        [System.Serializable]
+        public class GetUpClip
+        {
+            public AnimationClip Clip; public float From, To, Speed;
+            public Vector3 Hips, Spine; public AnimationCurve MoveX, MoveZ;
+        }
         public AnimationClip RodIdle, Wait, Cast, Strike, Fight, Reel, HoldUp, Helm; // keyed fishing clips (M1Anim, Assets/Game/Anim)
         public AudioClip Waves, Splash, Gull, Thud, Kaching, Click;
         public AudioClip[] Steps;

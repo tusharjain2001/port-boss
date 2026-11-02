@@ -70,6 +70,29 @@ namespace PortBoss.M1
             Ring(at, 0.6f * size + 0.4f, 0.8f);
         }
 
+        // Dust off the feet (sprint steps, a skid, landings): a few pale soft puffs that spread low, swell and fade.
+        static ParticleSystem dust;
+        public static void Dust(Vector3 at, int count, float size = 1)
+        {
+            if (dust == null)
+            {
+                var g = new GameObject("fx.dust");
+                dust = g.AddComponent<ParticleSystem>();
+                var m = dust.main; m.loop = false; m.playOnAwake = false; m.simulationSpace = ParticleSystemSimulationSpace.World;
+                m.startLifetime = new ParticleSystem.MinMaxCurve(0.35f, 0.6f); m.startSpeed = new ParticleSystem.MinMaxCurve(0.4f, 1.0f);
+                m.gravityModifier = -0.04f; m.maxParticles = 300; m.startColor = new Color(0.95f, 0.9f, 0.8f, 0.5f);
+                var e = dust.emission; e.rateOverTime = 0;
+                var sh = dust.shape; sh.shapeType = ParticleSystemShapeType.Circle; sh.radius = 0.12f; sh.rotation = new Vector3(-90, 0, 0);
+                var sz = dust.sizeOverLifetime; sz.enabled = true; sz.size = new ParticleSystem.MinMaxCurve(1, AnimationCurve.EaseInOut(0, 0.6f, 1, 1.6f));
+                var col = dust.colorOverLifetime; col.enabled = true; var gr = new Gradient();
+                gr.SetKeys(new[] { new GradientColorKey(Color.white, 0), new GradientColorKey(Color.white, 1) }, new[] { new GradientAlphaKey(1, 0), new GradientAlphaKey(0, 1) }); col.color = gr;
+                var r = g.GetComponent<ParticleSystemRenderer>(); r.sharedMaterial = Util.Soft(Color.white); r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
+            var mm = dust.main; mm.startSize = new ParticleSystem.MinMaxCurve(0.14f * size, 0.26f * size);
+            dust.transform.position = at;
+            dust.Emit(new ParticleSystem.EmitParams { applyShapeToPosition = true }, count);
+        }
+
         // An expanding ring on the water that fades out (ripples, bobber land, nibbles).
         public static void Ring(Vector3 at, float diameter, float life, float alpha = 0.8f)
         {

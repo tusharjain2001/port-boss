@@ -432,8 +432,37 @@ Proven headless:
   catch, tiller). fish60, swim, cast8, boat, scroll all PASS with her, 0 exceptions. New test switch: `-pb-idleshots <dir>
   -pb-norod` (empty-handed standing + walking close-ups).
 - Known: on the cast wind-up her raised mitt touches the hat brim for a moment; the yellow still reads bright through
-  the toon shader; one face only (no expression shape keys); no other bodies, no Look v2 / editor yet; the feel spec
-  (Step 2 item 2) not started.
+  the toon shader; one face only (no expression shape keys); no other bodies, no Look v2 / editor yet.
+- **Manan approved Pip v1 (2026-11-02, via Tushar): go on to the next step.**
+
+**Feel pass (Step 2 item 2, branch `feel`, Tushar's PC 2026-11-02), waiting for Tushar / Manan to play it:**
+- Movement (`Angler`): sprint ramps 4.2 -> 5.8 m/s over 0.6 s; eased starts 0.22 s / stops 0.18 s; a load slows
+  starts, stops and turns (10 kg of fish carried = one "crate" of the feel spec, max 5: +0.05 / +0.07 s, -70°/s, -8% speed
+  each, no sprint at 5); a 0.15 s skid on a hard reverse; the body leans from acceleration and banks into turns (spring).
+- Jump: a 0.08 s crouch, 0.8 m held / 0.45 m tapped (0.6 m on the deck), g 18 up / 35 down, 0.12 s buffer + coyote;
+  squash/stretch; landing in 2 tiers (a thud + camera dip over 1 m); arms flail on falls over 0.6 s. Footsteps on the
+  heel strikes, dust at a sprint.
+- Camera (`CameraRig`): pitch 30 (orbit 10-60), aims 1.2 m up and 0.8 m ahead of a run, follows 0.15 s across / 0.3 s
+  up and down from the ground stood on (a jump doesn't lift it), +4° FOV sprinting, +0.35 m a crate. Distances scale with
+  the body (the spec's 7.5 m was for the 1.78 m worker: 6.2 m for Pip, 5 m on the deck).
+- Walls fade (PB_Toon `_Fade`, a 4x4 dither in the colour pass, dropped from the depth passes so the outline and SSAO
+  skip it): anything under 8 m between the lens and her chest (the shack; the boat when she's in the water beside it).
+  The pier and the land are single huge models: the camera still pulls in for those.
+- Spring jiggle (`Jiggle.cs`): her head nods into starts and stops, the hat (its own `Hat` bone in `build_kit.py` now)
+  wobbles on top. Acceleration only, a few degrees.
+- Mixamo clips the game drives over everything (`CharAnim.Over`): Jumping Up (take-off + tuck), Falling Into Pool
+  (stepping off the pier into the sea), Getting Up, Frisbee Throw. `M1Build.Feel` samples them on Pip at build (how far
+  each lifts the hips, where the get-up starts). They're gitignored like every Mixamo clip: `docs/plan/mixamo-list.md`.
+- Ragdoll-lite (`Ragdoll.cs`, built at runtime from the humanoid bones): F8 knocks you over, a crash at over 3 m/s throws
+  you off the tiller. Limp 1-1.8 s, then up with Getting Up or Standing Up (at random) from where she lies (0.3 s blend; on her back a 0.45 s roll
+  onto her front first), or into the water if she lands in it or draped over the side. 50 ms hit-stop.
+- Letting a fish go (Q at the reveal) is now a throw: the fish rides her right hand through the wind-up and arcs 4.5 m
+  over the nearest side. Fish over 140 cm still just slide back.
+- Tests (all PASS, 0 exceptions): `-pb-fadetest <dir>` (behind the shack, swimming by the boat, the open pier),
+  `-pb-feeltest <dir>` (every number above measured on the pier), `-pb-knocktest <dir>`
+  (forward, back, side, off the tiller, walking off the pier), swim, ladder, boat, camtest, scroll, fish60, cast8, the
+  tour (and `-pb-letgo`: every catch thrown back). Films in `Logs/pb/m1/feel/` on Tushar's PC.
+- Not done from the spec: jiggle on the belly and hands; the carried-stack spring (no stack in M1).
 
 **Known issues / not yet proven (from M1):**
 - **The worker model is a placeholder** (the old code-generated worker in a fisherman outfit). The real cast comes with the
@@ -491,13 +520,16 @@ Differences now:
 | Fishing bot, N casts (bite timer, grade mix) | `bash tools/m1test.sh Builds/m1/PortBoss.exe fish500 -pb-fishtest 500 -pb-timescale 8` (expect all bites in [4.0, 10.0] s; `-pb-sigma 70` = practised player; `-pb-rod n`, `-pb-bait id`, `-pb-fightheavy`) |
 | Boat test (drive, roll, anchor hold) | `bash tools/m1test.sh Builds/m1/PortBoss.exe boat -pb-boattest` |
 | Swim test (overboard, ladder back) | `bash tools/m1test.sh Builds/m1/PortBoss.exe swim -pb-swimtest` |
+| Feel test (run/stop/sprint/skid/jump/load numbers, filmed) | `bash tools/m1test.sh Builds/m1/PortBoss.exe feel -pb-feeltest <dir>` (frames in `<dir>`) |
+| Knock-down test (ragdoll + get-up, filmed) | `bash tools/m1test.sh Builds/m1/PortBoss.exe knock -pb-knocktest <dir>` |
+| See-through walls test (shack, boat, open pier: shots) | `bash tools/m1test.sh Builds/m1/PortBoss.exe fade -pb-fadetest <dir>` |
 | Screenshot tour (cast/bobber/bite/minigame/catch/hotbar) | `bash tools/m1test.sh Builds/m1/PortBoss.exe shots -pb-shots <dir>` |
 | Film frames for the capture video | `bash tools/m1test.sh Builds/m1/PortBoss.exe film -pb-film <dir> -pb-filmsecs 60`, then `ffmpeg -framerate 30 -i f_%05d.png -c:v libx264 -crf 20 -pix_fmt yuv420p capture.mp4` |
 
 - Logs go to `Logs/pb/m1/<name>/log.txt`, and every run prints its exception count: it must be 0.
 - Paths (Unity exe, project, logs) are in `tools/env.sh`; override them from the environment.
 - M1 composites its UI into batchmode screenshots (a two-pass black/white capture), so the HUD shows in `-pb-shots`; look at every PNG yourself.
-- In-game debug keys: F3 overlay (bite timer, window ms, stop errors), F5 rod tier, F6 bait, F7 every fish heavy (on/off).
+- In-game debug keys: F3 overlay (bite timer, window ms, stop errors), F5 rod tier, F6 bait, F7 every fish heavy (on/off), F8 fall over.
 - The old game's scripts (`ubuild.sh`, `reg2.sh`, `regress.sh`, `release.sh`, `morning.sh`, `capture.sh`) are in
   `tools/README.md`.
 - **Release for Manan:**
@@ -532,7 +564,7 @@ M1 is done when the systems §5.2 M1 checklist and his "15 minutes, do you want 
      - camera ~7.5 m / 30° / FOV 55 / 0.15 s damping;
      - ragdoll-lite + get-up;
      - jump and throw clips with real anticipation.
-  3. Manan judges Pip on looks in M1. **(Pip v1 is in, see §4; waiting for his verdict.)**
+  3. Manan judges Pip on looks in M1. **(Done: approved 2 Nov. The feel pass, item 2, is on branch `feel`, see §4.)**
   4. Then the other 5. The clothes-only wardrobe comes later (M5).
 - **Risk:** modelling quality. The old worker was generated from code and read lumpy. Judge every pass against the concept
   sheets, but flatter, low-poly toon, not Pixar.

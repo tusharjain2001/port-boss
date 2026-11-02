@@ -69,7 +69,8 @@ namespace PortBoss.M1
         public static AudioClip Creak => C("creak", () => Make("creak", 1f, t => 0.18f * (Mathf.Repeat(t * 110, 1) * 2 - 1) * (0.6f + 0.4f * Sin(7, t)) + 0.08f * Sin(220, t), true));
         public static AudioClip Ting => C("ting", () => Make("ting", 0.6f, t => (0.35f * Sin(1568, t) + 0.12f * Sin(3136, t)) * Env(t, 0.002f, 0.12f)));
         public static AudioClip Slap => C("slap", () => { var lp = LP(2200); return Make("slap", 0.3f, t => 0.9f * lp(t) * Env(t, 0.001f, 0.035f) + 0.3f * Sin(140, t) * Env(t, 0.001f, 0.05f)); });
-        public static AudioClip Thup => C("thup", () => Make("thup", 0.25f, t => 0.6f * Sin(160 - 220 * t, t) * Env(t, 0.003f, 0.05f)));
+        public static AudioClip Scuff => C("scuff", () => { var lp = LP(1200); return Make("scuff", 0.25f, t => 0.7f * lp(t) * Env(t, 0.004f, 0.08f)); });
+        public static AudioClip Thup =>C("thup", () => Make("thup", 0.25f, t => 0.6f * Sin(160 - 220 * t, t) * Env(t, 0.003f, 0.05f)));
         public static AudioClip Pluck => C("pluck", () => Make("pluck", 0.8f, t => (0.5f * Sin(392, t) + 0.2f * Sin(784, t)) * Env(t, 0.002f, 0.18f)));
         public static AudioClip Chime => C("chime", () => Make("chime", 1.4f, t => (0.35f * Sin(784, t) + 0.25f * Sin(1175, t - 0.08f) * (t > 0.08f ? 1 : 0)) * Env(t, 0.003f, 0.4f)));
         public static AudioClip Shimmer => C("shimmer", () => Make("shimmer", 1.8f, t => { float s = 0; for (int i = 0; i < 5; i++) { float tt = t - i * 0.07f; if (tt > 0) s += 0.16f * Sin(1046.5f * Mathf.Pow(1.1225f, i * 2), tt) * Env(tt, 0.003f, 0.35f); } return s; }));

@@ -10,7 +10,7 @@ namespace PortBoss.M1
     //   strike early = "Too soon!", late = "It swam off." (bait kept, Recover → Ready)
     public class Fishing : MonoBehaviour
     {
-        public enum St { Stowed, Drawing, Ready, Charging, Flight, Settle, Waiting, Bite, Strike, Heavy, Minigame, Reel, Reveal, Recover }
+        public enum St { Stowed, Drawing, Ready, Charging, Flight, Settle, Waiting, Bite, Strike, Heavy, Minigame, Reel, Reveal, Toss, Recover }
         public St State = St.Stowed;
         public float StateT;
 
@@ -46,7 +46,8 @@ namespace PortBoss.M1
         public bool Locked => State >= St.Charging && State != St.Recover;      // no interacting (tiller, anchor, pickups)
         // The hotbar (keys 1-8, mouse wheel) is locked only in the active beats; with the line out waiting, switching
         // away reels in (bait kept). (Locking it whenever the line was out made the wheel look broken, Manan 1 Nov.)
-        public bool BarLocked => State is St.Charging or St.Flight or St.Bite or St.Strike or St.Heavy or St.Minigame or St.Reel or St.Reveal;
+        public bool BarLocked => State is St.Charging or St.Flight or St.Bite or St.Strike or St.Heavy or St.Minigame or St.Reel or St.Reveal or St.Toss;
+        public bool Tossing => State == St.Toss;
         public bool Holding => State != St.Stowed;
         public Vector3 BobPos => bob.Pos;
         public bool BiteIcon;  // accessibility "!" (off by default)
@@ -86,7 +87,7 @@ namespace PortBoss.M1
         void Update()
         {
             float dt = Time.deltaTime; StateT += dt;
-            bool rodSel = me.Bar.Sel.Rod && !me.Swimming && !me.AtHelm;
+            bool rodSel = me.Bar.Sel.Rod && !me.Swimming && !me.AtHelm && !me.Down;
             DebugKeys();
 
             switch (State)
@@ -112,6 +113,7 @@ namespace PortBoss.M1
                 case St.Minigame: Minigame(); break;
                 case St.Reel: Reel(); break;
                 case St.Reveal: Reveal(); break;
+                case St.Toss: Toss(); break;
                 case St.Recover: if (StateT >= 0.6f) { bob.Floating = false; bob.gameObject.SetActive(false); line.Live = false; Go(St.Ready); } else ReelInVisual(StateT / 0.6f); break;
             }
 
@@ -132,7 +134,7 @@ namespace PortBoss.M1
 
             Pose(dt);
             Cam();
-            me.Busy = State is St.Strike or St.Heavy or St.Minigame or St.Reel or St.Reveal;
+            me.Busy = State is St.Strike or St.Heavy or St.Minigame or St.Reel or St.Reveal or St.Toss;
             Snd.TickRumble();
         }
 
@@ -523,11 +525,46 @@ namespace PortBoss.M1
             {
                 bool keep = Ctl.Keep || Ctl.UsePressed || (!full && StateT >= RevealAuto);
                 bool let = Ctl.LetGo;
-                if (full && Ctl.Bot) { let = true; keep = false; }
+                if (full && Ctl.Bot || Ctl.Bot && Bot.LetGo) { let = true; keep = false; }
                 if (keep && full) { DropOnDeck(); return; }
                 if (keep) { int slot = me.Bar.Add(Catch); Hud.I?.FlyIn(fishGo.transform.position, slot); Snd.Play2D(Synth.Thup, 0.7f); OnLog?.Invoke($"kept slot {slot + 1}"); EndReveal(); return; }
                 if (let) { LetGo(); return; }
             }
+        }
+
+        void Toss()
+        {
+            var an = me.Anim;
+            float len = (TossTo - TossFrom) / TossSpeed, t = Mathf.Min(TossTo, TossFrom + StateT * TossSpeed);
+            an.Over = M1Assets.I.Throw; an.OverTime = t; an.Grip = null;
+            an.OverW = Mathf.Clamp01(StateT / 0.1f) * (1 - Mathf.Clamp01((StateT - len) / 0.2f));
+            if (fishGo != null)
+            {
+                var f = fishGo.transform;
+                if (t < TossRelease)
+                {
+                    // in the right hand, nose first along the swing
+                    f.position = an.HandR.position + an.HandR.up * 0.04f;
+                    f.rotation = Quaternion.LookRotation(transform.right, Vector3.up) * Quaternion.Euler(0, 0, 90);
+                }
+                else
+                {
+                    if (tossAt < 0)
+                    {
+                        tossAt = StateT; tossP0 = f.position;
+                        Snd.Play(Synth.Whoosh, transform.position, 0.4f, 1.3f);
+                    }
+                    float u = (StateT - tossAt) / 0.6f;
+                    f.position = Vector3.Lerp(tossP0, tossTo, u) + Vector3.up * (1.6f * 4 * u * (1 - u));
+                    f.Rotate(transform.right, 720f * Time.deltaTime, Space.World);
+                    if (u >= 1)
+                    {
+                        Fx.Splash(tossTo, 0.7f, 12); Snd.Play(M1Assets.I.Splash, tossTo, 0.5f);
+                        Destroy(fishGo); fishGo = null;
+                    }
+                }
+            }
+            if (StateT >= len + 0.2f && fishGo == null) { an.Over = null; an.OverW = 0; EndReveal(); }
         }
 
         void DropOnDeck()
@@ -537,8 +574,26 @@ namespace PortBoss.M1
             OnLog?.Invoke("dropped on deck"); EndReveal();
         }
 
+        // Letting a fish go: thrown back (Mixamo's Frisbee Throw, 0.4 -> 2.2 s of it at 1.5x: the wind-up across the body,
+        // the fling, the follow-through). The fish rides the right hand and leaves it on the clip's release frame, then
+        // arcs 4.5 m out into the sea. A fish too big to hold up (> 140 cm) just slides back in.
+        const float TossFrom = 0.4f, TossTo = 2.2f, TossRelease = 1.5f, TossSpeed = 1.5f;
+        Vector3 tossP0, tossTo; float tossAt = -1;
         void LetGo()
         {
+            if (fishGo != null && Catch.Cm <= 140 && M1Assets.I.Throw != null && me.Anim.HandR != null)
+            {
+                // over the nearest side of the boat (turning to it through the wind-up), or straight ahead off the pier
+                var dir = transform.forward; var sk = Skiff.I;
+                if (me.OnBoat && sk != null)
+                {
+                    var side = Vector3.Project(transform.position - sk.transform.position, sk.transform.right); side.y = 0;
+                    dir = side.sqrMagnitude > 0.0025f ? side.normalized : sk.transform.right;
+                }
+                tossTo = transform.position + dir * 4.5f; tossTo.y = Sea.Height(tossTo);
+                Go(St.Toss); tossAt = -1; OnLog?.Invoke("let go: thrown back");
+                return;
+            }
             var p = transform.TransformPoint(new Vector3(0, 0, 2.2f)); p.y = Sea.Height(p);
             Fx.Splash(p, 0.7f, 12); Snd.Play(M1Assets.I.Splash, p, 0.5f);
             OnLog?.Invoke("let go"); EndReveal();
@@ -591,7 +646,7 @@ namespace PortBoss.M1
                 case St.Reel:
                     tElev = 55 + Mathf.Sin(StateT * 6f) * 7; tYaw = Catch != null && fishGo != null ? Mathf.Clamp(AngleTo(fishGo.transform.position), -45, 45) : 0;
                     tension = Mathf.Lerp(0.4f, 0.8f, Mathf.Clamp01(Catch != null ? Catch.Kg / 15f : 0)); tButt = RestButt + new Vector3(0, 0.1f, 0); break;
-                case St.Reveal: onBack = true; break;
+                case St.Reveal: case St.Toss: onBack = true; break;
                 case St.Recover: tElev = 70; tension = 0.1f; break;
             }
             // the poses were made on the 1.78 m worker: a smaller body holds the rod lower and closer, but no narrower (a
@@ -731,6 +786,7 @@ namespace PortBoss.M1
                 St.Settle or St.Waiting or St.Bite or St.Strike => YawTo(bob.Pos),
                 St.Heavy or St.Minigame => YawTo(fishUnder),
                 St.Reel => fishGo != null ? YawTo(fishGo.transform.position) : YawTo(fishUnder),
+                St.Toss => YawTo(tossTo),
                 _ => float.NaN,
             };
             if (Bot.OldFacing) // the M1 rule, kept only so -pb-cast8 can show the before (camera yaw, then the last bobber spot)
@@ -761,6 +817,6 @@ namespace PortBoss.M1
         }
 
         // The test bot's knobs (Bot.cs sets them).
-        public static class Bot { public static bool FightHeavy, OldFacing, ForceHeavy; }
+        public static class Bot { public static bool FightHeavy, OldFacing, ForceHeavy, LetGo; }
     }
 }

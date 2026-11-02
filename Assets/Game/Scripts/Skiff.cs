@@ -213,6 +213,8 @@ namespace PortBoss.M1
                     if (Vector3.Dot(dir, fwd * Mathf.Sign(Speed == 0 ? 1 : Speed)) < -0.6f && Mathf.Abs(Speed) > 0.6f)
                     {
                         if (Mathf.Abs(Speed) > 1.2f) { Snd.Play(M1Assets.I.Thud, transform.position, 0.8f); CameraRig.Shake(0.25f * Mathf.Abs(Speed) / MaxSpeed); }
+                        // a hard one (over 3 m/s) throws the driver off the tiller, forward onto the deck
+                        if (Mathf.Abs(Speed) > 3f && Angler.I != null && Angler.I.AtHelm) Angler.I.Knock(fwd * Speed * 0.25f + Vector3.up * 0.8f);
                         if (Time.time - lastBlockLog > 1f) { lastBlockLog = Time.time; Debug.Log($"[PB] boat bumped {hits[i].name} at {Speed:F1} m/s"); }
                         Speed *= -0.25f;
                     }

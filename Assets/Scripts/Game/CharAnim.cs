@@ -47,8 +47,14 @@ namespace PortBoss
         public AnimationClip Act;
         public float ActTime = -1;
         readonly List<AnimationClipPlayable> actP = new(); readonly List<float> actW = new();
+        // A full-body clip over everything (M1: the jump, falling in, getting up, the throw): time and weight both set
+        // from outside, so the game can fit a clip's beats to its own (the crouch in the jump's 0.08 s).
+        public AnimationClip Over;
+        public float OverTime, OverW;
+        public float LandFrom;        // where the landing clip starts (M1: where its feet touch down)
+        public Transform HandR => armRH;
 
-        void LateUpdate() { if (armLU != null && armRU != null) PostPose(); }
+        void LateUpdate() { if (armLU != null && armRU != null && animator.enabled) PostPose(); } // (a ragdoll has the body)
 
         public void Init(Animator a, Skin k)
         {
@@ -103,6 +109,7 @@ namespace PortBoss
         readonly List<float> gaitSpeed = new(), gaitStride = new(), gaitStrike = new(); // blend speed, m per cycle, heel strike
         bool measuredGaits;
         float phase, speedS, airT, landT = -1;
+        public float Phase => phase; // the shared stride: 0 = left heel strike, ~0.5 = right (footsteps)
         Slot last;
 
         public void Tick(Slot want, float speed)
@@ -115,7 +122,7 @@ namespace PortBoss
             if (!onFoot && !plays[(int)want].IsValid()) { want = Slot.Idle; onFoot = true; } // e.g. no climbing clip
             // Landing after a real fall (not a hop or a step down): the landing clip, cut short if we run straight on.
             airT = want == Slot.Jump ? airT + dt : onFoot ? airT : 0;
-            if (onFoot && airT > 0.35f && plays[(int)Slot.Land].IsValid()) { landT = 0; plays[(int)Slot.Land].SetTime(0); }
+            if (onFoot && airT > 0.35f && plays[(int)Slot.Land].IsValid()) { landT = 0; plays[(int)Slot.Land].SetTime(LandFrom); }
             if (onFoot) airT = 0;
             float land = 0;
             if (landT >= 0)
@@ -131,6 +138,8 @@ namespace PortBoss
             int act = Act != null ? ActIndex(Act) : -1;
             float actT = 0;
             if (act >= 0) { actT = target[(int)Slot.Idle]; target[(int)Slot.Idle] = 0; }
+            int over = Over != null && OverW > 0.001f ? ActIndex(Over) : -1;
+            float ow = over >= 0 ? Mathf.Clamp01(OverW) : 0;
             // Into the water: no lingering in the air pose, straight to treading.
             bool wet = want == Slot.Swim || want == Slot.SwimIdle;
             float k = 1 - Mathf.Exp(-(wet && last != Slot.Swim && last != Slot.SwimIdle ? 22f : land > 0 ? 25f : 10f) * dt);
@@ -138,13 +147,14 @@ namespace PortBoss
             for (int i = 0; i < w.Length; i++)
             {
                 w[i] = Mathf.Lerp(w[i], target[i], k);
-                if (plays[i].IsValid()) mixer.SetInputWeight(i, w[i]);
+                if (plays[i].IsValid()) mixer.SetInputWeight(i, w[i] * (1 - ow));
             }
             for (int i = 0; i < actP.Count; i++)
             {
+                if (i == over) { actW[i] = 0; mixer.SetInputWeight(w.Length + i, ow); actP[i].SetSpeed(0); actP[i].SetTime(OverTime); continue; }
                 if (i == act && actW[i] < 0.02f && ActTime < 0 && !Act.isLooping) actP[i].SetTime(0); // a one-shot starts over
                 actW[i] = Mathf.Lerp(actW[i], i == act ? actT : 0, k);
-                mixer.SetInputWeight(w.Length + i, actW[i]);
+                mixer.SetInputWeight(w.Length + i, actW[i] * (1 - ow));
                 if (i == act) { if (ActTime >= 0) { actP[i].SetSpeed(0); actP[i].SetTime(ActTime); } else actP[i].SetSpeed(1); }
             }
             // Advance the shared stride over the blended stride length (m per cycle) of the gaits now playing.

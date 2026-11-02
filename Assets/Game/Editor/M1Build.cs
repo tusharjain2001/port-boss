@@ -51,7 +51,10 @@ namespace PortBoss.EditorTools
             a.Idle = skin.Idle; a.Walk = skin.Walk; a.Run = skin.Run; a.Sprint = skin.Sprint; a.Jump = skin.Jump; a.Land = skin.Land;
             a.SwimIdle = skin.SwimIdle; a.Swim = skin.Swim; a.Climb = skin.Climb; a.Drive = skin.Drive;
             M1Anim.Make(a.Worker, a.Idle, a);
+            a.JumpUp = Mixamo("Jumping Up"); a.Throw = Mixamo("Frisbee Throw"); a.GetUpBack = Mixamo("Getting Up"); a.GetUpFront = Mixamo("Standing Up"); a.FallIn = Mixamo("Falling Into Pool");
+            Debug.Log($"[M1Build] feel clips: jump {a.JumpUp?.length:F2} s, throw {a.Throw?.length:F2} s, get up (back) {a.GetUpBack?.length:F2} s, (front) {a.GetUpFront?.length:F2} s, fall in {a.FallIn?.length:F2} s");
             a.Pip = Character(Root + "/Art/PB_Char_Pip.fbx", -25);
+            if (a.Pip != null) Feel(a);
             Debug.Log($"[M1Build] clips idle={a.Idle?.name} walk={a.Walk?.name} run={a.Run?.name} swim={a.Swim?.name} tread={a.SwimIdle?.name} climb={a.Climb?.name}");
 
             AudioClip Au(string n) => AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Resources/Audio/" + n);
@@ -90,6 +93,65 @@ namespace PortBoss.EditorTools
                 mi.SaveAndReimport();
             }
             return AssetDatabase.LoadAssetAtPath<GameObject>(path);
+        }
+
+        // One more Mixamo clip (gitignored, Assets/ThirdParty/Mixamo), imported like the old build's: on X Bot's avatar,
+        // turned round to face +Z like our bodies, the height kept in the pose, no root motion across the ground.
+        static AnimationClip Mixamo(string name, bool loop = false)
+        {
+            string dir = "Assets/ThirdParty/Mixamo", path = dir + "/X Bot@" + name + ".fbx";
+            if (AssetImporter.GetAtPath(path) is not ModelImporter mi) { Debug.LogWarning("[M1Build] missing " + path); return null; }
+            var rig = AssetDatabase.LoadAssetAtPath<Avatar>(dir + "/X Bot.fbx");
+            mi.animationType = ModelImporterAnimationType.Human;
+            if (rig != null) { mi.avatarSetup = ModelImporterAvatarSetup.CopyFromOther; mi.sourceAvatar = rig; }
+            mi.materialImportMode = ModelImporterMaterialImportMode.None; mi.importCameras = false; mi.importLights = false;
+            var takes = mi.defaultClipAnimations;
+            foreach (var c in takes) { c.loopTime = loop; c.lockRootRotation = c.lockRootHeightY = true; c.lockRootPositionXZ = false; c.keepOriginalOrientation = false; c.rotationOffset = 180f; c.keepOriginalPositionY = true; }
+            mi.clipAnimations = takes; mi.SaveAndReimport();
+            return AssetDatabase.LoadAllAssetsAtPath(path).OfType<AnimationClip>().FirstOrDefault(c => !c.name.StartsWith("__"));
+        }
+
+        // What the game needs to know about the clips it drives itself, sampled on Pip. AnimationMode moves the object by a
+        // clip's root motion, which the game never applies, so bones are measured from the object: the hips' lift above
+        // standing (Jumping Up, Falling Into Pool), and the get-up's start (hips, hips -> head) and creep along the ground.
+        static void Feel(M1Assets a)
+        {
+            var go = UnityEngine.Object.Instantiate(a.Pip); go.hideFlags = HideFlags.HideAndDontSave;
+            var an = go.GetComponentInChildren<Animator>();
+            Transform hips = an.GetBoneTransform(HumanBodyBones.Hips), head = an.GetBoneTransform(HumanBodyBones.Head);
+            AnimationMode.StartAnimationMode();
+            try
+            {
+                Vector3 At(AnimationClip c, float t, Transform b) { AnimationMode.SampleAnimationClip(an.gameObject, c, t); return b.position - go.transform.position; }
+                float rest = At(a.Idle, 0, hips).y;
+                AnimationCurve Lift(AnimationClip c)
+                {
+                    var k = new AnimationCurve();
+                    if (c != null) for (float t = 0; t <= c.length + 1e-4f; t += 1 / 30f) k.AddKey(t, At(c, t, hips).y - rest);
+                    return k;
+                }
+                a.JumpLift = Lift(a.JumpUp); a.FallLift = Lift(a.FallIn);
+                // the get-ups, both starting face down: Getting Up (pushes up onto the knees, 0.95-4.9 s at 1.8x = 2.2 s) and
+                // Standing Up (rolls up more slowly, 3.4-8.7 s at 2.2x = 2.4 s)
+                var ups = new System.Collections.Generic.List<M1Assets.GetUpClip>();
+                foreach (var (c, from, to, speed) in new[] { (a.GetUpBack, 0.95f, 4.9f, 1.8f), (a.GetUpFront, 3.4f, 8.7f, 2.2f) })
+                {
+                    if (c == null) continue;
+                    var g = new M1Assets.GetUpClip { Clip = c, From = from, To = to, Speed = speed, MoveX = new AnimationCurve(), MoveZ = new AnimationCurve() };
+                    g.Hips = At(c, from, hips); g.Spine = At(c, from, head) - g.Hips;
+                    AnimationMode.SampleAnimationClip(an.gameObject, c, from); var g0 = go.transform.position;
+                    for (float t = from; t <= to + 1e-4f; t += 1 / 30f)
+                    {
+                        AnimationMode.SampleAnimationClip(an.gameObject, c, t);
+                        var d = go.transform.position - g0; g.MoveX.AddKey(t, d.x); g.MoveZ.AddKey(t, d.z);
+                    }
+                    ups.Add(g);
+                    Debug.Log($"[M1Build] get-up {c.name}: from hips {g.Hips} spine {g.Spine}, creeps {g.MoveZ.Evaluate(to):F2} m");
+                }
+                a.GetUps = ups.ToArray();
+                Debug.Log($"[M1Build] feel: rest hips {rest:F2} m, jump lifts {a.JumpLift.Evaluate(0.83f):F2} at the top, {a.GetUps.Length} get-ups");
+            }
+            finally { AnimationMode.StopAnimationMode(); UnityEngine.Object.DestroyImmediate(go); }
         }
 
         // A character from the kit (art-src/kit/build_kit.py): a Humanoid on X Bot's joints, so the Mixamo clips play on it.

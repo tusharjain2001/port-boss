@@ -2,7 +2,9 @@ using UnityEngine;
 
 namespace PortBoss.M1
 {
-    // Third-person camera (feel spec: 7.5 m, 30°, FOV 55, 0.15 s damping; on a deck 6 m). Fishing framings from gdd
+    // Third-person camera (feel spec: 7.5 m + 0.35 a crate up to 9, 30°, FOV 55 (+4 sprinting), aimed 1.2 m up and
+    // ahead of the run, following 0.15 s across and 0.3 s up and down from the ground stood on, so a jump doesn't
+    // lift it; a dip on a big landing; on a deck 6 m). Fishing framings from gdd
     // fishing §3 are offsets from that baseline, eased in and back: shoulder cam while charging a cast, the "wait"
     // framing biased toward the bobber, a 3/4-front close-up for the reveal, and the boat cam at the helm.
     [DefaultExecutionOrder(2000)]
@@ -13,7 +15,7 @@ namespace PortBoss.M1
         public Camera UiCam => Cam.transform.childCount > 0 ? Cam.transform.GetChild(0).GetComponent<Camera>() : Cam;
         public Camera Cam;
         public Transform Target;
-        public float Yaw, Pitch = 24f;
+        public float Yaw, Pitch = 30f;
         public enum Mode { Follow, Shoulder, Wait, Fight, Reveal, Helm }
         public Mode M;
         public Vector3 Focus;             // marker / bobber / fish
@@ -23,8 +25,9 @@ namespace PortBoss.M1
 
         public string Blocker;            // what the camera is pulled in by this frame (tests)
         Vector3 pivot, pos, focus;
-        float dist = 6, fov = 55, side, pitchOff, focusW, lastLook, roll, reach = 99, distV, fovV, sideV, pitchV, focusV;
-        static float shake;
+        float dist = 6, fov = 55, side, pitchOff, focusW, lastLook, roll, reach = 99, distV, fovV, sideV, pitchV, focusV, height = 1.2f, heightV;
+        Vector3 pivotV, ahead;
+        static float shake, dipT = 9, dipA;
 
         public static CameraRig Create(Transform target)
         {
@@ -45,6 +48,7 @@ namespace PortBoss.M1
         }
 
         public static void Shake(float a) => shake = Mathf.Max(shake, a);
+        public static void Dip(float m) { dipT = 0; dipA = m; } // a big landing: down and back up in 0.3 s
 
         void LateUpdate()
         {
@@ -54,10 +58,12 @@ namespace PortBoss.M1
             if (look.sqrMagnitude > 0.0001f) lastLook = Time.time;
             bool aim = M == Mode.Shoulder;
             Yaw += look.x;
-            if (M != Mode.Reveal && M != Mode.Fight) Pitch = Mathf.Clamp(Pitch - look.y, -8f, 65f);
+            if (M != Mode.Reveal && M != Mode.Fight) Pitch = Mathf.Clamp(Pitch - look.y, 10f, 60f);
 
             // targets per mode
-            float tDist = OnDeck ? 6f : 7.5f, tFov = 55, tSide = 0, tPitchOff = 0, tFocus = 0;
+            var a = Angler.I;
+            // (the feel spec's distances were for the 1.78 m worker: scaled to the body, so she fills the frame the same)
+            float tDist = (OnDeck ? 6f : Mathf.Min(9f, 7.5f + 0.35f * (a != null ? a.Load : 0))) * (a != null ? a.Size : 1), tFov = 55 + 4 * (a != null ? a.SprintW : 0), tSide = 0, tPitchOff = 0, tFocus = 0;
             switch (M)
             {
                 case Mode.Shoulder: tDist = 4.5f; tSide = 0.6f; tFov = 50; tPitchOff = 20 - Pitch; tFocus = 0.25f; break;
@@ -81,26 +87,39 @@ namespace PortBoss.M1
                 Yaw = Mathf.LerpAngle(Yaw, front, 1 - Mathf.Exp(-4f * dt));
             }
 
-            var want = Target.position + Vector3.up * (M == Mode.Reveal ? 1.35f : 1.55f);
-            pivot = Vector3.Lerp(pivot, want, 1 - Mathf.Exp(-dt / 0.15f));
+            // the pivot: 1.2 m up walking about (the fishing framings were made round 1.55), 0.8 m ahead of a run
+            height = Mathf.SmoothDamp(height, M == Mode.Follow ? 1.2f : M == Mode.Reveal ? 1.35f : 1.55f, ref heightV, 0.3f, Mathf.Infinity, dt);
+            var run = M == Mode.Follow && a != null ? Vector3.ClampMagnitude(new Vector3(a.Vel.x, 0, a.Vel.z) * (0.8f / 4.2f), 0.8f) : Vector3.zero;
+            ahead = Vector3.Lerp(ahead, run, 1 - Mathf.Exp(-4f * dt));
+            float groundY = a != null && Target == a.transform ? a.CamY : Target.position.y;
+            var want = new Vector3(Target.position.x, groundY + height, Target.position.z) + ahead;
+            var pv = new Vector2(pivotV.x, pivotV.z);
+            var flat = Vector2.SmoothDamp(new Vector2(pivot.x, pivot.z), new Vector2(want.x, want.z), ref pv, 0.15f, Mathf.Infinity, dt);
+            float py = Mathf.SmoothDamp(pivot.y, want.y, ref pivotV.y, 0.3f, Mathf.Infinity, dt);
+            pivotV.x = pv.x; pivotV.z = pv.y;
+            pivot = new Vector3(flat.x, py, flat.y);
+            dipT += dt; var dip = Vector3.down * (dipA * Mathf.Sin(Mathf.PI * Mathf.Clamp01(dipT / 0.3f)));
             var rot = Quaternion.Euler(Pitch + pitchOff, Yaw, 0);
-            var p = pivot + rot * new Vector3(side, 0, -dist);
+            var piv = pivot + dip;
+            var p = piv + rot * new Vector3(side, 0, -dist);
 
             // keep off the land and the pier (the boat itself never pushes the camera: a 5 m deck would jitter it)
             // (pulled in over a few frames and let out slowly; thin posts are ignored: the lamp post at the pier end
-            // squashed the camera into his head and swung the view 7° in a frame while casting there)
-            var dir = p - pivot; float len = dir.magnitude, room = len;
+            // squashed the camera into his head and swung the view 7° in a frame while casting there; anything that
+            // can fade, the shack, fades instead: feel spec, pull in only for the ground and big hulls)
+            var dir = p - piv; float len = dir.magnitude, room = len;
             Blocker = null;
-            foreach (var hit in Physics.SphereCastAll(pivot, 0.3f, dir / len, len, ~0, QueryTriggerInteraction.Ignore))
+            foreach (var hit in Physics.SphereCastAll(piv, 0.3f, dir / len, len, ~0, QueryTriggerInteraction.Ignore))
             {
                 var bs = hit.collider.bounds.size;
                 if (hit.distance <= 0 || bs.x < 0.5f && bs.z < 0.5f) continue; // (SphereCast never saw start overlaps either)
                 if (Skiff.I != null && hit.transform.IsChildOf(Skiff.I.transform) || hit.collider.GetComponentInParent<Angler>() != null) continue;
+                if (Fadeable(hit.collider).Count > 0) continue;
                 if (hit.distance < room) { room = Mathf.Max(0.6f, hit.distance); Blocker = hit.collider.name; }
             }
             reach = Mathf.Min(reach, len);
             reach = Mathf.Lerp(reach, room, 1 - Mathf.Exp(-dt / (room < reach ? 0.05f : 0.35f)));
-            p = pivot + dir / len * reach;
+            p = piv + dir / len * reach;
             // never under the water
             float wy = Sea.Height(p) + 0.35f; if (p.y < wy) p.y = wy;
 
@@ -109,13 +128,15 @@ namespace PortBoss.M1
             // of switching to it at a threshold.
             if (focusW < 0.01f) focus = Focus;
             else focus = Vector3.Lerp(focus, Focus, 1 - Mathf.Exp(-dt / 0.25f));
-            var aimAt = Vector3.Lerp(pivot, focus, focusW);
+            var aimAt = Vector3.Lerp(piv, focus, focusW);
             var fwd = M == Mode.Reveal ? (aimAt - p) : Vector3.Lerp(rot * Vector3.forward, (aimAt - p).normalized, Mathf.Clamp01(focusW / 0.05f));
             if (M == Mode.Reveal) fwd = (Target.position + Vector3.up * 1.3f + Target.forward * 0.25f) - p;
             // a little roll with the deck (systems §1.6.1: roll follow is a setting; calm default)
             float tRoll = OnDeck && Skiff.I != null ? -Mathf.DeltaAngle(0, Skiff.I.transform.eulerAngles.z) * 0.25f : 0;
             roll = Mathf.Lerp(roll, tRoll, 1 - Mathf.Exp(-3f * dt));
             var q = Quaternion.LookRotation(fwd.normalized, Vector3.up) * Quaternion.Euler(0, 0, roll);
+
+            SeeThrough(p);
 
             if (shake > 0.001f)
             {
@@ -125,6 +146,59 @@ namespace PortBoss.M1
             transform.SetPositionAndRotation(p, q);
             Cam.fieldOfView = fov - FovPunch;
             if (UiCam != Cam) UiCam.fieldOfView = Cam.fieldOfView;
+        }
+
+        // Walls between the camera and the player fade (PB_Toon's _Fade dither, 65% gone in 0.15 s, back in 0.3 s): what
+        // the line from the lens to her chest passes through, if it is a separate model under 8 m (the shack; the boat
+        // when she's in the water beside it), never what she stands on or in. The pier and the land are single huge
+        // models: the camera pulls in for those instead.
+        readonly System.Collections.Generic.Dictionary<Renderer, float> fading = new();
+        readonly System.Collections.Generic.Dictionary<Collider, System.Collections.Generic.List<Renderer>> fadeable = new();
+        readonly System.Collections.Generic.HashSet<Renderer> blocking = new();
+        MaterialPropertyBlock fadeMpb;
+        public int Fading => fading.Count; // (tests)
+
+        System.Collections.Generic.List<Renderer> Fadeable(Collider c)
+        {
+            if (fadeable.TryGetValue(c, out var list)) return list;
+            list = new System.Collections.Generic.List<Renderer>();
+            var cb = c.bounds.size;
+            if (Mathf.Max(cb.x, cb.y, cb.z) > 8f) { fadeable[c] = list; return list; } // the ground, the pier: never (the camera pulls in)
+            foreach (var r in c.transform.root.GetComponentsInChildren<MeshRenderer>())
+            {
+                var b = r.bounds;
+                if (Mathf.Max(b.size.x, b.size.y, b.size.z) <= 8f && b.Intersects(c.bounds) && r.sharedMaterial != null && r.sharedMaterial.HasProperty("_Fade") && r.GetComponentInParent<Angler>() == null)
+                    list.Add(r);
+            }
+            fadeable[c] = list;
+            return list;
+        }
+
+        void SeeThrough(Vector3 cam)
+        {
+            blocking.Clear();
+            var a = Angler.I;
+            var at = Target.position + Vector3.up * (a != null && Target == a.transform ? 0.95f : 0.3f);
+            var d = at - cam; float len = d.magnitude;
+            if (len > 0.3f)
+                foreach (var hit in Physics.SphereCastAll(cam, 0.2f, d / len, len - 0.25f, ~0, QueryTriggerInteraction.Ignore))
+                {
+                    if (hit.collider.GetComponentInParent<Angler>() != null) continue;
+                    if (a != null && a.OnBoat && Skiff.I != null && hit.transform.IsChildOf(Skiff.I.transform)) continue; // aboard: the boat stays
+                    foreach (var r in Fadeable(hit.collider))
+                        if (!r.bounds.Contains(Target.position + Vector3.up * 0.1f)) blocking.Add(r);
+                }
+            foreach (var r in blocking) if (!fading.ContainsKey(r)) fading[r] = 0;
+            fadeMpb ??= new MaterialPropertyBlock();
+            var keys = new System.Collections.Generic.List<Renderer>(fading.Keys);
+            foreach (var r in keys)
+            {
+                if (r == null) { fading.Remove(r); continue; }
+                bool on = blocking.Contains(r);
+                float f = Mathf.MoveTowards(fading[r], on ? 0.65f : 0, Time.deltaTime * 0.65f / (on ? 0.15f : 0.3f));
+                r.GetPropertyBlock(fadeMpb); fadeMpb.SetFloat("_Fade", f); r.SetPropertyBlock(fadeMpb);
+                if (f <= 0 && !on) fading.Remove(r); else fading[r] = f;
+            }
         }
 
         // Where the aim ray from the screen centre meets the sea (for the cast marker), flattened to the player's yaw.

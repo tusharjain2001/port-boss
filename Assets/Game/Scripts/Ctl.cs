@@ -12,7 +12,7 @@ namespace PortBoss.M1
         public static bool PadLast;                       // the last device used (prompt glyphs follow it)
 
         // bot overrides (the -pb-* scenarios)
-        public static bool Bot; public static Vector2 BotMove; public static bool BotUse, BotUsePressed, BotStrike, BotInteract, BotCancel, BotJump; public static int BotSlot = -1;
+        public static bool Bot; public static Vector2 BotMove; public static bool BotUse, BotUsePressed, BotStrike, BotInteract, BotCancel, BotJump, BotSprint, BotJumpHeld = true; public static int BotSlot = -1;
 
         static bool K_(Key k) => K != null && K[k].isPressed;
         static bool KD(Key k) => K != null && K[k].wasPressedThisFrame;
@@ -43,9 +43,10 @@ namespace PortBoss.M1
             }
         }
 
-        public static bool Sprint => !Bot && (K_(Key.LeftShift) || (P != null && P.leftStickButton.isPressed));
+        public static bool Sprint => Bot ? BotSprint : K_(Key.LeftShift) || (P != null && P.leftStickButton.isPressed);
         public static bool Walk => !Bot && K_(Key.LeftCtrl);
         public static bool Jump => Bot ? BotJump : KD(Key.Space) || (P != null && P.buttonSouth.wasPressedThisFrame);
+        public static bool JumpHeld => Bot ? BotJumpHeld : K_(Key.Space) || (P != null && P.buttonSouth.isPressed); // let go early: a lower hop
         public static bool Interact => Bot ? BotInteract : KD(Key.E) || (P != null && P.buttonWest.wasPressedThisFrame);
         public static bool InteractHeld => !Bot && (K_(Key.E) || (P != null && P.buttonWest.isPressed));
         public static bool Drop => !Bot && (KD(Key.Q) || (P != null && P.dpad.down.wasPressedThisFrame));
