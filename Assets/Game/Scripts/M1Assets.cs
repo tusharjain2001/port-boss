@@ -11,6 +11,8 @@ namespace PortBoss.M1
         public Material SoftParticle;   // a transparent particle material ASSET, so the build keeps its shader variant
         public Font Display, DisplayBold, Ui, UiBold, UiBlack; // Fraunces 600 / 700, Zen Maru Gothic 500 / 700 / 900
         public GameObject Boat, Landing, Worker, Pip;    // Pip: the character kit's first body (replaces the placeholder Worker when present)
+        public GameObject[] Crew; public string[] CrewNames; // every kit body built so far (art-src/kit), Pip first: F9 / -pb-body
+        public Vector2[] CrewBelly;                          // each body's belly: how far it sticks out in front, half its width (m)
         public string[] FishIds; public GameObject[] Fish;
         public TextAsset FishCsv;
         public AnimationClip Idle, Walk, Run, Sprint, Jump, Land, SwimIdle, Swim, Climb, Drive;

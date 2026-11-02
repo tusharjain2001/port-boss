@@ -47,6 +47,8 @@ namespace PortBoss.M1
             else if (Arg("-pb-tour") != null) yield return Tour(Arg("-pb-tour"), Arg("-pb-side") != null);
             else if (Arg("-pb-feeltest") != null) yield return FeelTest(Arg("-pb-feeltest"));
             else if (Arg("-pb-knocktest") != null) yield return KnockTest(Arg("-pb-knocktest"));
+            else if (Arg("-pb-crewshots") != null) { shots = Arg("-pb-crewshots"); Directory.CreateDirectory(shots); yield return CrewShots(); }
+            else if (Arg("-pb-waitcam") != null) { shots = Arg("-pb-waitcam"); Directory.CreateDirectory(shots); yield return WaitCam(); }
             else if (Arg("-pb-fadetest") != null) { shots = Arg("-pb-fadetest"); Directory.CreateDirectory(shots); yield return FadeTest(); }
         }
 
@@ -605,21 +607,43 @@ namespace PortBoss.M1
             yield return new WaitForSeconds(0.5f);
             var l = Landing.I; Ctl.Bot = true;
             var inward = l.LadderTop.position - l.LadderBottom.position; inward.y = 0; inward.Normalize();
-            var at = l.LadderBottom.position - inward * 1.2f; at.y = Sea.Height(at) - Angler.SwimDepth;
+            float from = float.TryParse(Arg("-pb-ladderfrom"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var lf) ? lf : 1.2f;
+            var at = l.LadderBottom.position - inward * from; at.y = Sea.Height(at) - Angler.SwimDepth;
             me.Teleport(at, Mathf.Atan2(inward.x, inward.z) * Mathf.Rad2Deg);
-            CameraRig.I.Yaw = Mathf.Atan2(inward.x, inward.z) * Mathf.Rad2Deg + 55; CameraRig.I.Pitch = 14;
+            CameraRig.I.Yaw = Mathf.Atan2(inward.x, inward.z) * Mathf.Rad2Deg + (float.TryParse(Arg("-pb-ladderyaw"), out var ly) ? ly : 55); CameraRig.I.Pitch = 14;
             yield return new WaitForSeconds(1.5f);
             Debug.Log($"[PB] ladder: in the water {me.Swimming}, prompt '{me.Prompt}'");
             yield return Shot("ladder-0-water");
+            // the camera on the way up (Tushar 2 Nov: from right by the pier ladder it zoomed in and stuttered): how far it
+            // sits from her head each frame; it must glide, never snap in
+            var cam = CameraRig.I.Cam.transform; float Gap() => Vector3.Distance(cam.position, me.transform.position + Vector3.up * 1.2f * me.Size);
+            // filmed at a steady 30 fps (headless runs free at ~1500 fps: no stutter shows), from 0.3 s before the E
+            StartCoroutine(Film(Path.Combine(dir, "film"), 2.2f, 960, 540)); yield return new WaitForSeconds(0.3f);
             Ctl.BotInteract = true; yield return null; Ctl.BotInteract = false;
-            int n = 1; yield return null;
-            yield return Shot($"ladder-{n++}-top");
-            yield return new WaitForSeconds(1f);
-            yield return Shot($"ladder-{n++}-after");
+            yield return null;
+            float g0 = Gap(), gMin = g0, jerk = 0, turn = 0; string by = null;
+            var lastP = cam.position; var lastR = cam.rotation; Vector3 lastV = Vector3.zero;
+            var trace = new System.Text.StringBuilder("t,gap,speed,turn,blocker\n");
+            for (float t = 0; t < 1.5f; t += Time.deltaTime)
+            {
+                yield return null;
+                float dt = Mathf.Max(Time.deltaTime, 1e-3f), g = Gap();
+                var v = (cam.position - lastP) / dt; float r = Quaternion.Angle(cam.rotation, lastR) / dt;
+                if (t > 0.05f) { jerk = Mathf.Max(jerk, (v - lastV).magnitude / dt); turn = Mathf.Max(turn, r); }
+                lastP = cam.position; lastR = cam.rotation; lastV = v;
+                if (g < gMin) { gMin = g; by = CameraRig.I.Blocker; }
+                trace.Append($"{t:F3},{g:F3},{v.magnitude:F2},{r:F1},{CameraRig.I.Blocker}\n");
+            }
+            File.WriteAllText(Path.Combine(dir, "camera.csv"), trace.ToString());
+            while (Time.captureFramerate != 0) yield return null;
+            int n = 1; yield return Shot($"ladder-{n++}-after");
+            // a glide: no sudden kick in the camera's speed (a pull-in snaps it), it never swings fast, never squashed in
+            bool camOk = jerk < 120f && turn < 120f && gMin > 2.5f;
+            Debug.Log($"[PB] RESULT ladder camera: {(camOk ? "PASS" : "FAIL")} (from {from:F1} m: {g0:F2} m from her head on top, closest {gMin:F2} m{(by != null ? " pulled in by " + by : "")}, worst kick {jerk:F0} m/s², fastest turn {turn:F0}°/s)");
             var p = me.transform.position;
             float deckY = l.LadderTop.position.y, inPast = Vector3.Dot(p - l.LadderTop.position, inward);
             bool ok = !me.Swimming && me.Cc.isGrounded && Mathf.Abs(p.y - deckY) < 0.15f && inPast > 0.3f;
-            Debug.Log($"[PB] RESULT ladder: {(ok ? "PASS" : "FAIL")} (swimming {me.Swimming}, grounded {me.Cc.isGrounded}, feet {p.y - deckY:F2} m from the deck, {inPast:F2} m in from the ladder top)");
+            Debug.Log($"[PB] RESULT ladder: {(ok && camOk ? "PASS" : "FAIL")} (swimming {me.Swimming}, grounded {me.Cc.isGrounded}, feet {p.y - deckY:F2} m from the deck, {inPast:F2} m in from the ladder top)");
             Application.Quit();
         }
 
@@ -770,7 +794,8 @@ namespace PortBoss.M1
                 float moved = Vector3.Distance(Flat(rest), Flat(me.transform.position)), stand = hips.position.y - me.transform.position.y;
                 var w0 = me.transform.position; Ctl.BotMove = Vector2.up; yield return new WaitForSeconds(0.6f); Ctl.BotMove = Vector2.zero;
                 float walked = Vector3.Distance(Flat(w0), Flat(me.transform.position));
-                bool pass = low < 0.45f && t < 4.5f && (moved < 1f || me.Swimming) && (stand > 0.55f || me.Swimming) && walked > 0.4f;
+                float k = me.Size / 0.826f; // the limits were set on Pip: scaled to the body
+                bool pass = low < 0.45f * k && t < 4.5f && (moved < 1f * k || me.Swimming) && (stand > 0.55f * k || me.Swimming) && walked > 0.4f;
                 ok &= pass;
                 Debug.Log($"[PB] knock {way}: hips down to {low:F2} m, up in {t:F2} s, up {moved:F2} m from where she lay, hips {stand:F2} m up after, walked {walked:F2} m{(me.Swimming ? " (in the water)" : "")}{(me.OnBoat ? " (on the boat)" : "")} {(pass ? "ok" : "OFF")}");
                 yield return new WaitForSeconds(1f);
@@ -787,6 +812,61 @@ namespace PortBoss.M1
             Debug.Log($"[PB] knock walk-off: in the water {(me.Swimming ? "yes" : "NO")} after {tw:F2} s");
             ok &= me.Swimming;
             Debug.Log($"[PB] RESULT knock: {(ok ? "PASS" : "FAIL")}");
+            Application.Quit();
+        }
+
+        // -pb-crewshots <dir>: every crew body on the pier, in the game's light and toon shader: a 3/4 front close-up, the
+        // game camera, and the game camera walking (the kit's proof in the real game, not Blender's preview).
+        IEnumerator CrewShots()
+        {
+            yield return new WaitForSeconds(0.5f);
+            Ctl.Bot = true; me.Select(1);
+            var names = M1Assets.I.CrewNames ?? new string[0];
+            for (int i = 0; i < names.Length; i++)
+            {
+                me.Teleport(Landing.I.Spawn.position + Vector3.up * 0.05f, Landing.I.Spawn.eulerAngles.y + 180);
+                me.Wear(i); CameraRig.I.Yaw = me.transform.eulerAngles.y; CameraRig.I.Pitch = 30;
+                yield return new WaitForSeconds(1.2f);
+                Debug.Log($"[PB] crew {names[i]}: size {me.Size:F3}");
+                yield return new WaitForEndOfFrame();
+                var ct = CameraRig.I.Cam.transform; var a = me.transform; var keep = (ct.position, ct.rotation);
+                float h = me.Size * 1.78f;
+                ct.position = a.TransformPoint(new Vector3(-0.9f, 0.62f, 1.6f) * h + Vector3.up * 0.0f);
+                ct.rotation = Quaternion.LookRotation(a.TransformPoint(new Vector3(0, 0.5f * h, 0)) - ct.position);
+                Save(Path.Combine(shots, $"crew-{i}-{names[i]}-34.png"));
+                ct.SetPositionAndRotation(keep.position, keep.rotation);
+                yield return Shot($"crew-{i}-{names[i]}-game");
+                Ctl.BotMove = Vector2.up; yield return new WaitForSeconds(0.7f);
+                yield return Shot($"crew-{i}-{names[i]}-walk");
+                Ctl.BotMove = Vector2.zero; yield return new WaitForSeconds(0.5f);
+            }
+            Debug.Log($"[PB] RESULT crewshots {names.Length} bodies");
+            Application.Quit();
+        }
+
+        // -pb-waitcam <dir>: with the line out, the player orbits the camera round to her front (Tushar 2 Nov: stuck looking
+        // down at the water, couldn't tilt up). PASS = from the front the view centres on her (within 15°), and tilting up
+        // to 55° actually raises the camera. Shots of both.
+        IEnumerator WaitCam()
+        {
+            yield return new WaitForSeconds(0.5f);
+            yield return SailOut(false); Ctl.Bot = true; me.Select(0);
+            yield return new WaitForSeconds(1.5f);
+            yield return CastOnce(0.7f); float t = 0; while (fish.State != Fishing.St.Waiting && t < 6) { t += Time.deltaTime; yield return null; }
+            var cam = CameraRig.I; bool ok = fish.State == Fishing.St.Waiting;
+            cam.Yaw = me.transform.eulerAngles.y + 180; yield return new WaitForSeconds(2f);   // round to her face
+            var head = me.transform.position + Vector3.up * me.Size * 1.78f * 0.8f;
+            float off = Vector3.Angle(cam.transform.forward, head - cam.transform.position);
+            Debug.Log($"[PB] waitcam front: {off:F1}° off her head (state {fish.State})");
+            yield return Shot("waitcam-front");
+            ok &= off < 15;
+            float y0 = cam.transform.position.y - me.transform.position.y;
+            cam.Pitch = 55; yield return new WaitForSeconds(1.5f);
+            float y1 = cam.transform.position.y - me.transform.position.y;
+            Debug.Log($"[PB] waitcam tilt: camera {y0:F2} m -> {y1:F2} m above her at pitch {cam.Pitch:F0}");
+            yield return Shot("waitcam-high");
+            ok &= y1 > y0 + 1f && fish.State == Fishing.St.Waiting;
+            Debug.Log($"[PB] RESULT waitcam: {(ok ? "PASS" : "FAIL")}");
             Application.Quit();
         }
 

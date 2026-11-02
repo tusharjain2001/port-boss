@@ -464,6 +464,32 @@ Proven headless:
   tour (and `-pb-letgo`: every catch thrown back). Films in `Logs/pb/m1/feel/` on Tushar's PC.
 - Not done from the spec: jiggle on the belly and hands; the carried-stack spring (no stack in M1).
 
+**The crew, v1 (Step 2 item 4, branch `crew5`, Tushar's PC 2026-11-02), waiting for Manan's verdict on looks:**
+- All six cast.md bodies are built by `art-src/kit/build_kit.py` (now a runner: `kitlib.py` = the shared tools,
+  one file per character: `pip.py`, `bruno.py`, `stretch.py`, `rani.py`, `gus.py`, `sully.py`) into
+  `Assets/Game/Art/PB_Char_<Name>.fbx`. Each is modelled in "Pip space" (on Pip's joints) and scaled uniformly to
+  their own height, the rig built at that height, so every joint stays on the editor-kit table: Pip 1.47 m, Bruno 1.61,
+  Stretch 2.0, Rani 1.82, Gus 1.66, Sully 1.75. Tris: 8,670 / 9,270 / 9,944 / 8,093 / 8,096 / 8,102 (Bruno and Stretch
+  are over the 8.8k budget; trim later). Pip is unchanged.
+- One body per FBX (Pip's way, Manan approved), not yet the modular kit (Look v2, mix-and-match, the editor): that is
+  still to do, with the wardrobe (M5) in mind.
+- In game: M1Build imports every crew FBX it finds (`M1Assets.Crew`, each with its own upper-arm limit); **F9** swaps
+  to the next body, `-pb-body <name>` starts as one. Rod poses, the camera, jump lift, get-up, ragdoll and springs all
+  scale with the body (`Angler.Size` from the Head joint). Sully's helmet is his head (no hat bone).
+- Tests (all PASS, 0 exceptions): `-pb-crewshots <dir>` (each body on the pier: 3/4 close-up, game camera, walking);
+  knocktest on Stretch, Bruno and Pip; fish60 on Sully; swim on Gus; cast8 on Rani; ladder on Stretch; boat on Bruno;
+  the whole set on Pip. Renders: `art-src/kit/out/<name>-*.png`; in game: `Logs/pb/m1/crew/`.
+- Tushar's fixes (2 Nov): the rod hold is planned from the body (M1Build measures each body's belly: `M1Assets.CrewBelly`;
+  the right hand rests just in front of it at 60% of the height, the left hand closer on short arms, and on the reel crank wherever its spot on the rod would be inside the belly:
+  Bruno's went into his stomach), so nobody holds it
+  out stiff; with the line out the camera pitch is free and the bobber only pulls the view while it's ahead of the camera
+  (orbit round and you see her face: `-pb-waitcam <dir>`); Sully's helmet has a real opening at the porthole and his
+  face sits inside it. Up the pier ladder from right beside it the camera rises first, then glides in over the deck (it
+  used to slide in under the deck edge, cross the piles and snap in close): `-pb-laddertest <dir> [-pb-ladderfrom m]
+  [-pb-ladderyaw deg]` films the climb at 30 fps and fails on a pull-in.
+- Not done: expressions (shape keys), gait profiles per body (editor-kit §6), the 8x4 palette, Look v2 + the preset
+  strip in a character editor; Stretch's lankiness is mesh only (one Avatar, same limb lengths: editor-kit §3).
+
 **Known issues / not yet proven (from M1):**
 - **The worker model is a placeholder** (the old code-generated worker in a fisherman outfit). The real cast comes with the
   character kit (§7 step 2).
@@ -516,7 +542,8 @@ Differences now:
 |---|---|
 | Compile check (seconds) | `bash tools/cc.sh` |
 | M1 headless setup + Win64 build | `bash tools/m1build.sh "$PWD/Builds/m1"` (add `-pbDev` for a dev build; log `Logs/pb/m1build.log`) |
-| Character kit: Pip (Blender CLI, headless) | `"/c/Program Files/Blender Foundation/Blender 5.2/blender.exe" -b -P art-src/kit/build_kit.py -- [path/to/X Bot.fbx] [norender]` → `Assets/Game/Art/PB_Char_Pip.fbx`, then the M1 build picks her up |
+| Character kit: the crew (Blender CLI, headless) | `"/c/Program Files/Blender Foundation/Blender 5.2/blender.exe" -b -P art-src/kit/build_kit.py -- [pip bruno stretch rani gus sully \| all] [path/to/X Bot.fbx] [norender]` → `Assets/Game/Art/PB_Char_<Name>.fbx`, then the M1 build picks them up |
+| Crew in game (each body: close-up, game camera, walking) | `bash tools/m1test.sh Builds/m1/PortBoss.exe crew -pb-crewshots <dir>` (any test takes `-pb-body <name>`) |
 | Fishing bot, N casts (bite timer, grade mix) | `bash tools/m1test.sh Builds/m1/PortBoss.exe fish500 -pb-fishtest 500 -pb-timescale 8` (expect all bites in [4.0, 10.0] s; `-pb-sigma 70` = practised player; `-pb-rod n`, `-pb-bait id`, `-pb-fightheavy`) |
 | Boat test (drive, roll, anchor hold) | `bash tools/m1test.sh Builds/m1/PortBoss.exe boat -pb-boattest` |
 | Swim test (overboard, ladder back) | `bash tools/m1test.sh Builds/m1/PortBoss.exe swim -pb-swimtest` |
@@ -529,7 +556,7 @@ Differences now:
 - Logs go to `Logs/pb/m1/<name>/log.txt`, and every run prints its exception count: it must be 0.
 - Paths (Unity exe, project, logs) are in `tools/env.sh`; override them from the environment.
 - M1 composites its UI into batchmode screenshots (a two-pass black/white capture), so the HUD shows in `-pb-shots`; look at every PNG yourself.
-- In-game debug keys: F3 overlay (bite timer, window ms, stop errors), F5 rod tier, F6 bait, F7 every fish heavy (on/off), F8 fall over.
+- In-game debug keys: F3 overlay (bite timer, window ms, stop errors), F5 rod tier, F6 bait, F7 every fish heavy (on/off), F8 fall over, F9 next crew body.
 - The old game's scripts (`ubuild.sh`, `reg2.sh`, `regress.sh`, `release.sh`, `morning.sh`, `capture.sh`) are in
   `tools/README.md`.
 - **Release for Manan:**
@@ -565,7 +592,7 @@ M1 is done when the systems §5.2 M1 checklist and his "15 minutes, do you want 
      - ragdoll-lite + get-up;
      - jump and throw clips with real anticipation.
   3. Manan judges Pip on looks in M1. **(Done: approved 2 Nov. The feel pass, item 2, is on branch `feel`, see §4.)**
-  4. Then the other 5. The clothes-only wardrobe comes later (M5).
+  4. Then the other 5. The clothes-only wardrobe comes later (M5). **(v1 of all 5 is in, branch `crew5`, see §4.)**
 - **Risk:** modelling quality. The old worker was generated from code and read lumpy. Judge every pass against the concept
   sheets, but flatter, low-poly toon, not Pixar.
 

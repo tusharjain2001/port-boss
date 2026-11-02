@@ -20,7 +20,7 @@ Double-click `PortBoss.exe`. You start on Walt's pier at golden hour; Biscuit is
 | Keep / let go (reveal) | E / Q | A / X |
 | Climb aboard from the water | E at the stern ladder | X |
 | Pause / quit | Esc, then Q | Menu |
-| Debug | F3 overlay (bite timer, window ms, stop errors) · F5 next rod tier (1–5) · F6 next bait · F7 every fish heavy (on/off) · F8 fall over | |
+| Debug | F3 overlay (bite timer, window ms, stop errors) · F5 next rod tier (1–5) · F6 next bait · F7 every fish heavy (on/off) · F8 fall over · F9 next crew body | |
 
 ## Manan's checklist (gdd fishing §8, F1–F6)
 - [ ] Take Biscuit out past the pier (A to steer away from the pier first), drive, come back and moor (F).

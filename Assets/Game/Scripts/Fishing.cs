@@ -68,7 +68,7 @@ namespace PortBoss.M1
             markerT = Hud.MakeMarker(); markerR = markerT.GetComponent<Renderer>(); markerT.gameObject.SetActive(false);
             creak = gameObject.AddComponent<AudioSource>(); creak.clip = Synth.Creak; creak.loop = true; creak.volume = 0; creak.Play();
             reelSnd = gameObject.AddComponent<AudioSource>(); reelSnd.clip = Synth.Reel; reelSnd.loop = true; reelSnd.volume = 0; reelSnd.Play();
-            butt = RestButt * me.Size; PlaceRod(0, true);
+            butt = Rest(); PlaceRod(0, true);
         }
 
         void Go(St s) { State = s; StateT = 0; OnLog?.Invoke("state " + s); }
@@ -606,10 +606,23 @@ namespace PortBoss.M1
         }
 
         // ---------------- body + rod pose ----------------
-        static readonly Vector3 RestButt = new(0.17f, 0.97f, 0.1f); // butt by the right hip, elbows soft (not held out stiff)
+        // Where the rod rests, from the body: the right hand (on the grip over the reel, GripR up the rod) just in front of
+        // the belly at 60% of the height, a little right of the middle, so the elbows bend; the butt tucks back against the
+        // belly or the hip (Tushar 2 Nov: every crew member held it out stiff, arms straight, the hands far up the rod).
+        Vector3 Rest()
+        {
+            float h = me.Size * 1.78f;
+            var hand = new Vector3(Mathf.Max(0.075f * h, me.BellyHalf * 0.55f), 0.6f * h, (me.BellyFront > 0 ? me.BellyFront : 0.18f * h) + 0.05f * h);
+            return hand - new Vector3(0, Mathf.Sin(35 * Mathf.Deg2Rad), Mathf.Cos(35 * Mathf.Deg2Rad)) * RodView.GripR.z;
+        }
+        // the cast and fight poses were made on the 1.78 m worker: sized to the body in height and depth, not width (a wide
+        // hat and belly: Pip's hands went through her brim on the wind-up)
+        Vector3 Sz(Vector3 v) => new(v.x, v.y * me.Size, v.z * me.Size);
+
         void PlaceRod(float dt, bool snap = false)
         {
-            float tElev = 35, tYaw = 0; Vector3 tButt = RestButt; float tension = 0.03f; bool onBack = false;
+            var rest = Rest();
+            float tElev = 35, tYaw = 0; Vector3 tButt = rest; float tension = 0.03f; bool onBack = false;
             var bobP = bob.transform.position;
             float yawToBob = AngleTo(bobP);
             switch (State)
@@ -622,7 +635,7 @@ namespace PortBoss.M1
                     // shoulder; then held loaded while the power swings, trembling at 100%
                     float u = Mathf.SmoothStep(0, 1, Mathf.Max(0, castClock) / CastApex);
                     tElev = Mathf.Lerp(35, 150, u) + 10 * Power * u + (Power > 0.98f ? Mathf.Sin(Time.time * 60) * 1.5f : 0);
-                    tButt = Vector3.Lerp(RestButt, OverShoulder, u); tYaw = 14 * u; tension = 0.05f + 0.1f * Power; break;
+                    tButt = Vector3.Lerp(rest, Sz(OverShoulder), u); tYaw = 14 * u; tension = 0.05f + 0.1f * Power; break;
                 }
                 case St.Flight: case St.Settle: case St.Waiting:
                     if (castClock >= 0 && castClock < CastLen)
@@ -633,25 +646,22 @@ namespace PortBoss.M1
                         float k = Mathf.SmoothStep(0, 1, (c - CastApex) / (CastWhip - CastApex));
                         float f = Mathf.SmoothStep(0, 1, (c - 0.85f) / (CastLen - 0.85f));
                         tElev = c < CastApex ? Mathf.Lerp(35, 160, c / CastApex) : Mathf.Lerp(Mathf.Lerp(160, 10, k), 28, f);
-                        tButt = c < CastApex ? OverShoulder : Vector3.Lerp(Vector3.Lerp(OverShoulder, Forward, k), RestButt, f);
+                        tButt = c < CastApex ? Sz(OverShoulder) : Vector3.Lerp(Vector3.Lerp(Sz(OverShoulder), Sz(Forward), k), rest, f);
                         tYaw = Mathf.Lerp(Mathf.Lerp(14, -6, k), Mathf.Clamp(yawToBob, -40, 40), f); tension = 0.05f;
                         break;
                     }
                     tElev = 28 + (nibT >= 0 ? -4 : 0); tYaw = Mathf.Clamp(yawToBob, -40, 40); tension = 0.05f + (nibT >= 0 ? 0.15f : 0); break;
                 case St.Bite: tElev = 20; tYaw = Mathf.Clamp(yawToBob, -40, 40); tension = 0.6f; break;
-                case St.Strike: tElev = Mathf.Lerp(20, 70, StateT / 0.2f); tYaw = Mathf.Clamp(yawToBob, -40, 40); tension = 0.6f; tButt = RestButt + new Vector3(0, 0.15f, -0.05f); break;
+                case St.Strike: tElev = Mathf.Lerp(20, 70, StateT / 0.2f); tYaw = Mathf.Clamp(yawToBob, -40, 40); tension = 0.6f; tButt = rest + Sz(new Vector3(0, 0.15f, -0.05f)); break;
                 case St.Heavy: case St.Minigame:
-                    tElev = 60 + Mathf.Sin(Time.time * 3.1f) * 4; tYaw = Mathf.Clamp(AngleTo(fishUnder), -45, 45); tButt = RestButt + new Vector3(0, 0.12f, -0.05f);
+                    tElev = 60 + Mathf.Sin(Time.time * 3.1f) * 4; tYaw = Mathf.Clamp(AngleTo(fishUnder), -45, 45); tButt = rest + Sz(new Vector3(0, 0.12f, -0.05f));
                     tension = 0.55f + 0.1f * Hits + (Frozen && Stop > 0 && Result[Stop - 1] < 0 ? 0.25f : 0); break;
                 case St.Reel:
                     tElev = 55 + Mathf.Sin(StateT * 6f) * 7; tYaw = Catch != null && fishGo != null ? Mathf.Clamp(AngleTo(fishGo.transform.position), -45, 45) : 0;
-                    tension = Mathf.Lerp(0.4f, 0.8f, Mathf.Clamp01(Catch != null ? Catch.Kg / 15f : 0)); tButt = RestButt + new Vector3(0, 0.1f, 0); break;
+                    tension = Mathf.Lerp(0.4f, 0.8f, Mathf.Clamp01(Catch != null ? Catch.Kg / 15f : 0)); tButt = rest + Sz(new Vector3(0, 0.1f, 0)); break;
                 case St.Reveal: case St.Toss: onBack = true; break;
                 case St.Recover: tElev = 70; tension = 0.1f; break;
             }
-            // the poses were made on the 1.78 m worker: a smaller body holds the rod lower and closer, but no narrower (a
-            // wide hat and belly: Pip's hands went through her brim on the wind-up)
-            tButt = new Vector3(tButt.x, tButt.y * me.Size, tButt.z * me.Size);
             if (rod.Root.parent != me.Model) rod.Root.SetParent(me.Model, false);
             if (onBack != wasBack || snap)
             {
@@ -671,7 +681,7 @@ namespace PortBoss.M1
                 rod.Tension = 0;
                 if (swapT < 0.55f && State != St.Reveal && !me.Swimming) GripRod(); // the hands carry it over the shoulder, then let go
                 else if (me.Anim.Grip == rod.Root) me.Anim.Grip = null;
-                elev = 35; elevV = 0; butt = RestButt * me.Size; castClock = -1; return;
+                elev = 35; elevV = 0; butt = rest; castClock = -1; return;
             }
             if (snap) { elev = tElev; butt = tButt; }
             // the rod follows its targets on a spring (lags the hands a little, sways with the boat)
@@ -696,7 +706,7 @@ namespace PortBoss.M1
             bool cranking = State is St.Reel or St.Recover;
             if (cranking) { rod.Crank += 360f * 2.5f * dt; me.Anim.GripL = rod.Root.InverseTransformPoint(rod.Handle.position); }
         }
-        Transform chestBone;
+        Transform chestBone; float onCrank;
         (Vector3, Quaternion) BackStrap()
         {
             if (chestBone == null) { var an = me.Anim.GetComponent<Animator>(); chestBone = an.GetBoneTransform(HumanBodyBones.Chest) ?? an.GetBoneTransform(HumanBodyBones.Spine); }
@@ -732,7 +742,16 @@ namespace PortBoss.M1
 
         void GripRod()
         {
-            me.Anim.Grip = rod.Root; me.Anim.GripL = RodView.GripL; me.Anim.GripR = RodView.GripR;
+            // the left hand closer up behind the right on a short-armed body (the worker's 0.32 m apart made Pip reach);
+            // where that spot is inside the belly (the butt tucks in against it) the left hand rests on the reel crank
+            // instead, as anglers hold a spinning rod (Tushar 2 Nov: on Bruno the other hand went into his stomach)
+            me.Anim.Grip = rod.Root; me.Anim.GripR = RodView.GripR;
+            var gl = Vector3.Lerp(RodView.GripR, RodView.GripL, Mathf.Clamp(me.Size, 0.7f, 1f));
+            var p = rod.Root.localPosition + rod.Root.localRotation * gl; // in the body's frame, +z in front
+            float h = me.Size * 1.78f, front = (me.BellyFront > 0 ? me.BellyFront : 0.18f * h) + 0.04f;
+            bool inBelly = rod.Root.parent == me.Model && p.z < front && p.y > 0.3f * h && p.y < 0.72f * h;
+            onCrank = Mathf.MoveTowards(onCrank, inBelly ? 1 : 0, Time.deltaTime / 0.15f);
+            me.Anim.GripL = Vector3.Lerp(gl, rod.Root.InverseTransformPoint(rod.Handle.position), Mathf.SmoothStep(0, 1, onCrank));
             me.Anim.GripElbow = new Vector3(0, -0.8f, -0.25f); me.Anim.GripFingers = new Vector3(0, 0.2f, 1);
         }
 

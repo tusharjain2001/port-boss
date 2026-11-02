@@ -53,7 +53,14 @@ namespace PortBoss.EditorTools
             M1Anim.Make(a.Worker, a.Idle, a);
             a.JumpUp = Mixamo("Jumping Up"); a.Throw = Mixamo("Frisbee Throw"); a.GetUpBack = Mixamo("Getting Up"); a.GetUpFront = Mixamo("Standing Up"); a.FallIn = Mixamo("Falling Into Pool");
             Debug.Log($"[M1Build] feel clips: jump {a.JumpUp?.length:F2} s, throw {a.Throw?.length:F2} s, get up (back) {a.GetUpBack?.length:F2} s, (front) {a.GetUpFront?.length:F2} s, fall in {a.FallIn?.length:F2} s");
-            a.Pip = Character(Root + "/Art/PB_Char_Pip.fbx", -25);
+            // the crew (art-src/kit/build_kit.py), each with how low its upper arms may go (round and broad bodies: higher)
+            var crew = new (string name, float armDown)[] { ("Pip", -25), ("Bruno", -30), ("Stretch", -55), ("Rani", -40), ("Gus", -55), ("Sully", -35) }
+                .Where(c => File.Exists(Root + "/Art/PB_Char_" + c.name + ".fbx")).ToArray();
+            a.Crew = crew.Select(c => Character(Root + "/Art/PB_Char_" + c.name + ".fbx", c.armDown)).ToArray();
+            a.CrewNames = crew.Select(c => c.name).ToArray();
+            a.CrewBelly = a.Crew.Select(Belly).ToArray();
+            a.Pip = crew.Length > 0 && crew[0].name == "Pip" ? a.Crew[0] : null;
+            Debug.Log("[M1Build] crew: " + string.Join(", ", a.CrewNames));
             if (a.Pip != null) Feel(a);
             Debug.Log($"[M1Build] clips idle={a.Idle?.name} walk={a.Walk?.name} run={a.Run?.name} swim={a.Swim?.name} tread={a.SwimIdle?.name} climb={a.Climb?.name}");
 
@@ -93,6 +100,29 @@ namespace PortBoss.EditorTools
                 mi.SaveAndReimport();
             }
             return AssetDatabase.LoadAssetAtPath<GameObject>(path);
+        }
+
+        // A body's belly, from its bind-pose mesh: how far it sticks out in front (+Z in the imported prefab) and half its
+        // width, between 45% and 62% of its height (the game holds the rod just in front of it).
+        static Vector2 Belly(GameObject prefab)
+        {
+            if (prefab == null) return Vector2.zero;
+            var go = UnityEngine.Object.Instantiate(prefab); go.hideFlags = HideFlags.HideAndDontSave;
+            try
+            {
+                var head = go.GetComponentInChildren<Animator>().GetBoneTransform(HumanBodyBones.Head);
+                float h = (head.position.y - go.transform.position.y) / 0.82f, front = 0, half = 0;
+                foreach (var r in go.GetComponentsInChildren<SkinnedMeshRenderer>())
+                    foreach (var v in r.sharedMesh.vertices)
+                    {
+                        var p = go.transform.InverseTransformPoint(r.transform.TransformPoint(v));
+                        if (p.y < 0.45f * h || p.y > 0.62f * h || Mathf.Abs(p.x) > 0.35f * h) continue;
+                        front = Mathf.Max(front, p.z); half = Mathf.Max(half, Mathf.Abs(p.x));
+                    }
+                Debug.Log($"[M1Build] {prefab.name}: height {h:F2} m, belly {front:F3} m out, {half:F3} m half-wide");
+                return new Vector2(front, half);
+            }
+            finally { UnityEngine.Object.DestroyImmediate(go); }
         }
 
         // One more Mixamo clip (gitignored, Assets/ThirdParty/Mixamo), imported like the old build's: on X Bot's avatar,

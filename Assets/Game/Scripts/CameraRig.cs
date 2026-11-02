@@ -67,13 +67,21 @@ namespace PortBoss.M1
             switch (M)
             {
                 case Mode.Shoulder: tDist = 4.5f; tSide = 0.6f; tFov = 50; tPitchOff = 20 - Pitch; tFocus = 0.25f; break;
-                case Mode.Wait: tDist = 6.5f; tPitchOff = 25 - Pitch; tFocus = 0.3f; break;
+                case Mode.Wait: tDist = 6.5f; tFocus = 0.3f; break;   // the player's own pitch: free to look up, or at her face
                 case Mode.Fight: tDist = 5.5f; tPitchOff = 18 - Pitch; tFocus = 0.35f; tSide = 0.4f; break;
                 case Mode.Reveal: tDist = 3.0f; tFov = 45; tPitchOff = 6 - Pitch; tFocus = 0; break;
                 case Mode.Helm:
                     var s = Skiff.I; tDist = 9; tPitchOff = 18 - Pitch; tFov = 55 + 6 * (s != null ? Mathf.Clamp01(s.Speed / Skiff.MaxSpeed) : 0);
                     if (s != null && Time.time - lastLook > 2f) Yaw = Mathf.LerpAngle(Yaw, s.transform.eulerAngles.y, 1 - Mathf.Exp(-1.2f * dt)); // recentre
                     break;
+            }
+            // The bobber / the fish pulls the view only while it's in front of the camera: orbit round to her face and the
+            // camera looks at her, not back over its own shoulder down into the water (Tushar 2 Nov: stuck looking at the sea).
+            if (tFocus > 0)
+            {
+                var to = Focus - Target.position; to.y = 0;
+                float ahead = to.sqrMagnitude > 0.01f ? Vector3.Dot(Quaternion.Euler(0, Yaw, 0) * Vector3.forward, to.normalized) : 1;
+                tFocus *= Mathf.Clamp01(ahead + 0.3f);
             }
             // springs, not exponential eases: a framing change (aim -> wait on the bobber) starts and stops gently instead
             // of setting off at full speed in one frame
@@ -93,8 +101,12 @@ namespace PortBoss.M1
             ahead = Vector3.Lerp(ahead, run, 1 - Mathf.Exp(-4f * dt));
             float groundY = a != null && Target == a.transform ? a.CamY : Target.position.y;
             var want = new Vector3(Target.position.x, groundY + height, Target.position.z) + ahead;
+            // well below where it wants to be (up a ladder from the water): rise first, then in over the deck (Tushar 2 Nov:
+            // from right by the pier ladder the pivot slid in under the deck edge before it rose, the view back crossed the
+            // piles and the camera snapped in close behind her, then crept out again)
+            float below = want.y - pivot.y, inT = below > 0.5f ? Mathf.Lerp(0.15f, 0.6f, Mathf.InverseLerp(0.5f, 1f, below)) : 0.15f;
             var pv = new Vector2(pivotV.x, pivotV.z);
-            var flat = Vector2.SmoothDamp(new Vector2(pivot.x, pivot.z), new Vector2(want.x, want.z), ref pv, 0.15f, Mathf.Infinity, dt);
+            var flat = Vector2.SmoothDamp(new Vector2(pivot.x, pivot.z), new Vector2(want.x, want.z), ref pv, inT, Mathf.Infinity, dt);
             float py = Mathf.SmoothDamp(pivot.y, want.y, ref pivotV.y, 0.3f, Mathf.Infinity, dt);
             pivotV.x = pv.x; pivotV.z = pv.y;
             pivot = new Vector3(flat.x, py, flat.y);

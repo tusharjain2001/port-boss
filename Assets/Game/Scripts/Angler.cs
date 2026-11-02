@@ -25,6 +25,7 @@ namespace PortBoss.M1
         public float FaceYaw = float.NaN; // fishing faces the aim
         public Vector3 Vel;               // own walking velocity (not the boat's)
         public float Size = 1;            // body height / the 1.78 m worker the rod and hold poses were made on
+        public float BellyFront, BellyHalf; // this body's belly (m): the rod is held just in front of it
         public const float SwimDepth = 1.3f;
 
         // feel (replan/feel spec): the sprint's run-up, where the camera follows height from, the carried load
@@ -58,19 +59,47 @@ namespace PortBoss.M1
             p.Model = new GameObject("model").transform; p.Model.SetParent(g.transform, false);
             PortBoss.Art.Lit = new Material(a.Toon);
             PortBoss.Art.Lit.SetFloat("_PaintNoise", 0.12f);
-            GameObject body;
-            if (a.Pip != null)
+            p.Bar.Selected = 1; // empty hands at the start: "1" draws the rod (F1)
+            // which body: -pb-body <name> (tests), else Pip
+            var args = System.Environment.GetCommandLineArgs();
+            int bi = System.Array.IndexOf(args, "-pb-body");
+            if (bi >= 0 && bi + 1 < args.Length && a.CrewNames != null)
+                Body = Mathf.Max(0, System.Array.FindIndex(a.CrewNames, n => n.Equals(args[bi + 1], System.StringComparison.OrdinalIgnoreCase)));
+            p.Wear(a, Body);
+            p.Fish = g.AddComponent<Fishing>();
+            p.lastPos = at;
+            return p;
+        }
+
+        public static int Body;    // which of M1Assets.Crew she is (F9 in game steps through them)
+        GameObject body;
+        float BodyK => Size / (1.47f / 1.78f); // this body against Pip's, which the clip lifts and the get-up creep were sampled on
+
+        public void Wear(int index) => Wear(M1Assets.I, index);
+
+        // Put on a body: the crew member's model under Model (or the placeholder worker when the kit isn't built), its clip
+        // driver, ragdoll and springs. Swapped in place by F9, so it builds everything a body needs.
+        void Wear(M1Assets a, int index)
+        {
+            if (body != null) { body.SetActive(false); Destroy(body); }
+            rag = null;
+            if (a.Crew != null && a.Crew.Length > 0)
             {
-                // Pip, the character kit's first body (art-src/kit): vertex-coloured like the boat, in the toon shader
-                body = Instantiate(a.Pip, p.Model, false); body.name = "pip";
+                // a crew member from the character kit (art-src/kit): vertex-coloured like the boat, in the toon shader
+                index = (index % a.Crew.Length + a.Crew.Length) % a.Crew.Length; Body = index;
+                body = Instantiate(a.Crew[index], Model, false); body.name = a.CrewNames[index].ToLowerInvariant();
                 body.transform.localRotation = Quaternion.Euler(0, 180, 0); // exported facing -Z, like the worker
                 foreach (var r in body.GetComponentsInChildren<SkinnedMeshRenderer>(true)) { r.sharedMaterial = PortBoss.Art.Lit; r.updateWhenOffscreen = true; }
-                p.Size = 1.47f / 1.78f;                                     // Pip is 1.47 m (base 1.75 x her 0.84)
+                // size against the 1.78 m worker the rod poses were made on, from the Head joint (at 82% of the height)
+                var head = body.GetComponentInChildren<Animator>().GetBoneTransform(HumanBodyBones.Head);
+                Size = head != null ? (head.position.y - Model.position.y) / (0.82f * 1.78f) : 1;
+                var belly = a.CrewBelly != null && index < a.CrewBelly.Length ? a.CrewBelly[index] : Vector2.zero;
+                BellyFront = belly.x; BellyHalf = belly.y;
             }
             else
             {
                 // the placeholder dock worker (Assets/Art/Worker) with his palette texture
-                var w = PortBoss.Worker.Make(a.Worker, p.Model);
+                var w = PortBoss.Worker.Make(a.Worker, Model);
                 w.Apply(new PortBoss.Look
                 {
                     Set = 1, Face = 0, Hair = 3, Beard = 2, Hat = 2, Top = 2, Gloves = 0,
@@ -78,25 +107,22 @@ namespace PortBoss.M1
                 });
                 var rs = w.GetComponentsInChildren<Renderer>(); var bb = rs[0].bounds; foreach (var r in rs) bb.Encapsulate(r.bounds);
                 if (bb.size.y > 0.5f) w.transform.localScale = Vector3.one * Mathf.Clamp(1.78f / bb.size.y, 0.8f, 1.25f);
-                body = w.gameObject;
+                body = w.gameObject; Size = 1; BellyFront = BellyHalf = 0;
             }
             foreach (var c in body.GetComponentsInChildren<Collider>()) Destroy(c);
-            p.Bar.Selected = 1; // empty hands at the start: "1" draws the rod (F1)
             var anim = body.GetComponentInChildren<Animator>();
             var skin = ScriptableObject.CreateInstance<PortBoss.Skin>();
             skin.Idle = a.Idle; skin.Walk = a.Walk; skin.Run = a.Run; skin.Sprint = a.Sprint; skin.Jump = a.Jump; skin.Land = a.Land;
             skin.SwimIdle = a.SwimIdle; skin.Swim = a.Swim; skin.Climb = a.Climb; skin.Drive = a.Drive ?? a.Idle; skin.Push = a.Idle;
-            p.Anim = anim.gameObject.AddComponent<CharAnim>();
-            p.Anim.Init(anim, skin); p.Anim.Facing = g.transform; p.Anim.GripLean = 0;
-            p.Anim.LandFrom = 0.25f; // Falling To Landing's feet touch down here: before it, it's still falling
-            if (a.Pip != null) p.rag = Ragdoll.Build(anim, p.Cc);
+            Anim = anim.gameObject.AddComponent<CharAnim>();
+            Anim.Init(anim, skin); Anim.Facing = transform; Anim.GripLean = 0;
+            Anim.LandFrom = 0.25f; // Falling To Landing's feet touch down here: before it, it's still falling
+            if (a.Crew != null && a.Crew.Length > 0) rag = Ragdoll.Build(anim, Cc);
             // a floppy head, and the hat (its own bone in the kit) wobbling on top of it
             var jig = Jiggle.On(anim);
-            jig.Bone(anim.GetBoneTransform(HumanBodyBones.Head), Vector3.up, 0.25f, 220f, 0.55f, 8f);
-            jig.Bone(Util.Find(body.transform, "Hat"), Vector3.up, 0.15f, 140f, 0.35f, 12f, false);
-            p.Fish = g.AddComponent<Fishing>();
-            p.lastPos = at;
-            return p;
+            jig.Bone(anim.GetBoneTransform(HumanBodyBones.Head), Vector3.up, 0.25f * Size / 0.83f, 220f, 0.55f, 8f);
+            jig.Bone(Util.Find(body.transform, "Hat"), Vector3.up, 0.15f * Size / 0.83f, 140f, 0.35f, 12f, false);
+            overW = 0; overClip = null;
         }
 
         void Update()
@@ -114,6 +140,12 @@ namespace PortBoss.M1
             }
             if (getUpT >= 0) { GettingUp(dt); return; }
             if (Ctl.Key_(UnityEngine.InputSystem.Key.F8) && !Busy) { Knock(transform.forward * 2.5f + Vector3.up * 1.5f); return; } // debug: fall over
+            if (Ctl.Key_(UnityEngine.InputSystem.Key.F9) && !Busy && !helm && !Fish.Locked && M1Assets.I.Crew != null && M1Assets.I.Crew.Length > 1)
+            {
+                // debug: the next crew member
+                Fish.Stow(); Wear(M1Assets.I, Body + 1);
+                Alerts.Push("Debug", "Body: " + M1Assets.I.CrewNames[Body] + " (F9 for the next)", Alerts.Kind.Info);
+            }
 
             if (helm) { Helm(dt); Track(); CamY = transform.position.y; Animate(dt); return; }
 
@@ -412,7 +444,7 @@ namespace PortBoss.M1
             foreach (var hit in Physics.RaycastAll(h + Vector3.up * 0.8f, Vector3.down, 3f, ~0, QueryTriggerInteraction.Ignore))
                 if (hit.collider.GetComponentInParent<Angler>() == null && hit.point.y <= h.y + 0.15f && hit.point.y > ground) ground = hit.point.y;
             if (float.IsNegativeInfinity(ground)) { Overboard(); return; } // draped over the gunwale, hips over the sea: she slides in
-            var at = new Vector3(h.x, ground, h.z) - bodyRot * new Vector3(up.Hips.x, 0, up.Hips.z);
+            var at = new Vector3(h.x, ground, h.z) - bodyRot * new Vector3(up.Hips.x, 0, up.Hips.z) * BodyK;
             rag.Stop(onBack ? 0.45f : 0.3f);
             transform.SetPositionAndRotation(at, bodyRot * Quaternion.Euler(0, 180, 0)); // the body sits turned round under the model
             downT = -1; getUpT = 0; CamY = ground;
@@ -429,7 +461,7 @@ namespace PortBoss.M1
             float len = (up.To - up.From) / up.Speed, t = Mathf.Min(up.To, up.From + getUpT * up.Speed);
             float done = Mathf.Clamp01((getUpT - len) / 0.25f); // then 0.25 s into the idle
             Anim.Over = up.Clip; Anim.OverTime = t; Anim.OverW = 1 - done;
-            var creep = Quaternion.Euler(0, 180, 0) * new Vector3(up.MoveX.Evaluate(t), 0, up.MoveZ.Evaluate(t)); // body space -> model space
+            var creep = Quaternion.Euler(0, 180, 0) * new Vector3(up.MoveX.Evaluate(t), 0, up.MoveZ.Evaluate(t)) * BodyK; // body space -> model space
             Model.localPosition = creep; Model.localRotation = Quaternion.identity; Model.localScale = Vector3.one;
             Anim.Tick(CharAnim.Slot.Idle, 0);
             if (done >= 1)
@@ -506,7 +538,7 @@ namespace PortBoss.M1
                 overW = Mathf.MoveTowards(overW, oc != null ? 1 : 0, dt / (oc != null ? 0.05f : 0.08f));
                 Anim.Over = overW > 0 ? overClip : null; Anim.OverTime = overT; Anim.OverW = overW;
                 var lift = overClip == a.JumpUp ? a.JumpLift : a.FallLift;
-                if (overW > 0 && lift != null && lift.length > 0) Model.localPosition -= Vector3.up * (Mathf.Max(0, lift.Evaluate(overT)) * overW);
+                if (overW > 0 && lift != null && lift.length > 0) Model.localPosition -= Vector3.up * (Mathf.Max(0, lift.Evaluate(overT)) * overW * BodyK);
             }
             Anim.Tick(slot, animSp);
 
