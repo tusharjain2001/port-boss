@@ -20,6 +20,10 @@ ARGV = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 RENDER = 'norender' not in ARGV
 PROOF = next((a[6:] for a in ARGV if a.startswith('proof=')), os.path.expanduser(r'~\Desktop\Port Boss\proof\map-b'))
 ONLY = next((a[5:].split(',') for a in ARGV if a.startswith('only=')), None)
+TAG = next((a[4:] for a in ARGV if a.startswith('tag=')), '')            # a variant: renders get _<tag>, its seabed stays in out/
+S.RIDGE_H = float(next((a[6:] for a in ARGV if a.startswith('ridge=')), S.RIDGE_H))
+S.HORN = float(next((a[5:] for a in ARGV if a.startswith('horn=')), S.HORN))
+if TAG: SEABED = os.path.join(OUT, 'seabed_' + TAG)
 for _d in (OUT, REN, SEABED): os.makedirs(_d, exist_ok=True)
 
 PAL = dict(dark='#805C52', ink='#3F2C27', paper='#FFFBF2', cream2='#F8EFDD', cream3='#EEDFC4', red='#D9483B',
@@ -27,7 +31,8 @@ PAL = dict(dark='#805C52', ink='#3F2C27', paper='#FFFBF2', cream2='#F8EFDD', cre
            peach='#F6A27A', wood='#B9825A', midwood='#9A6A48', weath='#C9A882', greyw='#A89A8A', rope='#D8C08A',
            iron='#5E5A66', rust='#A2583A', rock='#9A93A6', rock2='#7C7690', sand='#EAD7A8', grass='#8CC46A',
            grass2='#6FAF5A', tree3='#4F8F55', heath='#B5C978', conc='#9AA3A8', conc2='#B9BEC2', vred='#C0392B',
-           cloud='#FFFBF2', orange='#F2994A', path='#E3CFA6')
+           cloud='#FFFBF2', orange='#F2994A', path='#E3CFA6', sand2='#D9BF8C', dune='#C6CF86', shingle='#BBB0A6',
+           cliff='#B9A391')
 NAMES = list(PAL); CI = {n: i for i, n in enumerate(NAMES)}
 def srgb(h): h = h.lstrip('#'); return tuple(int(h[i:i + 2], 16) / 255 for i in (0, 2, 4))
 def lin(h): return tuple(c ** 2.2 for c in srgb(h)) + (1,)
@@ -257,12 +262,19 @@ def terrain(name, x0, x1, y0, y1, step, coll, seed):
     ci = np.full(len(tris), CI['grass'])
     ci[nn > 0.35] = CI['grass2']; ci[nn2 > 0.9] = CI['leaf']
     ci[(cz > 122 + 10 * nn) & (nn2 > -0.2)] = CI['heath']
-    ci[(ki == 1) & (nz > 0.9)] = CI['path']
-    ci[(ki == 1) & (nz > 0.9) & (nn > 0.2)] = CI['grass']
+    ci[(ki == 1) & (nz > 0.9) & (nn < -0.25)] = CI['path']                                 # lanes and yards, not a dirt field
+    ci[(be > 0.45) & (cz > 3.0) & (cz < 6.5) & (nz > 0.8) & (nn > -0.3)] = CI['dune']        # dune grass behind the sand
     ci[(be > 0.45) & (cz < 3.4) & (nz > 0.85)] = CI['sand']
-    steep = nz < 0.78
-    ci[steep] = np.where(nn[steep] > 0, CI['rock'], CI['rock2'])
-    ci[(cz < 0.9) & (be <= 0.45) & (ki == 0)] = CI['rock2']
+    ci[(be > 0.45) & (cz < 0.5) & (nz > 0.85)] = CI['sand2']                                 # wet sand at the waterline
+    ci[(be <= 0.45) & (be > 0.08) & (cz < 2.6) & (nz > 0.8) & (ki == 0)] = CI['shingle']     # pebble coves where sand meets rock
+    coast = samp(F['sdf'], cx, cy) < 70
+    steep = (nz < 0.78) & coast
+    strata = np.floor((cz + 4 * nn) / 7).astype(int) % 3                                      # banded sea cliffs, not one grey
+    ci[steep] = np.array([CI['rock'], CI['rock2'], CI['cliff']])[strata[steep]]
+    sc_ = (nz < 0.78) & ~coast                                                               # steep hillside: mottled scrub
+    ci[sc_] = np.where(nn[sc_] > 0.15, CI['tree3'], np.where(nn2[sc_] > 0, CI['grass2'], CI['leaf']))
+    ci[(nz < 0.55) & ~coast] = CI['rock2']                                                    # ...rock only where it's very steep
+    ci[(cz < 0.9) & (be <= 0.08) & (ki == 0)] = CI['rock2']
     ci[ki == 3] = CI['sand']
     ci[ki == 4] = np.where(nn[ki == 4] > 0, CI['rock'], CI['rock2'])
     ci[(ki == 2) & (cz > 2.0)] = CI['conc']
@@ -291,16 +303,22 @@ def scatter(n_want, box_, test, spacing, seed, tries=60000):
     return pts
 
 
-ALL = (-1150, 1700, -1300, 1300)
+ALL = (-1150 - S.HORN, 1700, -1300, 1300)
 
 
 def build_rocks(coll):
     mb = MB()
     def t(x, y, rr):
         d = SDF(x, y)
-        if not (-14 < d < 7) or KIND(x, y) != 0 or float(samp(F['beach'], x, y)) > 0.3: return None
+        if not (-14 < d < 7) or KIND(x, y) != 0: return None
+        if float(samp(F['beach'], x, y)) > 0.3:                                 # a few boulders break up the beaches
+            return rr.uniform(1.2, 3.0) if rr.random() < 0.08 else None
         return rr.uniform(2.0, 6.5)
-    rocks = scatter(520, ALL, t, 9, 5)
+    rocks = scatter(560, ALL, t, 9, 5)
+    gx, gy = S.W(2250, 2550); rr = random.Random(8)                             # Gullrock's reef: tips awash on the flat
+    while sum(1 for r in rocks if math.hypot(r[0] - gx, r[1] - gy) < 240) < 70:
+        a = rr.uniform(0, 6.3); q = rr.uniform(1.05, 1.75)
+        rocks.append((gx + 120 * q * math.cos(a), gy + 90 * q * math.sin(a), rr.uniform(1.0, 2.6)))
     # Voss Harbour's breakwater armour + a few sea stacks off the north horn's point and the lighthouse
     bwp = S.Wl(S.smooth(S.BREAKWATER, 30, closed=False))
     rocks += [(x + R.uniform(-6, 6), y + R.uniform(-6, 6), R.uniform(3, 5)) for x, y in bwp[::2]]
@@ -310,14 +328,14 @@ def build_rocks(coll):
         rz = s * R.uniform(0.55, 0.95); z = H(x, y)
         mb.add(blob(1, (s, s * R.uniform(0.7, 1.0), rz), k + 3, 0.2, 0.9), 'rock' if k % 3 else 'rock2',
                M((x, y, min(z, 0.6) - 0.2 * rz + (0.4 * rz if z > 0 else 0)), (D(R.uniform(-8, 8)), D(R.uniform(-8, 8)), D(R.uniform(0, 360)))))
-    log('rocks', len(rocks)); return finish(mb, 'Rocks', coll, 45)
+    log('rocks', len(rocks)); finish(mb, 'Rocks', coll, 45); return rocks
 
 
 def build_trees(coll):
     mb = MB()
     def t(x, y, rr):
         z = H(x, y)
-        if not (5 < z < 128) or SDF(x, y) < 22 or KIND(x, y) != 0 or slope(x, y) > 0.55: return None
+        if not (5 < z < S.RIDGE_H * 0.92) or SDF(x, y) < 22 or KIND(x, y) != 0 or slope(x, y) > 0.85: return None
         clump = float(S.waves(np.array(x), np.array(y), 21, [(380, 1), (210, 0.8), (120, 0.5)]))
         if clump < 0.15 + 0.3 * (z / 140): return None
         return rr.uniform(3.2, 6.0)
@@ -335,46 +353,197 @@ def build_trees(coll):
 
 
 # ---------------------------------------------------------------- Old Saltmouth
-def house(mb, x, y, yaw, w, d, storeys, wall, roof, z0):
+def hip(w, d, h):
+    """A hipped roof: a 4-sided cone over a w x d base, base at z=0."""
+    bm = bmesh.new()
+    bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=4, radius1=0.7071, radius2=0.04, depth=1)
+    bmesh.ops.rotate(bm, verts=bm.verts, cent=(0, 0, 0), matrix=Matrix.Rotation(D(45), 3, 'Z'))
+    bmesh.ops.translate(bm, verts=bm.verts, vec=(0, 0, 0.5)); bmesh.ops.scale(bm, vec=(w, d, h), verts=bm.verts)
+    return bm
+
+
+def house(mb, x, y, yaw, w, d, storeys, wall, roof, z0, hipped=False, chimney=False):
     ht = 2.9 * storeys
     m = M((x, y, 0), (0, 0, yaw))
     mb.add(box(w, d, ht + 4), wall, m @ M((0, 0, z0 + ht / 2 - 2)))                 # walls (sunk 4 m into the slope)
-    mb.add(gable(w + 0.8, d + 0.9, 0.42 * d), roof, m @ M((0, 0, z0 + ht)))
+    rh = 0.42 * d
+    mb.add((hip(w + 0.8, d + 0.9, rh) if hipped else gable(w + 0.8, d + 0.9, rh)), roof, m @ M((0, 0, z0 + ht)))
+    if chimney: mb.add(box(0.8, 0.8, 2.4), 'rust', m @ M((w * 0.28, d * 0.18, z0 + ht + rh * 0.6)))
     mb.add(box(1.1, 0.25, 2.1), 'ink', m @ M((0, -d / 2 - 0.05, z0 + 1.05)))           # door
     for k in range(storeys):
         for fx in (-0.3, 0.3):
             mb.add(box(1.0, 0.2, 1.15), 'sky', m @ M((w * fx, -d / 2 - 0.04, z0 + 1.6 + 2.9 * k)))
+    return z0 + ht + rh                                                                 # the ridge height
 
 
-SHOP_STYLE = {1: ('cream2', 'teal', 'teal'), 2: ('weath', 'red', 'blue'), 3: ('peach', 'red', 'sun'), 4: ('paper', 'poppy', 'red'),
-              5: ('conc2', 'blue', 'blue'), 6: ('sun', 'teal', 'poppy'), 7: ('cream2', 'red', 'red')}
+def fish_sign(mb, m, loc, L, col, fin='peach'):
+    """A big cartoon fish: body, tail, eye (shop signs, the market's weathervane)."""
+    x, y, z = loc
+    mb.add(blob(1, (L / 2, L * 0.16, L * 0.2), 31, 0.05, 0.6), col, m @ M((x, y, z)))
+    mb.add(blob(1, (L * 0.12, L * 0.05, L * 0.2), 32, 0.05, 0.6), fin, m @ M((x + L * 0.55, y, z)))
+    mb.add(blob(1, (L * 0.05,) * 3, 33, 0.0, 0.6), 'ink', m @ M((x - L * 0.32, y - L * 0.14, z + L * 0.05)))
+
+
+def umbrella(mb, m, x, y, z, col):
+    mb.add(cyl(0.05, 2.4, 6), 'ink', m @ M((x, y, z + 1.2))); mb.add(cyl(1.5, 0.6, 8, 0.05), col, m @ M((x, y, z + 2.5)))
+    mb.add(cyl(0.55, 0.08, 8), 'weath', m @ M((x, y, z + 0.75)))
+
+
+def bulbs(mb, a, b, n=9, sag=0.8):
+    for k in range(n + 1):
+        t = k / n; p = a.lerp(b, t); p.z -= sag * 4 * t * (1 - t)
+        mb.add(blob(1, (0.16,) * 3, 70 + k, 0.0), 'sun', Matrix.Translation(p))
+
+
+# The landmarks: each a different silhouette, front (-Y local) to the bay. Kufu's list (3 Nov) and map B's pins:
+# 1 Hook, Line & Sinker, 2 Doyle Boatworks, 3 Plank & Post, 4 The Mooring Line, 5 Pratt's Fish Market (the Voss-owned
+# buyer), 6 Swell Surf Co., 7 Post office + Nell's; + Hartley's Outfitters (no pin on map B: placed in town).
+def lm_tackle(mb, x, y, z, yaw):
+    m = M((x, y, 0), (0, 0, yaw)); top = house(mb, x, y, yaw, 7.5, 7, 2, 'teal', 'red', z)
+    for s in (-1.4, 1.4): mb.add(cyl(0.1, 1.6, 6), 'ink', m @ M((s, 0, top + 0.6)))
+    fish_sign(mb, m, (0, 0, top + 2.0), 6.0, 'sun')
+    mb.add(cyl(0.16, 2.6, 6), 'iron', m @ M((2.6, -4.3, z + 4.4)))                     # the giant hook on the front
+    mb.add(blob(1, (0.7, 0.16, 0.5), 34, 0.0), 'iron', m @ M((2.25, -4.3, z + 3.05)))
+    return top + 3.2
+
+
+def lm_boatworks(mb, x, y, z, yaw):
+    m = M((x, y, 0), (0, 0, yaw)); w, d, h = 16, 20, 6.5
+    mb.add(box(w, d, h + 4), 'weath', m @ M((0, 0, z + h / 2 - 2)))
+    bm = cyl(w / 2 + 0.6, d + 1.0, 14)
+    mb.add(bm, 'red', m @ M((0, 0, z + h), (D(90), 0, 0)) @ Matrix.Diagonal((1, 0.55, 1, 1)))   # red barrel roof
+    mb.add(box(10, 0.3, 5.6), 'ink', m @ M((0, -d / 2 - 0.1, z + 2.8)))               # the open shed doors
+    mb.add(box(9, 0.4, 1.7), 'blue', m @ M((0, -d / 2 - 0.3, z + h + 1.2)))           # the sign board
+    run = 24; drop = z + 1.8; ang = math.atan2(drop, run)
+    mb.add(box(6, run, 0.6), 'midwood', m @ M((0, -d / 2 - run / 2, z - drop / 2 - 0.2), (-ang, 0, 0)))   # slipway
+    zb = z - drop * 8 / run + 1.0
+    mb.add(blob(1, (2.1, 5.2, 1.2), 35, 0.04, 0.6), lambda c, n: 'red' if c.z > zb - 0.1 else 'paper', m @ M((0, -d / 2 - 8, zb), (-ang, 0, 0)))
+    for s in (-1, 1): mb.add(cyl(0.18, 4, 6), 'iron', m @ M((s * 2.6, -d / 2 - 8, zb - 1.2)))
+    return z + h + 3
+
+
+def lm_timber(mb, x, y, z, yaw):
+    m = M((x, y, 0), (0, 0, yaw))
+    for sx in (-5, 5):
+        for sy in (-3.6, 3.6): mb.add(cyl(0.25, 5.2, 6), 'midwood', m @ M((sx, sy, z + 2.6)))
+    mb.add(gable(11.5, 8.8, 2.4), 'red', m @ M((0, 0, z + 5.2)))
+    for k in range(6):                                                                   # plank stacks
+        mb.add(box(7.0, 1.3, 0.7 + 0.35 * (k % 3)), ('wood', 'weath', 'midwood')[k % 3], m @ M((-1.5 + (k % 2) * 3, -2.4 + (k // 2) * 2.4, z + 0.5)))
+    for k in range(5): mb.add(cyl(0.35, 6, 8), 'midwood', m @ M((8.5, -2 + k * 0.72, z + 0.35 + (k % 2) * 0.55), (0, D(90), 0)))
+    for s in (-1, 1): mb.add(cyl(0.18, 9.5, 6), 'sun', m @ M((-8 + s * 1.2, 2, z + 4.5), (0, D(s * 8), 0)))   # derrick
+    mb.add(cyl(0.14, 8, 6), 'sun', m @ M((-8, -1.5, z + 8), (D(60), 0, 0)))
+    o = m @ Vector((0, 8, 0)); house(mb, o.x, o.y, yaw, 6, 4.5, 1, 'peach', 'teal', z)    # the yard office
+    return z + 9
+
+
+def lm_pub(mb, x, y, z, yaw):
+    m = M((x, y, 0), (0, 0, yaw)); w, d = 12, 9
+    top = house(mb, x, y, yaw, w, d, 2, 'cream2', 'dark', z, chimney=True)
+    for fx in (-0.48, -0.16, 0.16, 0.48): mb.add(box(0.3, 0.16, 5.8), 'dark', m @ M((w * fx, -d / 2 - 0.12, z + 2.9)))
+    mb.add(box(w, 0.18, 0.3), 'dark', m @ M((0, -d / 2 - 0.12, z + 2.9)))
+    mb.add(box(0.15, 1.6, 0.15), 'ink', m @ M((-w / 2 - 0.8, -d / 2 + 0.2, z + 4.6), (0, 0, D(90))))
+    mb.add(box(0.15, 1.3, 1.1), 'red', m @ M((-w / 2 - 1.3, -d / 2 + 0.2, z + 3.9), (0, 0, D(90))))   # hanging sign
+    for k, col in enumerate(('poppy', 'paper', 'poppy')): umbrella(mb, m, -3.5 + k * 3.5, -d / 2 - 4, z, col)
+    for s in (-1, 1): mb.add(cyl(0.08, 4.6, 6), 'ink', m @ M((s * 6, -d / 2 - 7, z + 2.3)))
+    a = m @ Vector((-6, -d / 2 - 7, z + 4.5)); b = m @ Vector((6, -d / 2 - 7, z + 4.5)); c = m @ Vector((0, -d / 2, z + 5.5))
+    bulbs(mb, a, b); bulbs(mb, a, c, 7, 0.5); bulbs(mb, b, c, 7, 0.5)
+    return top + 1
+
+
+def lm_market(mb, x, y, z, yaw):
+    m = M((x, y, 0), (0, 0, yaw)); w, d = 24, 11
+    mb.add(box(w + 1, d + 1, 0.5), 'conc2', m @ M((0, 0, z + 0.1)))
+    for sx in np.linspace(-w / 2 + 0.6, w / 2 - 0.6, 6):
+        for sy in (-d / 2 + 0.5, d / 2 - 0.5): mb.add(cyl(0.2, 4.2, 6), 'paper', m @ M((sx, sy, z + 2.2)))
+    for k in range(6):                                                                   # the striped roof
+        mb.add(gable(w / 6 + 0.02, d + 1.6, 2.6), 'blue' if k % 2 else 'paper', m @ M((-w / 2 + w / 12 + k * w / 6, 0, z + 4.3)))
+    for k in range(3): mb.add(box(w * 0.8, 1.1, 1.0), 'weath', m @ M((0, -3 + k * 3, z + 0.85)))   # fish counters
+    mb.add(cyl(0.1, 2.2, 6), 'ink', m @ M((0, 0, z + 7.8))); fish_sign(mb, m, (0, 0, z + 9.0), 4.2, 'conc2', 'blue')
+    return z + 10
+
+
+def lm_surf(mb, x, y, z, yaw):
+    m = M((x, y, 0), (0, 0, yaw)); top = house(mb, x, y, yaw, 7, 5, 1, 'sun', 'teal', z)
+    for k, col in enumerate(('poppy', 'teal', 'sky', 'paper', 'peach', 'blue')):
+        mb.add(blob(1, (0.32, 0.08, 1.25), 40 + k, 0.0), col, m @ M((-3 + k * 1.15, -5.2 - 0.4 * abs(k - 2.5), z + 1.0), (D(-8), D(-15 + k * 6), 0)))
+    umbrella(mb, m, 4.5, -6, z, 'poppy'); mb.add(box(3.4, 0.2, 1.0), 'sky', m @ M((0, -2.6, top + 0.4)))
+    return top + 1.5
+
+
+def lm_post(mb, x, y, z, yaw):
+    m = M((x, y, 0), (0, 0, yaw)); top = house(mb, x, y, yaw, 10, 8, 2, 'red', 'dark', z)
+    tx, ty = 6.2, -2.0
+    mb.add(box(3.6, 3.6, 16 + 4), 'cream2', m @ M((tx, ty, z + 8 - 2)))
+    mb.add(hip(4.2, 4.2, 3.4), 'teal', m @ M((tx, ty, z + 16)))
+    mb.add(cyl(1.3, 0.2, 14), 'ink', m @ M((tx, ty - 1.85, z + 13.6), (D(90), 0, 0)))
+    mb.add(cyl(1.12, 0.24, 14), 'paper', m @ M((tx, ty - 1.9, z + 13.6), (D(90), 0, 0)))
+    mb.add(box(1.2, 0.5, 1.4), 'red', m @ M((-6.5, -4.8, z + 0.7)))                     # the pillar box
+    return z + 20
+
+
+def lm_outfitters(mb, x, y, z, yaw):
+    m = M((x, y, 0), (0, 0, yaw)); top = house(mb, x, y, yaw, 9, 8, 2, 'peach', 'blue', z)
+    mb.add(cyl(3.0, 0.3, 16), 'sun', m @ M((0, 0, top + 0.9)))                         # the giant sou'wester sign
+    mb.add(blob(1, (1.7, 1.7, 1.4), 36, 0.04), 'sun', m @ M((0, 0, top + 1.6)))
+    mb.add(box(7, 1.8, 0.2), 'sky', m @ M((0, -4.9, z + 2.6), (D(-14), 0, 0)))
+    return top + 3.5
+
+
+LANDMARKS = {1: ("Hook, Line & Sinker", lm_tackle), 2: ("Doyle Boatworks", lm_boatworks), 3: ("Plank & Post", lm_timber),
+             4: ("The Mooring Line", lm_pub), 5: ("Pratt's Fish Market", lm_market), 6: ("Swell Surf Co.", lm_surf),
+             7: ("Post office + Nell's", lm_post), 8: ("Hartley's Outfitters", lm_outfitters)}
+PIN8 = (3045, 2505)                    # Hartley's: no pin on map B; on the high street between the pub and the market
+LABELS = []                            # (name, world point) for the labelled overhead
 
 
 def build_town(coll):
-    mb = MB(); px, py = S.PIER_ROOT; placed = []
-    # the 7 shops at their map pins (moved inland where a pin sits on the shoreline), fronts facing the bay (west)
-    for n, (name, (mx, my)) in S.SHOPS.items():
+    mb = MB(); px, py = S.PIER_ROOT; placed = []; rr = random.Random(17)
+    for n, (name, fn) in LANDMARKS.items():
+        mx, my = S.SHOPS[n][1] if n in S.SHOPS else PIN8
         x, y = inland(mx - (45 if n == 6 else 0), my, 10)          # Swell Surf: 45 m west, off the Cut's bank
         z = min(H(x + a, y + b) for a in (-6, 6) for b in (-5, 5))
-        wall, roof, awn = SHOP_STYLE[n]; yaw = D(-90 + R.uniform(-6, 6))
-        w, d = (16, 9) if n == 5 else (12, 9)
-        house(mb, x, y, yaw, w, d, 1 if n in (5, 6) else 2, wall, roof, z)
-        m = M((x, y, 0), (0, 0, yaw))
-        mb.add(box(w * 0.8, 2.2, 0.25), awn, m @ M((0, -d / 2 - 1.1, z + 2.7), (D(-14), 0, 0)))     # awning
-        mb.add(cyl(0.12, 7, 6), 'paper', m @ M((w / 2 + 0.8, -d / 2 - 1.5, z + 3.5)))              # flag pole + flag
-        mb.add(box(0.06, 2.2, 1.3), awn, m @ M((w / 2 + 0.8, -d / 2 - 2.6, z + 6.2)))
-        placed.append((x, y, 9)); log('shop', n, name, 'at world (%.0f, %.0f) z %.1f' % (x, y, z))
-    # houses: dense along the waterfront, thinning up the hillside; each faces downhill toward the bay
-    tx, ty = S.W(2965, 2560)
-    def t(x, y, rr):
+        top = fn(mb, x, y, z, D(-90 + rr.uniform(-5, 5)))
+        placed.append((x, y, 13)); LABELS.append((name, (x, y, top))); log('landmark', n, name, 'at (%.0f, %.0f) z %.1f' % (x, y, z))
+    LABELS.append(("Walt's Landing (our dock)", (px - 16, py, 4)))
+    # the waterfront: terrace rows of narrow, bright houses along the town shore, lamps, dinghies at their moorings
+    tx, ty = S.W(2965, 2560); shore = []
+    for curve in (S.smooth(S.TOWN, 60), S.smooth(S.island_pts(), 40)):
+        P = np.array(S.Wl(curve))
+        for a, b in zip(P, np.roll(P, -1, 0)):
+            for t in np.arange(0, 1, 1.5 / max(np.linalg.norm(b - a), 1.5)): shore.append(a + (b - a) * t)
+    walls = ['paper', 'sun', 'peach', 'teal', 'cream2', 'sky', 'paper', 'poppy']; roofs = ['red', 'poppy', 'rust', 'blue', 'red', 'teal']
+    rows = []; k = 0
+    for p in shore:
+        if math.hypot((p[0] - tx) * 0.85, p[1] - ty) > 330 or abs(SDF(p[0], p[1])) > 4: continue      # the real waterline only
+        gx = SDF(p[0] + 3, p[1]) - SDF(p[0] - 3, p[1]); gy = SDF(p[0], p[1] + 3) - SDF(p[0], p[1] - 3); g = math.hypot(gx, gy) or 1
+        nx, ny = gx / g, gy / g; qx, qy = p[0] + nx * 15, p[1] + ny * 15
+        if KIND(qx, qy) != 1 or not (9 < SDF(qx, qy) < 24) or not (1.2 < H(qx, qy) < 14): continue
+        if math.hypot(qx - px - 12, qy - py - 3) < 36 or any(math.hypot(qx - a, qy - b) < 14 for a, b, _ in placed): continue
+        if any(math.hypot(qx - a, qy - b) < 5.6 for a, b in rows): continue
+        rows.append((qx, qy)); k += 1
+        yaw = math.atan2(-ny, -nx) + math.pi / 2
+        house(mb, qx, qy, yaw, rr.uniform(4.8, 5.6), 7, rr.choice((2, 2, 3)), walls[k % len(walls)], roofs[(k * 5) % len(roofs)],
+              H(qx, qy) - 0.2, hipped=False, chimney=rr.random() < 0.4)
+        if k % 4 == 0:                                                                   # a lamp on the quay
+            lx, ly = p[0] + nx * 7, p[1] + ny * 7; g0 = H(lx, ly)
+            if g0 > 0.5: mb.add(cyl(0.1, 4.2, 6), 'ink', M((lx, ly, g0 + 2.1))); mb.add(blob(1, (0.35,) * 3, 90 + k, 0.0), 'sun', M((lx, ly, g0 + 4.3)))
+        if k % 3 == 0:                                                                   # a dinghy off the quay
+            dx, dy = p[0] - nx * rr.uniform(12, 28), p[1] - ny * rr.uniform(12, 28)
+            if H(dx, dy) < -1:
+                mb.add(blob(1, (0.95, 2.4, 0.45), 120 + k, 0.03, 0.6), lambda c, n_: 'paper' if c.z > 0.25 else rr.choice(('red', 'teal', 'sun', 'sky')),
+                       M((dx, dy, 0.1), (0, 0, rr.uniform(0, 6.3))))
+    placed += [(a, b, 6) for a, b in rows]
+    log('waterfront rows', len(rows))
+    # houses up the hillside: each faces downhill toward the bay; some hipped roofs and chimneys break the rhythm
+    def t(x, y, r_):
         r = math.hypot((x - tx) * 0.85, y - ty)
-        if r > 380 or rr.random() > 1.15 - r / 380: return None
+        if r > 380 or r_.random() > 1.15 - r / 380: return None
         z = H(x, y)
         if not (1.2 < z < 48) or SDF(x, y) < 9 or slope(x, y) > 0.42 or KIND(x, y) in (2, 3): return None
         if math.hypot(x - px - 12, y - py - 3) < 34: return None                         # Walt's Landing yard
         if any(math.hypot(x - a, y - b) < c + 7 for a, b, c in placed): return None
         return 7.0
-    hs = scatter(95, (tx - 420, tx + 420, ty - 380, ty + 380), t, 13.5, 13)
+    hs = scatter(130, (tx - 420, tx + 420, ty - 380, ty + 380), t, 12.0, 13, 120000)
     walls = ['paper', 'cream2', 'cream2', 'peach', 'paper', 'cream3', 'sun', 'teal']; roofs = ['red', 'poppy', 'red', 'rust', 'poppy', 'blue', 'teal']
     for k, (x, y, _) in enumerate(hs):
         gx = H(x + 3, y) - H(x - 3, y); gy = H(x, y + 3) - H(x, y - 3)
@@ -382,32 +551,81 @@ def build_town(coll):
         yaw = D(round(math.degrees(yaw) / 15) * 15 + R.uniform(-5, 5))
         w, d = R.uniform(6.5, 10), R.uniform(6, 8)
         z = min(H(x + a, y + b) for a in (-w / 2, w / 2) for b in (-d / 2, d / 2))
-        house(mb, x, y, yaw, w, d, R.choice((1, 2, 2, 3)) if k < 50 else R.choice((1, 2)), R.choice(walls), R.choice(roofs), z)
+        house(mb, x, y, yaw, w, d, R.choice((1, 2, 2, 3)) if k < 70 else R.choice((1, 2)), R.choice(walls), R.choice(roofs), z,
+              hipped=rr.random() < 0.3, chimney=rr.random() < 0.5)
     log('houses', len(hs))
-    # the seawall along the waterfront: a low stone kerb on the town shore
     return finish(mb, 'OldSaltmouth', coll, 30)
 
 
+def build_maris(coll, land):
+    """Mari Duarte's taco boat, moored across the pier from Biscuit (her Day-3+ state: she pays $40/day to moor here)."""
+    mb = MB(); L = land.matrix_world @ M((-3.3, -14.5, 0))
+    mb.add(blob(1, (1.6, 4.0, 0.95), 37, 0.03, 0.6), lambda c, n: 'poppy' if c.z < 0.35 else 'sun', L @ M((0, 0, 0.15)))
+    mb.add(box(2.4, 6.0, 0.25), 'weath', L @ M((0, 0, 0.85)))
+    mb.add(box(2.2, 2.6, 1.9), 'teal', L @ M((0, 0.8, 1.9))); mb.add(box(0.1, 1.6, 0.8), 'ink', L @ M((1.12, 0.8, 2.2)))
+    mb.add(box(1.2, 3.0, 0.12), 'poppy', L @ M((1.6, 0.8, 2.8), (0, D(18), 0)))
+    mb.add(cyl(0.06, 3.4, 6), 'ink', L @ M((0, -2.4, 2.6)))
+    bulbs(mb, L @ Vector((0, -2.4, 4.2)), L @ Vector((0, 2.0, 2.9)), 6, 0.3)
+    LABELS.append(("Mari's taco boat (Day 3+)", tuple(L @ Vector((0, 0, 3)))))
+    return finish(mb, 'MarisTacoBoat', coll, 30)
+
+
 def build_lighthouse(coll):
-    mb = MB(); x, y = inland(*S.PLACES['lighthouse'], 14); g = H(x, y)
-    for k in range(5):
-        h0 = g + 3.6 * k; r0, r1 = 3.2 - 0.18 * k, 3.2 - 0.18 * (k + 1)
-        mb.add(cyl(r0, 3.6, 12, r1), 'red' if k % 2 else 'paper', M((x, y, h0 + 1.8)))
-    top = g + 18
-    mb.add(cyl(3.0, 0.5, 12), 'ink', M((x, y, top + 0.25)))
-    mb.add(cyl(1.6, 2.4, 10), 'sun', M((x, y, top + 1.7)))
-    mb.add(cyl(2.0, 1.8, 10, 0.2), 'red', M((x, y, top + 3.8)))
-    mb.add(box(7, 5, 3.4), 'paper', M((x + 6, y - 5, g + 1.2))); mb.add(gable(7.6, 5.8, 2.2), 'red', M((x + 6, y - 5, g + 2.9)))
+    """Dot's lighthouse: 26 m of red and white bands on the north horn's knoll, so it reads from the bay mouth."""
+    mb = MB(); x, y = inland(*S.PLACES['lighthouse'], 16); g = H(x, y)
+    mb.add(blob(1, (9, 8, 3), 41, 0.15), 'rock2', M((x, y, g - 1.0)))
+    for k in range(6):
+        h0 = g + 4.0 * k; r0, r1 = 4.0 - 0.2 * k, 4.0 - 0.2 * (k + 1)
+        mb.add(cyl(r0, 4.0, 14, r1), 'red' if k % 2 else 'paper', M((x, y, h0 + 2.0)))
+    top = g + 24
+    mb.add(cyl(3.6, 0.5, 14), 'ink', M((x, y, top + 0.25)))
+    for a in range(12): mb.add(cyl(0.06, 1.0, 4), 'ink', M((x + 3.4 * math.cos(a * 0.524), y + 3.4 * math.sin(a * 0.524), top + 1.0)))
+    mb.add(cyl(1.9, 3.0, 12), 'sun', M((x, y, top + 2.0)))
+    mb.add(cyl(2.3, 2.4, 12, 0.25), 'red', M((x, y, top + 4.7)))
+    mb.add(box(8, 6, 3.6), 'paper', M((x + 8, y - 6, g + 1.3))); mb.add(gable(8.6, 6.8, 2.4), 'red', M((x + 8, y - 6, g + 3.1)))
+    LABELS.append(("Dot's lighthouse", (x, y, top + 6)))
     log('lighthouse at', round(x), round(y), 'ground', round(g, 1)); return finish(mb, 'DotsLighthouse', coll, 30)
 
 
 def build_wreck(coll):
-    """Walt's Margaret: a 20 m trawler on a 5 m shoal, bow and wheelhouse awash, the mast leaning out (story + photo spot)."""
-    mb = MB(); x, y = S.W(*S.PLACES['wreck']); m = M((x, y, -3.2), (D(18), D(-24), D(35)))
-    mb.add(blob(1, (3.4, 10.5, 2.6), 77, 0.05, 0.5), lambda c, n: 'dark' if c.z < -3.4 else 'red', m)
-    mb.add(box(4.0, 4.5, 3.2), 'weath', m @ M((0, 2.5, 2.8)))
-    mb.add(cyl(0.22, 13, 6), 'midwood', m @ M((0, -3, 7.5)))
+    """Walt's Margaret: a 26 m trawler on a 5 m shoal, bow and wheelhouse out of the water, masts leaning (story + photo spot)."""
+    mb = MB(); x, y = S.W(*S.PLACES['wreck']); m = M((x, y, -1.6), (D(14), D(-22), D(35)))
+    mb.add(blob(1, (4.2, 13.0, 3.2), 77, 0.05, 0.5), lambda c, n: 'dark' if c.z < -2.2 else 'red', m)
+    mb.add(box(7.2, 2.0, 0.5), 'paper', m @ M((0, -9.5, 2.2)))
+    mb.add(box(4.4, 5.0, 3.6), 'paper', m @ M((0, 3.2, 4.1))); mb.add(box(4.6, 5.2, 0.4), 'red', m @ M((0, 3.2, 6.0)))
+    for q, (yy, h) in enumerate(((-4.5, 17), (8, 9))):
+        mb.add(cyl(0.26, h, 6), 'midwood', m @ M((0, yy, 3 + h / 2), (D(-6 + q * 18), 0, 0)))
+    mb.add(cyl(0.12, 7, 6), 'midwood', m @ M((0, -4.5, 13), (0, D(90), 0)))
+    LABELS.append(("Wreck of the Margaret", (x, y, 18)))
     return finish(mb, 'WreckOfTheMargaret', coll)
+
+
+def dash(mb, x, y, L, w, ang, seed):
+    mb.add(blob(1, (L / 2, w / 2, 0.06), seed, 0.08, 0.7), 'paper', M((x, y, 0.05), (0, 0, ang)))
+
+
+def build_foam(coll, rocks):
+    """Ponyo's crisp white foam: collars round wet rocks, breaking surf lines along the beaches, the Widowmaker on
+    Gullrock's reef edge, the north-horn point reef and the wreck (render stand-in for the game's foam shader)."""
+    mb = MB(); rr = random.Random(23); k = 0
+    for x, y, s in rocks:
+        if -8 < H(x, y) < 0.8:
+            k += 1; mb.add(cyl(1.05 * s + 0.6, 0.08, 10), 'paper', M((x, y, 0.04)))
+    def surf(x, y, r_):
+        if float(samp(F['beach'], x, y)) < 0.6 or KIND(x, y) == 3: return None
+        d = SDF(x, y); return 1.0 if (-15 < d < -9 or -34 < d < -27) else None
+    for x, y, _ in scatter(900, ALL, surf, 15, 31, 200000):
+        gx = SDF(x + 3, y) - SDF(x - 3, y); gy = SDF(x, y + 3) - SDF(x, y - 3)
+        dash(mb, x, y, rr.uniform(10, 22), rr.uniform(0.9, 1.6), math.atan2(gx, -gy), 300 + k); k += 1
+    for (mx, my, rx, ry), a0, a1 in (((2250, 2550, 200, 170), 95, 265), ((2250, 2550, 235, 205), 110, 250), ((1650, 1330, 120, 110), 0, 360),
+                                      ((1000, 1700, 15, 13), 0, 360)):
+        cx, cy = S.W(mx, my)
+        for a in np.arange(a0, a1, 4 if rx > 100 else 30):
+            t = math.radians(a); j = rr.uniform(-12, 12) if rx > 100 else rr.uniform(-2, 2)
+            x, y = cx + (rx + j) * math.cos(t), cy + (ry + j) * math.sin(t)
+            dash(mb, x, y, rr.uniform(10, 20) if rx > 100 else 5, rr.uniform(2.5, 4.5) if rx > 100 else 1.6, t + math.pi / 2, 500 + k); k += 1
+    log('foam pieces', k)
+    return finish(mb, 'Foam', coll, 80, shadow=False)
 
 
 def build_cut(coll):
@@ -540,6 +758,7 @@ def shoot(cam, name, loc, target, lens=35, res=(1920, 1080), ortho=None, haze=(2
     cam.location = loc; cam.data.lens = lens; cam.data.clip_start = near   # depth precision vs the sea plane
     cam.rotation_euler = (0, 0, 0) if ortho else (Vector(target) - Vector(loc)).to_track_quat('-Z', 'Y').to_euler()
     set_haze(*haze)
+    if TAG: name = name.replace('.png', '_' + TAG + '.png')
     sc.render.filepath = os.path.join(REN, name); bpy.ops.render.render(write_still=True)
     log('RENDER', os.path.join(REN, name))
 
@@ -550,16 +769,17 @@ def W3(mx, my, z): x, y = S.W(mx, my); return (x, y, z)
 def main():
     bpy.ops.wm.read_factory_settings(use_empty=True)
     coll = bpy.data.collections.new('CrescentBay'); bpy.context.scene.collection.children.link(coll)
-    terrain('Island', -1150, 1700, -1300, 1300, 6.0, coll, 1)
+    terrain('Island', -1150 - S.HORN, 1700, -1300, 1300, 6.0, coll, 1)
     for k, (mx, my, rx, ry) in S.ISLETS.items():
         x, y = S.W(mx, my); terrain('Islet_' + k, x - rx - 120, x + rx + 120, y - ry - 120, y + ry + 120, 4.0, coll, 2)
-    build_rocks(coll); build_trees(coll); build_town(coll); build_lighthouse(coll); build_wreck(coll); build_cut(coll)
-    build_voss(coll); build_expansion(coll)
+    rocks = build_rocks(coll); build_trees(coll); build_town(coll); build_lighthouse(coll); build_wreck(coll); build_cut(coll)
+    build_voss(coll); build_expansion(coll); build_foam(coll, rocks)
+    LABELS.append(("Gullrock reef", S.W(2250, 2550) + (14,)))
     clouds = build_clouds(coll)
-    land, boat, moor = place_landing()
+    land, boat, moor = place_landing(); build_maris(coll, land)
     img = bpy.data.images.load(os.path.join(SEABED, 'seabed_2048.png')); img.colorspace_settings.name = 'Non-Color'
     cam = setup_render(img)
-    bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT, 'crescent_bay.blend'))
+    bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT, 'crescent_bay%s.blend' % ('_' + TAG if TAG else '')))
     log('saved', os.path.join(OUT, 'crescent_bay.blend'))
     if not RENDER: return
     px, py = S.PIER_ROOT
@@ -577,14 +797,31 @@ def main():
     boat.matrix_world = M((bx, by, 0), (0, 0, yaw))
     eye = boat.matrix_world @ Vector((0, 1.5, 1.55)); look = boat.matrix_world @ Vector((0, -60, 1.2))
     shoot(cam, 'deck_biscuit.png', tuple(eye), tuple(look), 24, near=0.15)
+    bx, by = S.W(2450, 2640); yaw = math.atan2(*(np.subtract(S.W(3350, 2520), (bx, by))[::-1])) + math.pi / 2
+    boat.matrix_world = M((bx, by, 0), (0, 0, yaw))                                   # ...and heading home: town + ridge
+    eye = boat.matrix_world @ Vector((0, 1.5, 1.55)); look = boat.matrix_world @ Vector((0, -60, 3.0))
+    shoot(cam, 'deck_home.png', tuple(eye), tuple(look), 24, near=0.15)
     boat.matrix_world = moor
+    # the sea landmarks: Gullrock's reef break with Dot's lighthouse beyond; the Margaret's wreck with the north horn behind
+    shoot(cam, 'landmarks_reef_lighthouse.png', W3(2180, 2850, 2.2), W3(1930, 1640, 18), 28)
+    shoot(cam, 'landmarks_wreck.png', W3(860, 1790, 2.0), W3(1500, 1640, 8), 32)
     # extras for judging the 3D shape: an aerial three-quarter and Voss Harbour from outside its buoy line
     shoot(cam, 'aerial_overview.png', W3(1250, 4100, 1100), W3(2900, 2550, 0), 32, haze=(9000, 0.45), near=20)
     shoot(cam, 'voss_from_sea.png', W3(4720, 2900, 2.5), W3(3950, 2580, 22), 32)
+    # the town from above the bay, for the labelled landmark sheet (labels: pixel positions in town_labels.json)
+    tl = ((S.PIER_ROOT[0] - 150, S.PIER_ROOT[1] - 190, 105), (S.PIER_ROOT[0] + 95, S.PIER_ROOT[1] + 5, 4))
+    shoot(cam, 'town_overhead.png', tl[0], tl[1], 30, haze=(6000, 0.4))
+    if not ONLY or 'town_overhead' in ONLY:
+        from bpy_extras.object_utils import world_to_camera_view
+        sc = bpy.context.scene; out = []
+        for name, p in LABELS:
+            u, v, dep = world_to_camera_view(sc, cam, Vector(p))
+            if dep > 0 and 0 <= u <= 1 and 0 <= v <= 1: out.append(dict(name=name, x=u * sc.render.resolution_x, y=(1 - v) * sc.render.resolution_y))
+        import json; json.dump(out, open(os.path.join(REN, 'town_labels%s.json' % ('_' + TAG if TAG else '')), 'w'), indent=1)
     os.makedirs(PROOF, exist_ok=True)
     for f in sorted(os.listdir(REN)):
-        shutil.copy2(os.path.join(REN, f), os.path.join(PROOF, f))
-    shutil.copy2(os.path.join(SEABED, 'seabed_2048_preview.png'), os.path.join(PROOF, 'seabed_2048_preview.png'))
+        if f.endswith('.png') and (not TAG or f.endswith('_' + TAG + '.png')): shutil.copy2(os.path.join(REN, f), os.path.join(PROOF, f))
+    if not TAG: shutil.copy2(os.path.join(SEABED, 'seabed_2048_preview.png'), os.path.join(PROOF, 'seabed_2048_preview.png'))
     log('copied to', PROOF)
 
 

@@ -77,3 +77,61 @@ def main():
 
 
 main()
+
+
+def labelled_town():
+    src = os.path.join(PROOF, 'town_overhead.png'); js = os.path.join(HERE, 'out', 'renders', 'town_labels.json')
+    if not (os.path.exists(src) and os.path.exists(js)): return
+    im = Image.open(src).convert('RGB'); d = ImageDraw.Draw(im); f = font('ZenMaruGothic-Bold.ttf', 30)
+    for k, L in enumerate(json.load(open(js))):
+        x, y = L['x'], L['y']; ty = y - 70 - 26 * (k % 3)
+        d.line((x, y, x, ty + 18), fill='#3F2C27', width=3); d.ellipse((x - 6, y - 6, x + 6, y + 6), fill='#F2994A', outline='#3F2C27', width=2)
+        w = d.textlength(L['name'], font=f)
+        d.rounded_rectangle((x - w / 2 - 12, ty - 22, x + w / 2 + 12, ty + 20), 12, fill='#FFFBF2', outline='#805C52', width=2)
+        d.text((x, ty), L['name'], fill='#3F2C27', font=f, anchor='mm')
+    im.save(os.path.join(PROOF, 'town_labelled.png')); print('wrote town_labelled.png')
+
+
+def grid_sheet(out, title, sub, rows, cols, cells, cw=1280, ch=720):
+    """cells[r][c] = image path; rows/cols = labels."""
+    if not all(os.path.exists(p) for r in cells for p in r): print('skip', out); return
+    lw, head = 260, 130
+    sheet = Image.new('RGB', (lw + len(cols) * (cw + 20) + 20, head + 60 + len(rows) * (ch + 20)), '#FFFBF2'); d = ImageDraw.Draw(sheet)
+    d.text((20, 18), title, fill='#3F2C27', font=font('Fraunces-Bold.ttf', 44)); d.text((20, 78), sub, fill='#805C52', font=font('ZenMaruGothic-Medium.ttf', 24))
+    for c, lab in enumerate(cols): d.text((lw + c * (cw + 20) + cw / 2, head + 30), lab, fill='#3F2C27', font=font('Fraunces-Bold.ttf', 34), anchor='mm')
+    for r, lab in enumerate(rows):
+        d.text((20, head + 60 + r * (ch + 20) + ch / 2), lab, fill='#3F2C27', font=font('ZenMaruGothic-Bold.ttf', 30), anchor='lm')
+        for c in range(len(cols)):
+            sheet.paste(Image.open(cells[r][c]).convert('RGB').resize((cw, ch), Image.LANCZOS), (lw + c * (cw + 20), head + 60 + r * (ch + 20)))
+    sheet.save(os.path.join(PROOF, out)); print('wrote', out)
+
+
+def voss_sheet():
+    a, b = os.path.join(PROOF, 'topdown.png'), os.path.join(PROOF, 'topdown_voss12.png')
+    if not (os.path.exists(a) and os.path.exists(b)): return
+    P = 1200; s = P / 5000; panels = []
+    for img, horn, lab in ((a, 0.0, 'As drawn (default)'), (b, 400.0, 'Variant: south horn +400 m')):
+        S.HORN = horn; F = S.heightfield(); st = (S.PIER_ROOT[0] - 32, S.PIER_ROOT[1]); paths = {}
+        L = S.route_lengths(F, st, {'Voss': (3950, 3000)}, paths=paths)['Voss']
+        im = Image.open(img).convert('RGB').resize((P, P), Image.LANCZOS); d = ImageDraw.Draw(im)
+        pts = [((x + S.OX) * s, (S.OY - y) * s) for x, y in paths['Voss']]
+        d.line(pts, fill='#FFFFFF', width=4); d.line(pts, fill='#F2994A', width=2)
+        txt = '%s: %.2f km to Voss = %.1f min at 6 m/s (Biscuit T1), %.1f in the Kestrel (9 m/s)' % (lab, L / 1000, L / 360, L / 540)
+        panels.append((im, txt)); print('VOSS', txt)
+    S.HORN = 0.0
+    sheet = Image.new('RGB', (2 * P + 60, P + 200), '#FFFBF2'); d = ImageDraw.Draw(sheet)
+    d.text((20, 18), "Voss distance: as drawn vs a stretched south horn (gdd: 12.4 min at 6 m/s)", fill='#3F2C27', font=font('Fraunces-Bold.ttf', 40))
+    d.text((20, 72), "Orange = the real shortest water path from Walt's pier (>= 1.2 m deep). Walt's Cut stays silted. Default stays as drawn.",
+           fill='#805C52', font=font('ZenMaruGothic-Medium.ttf', 22))
+    for k, (im, txt) in enumerate(panels):
+        sheet.paste(im, (20 + k * (P + 20), 120)); d.text((20 + k * (P + 20), P + 140), txt, fill='#3F2C27', font=font('ZenMaruGothic-Bold.ttf', 24))
+    sheet.save(os.path.join(PROOF, 'voss-distance-variant.png')); print('wrote voss-distance-variant.png')
+
+
+labelled_town()
+grid_sheet('ridge-140-vs-220.png', 'Saltback Ridge: 140 m (as drawn, default) vs 220 m',
+           "Same cameras. Top: from the bay mouth, eye level 2 m. Bottom: from Biscuit's deck heading home, eye 1.55 m. Nothing else changes.",
+           ['Bay mouth', "Biscuit's deck"], ['140 m (default)', '220 m'],
+           [[os.path.join(PROOF, 'hero_bay_entrance.png'), os.path.join(PROOF, 'hero_bay_entrance_ridge220.png')],
+            [os.path.join(PROOF, 'deck_home.png'), os.path.join(PROOF, 'deck_home_ridge220.png')]])
+voss_sheet()

@@ -126,6 +126,15 @@ def bilinear(A, n):
 
 PIER_ROOT = None   # set by heightfield(): world (x, y) of Walt's pier root on the town shore
 
+# Variant knobs (defaults = map B as drawn). RIDGE_H: Saltback Ridge's crest. HORN: metres the south horn's tip reaches
+# further out (west, a little south), which lengthens the way round to Voss; Walt's Cut and everything east stay put.
+RIDGE_H, HORN = 140.0, 0.0
+HORN_W = {9: 0.55, 10: 1.0, 11: 0.8}          # ISLAND indices of the south horn's tip and their share of the stretch
+
+
+def island_pts():
+    return [(x - HORN * HORN_W.get(i, 0), y + 0.3 * HORN * HORN_W.get(i, 0)) for i, (x, y) in enumerate(ISLAND)]
+
 
 def heightfield(n=N, cut_open=False, sdf_n=1024):
     """Returns dict of n x n float32 fields over world [-2500, 2500]^2 (row 0 north):
@@ -134,7 +143,7 @@ def heightfield(n=N, cut_open=False, sdf_n=1024):
     global PIER_ROOT
     # 1) signed distance to the coastlines (exact at sdf_n, bilinear to n: the coast curves are smooth)
     Xs, Ys = grid(sdf_n)
-    main = np.maximum(sdf_poly(Xs, Ys, Wl(smooth(ISLAND))), sdf_poly(Xs, Ys, Wl(smooth(TOWN, 12))))
+    main = np.maximum(sdf_poly(Xs, Ys, Wl(smooth(island_pts()))), sdf_poly(Xs, Ys, Wl(smooth(TOWN, 12))))
     voss = sdf_poly(Xs, Ys, Wl(smooth(VOSS, 12)))
     isl = {k: sdf_poly(Xs, Ys, Wl(smooth(islet_pts(*v), 8))) for k, v in ISLETS.items()}
     sdf_s = np.maximum.reduce([main, voss] + list(isl.values()))
@@ -152,9 +161,11 @@ def heightfield(n=N, cut_open=False, sdf_n=1024):
     kind = np.zeros(X.shape, np.uint8)
 
     # 3) land: hills from spines with heights, clipped by a coastal envelope (cliffs on rock, gentle on sand)
-    spines = [(RIDGE, [95, 140, 138, 85], 620),
+    rk = RIDGE_H / 140.0
+    spines = [(RIDGE, [95 * rk, 140 * rk, 138 * rk, 85 * rk], 620),
               ([(2950, 1550), (2600, 1560), (2250, 1640), (1960, 1690)], [95, 62, 40, 24], 260),     # north horn
-              ([(3200, 3350), (2900, 3470), (2660, 3440), (2400, 3420), (2100, 3370)], [85, 42, 9, 26, 15], 250)]  # south
+              ([(3200, 3350), (2900, 3470), (2660, 3440), (2400 - 0.45 * HORN, 3420 + 0.13 * HORN),
+                (2100 - HORN, 3370 + 0.3 * HORN)], [85, 42, 9, 26, 15 + 0.012 * HORN], 250)]                # south
     S = np.zeros(X.shape, np.float32)
     for pts, hs, w in spines:
         r, v = seg_dist_val(X, Y, M(pts), hs)
@@ -163,7 +174,7 @@ def heightfield(n=N, cut_open=False, sdf_n=1024):
         wx, wy = W(*ISLETS[k][:2]); S = np.maximum(S, h_ * (1 - sstep(0, w_, np.hypot(X - wx, Y - wy))))
     S += waves(X, Y, 3, [(900, 9), (620, 7), (410, 5), (260, 3), (170, 1.6)]) * sstep(0, 120, sdf)
     d = np.maximum(sdf, 0)
-    rock_env = 0.9 + 0.07 * d + 26 * sstep(4, 40, d) + 0.45 * np.maximum(d - 40, 0)
+    rock_env = 0.9 + 0.07 * d + 26 * sstep(4, 40, d) + 0.45 * rk ** 1.5 * np.maximum(d - 40, 0)
     sand_env = np.minimum(d * 0.05, 2.6) + 0.1 * np.maximum(d - 55, 0)
     env = rock_env + (sand_env - rock_env) * beach
     land = np.maximum(np.minimum(np.maximum(S, 6.0), env), np.minimum(0.05 * d, 2.5))
@@ -284,7 +295,7 @@ def write_seabed(F, outdir):
 
 
 # ---------------------------------------------------------------- measures
-def route_lengths(F, start_w, targets, min_depth=1.2, step=4):
+def route_lengths(F, start_w, targets, min_depth=1.2, step=4, paths=None):
     """Shortest water path (16-neighbour Dijkstra on a grid of step*2.44 m) from start to each target; a cell is water only
     if every sub-cell is >= min_depth deep (Biscuit draws ~0.3 m; the margin keeps her off the rocks)."""
     h = F["h"]; n = h.shape[0] // step
@@ -302,7 +313,7 @@ def route_lengths(F, start_w, targets, min_depth=1.2, step=4):
           if (dj, di) != (0, 0) and math.gcd(abs(dj), abs(di)) == 1]
     src = nearest_water(cell(start_w)); dist = np.full((n, n), np.inf); dist[src] = 0
     want = {k: nearest_water(cell(W(*p))) for k, p in targets.items()}; left = set(want.values())
-    pq = [(0.0, src)]; dl = deep.tolist()
+    pq = [(0.0, src)]; dl = deep.tolist(); prev = {}
     while pq and left:
         dcur, (j, i) = heapq.heappop(pq)
         if dcur > dist[j, i]: continue
@@ -314,7 +325,12 @@ def route_lengths(F, start_w, targets, min_depth=1.2, step=4):
                 if not (dl[j + (dj > 0) - (dj < 0)][i + (di // 2 if abs(di) == 2 else 0)] and
                         dl[j + (dj // 2 if abs(dj) == 2 else 0)][i + (di > 0) - (di < 0)]): continue
             nd = dcur + L * cs
-            if nd < dist[jj, ii]: dist[jj, ii] = nd; heapq.heappush(pq, (nd, (jj, ii)))
+            if nd < dist[jj, ii]: dist[jj, ii] = nd; prev[(jj, ii)] = (j, i); heapq.heappush(pq, (nd, (jj, ii)))
+    if paths is not None:                       # world points of each path, start -> target (for drawing)
+        for k, c in want.items():
+            p = [c]
+            while p[-1] in prev: p.append(prev[p[-1]])
+            paths[k] = [(XW + (i + 0.5) * cs, YN - (j + 0.5) * cs) for j, i in reversed(p)]
     return {k: float(dist[c]) for k, c in want.items()}
 
 

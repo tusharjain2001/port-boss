@@ -115,3 +115,52 @@ The picture won wherever the picture said something (rule 42). Where it said not
 13. **Voss Harbour** is grey blocks only: 6 red gantry cranes, 2 freighters, container stacks, sheds and the VOSS tower. The
     real harbour comes at M9. Any render made with the Toon Harbor pack must stay out of git (rule 1).
 14. **P1–P3** are marked with orange buoys only. Nothing is built there.
+
+## Variants and the look pass (3 Nov, second pass)
+
+**Two variants for Manan.** Both are knobs on the same scripts; the default stays as drawn.
+
+| Knob | Run | Result | Sheet |
+|---|---|---|---|
+| Saltback Ridge 220 m | `-- tag=ridge220 ridge=220` | crest 229 m; the bay face becomes a ~35–40° green wall over the town | `proof/map-b/ridge-140-vs-220.png` (bay mouth + Biscuit's deck heading home, 140 vs 220) |
+| South horn stretched 400 m | `-- tag=voss12 horn=400` | Voss 4.48 km round the south horn = **12.4 min at 6 m/s (T1 Biscuit), 8.3 in the Kestrel (9 m/s)**, the gdd's exact numbers. The Cut stays 2.73 km, so dredging it now saves 1.75 km | `proof/map-b/voss-distance-variant.png` (both top-downs with the real shortest path drawn) |
+
+- More horn doesn't buy more time: past ~600 m the shortest way flips to round the north (4.71 km), so 13.1 min at 6 m/s is
+  the most this variant can give.
+- **Kufu wrote "12.4 min in the Kestrel at 6 m/s".** 6 m/s is T1 Biscuit; the Kestrel (T2) is 9 m/s. I matched the gdd's
+  T1 figure: 12.4 min at 6 m/s, which gives 8.3 min in the Kestrel, the gdd's T2 figure too.
+
+**The look pass:**
+
+- **Landmarks:** all eight are distinct silhouettes at their pins, named in `proof/map-b/town_labelled.png`.
+  1. Hook, Line & Sinker: teal shop, a big yellow fish on the roof, an iron hook sign.
+  2. Doyle Boatworks: red barrel-roofed boatshed, open doors, a slipway into the bay with a hull on it.
+  3. Plank & Post: open timber shed, plank stacks, a log pile, a yellow derrick, the yard office.
+  4. The Mooring Line: half-timbered pub, chimney, hanging sign, umbrellas, string lights.
+  5. Pratt's Fish Market: long open hall, blue-and-white striped roof, fish counters, a silver fish weathervane.
+  6. Swell Surf Co.: yellow beach hut, a fan of surfboards, an umbrella.
+  7. Post office + Nell's: red, with a 16 m clock tower.
+  8. Hartley's Outfitters: a giant yellow sou'wester on the roof.
+- **Mari's taco boat:** moored across the pier from Biscuit (the Day-3+ state).
+- **Shop list.** Kufu's list had Hartley's and Mari's instead of map-B's Swell Surf Co. and Post office. *Pick:* all 7 map
+  pins stay (rule 42; Swell Surf is rule 43's surf shop). Hartley's is added on the high street, since map B has no pin for
+  it; Mari's is her boat.
+- **The town:**
+  - terrace rows of narrow, bright houses along the real waterline (105);
+  - lamps on the quay and dinghies at their moorings;
+  - 130 hillside houses, some hipped, with chimneys;
+  - lanes instead of a dirt field.
+- **From the sea:**
+  - Dot's lighthouse is now 26 m of red and white bands on a rock knoll;
+  - the Margaret is a 26 m wreck, bow and wheelhouse out of the water, two leaning masts;
+  - Gullrock's reef has 70 rocks awash and a two-row surf break on its west edge (the Widowmaker);
+  - the north-horn point reef has its own surf ring.
+  - New views: `landmarks_reef_lighthouse.png`, `landmarks_wreck.png`.
+- **The shoreline:**
+  - wet sand at the waterline, dune grass behind the beaches;
+  - shingle coves where sand meets rock, boulders on the beaches;
+  - banded sea cliffs (three tones);
+  - steep inland slopes as mottled scrub, not grey;
+  - white foam collars round wet rocks, breaking-surf lines along the beaches.
+  - The foam pieces are render stand-ins; in the game, foam is the water shader's job (IMPORT-PLAN §5).
+- **How Unity takes it later:** `IMPORT-PLAN.md`.

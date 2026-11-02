@@ -648,6 +648,10 @@ Proven headless:
 - Seabed: `art-src/world/seabed/seabed_2048.png` (16-bit, h = v/65535*320-160 m, map-B's 5 x 5 km sheet).
 - Main island 1.87 x 2.31 km, 2.34 km^2; Voss 3.73 km round the south horn = 10.4 min at 6 m/s (gdd 12.4), 13.8 min at
   M1's 4.5 m/s. Proof: `Desktop/Port Boss/proof/map-b/`. No Unity import yet.
+- Second pass (3 Nov): two variants as knobs (`ridge=220`, `horn=400`: Voss 12.4 min at 6 m/s / 8.3 in the Kestrel,
+  the gdd's numbers), sheets `ridge-140-vs-220.png` + `voss-distance-variant.png` for Manan's pick (defaults stay as
+  drawn); look pass (8 landmark shops named in `town_labelled.png`, Mari's boat, waterfront rows, lighthouse/wreck/reef
+  readable from the sea, shoreline variety); `art-src/world/IMPORT-PLAN.md` = how it goes into Unity (plan only).
 
 **Known issues / not yet proven (from M1):**
 - **The worker model is a placeholder** (the old code-generated worker in a fisherman outfit). The real cast comes with the
