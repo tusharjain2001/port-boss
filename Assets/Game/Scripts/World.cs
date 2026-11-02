@@ -140,12 +140,18 @@ namespace PortBoss.M1
         {
             float age = Time.time - born;
             r.GetPropertyBlock(mpb); mpb.SetFloat("_Swim", Mathf.Lerp(0.12f, 0.02f, Mathf.Clamp01(age / 20f))); mpb.SetFloat("_SwimFreq", 1.6f); r.SetPropertyBlock(mpb);
-            if (age > 120f) { Alerts.Push("Deck", F.Species.Name + " slipped back into the sea.", Alerts.Kind.Info); Destroy(gameObject); }
+            if (age > 120f)
+            {
+                // co-op: the host's book decides (and tells everyone); solo, here
+                if (Coop.On) { if (Coop.IsHost) { born = Time.time; Coop.Expire(this); } return; }
+                Alerts.Push("Deck", F.Species.Name + " slipped back into the sea.", Alerts.Kind.Info); Destroy(gameObject);
+            }
         }
         void OnDestroy() => All.Remove(this);
 
         public void Take(Angler a)
         {
+            if (Coop.On && F.Id != 0) { Coop.Pickup(F.Id); return; } // the host's book: first come (it goes on every machine)
             int slot = a.Bar.Add(F);
             if (slot < 0) return;
             Hud.I?.FlyIn(transform.position, slot);

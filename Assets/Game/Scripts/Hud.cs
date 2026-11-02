@@ -70,6 +70,7 @@ namespace PortBoss.M1
             var cs = g.AddComponent<CanvasScaler>(); cs.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize; cs.referenceResolution = new Vector2(W, H); cs.matchWidthOrHeight = 0.5f;
             h.root = (RectTransform)g.transform;
             h.Build();
+            NameTags.Make(h.root, cam);
             Alerts.OnPush += h.OnAlert;
             return h;
         }
@@ -341,7 +342,15 @@ namespace PortBoss.M1
                     case Fishing.St.Charging: list.Add(("LMB", "Release to cast")); list.Add(("RMB", "Cancel")); break;
                     case Fishing.St.Waiting: case Fishing.St.Settle: list.Add(("LMB", "Strike on the bite")); list.Add(("RMB", "Hold to reel in")); break;
                     case Fishing.St.Bite: list.Add(("LMB", "STRIKE!")); break;
-                    case Fishing.St.Stowed: if (me.Bar.Sel.Rod && me.Swimming) list.Add(("", "Can't fish while swimming")); else if (!me.Bar.Sel.Rod && !me.Swimming) list.Add(("1", "Rod")); break;
+                    case Fishing.St.Stowed:
+                        if (me.Bar.Sel.Rod && me.Swimming) list.Add(("", "Can't fish while swimming"));
+                        else if (me.Aiming) list.Add(("Q", "Let go to toss"));
+                        else if (!me.Bar.Sel.Rod && !me.Swimming)
+                        {
+                            if (me.Bar.Sel.Fish.Count > 0 && me.ThrowT < 0) { list.Add(("Q", "Drop")); list.Add(("Q", "Hold to toss")); }
+                            list.Add(("1", "Rod"));
+                        }
+                        break;
                 }
             string key = string.Join("|", list.ConvertAll(x => x.k + x.v));
             if (key == lastPrompt) return;
@@ -496,6 +505,162 @@ namespace PortBoss.M1
     }
 
     // Item icons are rendered from the real 3D models with the same toon shader and outline (systems §2.6).
+    // Co-op name tags (systems §2.5, world-space tags): each crewmate's name over their head on a paper pill edged in their
+    // player colour, with a dot of it; smaller further off, gone past 40 m. Placed after the camera has moved (2100 >
+    // CameraRig's 2000), so a tag never trails its head by a frame. While they fight a fish, their ghost bar sits on top
+    // (fishing §4.2): the green zone, the pointer, a pip per stop, as their machine has it (~0.1 s behind). A ring in
+    // their colour pulses round the dot while they talk (systems §3.6), and my own mic shows bottom-left.
+    [DefaultExecutionOrder(2100)]
+    public class NameTags : MonoBehaviour
+    {
+        public static NameTags I;
+        RectTransform root; Camera cam;
+        class Tag { public RectTransform R, Ghost, Zone, Ptr; public Text T; public Color C; public CanvasGroup G; public Image[] Pips; public Image Ring; }
+        RectTransform mic; Image micRing, micDot; Text micT;
+        // the crew list (systems §2.5): top right, one row a player: colour, speaking ring, name, crew member, what they're doing
+        RectTransform crewBox; readonly List<(ulong id, Image ring, Text status)> crewRows = new(); string crewKey;
+        public int CrewRows => crewRows.Count;                                  // (tests)
+        public bool CrewRing(ulong id) => crewRows.Exists(r => r.id == id && r.ring.enabled);
+        public string CrewNames;                                                // (tests) "Host, Rider1, …" as listed
+        readonly Dictionary<Angler, Tag> tags = new();
+
+        public static NameTags Make(RectTransform hudRoot, Camera cam)
+        {
+            var r = UiKit.Rect("nameTags", hudRoot); r.Stretch(); r.SetAsFirstSibling(); // under the rest of the HUD
+            var n = r.gameObject.AddComponent<NameTags>(); n.root = r; n.cam = cam; I = n;
+            // my mic: open (rings while I'm heard), push-to-talk, or off
+            n.mic = UiKit.Card(r, "mic", 18, Ponyo.Paper, true); n.mic.Place(new Vector2(0, 0), new Vector2(28, 30), new Vector2(170, 40), new Vector2(0, 0));
+            n.micRing = UiKit.Img(n.mic, UiKit.RingSprite, Color.white, "ring"); n.micRing.rectTransform.Place(new Vector2(0, 0.5f), new Vector2(26, 0), new Vector2(30, 30), new Vector2(0.5f, 0.5f));
+            n.micDot = UiKit.Img(n.mic, UiKit.Circle, Color.white, "dot"); n.micDot.rectTransform.Place(new Vector2(0, 0.5f), new Vector2(26, 0), new Vector2(14, 14), new Vector2(0.5f, 0.5f));
+            n.micT = UiKit.Txt(n.mic, "", UiKit.Bold, 17, Ponyo.Ink, TextAnchor.MiddleLeft); n.micT.rectTransform.Stretch(); n.micT.rectTransform.offsetMin = new Vector2(42, 0);
+            n.mic.gameObject.SetActive(false);
+            n.crewBox = UiKit.Rect("crew", r).Place(new Vector2(1, 1), new Vector2(-28, -28), new Vector2(330, 200), new Vector2(1, 1));
+            return n;
+        }
+
+        Tag Build(Angler m)
+        {
+            var r = UiKit.Card(root, "tag", 17, Ponyo.Paper, true, m.Colour, 2);
+            r.pivot = new Vector2(0.5f, 0);
+            var dot = UiKit.Img(r, UiKit.Circle, m.Colour, "dot"); dot.rectTransform.Place(new Vector2(0, 0.5f), new Vector2(13, 0), new Vector2(14, 14), new Vector2(0, 0.5f));
+            var t = UiKit.Txt(r, "", UiKit.Bold, 19, Ponyo.Ink, TextAnchor.MiddleLeft); t.rectTransform.Stretch(); t.rectTransform.offsetMin = new Vector2(34, 0);
+            var ring = UiKit.Img(r, UiKit.RingSprite, m.Colour, "ring"); ring.rectTransform.Place(new Vector2(0, 0.5f), new Vector2(20, 0), new Vector2(30, 30), new Vector2(0.5f, 0.5f)); ring.enabled = false; // (round the dot's centre)
+            // the ghost bar: the minigame's colours (Hud.BuildMinigame) at a glance
+            var g = UiKit.Card(r, "ghost", 10, Ponyo.Paper, false, m.Colour, 2);
+            g.Place(new Vector2(0.5f, 1), new Vector2(0, 8), new Vector2(176, 24), new Vector2(0.5f, 0));
+            var track = UiKit.Img(g, null, Ponyo.Hex("CFF2F0"), "track").rectTransform; track.Stretch(5); track.offsetMax = new Vector2(-38, -5);
+            var zone = UiKit.Img(track, null, Ponyo.Leaf, "zone").rectTransform;
+            var ptr = UiKit.Img(track, null, Ponyo.Ink, "ptr").rectTransform; ptr.pivot = new Vector2(0.5f, 0.5f);
+            var pips = new Image[2];
+            for (int i = 0; i < 2; i++) { pips[i] = UiKit.Img(g, UiKit.Circle, Ponyo.Paper3, "pip" + i); pips[i].rectTransform.Place(new Vector2(1, 0.5f), new Vector2(-24 + i * 13, 0), new Vector2(10, 10)); }
+            g.gameObject.SetActive(false);
+            return new Tag { R = r, T = t, C = m.Colour, G = r.gameObject.AddComponent<CanvasGroup>(), Ghost = g, Zone = zone, Ptr = ptr, Pips = pips, Ring = ring };
+        }
+
+        public bool RingOn(Angler m) => tags.TryGetValue(m, out var t) && t.R.gameObject.activeSelf && t.Ring.enabled; // (tests)
+
+        // the speaking ring: pulses out with their voice
+        static void Speak(Image ring, bool on, float level, Color c)
+        {
+            ring.enabled = on; if (!on) return;
+            float k = Mathf.Clamp01(level * 2.5f);
+            ring.rectTransform.localScale = Vector3.one * (1f + 0.45f * k + 0.1f * Mathf.Sin(Time.time * 14f));
+            ring.color = new Color(c.r, c.g, c.b, 0.75f + 0.25f * k);
+        }
+
+        static string Doing(Angler a) => a == null ? "" : a.Down ? "knocked over" : a.Swimming ? "swimming" : a.AtHelm ? "at the tiller" : a.Fish != null && a.Fish.State != Fishing.St.Stowed ? "fishing" : "";
+
+        void Crew()
+        {
+            var c = Coop.I; bool on = Coop.On && c != null && c.Roster.Count > 0;
+            if (crewBox.gameObject.activeSelf != on) crewBox.gameObject.SetActive(on);
+            if (!on) { crewKey = null; return; }
+            var list = new List<Coop.Entry>(c.Roster); list.Sort((a, b) => a.Slot.CompareTo(b.Slot));
+            string key = string.Join("|", list.ConvertAll(e => $"{e.Id}/{e.Slot}/{e.Crew}/{e.Name}"));
+            if (key != crewKey)
+            {
+                // (re)built when someone joins, leaves or changes body
+                crewKey = key; crewRows.Clear(); foreach (Transform t in crewBox) Destroy(t.gameObject);
+                for (int i = 0; i < list.Count; i++)
+                {
+                    var e = list[i]; var col = Coop.Colours[e.Slot % Coop.Colours.Length]; bool me = e.Id == Coop.Me;
+                    var row = UiKit.Card(crewBox, "row" + i, 16, Ponyo.Paper, true, col, 2); row.Place(new Vector2(1, 1), new Vector2(0, -i * 50), new Vector2(330, 42), new Vector2(1, 1));
+                    var ring = UiKit.Img(row, UiKit.RingSprite, col, "ring"); ring.rectTransform.Place(new Vector2(0, 0.5f), new Vector2(22, 0), new Vector2(28, 28), new Vector2(0.5f, 0.5f)); ring.enabled = false;
+                    var dot = UiKit.Img(row, UiKit.Circle, col, "dot"); dot.rectTransform.Place(new Vector2(0, 0.5f), new Vector2(22, 0), new Vector2(14, 14), new Vector2(0.5f, 0.5f));
+                    var nameT = UiKit.Txt(row, e.Name + (me ? " (you)" : ""), UiKit.Bold, 18, Ponyo.Ink, TextAnchor.MiddleLeft); nameT.rectTransform.Stretch(); nameT.rectTransform.offsetMin = new Vector2(42, 0);
+                    var crewN = M1Assets.I.CrewNames != null && e.Crew < M1Assets.I.CrewNames.Length ? M1Assets.I.CrewNames[e.Crew] : "";
+                    var st = UiKit.Txt(row, crewN, UiKit.Body, 15, Ponyo.InkSoft, TextAnchor.MiddleRight); st.rectTransform.Stretch(); st.rectTransform.offsetMax = new Vector2(-16, 0);
+                    crewRows.Add((e.Id, ring, st));
+                }
+                CrewNames = string.Join(", ", list.ConvertAll(e => e.Name));
+            }
+            for (int i = 0; i < crewRows.Count && i < list.Count; i++)
+            {
+                var (id, ring, st) = crewRows[i]; var e = list[i]; bool me = id == Coop.Me;
+                var body = me ? Angler.I : c.Mates.TryGetValue(id, out var m) ? m : null;
+                var crewN = M1Assets.I.CrewNames != null && e.Crew < M1Assets.I.CrewNames.Length ? M1Assets.I.CrewNames[e.Crew] : "";
+                string doing = Doing(body); string text = doing == "" ? crewN : crewN + " · " + doing; if (st.text != text) st.text = text;
+                var v = !me && body != null ? body.GetComponent<VoiceOut>() : null;
+                Speak(ring, me ? Coop.Talking : v != null && v.Speaking, me ? Coop.MyLevel : v != null ? v.Level : 0, Coop.Colours[e.Slot % Coop.Colours.Length]);
+            }
+        }
+
+        void Mic()
+        {
+            bool on = Coop.On && Angler.I != null; if (mic.gameObject.activeSelf != on) mic.gameObject.SetActive(on);
+            if (!on) return;
+            var mode = Settings.Voice; var c = Angler.I.Colour;
+            micT.text = mode == Settings.VoiceMode.Off ? "Mic off" : mode == Settings.VoiceMode.PushToTalk ? "Hold V to talk" : Coop.SteamVoice || Coop.Talking ? "Mic on" : "Mic (no Steam)";
+            micDot.color = mode == Settings.VoiceMode.Off ? Ponyo.Paper3 : c;
+            Speak(micRing, Coop.Talking, Coop.MyLevel, c);
+        }
+
+        public bool GhostOn(Angler m) => tags.TryGetValue(m, out var t) && t.R.gameObject.activeSelf && t.Ghost.gameObject.activeSelf; // (tests)
+
+        void Ghost(Tag tg, Fishing f)
+        {
+            bool on = f != null && f.State == Fishing.St.Minigame && f.ZoneW > 0;
+            if (tg.Ghost.gameObject.activeSelf != on) tg.Ghost.gameObject.SetActive(on);
+            if (!on) return;
+            tg.Zone.anchorMin = new Vector2(Mathf.Clamp01(f.ZoneC - f.ZoneW / 2), 0); tg.Zone.anchorMax = new Vector2(Mathf.Clamp01(f.ZoneC + f.ZoneW / 2), 1);
+            tg.Zone.offsetMin = tg.Zone.offsetMax = Vector2.zero;
+            tg.Ptr.anchorMin = new Vector2(f.PointerShown, 0); tg.Ptr.anchorMax = new Vector2(f.PointerShown, 1);
+            tg.Ptr.sizeDelta = new Vector2(4, 8); tg.Ptr.anchoredPosition = Vector2.zero;
+            for (int i = 0; i < 2; i++) tg.Pips[i].color = f.Result[i] > 0 ? Ponyo.Leaf : f.Result[i] < 0 ? Ponyo.Hex("E2553F") : Ponyo.Paper3;
+        }
+
+        void LateUpdate() => Place();
+
+        // (public: a test moving the camera for a picture places them again)
+        public void Place()
+        {
+            var c = Coop.I;
+            Mic(); Crew();
+            foreach (var m in new List<Angler>(tags.Keys))
+                if (m == null || c == null || !c.Mates.ContainsValue(m) || tags[m].C != m.Colour) { if (tags[m].R != null) Destroy(tags[m].R.gameObject); tags.Remove(m); }
+            if (c == null) return;
+            foreach (var m in c.Mates.Values)
+            {
+                if (m == null) continue;
+                if (!tags.TryGetValue(m, out var tg)) tags[m] = tg = Build(m);
+                // over the top of the head (the kit's heads are big: the joint is at 82% of the height)
+                float h = m.Size * 1.78f;
+                var at = (m.Head != null ? m.Head.position : m.transform.position + Vector3.up * 0.82f * h) + Vector3.up * (0.12f * h + 0.14f);
+                var vp = cam.WorldToViewportPoint(at); float d = Vector3.Distance(cam.transform.position, at);
+                bool on = vp.z > 0.2f && d < 40;
+                tg.R.gameObject.SetActive(on);
+                if (!on) continue;
+                tg.R.anchorMin = tg.R.anchorMax = new Vector2(vp.x, vp.y); tg.R.anchoredPosition = Vector2.zero; // (any screen size)
+                if (tg.T.text != m.NetName) tg.T.text = m.NetName ?? "";
+                tg.R.sizeDelta = new Vector2(tg.T.preferredWidth + 50, 34);
+                tg.R.localScale = Vector3.one * Mathf.Lerp(1f, 0.62f, Mathf.InverseLerp(6, 30, d));
+                tg.G.alpha = 1 - Mathf.InverseLerp(32, 40, d);
+                Ghost(tg, m.Fish);
+                var v = m.GetComponent<VoiceOut>(); Speak(tg.Ring, v != null && v.Speaking, v != null ? v.Level : 0, m.Colour);
+            }
+        }
+    }
+
     public static class IconBaker
     {
         static Camera cam;

@@ -12,7 +12,7 @@ namespace PortBoss.M1
         public static bool PadLast;                       // the last device used (prompt glyphs follow it)
 
         // bot overrides (the -pb-* scenarios)
-        public static bool Bot; public static Vector2 BotMove; public static bool BotUse, BotUsePressed, BotStrike, BotInteract, BotCancel, BotJump, BotSprint, BotJumpHeld = true; public static int BotSlot = -1;
+        public static bool Bot; public static Vector2 BotMove; public static bool BotUse, BotUsePressed, BotStrike, BotInteract, BotInteractHeld, BotDropHeld, BotCancel, BotJump, BotSprint, BotJumpHeld = true; public static int BotSlot = -1;
 
         static bool K_(Key k) => K != null && K[k].isPressed;
         static bool KD(Key k) => K != null && K[k].wasPressedThisFrame;
@@ -48,7 +48,9 @@ namespace PortBoss.M1
         public static bool Jump => Bot ? BotJump : KD(Key.Space) || (P != null && P.buttonSouth.wasPressedThisFrame);
         public static bool JumpHeld => Bot ? BotJumpHeld : K_(Key.Space) || (P != null && P.buttonSouth.isPressed); // let go early: a lower hop
         public static bool Interact => Bot ? BotInteract : KD(Key.E) || (P != null && P.buttonWest.wasPressedThisFrame);
-        public static bool InteractHeld => !Bot && (K_(Key.E) || (P != null && P.buttonWest.isPressed));
+        public static bool InteractHeld => Bot ? BotInteractHeld : K_(Key.E) || (P != null && P.buttonWest.isPressed);
+        public static bool PushToTalk => !Bot && K_(Key.V); // (when Settings.Voice is push-to-talk)
+        public static bool DropHeld => Bot ? BotDropHeld : K_(Key.Q) || (P != null && P.dpad.down.isPressed); // tap: drop; hold: toss
         public static bool Drop => !Bot && (KD(Key.Q) || (P != null && P.dpad.down.wasPressedThisFrame));
         public static bool LetGo => !Bot && (KD(Key.Q) || (P != null && P.buttonWest.wasPressedThisFrame));
         public static bool Keep => Bot ? BotInteract : KD(Key.E) || (P != null && P.buttonSouth.wasPressedThisFrame);
@@ -126,6 +128,17 @@ namespace PortBoss.M1
         public static float MouseSens = PlayerPrefsGet("m1.mouse", 1f), PadSens = PlayerPrefsGet("m1.pad", 1f);
         public static bool Invert;
         public static float TimingOffsetMs = PlayerPrefsGet("m1.offset", 0f);  // −100…+100, the minigame calibration knob
+        // co-op voice (systems §3.6): open mic by default (Manan 2 Nov); push-to-talk (hold V) or off go in the settings
+        // screen later. For now: -pb-voice open|ptt|off, or "m1.voice" saved on this PC.
+        public enum VoiceMode { Open, PushToTalk, Off }
+        public static VoiceMode Voice = VoiceArg();
+        static VoiceMode VoiceArg()
+        {
+            var a = System.Environment.GetCommandLineArgs(); int i = System.Array.IndexOf(a, "-pb-voice");
+            string v = i >= 0 && i + 1 < a.Length ? a[i + 1] : null;
+            if (v == null) try { v = PlayerPrefs.GetString("m1.voice", "open"); } catch { v = "open"; }
+            return v == "ptt" ? VoiceMode.PushToTalk : v == "off" ? VoiceMode.Off : VoiceMode.Open;
+        }
         static float PlayerPrefsGet(string k, float d) { try { return PlayerPrefs.GetFloat(k, d); } catch { return d; } }
     }
 }

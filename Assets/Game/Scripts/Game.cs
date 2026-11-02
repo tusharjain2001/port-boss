@@ -64,11 +64,19 @@ namespace PortBoss.M1
             Cursor.visible = false;
             BuildPause();
 
-            Alerts.Push("Grandpa Walt", "Biscuit's yours now, kiddo. She leaks a bit, but she floats. The fish are out past the pier.", Alerts.Kind.Story);
-            Alerts.Push("How to fish", "1 rod · hold LMB to cast, release · strike on the bite · Space stops the bar", Alerts.Kind.Info);
-            Alerts.Push("Biscuit", "E at the tiller to take her out. E at the bow for the anchor.", Alerts.Kind.Info);
+            void Welcome()
+            {
+                Alerts.Push("Grandpa Walt", "Biscuit's yours now, kiddo. She leaks a bit, but she floats. The fish are out past the pier.", Alerts.Kind.Story);
+                Alerts.Push("How to fish", "1 rod · hold LMB to cast, release · strike on the bite · Space stops the bar", Alerts.Kind.Info);
+                Alerts.Push("Biscuit", "E at the tiller to take her out. E at the bow for the anchor.", Alerts.Kind.Info);
+            }
             Debug.Log($"[PB] hotbar self-test: {Hotbar.SelfTest()}");
             if (gameObject.GetComponent<Bot>() == null) gameObject.AddComponent<Bot>();
+            Coop.Boot(); // -pb-host / -pb-join: co-op (M2) straight away (the tests)
+            // otherwise the title menu: solo, or a crew on Steam / this network (not in the tests' batch mode)
+            bool menu = Coop.I == null && (!Application.isBatchMode || System.Array.IndexOf(args, "-pb-menutest") >= 0);
+            if (menu) { Coop.SteamUp(); Title.Open(); Title.Closed += Welcome; } // (the tips once play starts)
+            else Welcome();
         }
 
         System.Collections.IEnumerator Failsafe(float s) { yield return new WaitForSecondsRealtime(s); Debug.Log("[PB] quit (failsafe)"); Application.Quit(); }
@@ -161,14 +169,28 @@ namespace PortBoss.M1
             pause = UiKit.Card(hud, "pause", 26, Ponyo.Paper, true);
             pause.Place(new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(560, 300));
             var t = UiKit.Txt(pause, "Paused", UiKit.Display, 49, Ponyo.Ink, TextAnchor.UpperCenter); t.rectTransform.Stretch(30);
-            pauseT = UiKit.Txt(pause, "Esc  resume\nQ  quit to desktop\n\nF3 debug overlay · F5 rod tier · F6 bait", UiKit.Body, 22, Ponyo.Ink, TextAnchor.MiddleCenter); pauseT.rectTransform.Stretch(30); pauseT.rectTransform.offsetMax = new Vector2(-30, -60);
+            pauseT = UiKit.Txt(pause, PauseText(), UiKit.Body, 22, Ponyo.Ink, TextAnchor.MiddleCenter); pauseT.rectTransform.Stretch(30); pauseT.rectTransform.offsetMax = new Vector2(-30, -60);
             pause.gameObject.SetActive(false);
+        }
+
+        // co-op adds: invite friends (a Steam crew I host), leave the crew
+        static string PauseText() => "Esc  resume\nQ  quit to desktop" + (Coop.On && Coop.IsHost && Coop.Lobby != null ? "\nI  invite friends (Steam)" : "") + (Coop.On ? "\nL  leave the crew (play on alone)" : "") + "\n\nF3 debug overlay · F5 rod tier · F6 bait";
+
+        void OnApplicationQuit()
+        {
+            if (!Coop.SteamOk) return;
+            try { Coop.Lobby?.Leave(); Steamworks.SteamClient.Shutdown(); } catch { }
         }
 
         void Update()
         {
-            if (Ctl.Escape && !Ctl.Bot) { Paused = !Paused; Time.timeScale = Paused ? 0 : 1; pause.gameObject.SetActive(Paused); Cursor.lockState = Paused ? CursorLockMode.None : CursorLockMode.Locked; Cursor.visible = Paused; }
+            Coop.SteamTick(); // (lobby callbacks, invites, the mic)
+            if (Title.Shown) return;
+            // (co-op never stops the world: the menu opens, the boat and the crew carry on)
+            if (Ctl.Escape && !Ctl.Bot) { Paused = !Paused; Time.timeScale = Paused && !Coop.On ? 0 : 1; pause.gameObject.SetActive(Paused); pauseT.text = PauseText(); Cursor.lockState = Paused ? CursorLockMode.None : CursorLockMode.Locked; Cursor.visible = Paused; }
             if (Paused && Ctl.Key_(UnityEngine.InputSystem.Key.Q)) Application.Quit();
+            if (Paused && Ctl.Key_(UnityEngine.InputSystem.Key.I)) Coop.Invite();
+            if (Paused && Coop.On && Ctl.Key_(UnityEngine.InputSystem.Key.L)) { Coop.Leave(); Paused = false; Time.timeScale = 1; pause.gameObject.SetActive(false); Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false; Alerts.Push("Crew", "You left the crew. Biscuit's all yours.", Alerts.Kind.Info); }
             if (!Paused && !Application.isBatchMode && Cursor.lockState != CursorLockMode.Locked && UnityEngine.InputSystem.Mouse.current != null && UnityEngine.InputSystem.Mouse.current.leftButton.wasPressedThisFrame) Cursor.lockState = CursorLockMode.Locked;
             // gulls now and then
             gullT -= Time.deltaTime;

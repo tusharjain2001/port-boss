@@ -24,6 +24,8 @@ namespace PortBoss.M1
         public Vector3 Velocity { get; private set; }
         public Transform MoorAt;
         public float AnchorT = -1;                // dropping / raising timer
+        // co-op: a Remote copy follows the poses of the real one (on the driver's machine, else the host's)
+        public bool Remote; public readonly NetTrack<Pose> Net = new();
 
         float yaw, y, pitch, roll, vy, vp, vr, moorBlend = 1;
         Vector3 pos, anchorAt, drift;
@@ -93,9 +95,55 @@ namespace PortBoss.M1
 
         public float TargetSpeed => Notch < 0 ? -Reverse : Notch * MaxSpeed / 3f;
 
+        public struct Pose
+        {
+            public float T, X, Y, Z, Yaw, Pitch, Roll, Speed, Rudder, AnchorT; public sbyte Notch; public byte Flags;
+            public void Write(ref Unity.Netcode.FastBufferWriter w)
+            {
+                w.WriteValueSafe(T); w.WriteValueSafe(X); w.WriteValueSafe(Y); w.WriteValueSafe(Z); w.WriteValueSafe(Yaw); w.WriteValueSafe(Pitch); w.WriteValueSafe(Roll);
+                w.WriteValueSafe(Speed); w.WriteValueSafe(Rudder); w.WriteValueSafe(AnchorT); w.WriteValueSafe(Notch); w.WriteValueSafe(Flags);
+            }
+            public static Pose Read(ref Unity.Netcode.FastBufferReader r)
+            {
+                var p = new Pose(); r.ReadValueSafe(out p.T); r.ReadValueSafe(out p.X); r.ReadValueSafe(out p.Y); r.ReadValueSafe(out p.Z); r.ReadValueSafe(out p.Yaw);
+                r.ReadValueSafe(out p.Pitch); r.ReadValueSafe(out p.Roll); r.ReadValueSafe(out p.Speed); r.ReadValueSafe(out p.Rudder); r.ReadValueSafe(out p.AnchorT);
+                r.ReadValueSafe(out p.Notch); r.ReadValueSafe(out p.Flags); return p;
+            }
+        }
+        public Pose NetPose(float t) => new()
+        {
+            T = t, X = pos.x, Y = y, Z = pos.z, Yaw = yaw, Pitch = pitch, Roll = roll, Speed = Speed, Rudder = Rudder, AnchorT = AnchorT, Notch = (sbyte)Notch,
+            Flags = (byte)((Moored ? 1 : 0) | (Anchored ? 2 : 0) | (AtHelm ? 4 : 0)),
+        };
+
+        // This copy becomes the real boat (its driver, or the host when the driver leaves): carry on from where it is shown.
+        public void TakeOver()
+        {
+            Remote = false; Net.Clear(); AtHelm = Angler.I != null && Angler.I.AtHelm;
+            var e = transform.eulerAngles; pos = new Vector3(transform.position.x, 0, transform.position.z); y = transform.position.y;
+            yaw = e.y; pitch = Mathf.DeltaAngle(0, e.x); roll = Mathf.DeltaAngle(0, e.z); vy = vp = vr = 0;
+            if (Anchored) anchorAt = pos;
+            moorBlend = Moored ? 1 : 0;
+        }
+
+        // a remote copy: where the real one was Coop.Delay ago
+        void FollowNet(float dt)
+        {
+            if (!Net.Sample(out var a, out var b, out float k)) return;
+            var np = new Vector3(Mathf.Lerp(a.X, b.X, k), 0, Mathf.Lerp(a.Z, b.Z, k));
+            Velocity = (np - pos) / Mathf.Max(dt, 1e-4f);
+            pos = np; y = Mathf.Lerp(a.Y, b.Y, k); yaw = Mathf.LerpAngle(a.Yaw, b.Yaw, k);
+            pitch = Mathf.LerpAngle(a.Pitch, b.Pitch, k); roll = Mathf.LerpAngle(a.Roll, b.Roll, k);
+            Speed = Mathf.Lerp(a.Speed, b.Speed, k); Rudder = Mathf.Lerp(a.Rudder, b.Rudder, k); Notch = b.Notch;
+            bool wasAnch = Anchored; Moored = (b.Flags & 1) != 0; Anchored = (b.Flags & 2) != 0; AtHelm = (b.Flags & 4) != 0; AnchorT = b.AnchorT;
+            if (Anchored != wasAnch) Snd.Play(M1Assets.I.Splash, AnchorPt != null ? AnchorPt.position : transform.position, Anchored ? 0.7f : 0.3f);
+            transform.SetPositionAndRotation(new Vector3(pos.x, y, pos.z), Quaternion.Euler(0, yaw, 0) * Quaternion.Euler(pitch, 0, roll));
+        }
+
         void Update()
         {
             float dt = Time.deltaTime;
+            if (Remote) { FollowNet(dt); Physics.SyncTransforms(); Visuals(dt); return; }
             // rudder: follows the stick, recentres in ~0.6 s
             Rudder = Mathf.Abs(Steer) > 0.05f ? Mathf.MoveTowards(Rudder, Steer * 35f, 120f * dt) : Mathf.MoveTowards(Rudder, 0, 60f * dt);
             if (!AtHelm && Notch != 0 && !Moored) { Notch = 0; Alerts.Push("Biscuit", "Throttle eased to stop.", Alerts.Kind.Info); } // no runaway boats
@@ -145,7 +193,27 @@ namespace PortBoss.M1
             float tr = Mathf.Clamp(Mathf.Atan2(hR - hP, 1.7f) * Mathf.Rad2Deg, -6f, 6f) - Rudder / 35f * 3f * Mathf.Clamp01(Mathf.Abs(Speed) / MaxSpeed);
             Spring(ref y, ref vy, ty, 3.2f, dt); Spring(ref pitch, ref vp, tp, 2.6f, dt); Spring(ref roll, ref vr, tr, 2.4f, dt);
             transform.SetPositionAndRotation(new Vector3(pos.x, y, pos.z), q * Quaternion.Euler(pitch, 0, roll));
+            // the deck's colliders where the hull is now (auto-sync is off): the walkers' controllers and their "on the deck?"
+            // rays read them this frame. Stale, a long frame (a hitch on the driver's machine) stepped a rider standing beside
+            // a bench up onto it, 30-40 cm (M2 step 2's test).
+            Physics.SyncTransforms();
+            Visuals(dt);
 
+            if (AnchorT >= 0)
+            {
+                AnchorT += dt;
+                if (AnchorT >= 1.5f)
+                {
+                    AnchorT = -1; Anchored = !Anchored; anchorAt = pos;
+                    Alerts.Push("Biscuit", Anchored ? "Anchor down. She'll hold here." : "Anchor up.", Alerts.Kind.Info);
+                    Snd.Play(M1Assets.I.Splash, AnchorPt != null ? AnchorPt.position : transform.position, Anchored ? 0.7f : 0.3f);
+                }
+            }
+        }
+
+        // the motor, the prop, the engine's sound, the sea cut out of the hull, the wake: on every copy
+        void Visuals(float dt)
+        {
             if (Motor != null) Motor.localRotation = Quaternion.Euler(0, Rudder * 0.34f, 0); // ±12°: the tiller swings clear of the helmsman (visual only)
             if (Prop != null) Prop.Rotate(0, Speed * 900f * dt, 0, Space.Self);
             engineVol = Mathf.MoveTowards(engineVol, Moored ? 0.12f : 0.25f + 0.5f * Mathf.Abs(Notch) / 3f, dt);
@@ -158,17 +226,6 @@ namespace PortBoss.M1
             if (AnchorPt != null) bowSpray.transform.position = OnSea(AnchorPt.position);
             var we = wake.emission; we.rateOverTime = Mathf.Abs(Speed) > 0.3f ? 26f * Mathf.Abs(Speed) : 0; // overlapping: one continuous band
             var be = bowSpray.emission; be.rateOverTime = Speed > 2.5f ? 10f * Speed : 0;
-
-            if (AnchorT >= 0)
-            {
-                AnchorT += dt;
-                if (AnchorT >= 1.5f)
-                {
-                    AnchorT = -1; Anchored = !Anchored; anchorAt = pos;
-                    Alerts.Push("Biscuit", Anchored ? "Anchor down. She'll hold here." : "Anchor up.", Alerts.Kind.Info);
-                    Snd.Play(M1Assets.I.Splash, AnchorPt != null ? AnchorPt.position : transform.position, Anchored ? 0.7f : 0.3f);
-                }
-            }
         }
 
         static void Spring(ref float x, ref float v, float target, float w, float dt)

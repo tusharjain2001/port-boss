@@ -68,7 +68,7 @@ namespace PortBoss.M1
 
         void Update()
         {
-            T = Time.time;
+            T = Coop.SeaTime(Time.time); // (co-op: the host's clock, so a swimmer and the boat ride the same waves everywhere)
             var c = Camera.main;
             if (c != null) cam = c.transform.position;
             Shader.SetGlobalFloat("_LDTime", T);

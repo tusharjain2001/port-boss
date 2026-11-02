@@ -2,10 +2,11 @@ using System.Collections.Generic;
 
 namespace PortBoss.M1
 {
-    // One caught fish: its own size, weight and catch time (the rot clock, M3) even inside a stack.
+    // One caught fish: its own size, weight and catch time (the rot clock, M3) even inside a stack. In co-op it has the
+    // id the host gave it (Ledger): the same fish on every machine.
     public class Fish
     {
-        public FishSpecies Species; public int Grade; public float Cm, Kg, CaughtAt;
+        public ulong Id; public FishSpecies Species; public int Grade; public float Cm, Kg, CaughtAt;
         public float Value => Species.Price * Ponyo.GradeMul[Grade];
     }
 
@@ -36,6 +37,16 @@ namespace PortBoss.M1
             int i = Target(f);
             if (i >= 0) S[i].Fish.Add(f);
             return i;
+        }
+
+        public bool Remove(Fish f) { foreach (var s in S) if (s.Fish.Remove(f)) return true; return false; }
+
+        // would these all go in (each onto a stack or into an empty slot)?
+        public bool CanFit(IList<Fish> fs)
+        {
+            var c = new Hotbar(); for (int i = 0; i < Slots; i++) { c.S[i].Rod = S[i].Rod; c.S[i].Fish.AddRange(S[i].Fish); }
+            foreach (var f in fs) if (c.Add(f) < 0) return false;
+            return true;
         }
 
         public Fish TakeOne(int i)

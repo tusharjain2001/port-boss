@@ -489,6 +489,154 @@ Proven headless:
   [-pb-ladderyaw deg]` films the climb at 30 fps and fails on a pull-in.
 - Not done: expressions (shape keys), gait profiles per body (editor-kit §6), the 8x4 palette, Look v2 + the preset
   strip in a character editor; Stretch's lankiness is mesh only (one Avatar, same limb lengths: editor-kit §3).
+- Manan approved the crew (2 Nov); merged to `main` (0fd8c8b).
+
+**M2 co-op, step 1 of 7 (branch `m2`, 2 Nov): connect, one crew member each, ride the boat together.**
+- `Assets/Game/Scripts/Coop.cs`: NGO carries the connection (Unity Transport now; the Steam relay comes with the lobby,
+  step 6) and the game sends its own small named messages over it, because the whole M1 world is built in code (no NGO
+  NetworkObjects or prefabs): each player's pose 30/s (owner-authoritative; boat-relative while aboard, so the receiver
+  puts them on its own copy of the deck), the boat's pose from its owner, the roster (host-kept), and asks
+  (tiller, anchor, next body). Clients talk only to the host; the host relays. Remote things are shown 0.1 s in the past,
+  interpolated (`NetTrack<T>`).
+- Crewmates are `Angler.Remote` copies of the normal body (same clips, springs, rod on the back) driven by those poses;
+  `Skiff.Remote` follows the owner's boat. **The driver owns the boat** (E at the tiller asks the host; the copy of the
+  one at the tiller becomes the real boat, back to the host when they stand up); the anchor asks the owner.
+- **One crew member each** (Manan 2 Nov): the host gives you the one you had if it's free, else the next free one; F9 asks
+  for the next free one. **Player colour by join slot** (orange, blue, green, red) is repainted on the armband and back
+  patch from the kit's vertex colours (the crew FBXs are now imported readable for that).
+- Walking into a crewmate eases you apart (`Angler.Shove`, they have no collider here). Standing still aboard now keeps
+  your exact deck spot (the controller crept up to 9 cm sideways and 15 cm up off the planks on a moving, rolling deck:
+  M1 had it too).
+- Co-op never pauses the world (Esc opens the menu only). If the host leaves, a client carries on solo on its own boat.
+- Start it by hand (no menu yet: step 6): host `PortBoss.exe -pb-host [-pb-port 7777] [-pb-name Tushar]`, others
+  `PortBoss.exe -pb-join <host ip>[:port] [-pb-name Manan]` (Windows may ask the host to allow it through the firewall).
+  `-pb-netsim <rtt ms> <loss %>` adds our own lag (UTP's simulator is obsolete in this version).
+- Tests: `tools/cooptest.sh` (host + 3 bot riders, plain and at 150 ms + 2% loss): every rider holds its deck spot
+  within 0.0 cm on every machine while the host drives and while a client drives; one crew member each; the tiller goes to
+  rider 1 and back; 0 exceptions. 7 of 8 runs passed; the 8th was the bench step-up fixed in step 2 (below).
+  Solo regression (boat, swim, feel, cam, knock, ladder, fish30) all PASS.
+
+**M2 co-op, step 2 of 7 (branch `m2`, 2 Nov): swimming, overboard, ladders and knock-downs seen by the crew; name tags.**
+- A crewmate's pose now also carries their state: up, knocked over (the ragdoll's 11 parts, boat-relative when aboard,
+  ~240 bytes), or getting up (which get-up and how far in), plus a count of their jumps to a new place (`Teleport`:
+  ladders, the end of a get-up), across which the receiver never blends. Their ragdoll is built here too but never
+  simulated: `Ragdoll.Puppet` lies it where they send, and `Stop` blends it out into the same get-up they play.
+- Swimmers send their height over their float line, and the receiver floats them on its own sea. The waves share the
+  host's clock (`Coop.SeaTime`, a "pb.clock" message every second), so the boat and swimmers ride the same waves on
+  every machine (Sea.T was each machine's own `Time.time`).
+- Name tags (`NameTags` in Hud.cs, systems §2.5): each crewmate's name over their head on a paper pill edged in their
+  player colour with a dot of it; smaller further off, gone past 40 m; placed after the camera has moved, by viewport
+  fraction (right at any screen size).
+- Fixed on the way (solo too): **Biscuit now syncs her colliders after she moves** (`Physics.SyncTransforms`, auto-sync is
+  off). After a long frame (a hitch on the driver's machine) the stale deck stepped a rider standing beside a bench up
+  onto it, 30-40 cm; that was step 1's one failed run. And the standing-still hold no longer lets go on a frame the
+  controller loses the ground.
+- Tests: cooptest now also sends rider 2 over the side (swims, climbs the ladder back aboard) and knocks rider 3 over:
+  every other machine sees the swim (within 11 cm of its own float line plain, 20 cm at 150 ms), the climb, the fall
+  and the get-up, and shows the ragdoll at rest within 0.5 cm of where it lay on its owner's deck (the script compares
+  the logs). 3 final runs (2 plain, 1 at 150 ms + 2% loss, with pictures) all PASS on all 4 machines, 0 exceptions;
+  standing riders within 0.8 cm. Solo regression (boat, swim, feel, knock, cam 0.74°, ladder, fish30) all PASS.
+- For Manan to judge: the slot colours orange (host) and red (slot 4) look close on the small tag dot.
+
+**M2 co-op, step 3 of 7 (branch `m2`, 2 Nov): fishing seen by the crew; the host rolls the fish; ghost bars; tangles.**
+- Each pose carries a fishing snapshot (`Fishing.Net`, ~90 bytes while the rod is out): the state and how far into it,
+  the marker, the float, the fish under the water, the nibbles, the fight bar (zone, pointer, a result per stop) and the
+  fish once landed. A crewmate's `Fishing` plays it (`RemoteFish`): the same rod poses, cast arc, splashdown, nibbles,
+  bite, fight line, reel, hold-up and throw-back, with the sounds from where they stand; it never decides anything.
+  The owner's code was split into the visual (`FlightMove`, `SettleMove`, `ReelMove`, `RevealHold`, `TossMove`,
+  `Splashdown`, `Nibble`, `BiteFx`, `Landed`) and the rule that moves to the next beat, so both share the visuals.
+- **The host decides the fish** (fishing §4.4): each cast asks it at the release ("pb.roll"); it rolls species, size and
+  weight and answers long before the bite (≥ 4 s). The angler's machine runs the minigame on its own clock (latency
+  never touches the timing) and reports the catch with each stop's press ("pb.landed"); the host checks it against its
+  roll and the stops (≤ 5, ≥ 120 ms apart) and logs "check ok" or FLAGGED. Solo is unchanged (rolled locally).
+- **Ghost bars** (fishing §4.2): over a crewmate's name tag while they fight: the green zone, the pointer, a pip per stop.
+- **Tangles** (fishing §4.2, host): two lines in the water whose floats are within 1.5 m, or whose lines (from 0.5 m past
+  the rod tips) come within 0.5 m, for over a second: both rods jerk, a boing (`Synth.Boing`), "Tangled!", and both reel
+  in over 1.2 s, bait kept. A cast's marker can't land within 1.5 m of a crewmate's float.
+- Not done (flavour, SUGGESTED in fishing §4.2): "Double!", the landing net, the friend grabbing a huge fish's tail,
+  hotspot pools (M1 has none yet). The catch still goes to the angler's own hotbar: the host-side hotbar is step 4.
+- Tests: cooptest adds riders 1 and 2 fishing over either side (~25 s), then riders 1 and 3 casting at once with converging
+  lines. Every other machine saw the cast, float, bite, fight with its ghost bar, reel and hold-up; floats within 0.1 cm
+  of where they came down (the script compares the logs); the host rolled every fish (6 of 6 casts) and checked 4 catches,
+  0 flagged; the tangle caught both. Plain and at 150 ms + 2% loss: all 4 machines PASS, 0 exceptions.
+  Solo: fish100 bites PASS, boat/swim/feel/knock/cam/ladder PASS, the screenshot tour's catch card unchanged.
+- For Manan to judge: a crewmate holding up a small fish shows little of it from the front: the kit's big gloves cover it
+  (the same pose as your own hold-up, seen from the reveal camera's side).
+
+**M2 co-op, step 4 of 7 (branch `m2`, 3 Nov): the hotbar host-side: giving, tossing, never a dupe.**
+- `Ledger.cs` is the host's book (systems §1.1.7-8, economy §10): every fish has an id and is in exactly one place (a
+  player's hands from the cast until it's kept, a hotbar, the deck, the air). Every change is one call that happens whole
+  or not at all; a request that no longer fits (that fish already given, the hotbar filled meanwhile, caught by someone
+  else) changes nothing, and a transaction id seen before is refused. The host rolls a cast's fish into the book.
+- `CoopItems.cs` (Coop is now a partial class): clients ask for every change ("pb.inv": transaction id, what, which fish);
+  the host answers with that player's whole hotbar ("pb.bar"). A client's own hotbar is a copy that may change at once
+  (a catch kept, a fish thrown) and the answer puts it right. Deck fish, tosses and catches are the host's, sent to all.
+- **Give** (§1.1.7): look at a crewmate within 3 m with a fish in hand, **hold E 0.4 s**; **Shift + hold E** gives the
+  stack. No room: "Hotbar full" for both and nothing moves. A quick little arc shows the fish going over; both get a toast.
+  With a fish in hand, looking at a crewmate, E gives before it takes the tiller or the anchor.
+- **Toss** (§1.1.3): **hold Q** to aim (a ring on the deck or sea, 2 m growing to 6 m along the camera), let go to throw
+  (the Frisbee Throw clip, the fish in the hand until its release frame; crewmates see the throw too). A crewmate within
+  1.6 m of where it lands, facing the thrower within 25°, with room, catches it ("Caught!", a ding); else it lands on the
+  deck or the pier (a pickup everyone sees, first come first served) or swims away ("It's free!"). **Tap Q** drops one at
+  your feet (over the side: it swims away). Solo has the same Q drop and toss (no host: it lands where it lands).
+- Not done yet (systems §1.1.3-4, later): Shift+Q drop the stack, the 0.5 s guard at a rail, own-fish auto-pickup, the
+  full-hotbar 10 s wait, Bag mode. A leaving player's hotbar stays in the host's book; giving it back on rejoin is step 6.
+- Tests: `Ledger.SelfTest(10000)` (random transfers, replays, races; checked after every one) PASS. cooptest step 4:
+  hold E gives one, Shift + hold E gives a stack of 5, a toss to a crewmate facing it is caught, hold Q tosses one into
+  the sea, two riders grab the same deck fish at once (one gets it, one is turned away), then all four fire random gives,
+  tosses, drops, pickups, frees and replays for ~40 s: 10,333 requests (6,849 applied, 2,799 refused, 685 replays
+  refused), the book balances, every machine's hotbar has the same fish ids as the host's book. At 150 ms + 2% loss:
+  10,107 requests, the same. 0 exceptions. `-pb-tosstest` (solo): tap Q drop, E pick up, hold Q onto the deck, hold Q
+  into the sea PASS. Solo regression (fish100, boat, swim, feel, knock, cam, ladder) PASS.
+
+**M2 co-op, step 5 of 7 (branch `m2`, 3 Nov): proximity voice + speaking rings.**
+- `CoopVoice.cs` (systems §3.6): Steam records and compresses the mic (Facepunch `SteamUser.VoiceRecord`,
+  `ReadVoiceDataBytes`; Steam sends nothing in silence, so the open mic is voice-activated), the bytes go to the host
+  unreliably and on to everyone else ("pb.voice"), and each crewmate's `VoiceOut` decodes them (`DecompressVoice`, 24 kHz)
+  into a 125 ms jitter buffer and plays a streaming clip from their head: full volume to 3 m, fading (logarithmic) to
+  silence at 35 m, muffled (low-pass 800 Hz) when their head is under the sea. Free (Steam app 480): no Dissonance/Vivox.
+- **Open mic by default** (Manan 2 Nov). `Settings.Voice` = Open / PushToTalk (hold V) / Off, from `-pb-voice open|ptt|off`
+  or the "m1.voice" PlayerPref; the settings screen that switches it comes later. Per-player volume/mute: `VoiceOut.Mute`
+  (no UI yet).
+- **Speaking rings:** a ring in the player's colour pulses round the dot on a crewmate's name tag while they talk; a mic
+  chip bottom-left shows my own ("Mic on" / "Hold V to talk" / "Mic off" / "Mic (no Steam)") and rings while I'm heard.
+  The ring on the HUD crew list comes with the crew list (step 6).
+- Steam must be running for the mic: co-op starts Steam's API itself (`SteamClient.Init(480)`); if Steam isn't running it
+  says "no mic" and everything else works (checked: no errors, Steam is never launched by the game).
+- **Not yet proven: the real mic through Steam.** Steam wasn't running on the test PC (starting it opens a window), and the
+  tests never record the mic. `-pb-voicetest` speaks a made-up voice (a buzzy vowel in syllables, μ-law at 8 kHz) through
+  the same send, relay, buffer, 3D source and rings. The Steam encode/decode is first heard in Tushar's/Manan's hand test.
+- Tests: cooptest step 5 (all four with the test voice, rider 3 with `-pb-voice off`): the host, rider 2 and rider 3 talk
+  5 s aboard: each talker 72 packets (5.6 KB/s, the test codec; Steam's voice is smaller), heard by everyone else with 0%
+  lost, the speaking ring on, volume 1.00; rider 3 sent 0 and nobody heard it; rider 2 at 20 m off the boat: volume
+  0.22-0.33; at 45 m: 0.00 (still received). At 150 ms + 2% loss: 4-7% lost rider to rider (two hops), all PASS.
+  0 exceptions. Pictures: the ring on a talking crewmate's tag and the mic chip. Solo (fish30, toss, feel, knock, swim) PASS.
+
+**M2 co-op, step 6 of 7 (branch `m2`, 3 Nov): the title menu, the Steam lobby, the crew list, drop-in and rejoin.**
+- **Title menu** (`Title.cs`): the game now opens on a paper card over the waiting world: 1 Play solo · 2 Host a crew on
+  Steam · 3 Join a friend on Steam (friends hosting right now) · 4 Host on this network (shows this PC's address) · 5 Join
+  on this network (type an address). Mouse, keys (arrows/W S, Enter, 1-5, Esc back) or a pad. Joining shows "Joining…";
+  a wrong address or nobody there comes back to the menu saying so. The welcome tips wait until play starts. The menu
+  isn't shown in the tests' batch mode, and `-pb-host` / `-pb-join` still skip it.
+- **Steam** (`CoopSession.cs`): Steam starts once (`Coop.SteamUp`: the lobby, invites and the mic share it). Hosting on
+  Steam makes a **friends-only lobby** (key `portboss` = `pb-m2`); friends join by the overlay invite (Esc, **I**), the
+  friends list's "Join game", `+connect_lobby` when the game was closed, or the menu's list; then NGO runs over Steam's
+  relay with the old game's `PortBoss.Net.FacepunchTransport` (kept, Manan 2 Nov). The same Steam account twice on one
+  PC falls back to LAN 127.0.0.1 (Steam can't connect to itself).
+- **Up to 4**: a fifth is turned away ("The crew is full"). **Pause menu in co-op:** I invite friends (Steam), L leave the
+  crew and play on alone (the boat and your hotbar stay yours).
+- **Crew list** (top right, systems §2.5): a row a player in their colour, name, crew member, what they're doing (at the
+  tiller, fishing, swimming, knocked over), and the speaking ring while they talk.
+- **Drop-in and rejoin:** anyone can join any time (the boat, the deck fish, their hotbar come with). Who leaves is kept
+  under their key (their Steam account; on LAN their name): their hotbar stays in the host's book (nobody can take it),
+  and when they come back they get the same fish, crew member, slot colour and place (on the deck, boat-relative).
+- **Not yet proven: Steam itself** (lobby, invites, relay, two accounts): Steam isn't running on this PC and needs two
+  accounts. The code is the old game's lobby flow (Net.cs), adapted. That's step 7's two-PC test.
+- Tests: `tools/menutest.sh` (two copies play the menu: host on this network; join: a wrong address first, then
+  127.0.0.1) PASS, pictures checked. cooptest step 6: rider 1 quits after step 5 and a new copy with the same name joins:
+  the same 35 fish (same ids), Bruno again, slot 1, back on its deck spot within 4 cm; everyone's crew list shows it go
+  (3) and come back (4); the book still balances, Rider1's fish booked to the new connection. All four PASS plain and at
+  150 ms + 2% loss, 0 exceptions (step 4 now ~11,000 requests). Solo regression PASS.
 
 **Known issues / not yet proven (from M1):**
 - **The worker model is a placeholder** (the old code-generated worker in a fisherman outfit). The real cast comes with the
@@ -549,8 +697,11 @@ Differences now:
 | Swim test (overboard, ladder back) | `bash tools/m1test.sh Builds/m1/PortBoss.exe swim -pb-swimtest` |
 | Feel test (run/stop/sprint/skid/jump/load numbers, filmed) | `bash tools/m1test.sh Builds/m1/PortBoss.exe feel -pb-feeltest <dir>` (frames in `<dir>`) |
 | Knock-down test (ragdoll + get-up, filmed) | `bash tools/m1test.sh Builds/m1/PortBoss.exe knock -pb-knocktest <dir>` |
+| Q drop / toss, solo (drop at your feet, pick up, toss onto the deck, toss into the sea) | `bash tools/m1test.sh Builds/m1/PortBoss.exe toss -pb-tosstest` |
+| Title menu, played by two bots (host on this network; join: a wrong address, then the right one) | `bash tools/menutest.sh Builds/m1/PortBoss.exe menu` (pictures in `Logs/pb/m1/menu/shots`) |
 | See-through walls test (shack, boat, open pier: shots) | `bash tools/m1test.sh Builds/m1/PortBoss.exe fade -pb-fadetest <dir>` |
 | Screenshot tour (cast/bobber/bite/minigame/catch/hotbar) | `bash tools/m1test.sh Builds/m1/PortBoss.exe shots -pb-shots <dir>` |
+| Co-op: host + N bot riders on this PC (LAN), boat-relative sync, tiller hand-off, swim + ladder + knock-down seen remotely, fishing + host rolls + ghost bars + a tangle, give/toss/deck race + 10,000 hotbar requests, voice (test voice: heard aboard, fainter at 20 m, silent at 45 m, a mic off), rider 1 quits and rejoins (hotbar, crew, place back) | `bash tools/cooptest.sh Builds/m1/PortBoss.exe coop3 3 [-pb-netsim 150 2] [-pb-coopshots <dir>]` (logs `Logs/pb/m1/coop3/host.txt`, `rider<i>.txt`) |
 | Film frames for the capture video | `bash tools/m1test.sh Builds/m1/PortBoss.exe film -pb-film <dir> -pb-filmsecs 60`, then `ffmpeg -framerate 30 -i f_%05d.png -c:v libx264 -crf 20 -pix_fmt yuv420p capture.mp4` |
 
 - Logs go to `Logs/pb/m1/<name>/log.txt`, and every run prints its exception count: it must be 0.
@@ -596,14 +747,32 @@ M1 is done when the systems §5.2 M1 checklist and his "15 minutes, do you want 
 - **Risk:** modelling quality. The old worker was generated from code and read lumpy. Judge every pass against the concept
   sheets, but flatter, low-poly toon, not Pixar.
 
-**Step 3: M2 ★ co-op on the boat** (~3 weeks; systems §5.2):
+**Step 3: M2 ★ co-op on the boat** (~3 weeks; systems §5.2). Started 2 Nov on branch `m2`, in 7 steps, one at a time:
+1. Connect, one crew member each, player colours, see each other move and ride the boat; the driver owns the boat.
+   **(Done 2 Nov, see §4.)**
+2. Swimming, falling overboard and the ladders as seen by others; knock-downs (ragdoll) shown remotely; name tags.
+   **(Done 2 Nov, see §4.)**
+3. Fishing F7 seen by others (rod, cast, line, bobber, fight, reveal); the host rolls the fish; ghost bars; tangles.
+   **(Done 2 Nov, see §4.)**
+4. The hotbar host-side: giving with Hold E, tossing (catch it or miss into the sea); never a dupe (10,000 transfers).
+   **(Done 3 Nov, see §4.)**
+5. Proximity voice (Steam, open mic by default; push-to-talk goes in settings later: Manan 2 Nov) + speaking rings.
+   **(Done 3 Nov, see §4; the real Steam mic still needs a hand test with Steam running.)**
+6. The Steam lobby (invite, join a friend), a title menu (host / join / LAN), the crew list on the HUD, drop-in and
+   rejoin (the hotbar comes back).
+   **(Done 3 Nov, see §4; Steam itself needs the two-account test, step 7.)**
+
+7. Two real Steam accounts on two PCs for 30 minutes, the 150 ms + 2% test, the release and Manan's checklist ★.
+
+The plan as written:
 - Steam lobby (2–4) + LAN; boat-relative player sync; driver-owned boats;
 - fishing F7: independent fights, tangles, giving and tossing fish;
 - **proximity voice** (free via Steam/Facepunch);
 - drop-in rejoin; player colours;
 - the other 5 crew bodies.
 
-Before M2, with Manan's OK: tag `legacy-dockwork`, then remove the old game code M1/M2 don't use (systems §4.1).
+~~Before M2, with Manan's OK: tag `legacy-dockwork`, then remove the old game code M1/M2 don't use (systems §4.1).~~
+**Manan 2 Nov: don't delete anything for now; keep the old code.**
 - Tests: `-pb-coop` (host + 3 bots, 150 ms), give/toss never dupes, rejoin restores the hotbar.
 - Manan's checklist: invite Tushar via Steam; one drives, one fishes; voice fades with distance; "Tangled!"; hand a fish
   over; quit and rejoin; fall overboard → life ring.
@@ -695,8 +864,8 @@ Recommended answers first. Sources: systems §6, fishing §9, world §0.3, econo
 | 6 | **No death:** knock-downs, falls and drowning never cost items or money? | Yes |
 | 7 | **Demo date:** June 2027 Next Fest (tight) or October 2027? | June with M5 trimmed; switch if a milestone slips |
 | 8 | **Steam Deck Verified** as an EA goal | Yes |
-| 9 | **Co-op characters:** one player per crew member, or duplicates allowed? | One each |
-| 10 | **Voice default:** open mic or push-to-talk | Open mic with an easy PTT switch |
+| 9 | **Co-op characters:** one player per crew member, or duplicates allowed? | **Answered 2 Nov: one each, no two players the same** |
+| 10 | **Voice default:** open mic or push-to-talk | **Answered 2 Nov: open mic; a push-to-talk switch in settings later** |
 | 11 | **"Relaxed deadlines" setting** (contracts ×1.5 time) | Yes, off by default |
 | 12 | **Git LFS for Blender sources** on Tushar's GitHub (free 10 GiB storage/bandwidth a month)? | LFS, milestone commits only |
 | 13 | **Selling at home:** a fish stall at our own dock later? | Later, as an upgrade |
@@ -758,6 +927,11 @@ Smaller design gaps for the milestone that needs them (CHANGES.md §C, §E4):
     direction; a real rod icon. Then Rare = 2× Basic; mouse wheel scrolls the hotbar; heavy fish KEEP.
   - pb-m1-anim builds M1b + an animation pass + a Ponyo sky/sea pass.
   - **Tushar's Claude takes over after M1b**, with this handover.
+- **2 Nov:**
+  - Manan approved Pip, the feel pass and the other 5 crew; all on `main` (0fd8c8b). Next: M2 co-op.
+  - Keep the old game's code: **don't delete anything for now**.
+  - Co-op: **one crew member per player**, never two the same.
+  - Voice: **open mic by default**; push-to-talk as a settings option later.
 
 ---
 

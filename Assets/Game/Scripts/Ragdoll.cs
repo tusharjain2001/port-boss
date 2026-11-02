@@ -12,6 +12,7 @@ namespace PortBoss.M1
     {
         public bool Active { get; private set; }
         public Transform Hips, Chest, Head;
+        public readonly List<Transform> Parts = new(); // the bones with a body, parents first (co-op sends their pose)
         readonly List<Rigidbody> bodies = new();
         readonly List<Collider> cols = new();
         Animator an;
@@ -61,7 +62,7 @@ namespace PortBoss.M1
             var rb = t.gameObject.AddComponent<Rigidbody>();
             rb.mass = mass; rb.isKinematic = true; rb.linearDamping = 0.05f; rb.angularDamping = 0.6f;
             rb.interpolation = RigidbodyInterpolation.Interpolate; rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
-            bodies.Add(rb); cols.Add(c);
+            bodies.Add(rb); cols.Add(c); Parts.Add(t);
             if (parent != null)
             {
                 var j = t.gameObject.AddComponent<CharacterJoint>();
@@ -98,6 +99,18 @@ namespace PortBoss.M1
             foreach (var c in cols) c.enabled = true;
             foreach (var rb in bodies) { rb.isKinematic = false; rb.linearVelocity = v + Vector3.Cross(spin, rb.worldCenterOfMass - Hips.position); rb.angularVelocity = spin; }
             Active = true;
+        }
+
+        // Co-op: a crewmate's body lying where their own ragdoll lies (their machine sends the parts' pose), no physics here.
+        public void Puppet()
+        {
+            an.enabled = false; blend = -1; Active = true;
+            foreach (var rb in bodies) rb.interpolation = RigidbodyInterpolation.None; // (kinematic: the pose is set, not simulated)
+        }
+        public void SetPose(Vector3 hips, Quaternion[] rot)
+        {
+            Hips.position = hips;
+            for (int i = 0; i < Parts.Count && i < rot.Length; i++) Parts[i].rotation = rot[i];
         }
 
         public float Speed { get { float s = 0; foreach (var rb in bodies) s = Mathf.Max(s, rb.linearVelocity.magnitude); return s; } }

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace PortBoss.M1
@@ -11,10 +12,10 @@ namespace PortBoss.M1
     [DefaultExecutionOrder(0)]
     public class Angler : MonoBehaviour
     {
-        public static Angler I;
+        public static Angler I;           // the local player (co-op crewmates are Remote copies, driven by their poses)
         public CharacterController Cc;
         public CharAnim Anim;
-        public Transform Model;
+        public Transform Model, Head;     // Head: the head bone (co-op name tags sit over it, standing or lying)
         public Hotbar Bar = new();
         public Fishing Fish;
 
@@ -27,6 +28,10 @@ namespace PortBoss.M1
         public float Size = 1;            // body height / the 1.78 m worker the rod and hold poses were made on
         public float BellyFront, BellyHalf; // this body's belly (m): the rod is held just in front of it
         public const float SwimDepth = 1.3f;
+        // co-op (M2): which crew member and player colour this body wears; a Remote body is someone else's, placed by
+        // the poses they send (Coop) instead of input and physics
+        public bool Remote; public int Crew; public Color Colour = Coop.Colours[0]; public string NetName;
+        public readonly NetTrack<Pose> Net = new();
 
         // feel (replan/feel spec): the sprint's run-up, where the camera follows height from, the carried load
         public float SprintW { get; private set; }  // 0..1: run 4.2 -> sprint 5.8 m/s over 0.6 s, back in 0.2 s
@@ -47,6 +52,8 @@ namespace PortBoss.M1
         float jumpBuf = -9, crouchT = -1, jumpCut, airT, peakY; bool rising, wasAir;
         float leanP, leanPV, leanR, leanRV;       // body lean forward / sideways (degrees) on a spring
         float sq, sqV;                            // squash (-) and stretch (+) of the body on take-off and landing
+        float standT;                             // how long she has stood still aboard
+        byte hop;                                 // counts her jumps to a new place (Teleport): co-op never blends across one
 
         public static Angler Create(M1Assets a, Vector3 at, float yaw)
         {
@@ -65,7 +72,21 @@ namespace PortBoss.M1
             int bi = System.Array.IndexOf(args, "-pb-body");
             if (bi >= 0 && bi + 1 < args.Length && a.CrewNames != null)
                 Body = Mathf.Max(0, System.Array.FindIndex(a.CrewNames, n => n.Equals(args[bi + 1], System.StringComparison.OrdinalIgnoreCase)));
-            p.Wear(a, Body);
+            p.Wear(a, Body, Coop.Colours[0]);
+            p.Fish = g.AddComponent<Fishing>();
+            p.lastPos = at;
+            return p;
+        }
+
+        // A crewmate's body in co-op: the same body and clips, no controller of its own (it goes where their poses say).
+        public static Angler CreateRemote(M1Assets a, int crew, Color colour, Vector3 at)
+        {
+            var g = new GameObject("Mate"); g.transform.position = at;
+            var p = g.AddComponent<Angler>(); p.Remote = true;
+            p.Cc = g.AddComponent<CharacterController>(); p.Cc.height = 1.75f; p.Cc.radius = 0.3f; p.Cc.center = new Vector3(0, 0.875f, 0); p.Cc.enabled = false;
+            p.Model = new GameObject("model").transform; p.Model.SetParent(g.transform, false);
+            p.Bar.Selected = 1;
+            p.Wear(a, crew, colour);
             p.Fish = g.AddComponent<Fishing>();
             p.lastPos = at;
             return p;
@@ -75,21 +96,22 @@ namespace PortBoss.M1
         GameObject body;
         float BodyK => Size / (1.47f / 1.78f); // this body against Pip's, which the clip lifts and the get-up creep were sampled on
 
-        public void Wear(int index) => Wear(M1Assets.I, index);
+        public void Wear(int index, Color colour) => Wear(M1Assets.I, index, colour);
 
         // Put on a body: the crew member's model under Model (or the placeholder worker when the kit isn't built), its clip
         // driver, ragdoll and springs. Swapped in place by F9, so it builds everything a body needs.
-        void Wear(M1Assets a, int index)
+        void Wear(M1Assets a, int index, Color colour)
         {
             if (body != null) { body.SetActive(false); Destroy(body); }
-            rag = null;
+            rag = null; if (Remote) { shown = 0; downT = getUpT = -1; }
             if (a.Crew != null && a.Crew.Length > 0)
             {
                 // a crew member from the character kit (art-src/kit): vertex-coloured like the boat, in the toon shader
-                index = (index % a.Crew.Length + a.Crew.Length) % a.Crew.Length; Body = index;
+                index = (index % a.Crew.Length + a.Crew.Length) % a.Crew.Length; Crew = index; if (!Remote) Body = index;
                 body = Instantiate(a.Crew[index], Model, false); body.name = a.CrewNames[index].ToLowerInvariant();
                 body.transform.localRotation = Quaternion.Euler(0, 180, 0); // exported facing -Z, like the worker
-                foreach (var r in body.GetComponentsInChildren<SkinnedMeshRenderer>(true)) { r.sharedMaterial = PortBoss.Art.Lit; r.updateWhenOffscreen = true; }
+                foreach (var r in body.GetComponentsInChildren<SkinnedMeshRenderer>(true)) { r.sharedMaterial = PortBoss.Art.Lit; r.updateWhenOffscreen = true; Paint(r, colour); }
+                Colour = colour;
                 // size against the 1.78 m worker the rod poses were made on, from the Head joint (at 82% of the height)
                 var head = body.GetComponentInChildren<Animator>().GetBoneTransform(HumanBodyBones.Head);
                 Size = head != null ? (head.position.y - Model.position.y) / (0.82f * 1.78f) : 1;
@@ -111,13 +133,14 @@ namespace PortBoss.M1
             }
             foreach (var c in body.GetComponentsInChildren<Collider>()) Destroy(c);
             var anim = body.GetComponentInChildren<Animator>();
+            Head = anim.isHuman ? anim.GetBoneTransform(HumanBodyBones.Head) : null;
             var skin = ScriptableObject.CreateInstance<PortBoss.Skin>();
             skin.Idle = a.Idle; skin.Walk = a.Walk; skin.Run = a.Run; skin.Sprint = a.Sprint; skin.Jump = a.Jump; skin.Land = a.Land;
             skin.SwimIdle = a.SwimIdle; skin.Swim = a.Swim; skin.Climb = a.Climb; skin.Drive = a.Drive ?? a.Idle; skin.Push = a.Idle;
             Anim = anim.gameObject.AddComponent<CharAnim>();
             Anim.Init(anim, skin); Anim.Facing = transform; Anim.GripLean = 0;
             Anim.LandFrom = 0.25f; // Falling To Landing's feet touch down here: before it, it's still falling
-            if (a.Crew != null && a.Crew.Length > 0) rag = Ragdoll.Build(anim, Cc);
+            if (a.Crew != null && a.Crew.Length > 0) rag = Ragdoll.Build(anim, Cc); // (a crewmate's only ever lies as they send it)
             // a floppy head, and the hat (its own bone in the kit) wobbling on top of it
             var jig = Jiggle.On(anim);
             jig.Bone(anim.GetBoneTransform(HumanBodyBones.Head), Vector3.up, 0.25f * Size / 0.83f, 220f, 0.55f, 8f);
@@ -125,10 +148,136 @@ namespace PortBoss.M1
             overW = 0; overClip = null;
         }
 
+        // The player colour (orange, blue, green, red by join slot) on the armband and back patch: the kit paints them the
+        // slot-0 orange (kitlib `player`), swapped here on a copy of the mesh.
+        static void Paint(SkinnedMeshRenderer r, Color to)
+        {
+            var src = r.sharedMesh; var cols = src.colors32; if (cols == null || cols.Length == 0) return;
+            Color32 key = Coop.Colours[0], c = to; int n = 0;
+            for (int i = 0; i < cols.Length; i++)
+                if (Mathf.Abs(cols[i].r - key.r) < 10 && Mathf.Abs(cols[i].g - key.g) < 10 && Mathf.Abs(cols[i].b - key.b) < 10) { cols[i] = new Color32(c.r, c.g, c.b, cols[i].a); n++; }
+            if (n == 0 || to == Coop.Colours[0]) return;
+            var m = Instantiate(src); m.name = src.name + " (player colour)"; m.colors32 = cols; r.sharedMesh = m;
+        }
+
+        // ---- co-op: what this player sends, and how a crewmate's body follows what they sent ----
+        public struct Pose
+        {
+            public float T; public byte Flags; public Vector3 P, Vel; public float Yaw, AirT, Vy, SprintW;
+            // State 0 up, 1 knocked over (Hips + Rot: where the ragdoll's parts lie), 2 getting up (Up: which get-up, +128 on
+            // her back; UpT: how far into it), 3 tossing a fish (Up: its species; UpT: how far into the throw). Hop: her
+            // Teleport count (a ladder, the end of a get-up: jumps, never blends).
+            public byte State, Hop, Up; public float UpT; public Vector3 Hips; public Quaternion[] Rot;
+            public Fishing.Net F; // their fishing (M2 step 3)
+            public bool OnBoat => (Flags & 1) != 0; public bool Swim => (Flags & 2) != 0; public bool Helm => (Flags & 4) != 0; public bool Grounded => (Flags & 8) != 0;
+            public bool Jumped => (Flags & 16) != 0; public bool FallIn => (Flags & 32) != 0; public bool Crouch => (Flags & 64) != 0; public bool Skid => (Flags & 128) != 0;
+            public void Write(ref Unity.Netcode.FastBufferWriter w)
+            {
+                w.WriteValueSafe(T); w.WriteValueSafe(Flags); w.WriteValueSafe(P); w.WriteValueSafe(Vel); w.WriteValueSafe(Yaw); w.WriteValueSafe(AirT); w.WriteValueSafe(Vy); w.WriteValueSafe(SprintW);
+                w.WriteValueSafe(State); w.WriteValueSafe(Hop);
+                if (State == 1) { w.WriteValueSafe(Hips); w.WriteValueSafe((byte)Rot.Length); foreach (var q in Rot) w.WriteValueSafe(q); }
+                else if (State >= 2) { w.WriteValueSafe(Up); w.WriteValueSafe(UpT); }
+                F.Write(ref w);
+            }
+            public static Pose Read(ref Unity.Netcode.FastBufferReader r)
+            {
+                var p = new Pose(); r.ReadValueSafe(out p.T); r.ReadValueSafe(out p.Flags); r.ReadValueSafe(out p.P); r.ReadValueSafe(out p.Vel);
+                r.ReadValueSafe(out p.Yaw); r.ReadValueSafe(out p.AirT); r.ReadValueSafe(out p.Vy); r.ReadValueSafe(out p.SprintW);
+                r.ReadValueSafe(out p.State); r.ReadValueSafe(out p.Hop);
+                if (p.State == 1) { r.ReadValueSafe(out p.Hips); r.ReadValueSafe(out byte n); p.Rot = new Quaternion[n]; for (int i = 0; i < n; i++) r.ReadValueSafe(out p.Rot[i]); }
+                else if (p.State >= 2) { r.ReadValueSafe(out p.Up); r.ReadValueSafe(out p.UpT); }
+                p.F = Fishing.Net.Read(ref r);
+                return p;
+            }
+        }
+
+        // Aboard: the place and facing in the boat's own space, so the receiver puts them on its copy of the deck (the
+        // ragdoll's parts too). Swimming: the height over her float line, so she floats on the receiver's own sea.
+        public Pose NetPose(float t)
+        {
+            int f = (OnBoat ? 1 : 0) | (Swimming ? 2 : 0) | (helm ? 4 : 0) | (Grounded ? 8 : 0) | (jumped ? 16 : 0) | (fallIn ? 32 : 0) | (crouchT >= 0 ? 64 : 0) | (skidT > 0 ? 128 : 0);
+            var p = new Pose { T = t, Flags = (byte)f, P = OnBoat ? localOnBoat : transform.position, Yaw = OnBoat ? localYaw : transform.eulerAngles.y, Vel = Vel, AirT = airT, Vy = vy, SprintW = SprintW, Hop = hop };
+            if (Swimming) p.P.y -= Sea.Height(transform.position) - SwimDepth;
+            var s = Skiff.I; bool boat = OnBoat && s != null;
+            if (downT >= 0 && rag != null)
+            {
+                var inv = boat ? Quaternion.Inverse(s.transform.rotation) : Quaternion.identity;
+                p.State = 1; p.Hips = boat ? s.transform.InverseTransformPoint(rag.Hips.position) : rag.Hips.position;
+                p.Rot = new Quaternion[rag.Parts.Count]; for (int i = 0; i < p.Rot.Length; i++) p.Rot[i] = inv * rag.Parts[i].rotation;
+            }
+            else if (getUpT >= 0) { p.State = 2; p.Up = (byte)(upI | (upBack ? 128 : 0)); p.UpT = getUpT; }
+            else if (ThrowT >= 0) { p.State = 3; p.Up = (byte)Mathf.Max(0, throwSp); p.UpT = ThrowT; }
+            if (Fish != null) p.F = Fish.NetState();
+            return p;
+        }
+
+        bool netGrounded = true;
+        bool Grounded => Remote ? netGrounded : Cc.isGrounded;
+
+        byte shown; // what a crewmate's body shows: 0 up, 1 knocked over, 2 getting up (Pose.State)
+
+        void RemoteUpdate(float dt)
+        {
+            if (!Net.Sample(out var a, out var b, out float k)) return;
+            var s = Skiff.I;
+            // boarding, leaving, the tiller, into or out of the sea, a jump to a new place, going down or getting up: no
+            // blend between two places
+            if (a.OnBoat != b.OnBoat || a.Helm != b.Helm || a.Swim != b.Swim || a.Hop != b.Hop || a.State != b.State) a = b;
+            if (Fish != null) { Fish.NetA = a.F; Fish.NetB = b.F; Fish.NetK = k; } // their fishing plays from the same moment
+            Vector3 p = Vector3.Lerp(a.P, b.P, k); float yaw = Mathf.LerpAngle(a.Yaw, b.Yaw, k);
+            OnBoat = b.OnBoat && s != null;
+            if (b.Swim) p.y += Sea.Height(p) - SwimDepth;
+            // up again: the ragdoll's pose blends out from where it lay (before the root moves, as GetUp does)
+            if (shown == 1 && b.State != 1) { rag.Stop(b.State == 2 && (b.Up & 128) != 0 ? 0.45f : 0.3f); downT = -1; }
+            if (shown == 2 && b.State != 2) { getUpT = -1; Anim.Over = null; Anim.OverW = overW = 0; }
+            if (OnBoat) { localOnBoat = p; localYaw = yaw; transform.SetPositionAndRotation(s.transform.TransformPoint(p), Quaternion.Euler(0, s.transform.eulerAngles.y + yaw, 0)); }
+            else transform.SetPositionAndRotation(p, Quaternion.Euler(0, yaw, 0));
+            if (b.State == 1 && rag != null && b.Rot != null) { shown = 1; RemoteLying(a, b, k, dt); return; }
+            var ups = M1Assets.I.GetUps;
+            if (b.State == 2 && ups != null && ups.Length > 0)
+            {
+                if (shown != 2) { upI = (b.Up & 127) % ups.Length; up = ups[upI]; }
+                shown = 2; getUpT = Mathf.Lerp(a.UpT, b.UpT, k); UpPose(getUpT);
+                return;
+            }
+            shown = 0;
+            if (b.State == 3) { ThrowT = a.State == 3 ? Mathf.Lerp(a.UpT, b.UpT, k) : b.UpT; throwSp = b.Up; } else ThrowT = -1;
+            Vel = Vector3.Lerp(a.Vel, b.Vel, k); SprintW = b.SprintW; airT = b.AirT; vy = b.Vy;
+            Swimming = b.Swim; helm = b.Helm; netGrounded = b.Grounded; jumped = b.Jumped; fallIn = b.FallIn;
+            crouchT = b.Crouch ? Mathf.Max(0, crouchT) + dt : -1; skidT = b.Skid ? 0.1f : 0;
+            if (netGrounded) lastGround = Time.time;
+            if (Swimming && !wasSwim) Splash(Sea.Height(transform.position), 1f);
+            wasSwim = Swimming;
+            Animate(dt);
+            wasAir = !netGrounded && !Swimming;
+        }
+
+        // A crewmate knocked over: their ragdoll's parts as their machine has them (in my copy of the boat when aboard).
+        void RemoteLying(Pose a, Pose b, float k, float dt)
+        {
+            if (downT < 0)
+            {
+                // over they go: as Knock, with the thud (the shake and the hit-stop are theirs alone)
+                Anim.Over = null; Anim.OverW = overW = 0; Anim.Flail = false; Anim.Grip = null; Anim.Act = null;
+                Model.localPosition = Vector3.zero; Model.localRotation = Quaternion.identity; Model.localScale = Vector3.one;
+                leanP = leanR = leanPV = leanRV = sq = sqV = 0; crouchT = -1;
+                rag.Puppet(); downT = 0; Snd.Play(M1Assets.I.Thud, transform.position, 0.6f, 1.2f);
+            }
+            downT += dt;
+            bool blend = a.Rot != null && a.Rot.Length == b.Rot.Length;
+            var s = Skiff.I; bool boat = OnBoat && s != null;
+            var q0 = boat ? s.transform.rotation : Quaternion.identity;
+            var rot = new Quaternion[b.Rot.Length];
+            for (int i = 0; i < rot.Length; i++) rot[i] = q0 * (blend ? Quaternion.Slerp(a.Rot[i], b.Rot[i], k) : b.Rot[i]);
+            var h = blend ? Vector3.Lerp(a.Hips, b.Hips, k) : b.Hips;
+            rag.SetPose(boat ? s.transform.TransformPoint(h) : h, rot);
+        }
+
         void Update()
         {
             float dt = Time.deltaTime;
             if (dt <= 0) return;
+            if (Remote) { RemoteUpdate(dt); return; }
             var s = Skiff.I;
             if (downT >= 0) { Lying(dt); return; } // the ragdoll has the body (and the root stays put under it)
             // carried by the boat
@@ -142,9 +291,9 @@ namespace PortBoss.M1
             if (Ctl.Key_(UnityEngine.InputSystem.Key.F8) && !Busy) { Knock(transform.forward * 2.5f + Vector3.up * 1.5f); return; } // debug: fall over
             if (Ctl.Key_(UnityEngine.InputSystem.Key.F9) && !Busy && !helm && !Fish.Locked && M1Assets.I.Crew != null && M1Assets.I.Crew.Length > 1)
             {
-                // debug: the next crew member
-                Fish.Stow(); Wear(M1Assets.I, Body + 1);
-                Alerts.Push("Debug", "Body: " + M1Assets.I.CrewNames[Body] + " (F9 for the next)", Alerts.Kind.Info);
+                // debug: the next crew member (in co-op the host picks the next free one: one each)
+                if (Coop.On) Coop.Request(Coop.Ask.NextCrew);
+                else { Fish.Stow(); Wear(M1Assets.I, Body + 1, Colour); Alerts.Push("Debug", "Body: " + M1Assets.I.CrewNames[Body] + " (F9 for the next)", Alerts.Kind.Info); }
             }
 
             if (helm) { Helm(dt); Track(); CamY = transform.position.y; Animate(dt); return; }
@@ -155,6 +304,7 @@ namespace PortBoss.M1
                 int k = Ctl.SlotKey; if (k >= 0) Select(k);
                 int sc = Ctl.SlotScroll; if (sc != 0) Select(((Bar.Selected + sc) % Hotbar.Slots + Hotbar.Slots) % Hotbar.Slots);
             }
+            Items(dt);
 
             float surface = Sea.Height(transform.position);
             Swimming = transform.position.y < surface - SwimDepth + 0.35f && !OnBoat;
@@ -202,19 +352,47 @@ namespace PortBoss.M1
                 crouchT = -1; rising = false;
             }
             float g = Swimming ? 0 : Jump(dt, grounded, load);
-            Cc.Move((Vel + Vector3.up * (vy - 0.5f * g * dt)) * dt); // the exact arc at any frame rate
+            var shove = Shove();
+            Cc.Move((Vel + shove + Vector3.up * (vy - 0.5f * g * dt)) * dt); // the exact arc at any frame rate
             vy -= g * dt;
             Land();
+            // Stood still aboard: the controller creeps on a rolling, moving deck (sideways down the roll, and up to 15 cm up
+            // off the planks as she speeds up: M2's co-op test). The deck is rigid, so standing still she keeps her exact spot.
+            // (after 0.2 s stood: the spot it keeps is one she stood on, never a moment of a landing). Once held, a frame the
+            // controller loses the ground doesn't let go: that's the frame it steps her up onto a bench she stands beside
+            // (M2 step 2's test: 30-40 cm up at full speed).
+            bool still = OnBoat && s != null && vy <= 0 && crouchT < 0 && target.sqrMagnitude < 1e-4f && Vel.sqrMagnitude < 4e-4f && shove.sqrMagnitude < 1e-4f;
+            standT = still && (grounded || standT > 0.2f) ? standT + dt : 0;
+            if (standT > 0.2f)
+            {
+                Cc.enabled = false; transform.position = s.transform.TransformPoint(localOnBoat); Cc.enabled = true;
+            }
 
             Interact();
             Track();
             Animate(dt);
         }
 
+        // Co-op: crewmates have no collider of their own here (their bodies go where their poses say), so walking into one
+        // eases you apart instead of through them: up to 1.5 m/s away inside 0.6 m.
+        Vector3 Shove()
+        {
+            var c = Coop.I; if (c == null) return Vector3.zero;
+            var push = Vector3.zero;
+            foreach (var m in c.Mates.Values)
+            {
+                if (m == null || m.AtHelm) continue;
+                var d = transform.position - m.transform.position; float dy = Mathf.Abs(d.y); d.y = 0; float r = d.magnitude;
+                if (r > 0.6f || dy > 1.2f) continue;
+                push += (r > 1e-3f ? d / r : transform.right) * (1.5f * (1 - r / 0.6f));
+            }
+            return Vector3.ClampMagnitude(push, 1.5f);
+        }
+
         // Put the player somewhere (tests, ladders): also re-anchors them in the boat's space so the deck carry doesn't undo it.
         public void Teleport(Vector3 p, float yaw)
         {
-            Cc.enabled = false; transform.SetPositionAndRotation(p, Quaternion.Euler(0, yaw, 0)); Cc.enabled = true;
+            Cc.enabled = false; transform.SetPositionAndRotation(p, Quaternion.Euler(0, yaw, 0)); Cc.enabled = true; hop++;
             Vel = lastVel = velV = Vector3.zero; vy = 0; skidT = 0; crouchT = -1; rising = wasAir = jumped = fallIn = false; overW = 0; CamY = p.y; Track();
         }
 
@@ -276,6 +454,7 @@ namespace PortBoss.M1
         void BeginHelm(Skiff s)
         {
             helm = true; s.AtHelm = true; helmT = 0;
+            Coop.Request(Coop.Ask.Helm); // co-op: the boat moves to the driver (its copy becomes the real one)
             helmFrom = s.transform.InverseTransformPoint(transform.position); helmFromYaw = transform.eulerAngles.y - s.transform.eulerAngles.y;
         }
         float helmT = 1, helmFromYaw; Vector3 helmFrom;
@@ -290,7 +469,7 @@ namespace PortBoss.M1
                 : s.transform.InverseTransformPoint(s.Helm.position);
             return new Vector3(rest.x + 0.6f, s.transform.InverseTransformPoint(s.Helm.position).y, rest.z - 0.02f);
         }
-        public void LeaveHelm() { var s = Skiff.I; helm = false; if (s != null) { s.AtHelm = false; s.Steer = 0; } if (CameraRig.I != null) CameraRig.I.M = CameraRig.Mode.Follow; }
+        public void LeaveHelm() { var s = Skiff.I; helm = false; if (s != null) { s.AtHelm = false; s.Steer = 0; } if (CameraRig.I != null) CameraRig.I.M = CameraRig.Mode.Follow; if (!Coop.IsHost) Coop.Request(Coop.Ask.LeaveHelm); }
 
         public void Select(int i)
         {
@@ -328,14 +507,134 @@ namespace PortBoss.M1
                 if (l != null && l.LadderBottom != null && Near(l.LadderBottom.position, 1.8f)) { Prompt = "Climb the ladder"; if (Ctl.Interact) StartClimb(l.LadderBottom, l.LadderTop, l.transform); return; }
                 return;
             }
+            // give (co-op): hold E 0.4 s looking at a crewmate within 3 m with a fish in hand; Shift: the whole stack
+            // (before the tiller and the anchor: with a fish in hand, looking at a crewmate, that's what E is for)
+            var (mateId, mate) = GiveTarget();
+            if (mate != null && Bar.Sel.Fish.Count > 0 && ThrowT < 0)
+            {
+                bool stack = Ctl.Sprint && Bar.Sel.Fish.Count > 1;
+                Prompt = $"Hold to give {mate.NetName} {(stack ? "the stack" : "a " + Bar.Sel.Fish[0].Species.Name)}{(stack || Bar.Sel.Fish.Count < 2 ? "" : " (Shift: the stack)")}";
+                if (Ctl.InteractHeld)
+                {
+                    giveT += Time.deltaTime;
+                    if (giveT >= GiveHold && !giveDone) { giveDone = true; Coop.Give(mateId, stack ? new List<Fish>(Bar.Sel.Fish) : new List<Fish> { Bar.Sel.Fish[0] }); }
+                }
+                else { giveT = 0; giveDone = false; }
+                return;
+            }
+            giveT = 0; giveDone = false;
             if (s == null) return;
-            if (OnBoat && s.Helm != null && Near(s.Helm.position, 1.3f)) { Prompt = "Take the tiller"; if (Ctl.Interact) { BeginHelm(s); Fish.Stow(); } return; }
-            if (OnBoat && s.AnchorPt != null && Near(s.AnchorPt.position, 1.4f) && !s.Moored) { Prompt = s.AnchorT >= 0 ? "…" : s.Anchored ? "Raise the anchor" : "Drop the anchor"; if (Ctl.Interact) s.ToggleAnchor(); return; }
+            if (OnBoat && s.Helm != null && Near(s.Helm.position, 1.3f))
+            {
+                if (s.Remote && s.AtHelm) { Prompt = "A crewmate has the tiller"; return; } // co-op: one driver
+                Prompt = "Take the tiller"; if (Ctl.Interact) { BeginHelm(s); Fish.Stow(); } return;
+            }
+            if (OnBoat && s.AnchorPt != null && Near(s.AnchorPt.position, 1.4f) && !s.Moored) { Prompt = s.AnchorT >= 0 ? "…" : s.Anchored ? "Raise the anchor" : "Drop the anchor"; if (Ctl.Interact) { if (s.Remote) Coop.Request(Coop.Ask.Anchor); else s.ToggleAnchor(); } return; }
             var pick = FishPickup.Nearest(transform.position, 1.6f);
             if (pick != null) { Prompt = Bar.Full ? "Hotbar full" : "Pick up " + pick.F.Species.Name; if (Ctl.Interact && !Bar.Full) pick.Take(this); return; }
         }
 
         bool Near(Vector3 p, float r) { var d = p - transform.position; d.y *= 0.5f; return d.magnitude < r; }
+
+        // ---- the hotbar's fish: Q drops one (a tap) or tosses it (hold, aim, let go); hold E on a crewmate gives it
+        //      (gdd systems §1.1.3, §1.1.7). Co-op: the host's book says what happened (Coop); solo, here. ----
+        public const float GiveHold = 0.4f, TossHold = 0.25f;
+        public float ThrowT = -1;                  // s into the throw (Fishing's Frisbee Throw clip); a crewmate's as they send it
+        public bool Aiming => qT >= TossHold;
+        float qT = -1, giveT; bool giveDone, thrown; Fish throwFish; Vector3 throwTo; int throwSp = -1; GameObject throwView; Transform aimT;
+
+        // the crewmate I'm looking at, within 3 m (the camera's line, 35° either side)
+        (ulong, Angler) GiveTarget()
+        {
+            var c = Coop.I; if (c == null || !Coop.On) return (0, null);
+            var cam = CameraRig.I; var fwd = Quaternion.Euler(0, cam != null ? cam.Yaw : transform.eulerAngles.y, 0) * Vector3.forward;
+            (ulong, Angler) best = (0, null); float bd = 3f;
+            foreach (var kv in c.Mates)
+            {
+                var m = kv.Value; if (m == null) continue;
+                var d = m.transform.position - transform.position; float dy = Mathf.Abs(d.y); d.y = 0;
+                if (d.magnitude < bd && dy < 1.5f && Vector3.Angle(fwd, d) < 35f) { best = (kv.Key, m); bd = d.magnitude; }
+            }
+            return best;
+        }
+
+        void Items(float dt)
+        {
+            bool fish = Bar.Sel.Fish.Count > 0 && !Busy && !Fish.Holding && ThrowT < 0 && !Swimming && !helm;
+            if (fish && Ctl.DropHeld) { qT = qT < 0 ? 0 : qT + dt; Aim(Aiming ? TossTarget() : null); }
+            else if (qT >= 0)
+            {
+                if (fish) { if (qT < TossHold) DropOne(); else TossAt(TossTarget()); }
+                qT = -1; Aim(null);
+            }
+            if (ThrowT >= 0) Throwing(dt);
+        }
+
+        // throw the selected slot's oldest fish at a spot (letting go of Q; tests aim it straight)
+        public void TossAt(Vector3 to)
+        {
+            if (Bar.Sel.Fish.Count == 0 || ThrowT >= 0) return;
+            throwFish = Bar.Sel.Fish[0]; throwTo = to; throwSp = FishDb.All.IndexOf(throwFish.Species); ThrowT = 0; thrown = false;
+        }
+
+        // where a toss would land: 2 m out at once, 6 m after ~1 s more, along the camera's line
+        Vector3 TossTarget()
+        {
+            float d = Mathf.Lerp(2f, 6f, Mathf.Clamp01((qT - TossHold) / 0.9f));
+            var cam = CameraRig.I; float yaw = cam != null ? cam.Yaw : transform.eulerAngles.y;
+            var p = transform.position + Quaternion.Euler(0, yaw, 0) * Vector3.forward * d;
+            return Coop.Ground(p, out var at) ? at : new Vector3(p.x, Sea.Height(p), p.z);
+        }
+        void Aim(Vector3? p)
+        {
+            if (aimT == null) { aimT = Hud.MakeMarker(); aimT.gameObject.SetActive(false); }
+            aimT.gameObject.SetActive(p != null);
+            if (p is Vector3 at) { aimT.position = at + Vector3.up * 0.04f; aimT.rotation = Quaternion.Euler(90, Time.time * 20f, 0); }
+        }
+
+        // one fish (the oldest of the stack) at your feet; over the side it swims away
+        void DropOne()
+        {
+            var f = Bar.Sel.Fish[0]; var at = transform.TransformPoint(new Vector3(0, 0.3f, 0.75f));
+            bool ground = Coop.Ground(at, out var g);
+            if (Coop.On && f.Id != 0) { if (ground) Coop.DropFish(f, g); else { Coop.FreeFish(f); Freed(at, f); } }
+            else { Bar.Remove(f); if (ground) FishPickup.Drop(f, g + Vector3.up * 0.05f, transform.rotation); else Freed(at, f); }
+            Snd.Play(Synth.Slap, at, 0.4f);
+        }
+        static void Freed(Vector3 at, Fish f)
+        {
+            Fx.Splash(new Vector3(at.x, Sea.Height(at), at.z), 0.6f, 10); Snd.Play(M1Assets.I.Splash, at, 0.5f);
+            Alerts.Push("It's free!", $"The {f.Species.Name} swam away.", Alerts.Kind.Info);
+        }
+
+        // the throw: the fish leaves the hand on the clip's release frame and arcs to the aim
+        void Throwing(float dt)
+        {
+            ThrowT += dt;
+            float release = (Fishing.TossRelease - Fishing.TossFrom) / Fishing.TossSpeed, len = (Fishing.TossTo - Fishing.TossFrom) / Fishing.TossSpeed;
+            if (!thrown && ThrowT >= release)
+            {
+                thrown = true; var from = Anim.HandR != null ? Anim.HandR.position : transform.TransformPoint(new Vector3(0.3f, 1.4f, 0.3f));
+                if (throwFish != null && Coop.On && throwFish.Id != 0) Coop.Toss(throwFish, from, throwTo);
+                else if (throwFish != null && Bar.Remove(throwFish))
+                {
+                    var f = throwFish; var to = throwTo;
+                    FishFlight.Launch(f, from, to, Coop.TossTime, 0).Landed = () => { if (Coop.Ground(to, out var g)) FishPickup.Drop(f, g + Vector3.up * 0.05f, Quaternion.identity); else Freed(to, f); };
+                }
+                throwFish = null;
+            }
+            if (ThrowT > len + 0.2f) ThrowT = -1;
+        }
+
+        // the fish in the throwing hand until it goes (mine, or a crewmate's from their pose)
+        void HoldThrown()
+        {
+            float release = (Fishing.TossRelease - Fishing.TossFrom) / Fishing.TossSpeed;
+            bool on = ThrowT >= 0 && ThrowT < release && throwSp >= 0 && throwSp < FishDb.All.Count && Anim.HandR != null;
+            if (!on) { if (throwView != null) Destroy(throwView); throwView = null; return; }
+            if (throwView == null) { var sp = FishDb.All[throwSp]; throwView = FishView.Make(new Fish { Species = sp, Cm = (sp.SizeMin + sp.SizeMax) / 2 }, null); }
+            throwView.transform.SetPositionAndRotation(Anim.HandR.position + Anim.HandR.up * 0.04f, Quaternion.LookRotation(transform.right, Vector3.up) * Quaternion.Euler(0, 0, 90));
+        }
 
         void Helm(float dt)
         {
@@ -384,7 +683,7 @@ namespace PortBoss.M1
         // ---- knocked over (ragdoll-lite, replan/feel §4): F8, or thrown off the tiller by a crash ----
         public bool Down => downT >= 0 || getUpT >= 0;
         public bool Limp => downT >= 0;
-        M1Assets.GetUpClip up; // the get-up playing (one of M1Assets.GetUps, at random)
+        M1Assets.GetUpClip up; int upI; bool upBack; // the get-up playing (one of M1Assets.GetUps, at random), and on her back?
         Ragdoll rag; float downT = -1, getUpT = -1; bool jumped, fallIn; AnimationClip overClip; float overT, overW;
 
         // Over she goes, limp from the pose she's in, flung by `push` (m/s) and tipping the way she was pushed.
@@ -435,9 +734,9 @@ namespace PortBoss.M1
         {
             var a = M1Assets.I;
             if (a.GetUps == null || a.GetUps.Length == 0) { Overboard(); return; } // (no clips: never stuck lying there)
-            up = a.GetUps[Random.Range(0, a.GetUps.Length)];
+            upI = Random.Range(0, a.GetUps.Length); up = a.GetUps[upI];
             var h = rag.Hips.position; var spine = rag.Head.position - h; spine.y = 0;
-            bool onBack = rag.Chest.forward.y > 0;
+            bool onBack = upBack = rag.Chest.forward.y > 0;
             float yaw = Mathf.Atan2(spine.x, spine.z) * Mathf.Rad2Deg - Mathf.Atan2(up.Spine.x, up.Spine.z) * Mathf.Rad2Deg;
             var bodyRot = Quaternion.Euler(0, yaw, 0);
             float ground = float.NegativeInfinity; // the highest floor under the hips (not the rail she may lie against)
@@ -458,18 +757,24 @@ namespace PortBoss.M1
         {
             Prompt = null;
             getUpT += dt;
-            float len = (up.To - up.From) / up.Speed, t = Mathf.Min(up.To, up.From + getUpT * up.Speed);
-            float done = Mathf.Clamp01((getUpT - len) / 0.25f); // then 0.25 s into the idle
+            if (UpPose(getUpT) >= 1)
+            {
+                getUpT = -1; Anim.Over = null; Anim.OverW = 0;
+                var p = transform.TransformPoint(Model.localPosition); Model.localPosition = Vector3.zero;
+                Teleport(p, transform.eulerAngles.y);
+            }
+        }
+
+        // The get-up `time` s in (here, or a crewmate's as they send it): returns how far it has blended into the idle.
+        float UpPose(float time)
+        {
+            float len = (up.To - up.From) / up.Speed, t = Mathf.Min(up.To, up.From + time * up.Speed);
+            float done = Mathf.Clamp01((time - len) / 0.25f); // then 0.25 s into the idle
             Anim.Over = up.Clip; Anim.OverTime = t; Anim.OverW = 1 - done;
             var creep = Quaternion.Euler(0, 180, 0) * new Vector3(up.MoveX.Evaluate(t), 0, up.MoveZ.Evaluate(t)) * BodyK; // body space -> model space
             Model.localPosition = creep; Model.localRotation = Quaternion.identity; Model.localScale = Vector3.one;
             Anim.Tick(CharAnim.Slot.Idle, 0);
-            if (done >= 1)
-            {
-                getUpT = -1; Anim.Over = null; Anim.OverW = 0;
-                var p = transform.TransformPoint(creep); Model.localPosition = Vector3.zero;
-                Teleport(p, transform.eulerAngles.y);
-            }
+            return done;
         }
 
         void Animate(float dt)
@@ -512,7 +817,7 @@ namespace PortBoss.M1
                 Model.localPosition = new Vector3(0, Anim.WaterLift(stroke, SwimDepth), 0);
                 if (!stroke) Anim.WaterY = Sea.Height(transform.position);
             }
-            else slot = Cc.isGrounded || Time.time - lastGround < 0.15f ? CharAnim.Slot.Idle : CharAnim.Slot.Jump;
+            else slot = Grounded || Time.time - lastGround < 0.15f ? CharAnim.Slot.Idle : CharAnim.Slot.Jump;
             // hands: the rod (Fishing sets Grip) or the tiller
             if (helm && Skiff.I.TillerGrip != null)
             {
@@ -528,7 +833,13 @@ namespace PortBoss.M1
             // over the first 0.25 s of the rise, then held) and stepping off the pier into the sea (Falling Into Pool: the
             // topple and the drop). Their own rise is taken back out of the body: the controller does the rising.
             var a = M1Assets.I;
-            if (!Fish.Tossing)
+            if (ThrowT >= 0 && a.Throw != null)
+            {
+                float len = (Fishing.TossTo - Fishing.TossFrom) / Fishing.TossSpeed;
+                Anim.Over = a.Throw; Anim.OverTime = Mathf.Min(Fishing.TossTo, Fishing.TossFrom + ThrowT * Fishing.TossSpeed);
+                Anim.OverW = Mathf.Clamp01(ThrowT / 0.1f) * (1 - Mathf.Clamp01((ThrowT - len) / 0.2f)); overW = 0; Anim.Grip = null;
+            }
+            else if (!Fish.Tossing)
             {
                 AnimationClip oc = null;
                 if (crouchT >= 0 && a.JumpUp != null) { oc = a.JumpUp; overT = Mathf.Lerp(0, 0.21f, crouchT / 0.08f); }
@@ -545,9 +856,10 @@ namespace PortBoss.M1
             // footsteps on the heel strikes (the shared stride: left at 0, right at ~0.5), wood on the deck and pier;
             // a little dust off the feet at a sprint
             float ph = Anim.Phase;
-            if (!Swimming && !helm && Cc.isGrounded && animSp > 0.3f && skidT <= 0 && Mathf.FloorToInt(ph * 2) != Mathf.FloorToInt(lastPhase * 2))
+            if (!Swimming && !helm && Grounded && animSp > 0.3f && skidT <= 0 && Mathf.FloorToInt(ph * 2) != Mathf.FloorToInt(lastPhase * 2))
             { Step(Mathf.Lerp(0.16f, 0.32f, sp / 5.8f)); if (SprintW > 0.6f) Dust(2, 0.7f); }
             lastPhase = ph;
+            HoldThrown();
         }
     }
 }

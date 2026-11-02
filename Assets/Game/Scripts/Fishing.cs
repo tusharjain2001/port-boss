@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Unity.Netcode;
 using UnityEngine;
 
 namespace PortBoss.M1
@@ -60,6 +61,12 @@ namespace PortBoss.M1
         float cancelHeld, dragT; Vector3 fishUnder; float fightPh;
         public System.Action<string> OnLog; // test hooks
 
+        // co-op (M2 step 3, fishing §4.2/§4.4): the host rolls the fish at the cast; the host is told what was landed
+        float recoverLen = 0.6f;                    // the reel-in back to the rod: 0.6 s, a tangle's 1.2 s
+        int rollId; bool rolled; FishSpecies rolledSp; float rolledCm, rolledKg; ulong rolledFish;
+        public bool RolledByHost;                   // this cast's fish came from the host (tests)
+        readonly List<double> stopTimes = new(); double fightT0; // each stop's press, s into the fight (the host checks them)
+
         void Start()
         {
             me = GetComponent<Angler>();
@@ -68,6 +75,7 @@ namespace PortBoss.M1
             markerT = Hud.MakeMarker(); markerR = markerT.GetComponent<Renderer>(); markerT.gameObject.SetActive(false);
             creak = gameObject.AddComponent<AudioSource>(); creak.clip = Synth.Creak; creak.loop = true; creak.volume = 0; creak.Play();
             reelSnd = gameObject.AddComponent<AudioSource>(); reelSnd.clip = Synth.Reel; reelSnd.loop = true; reelSnd.volume = 0; reelSnd.Play();
+            if (me.Remote) foreach (var a in new[] { creak, reelSnd }) { a.spatialBlend = 1; a.minDistance = 2; a.maxDistance = 30; } // a crewmate's, from them
             butt = Rest(); PlaceRod(0, true);
         }
 
@@ -87,6 +95,7 @@ namespace PortBoss.M1
         void Update()
         {
             float dt = Time.deltaTime; StateT += dt;
+            if (me.Remote) { RemoteFish(dt); return; } // a crewmate: shown as they send it
             bool rodSel = me.Bar.Sel.Rod && !me.Swimming && !me.AtHelm && !me.Down;
             DebugKeys();
 
@@ -114,7 +123,7 @@ namespace PortBoss.M1
                 case St.Reel: Reel(); break;
                 case St.Reveal: Reveal(); break;
                 case St.Toss: Toss(); break;
-                case St.Recover: if (StateT >= 0.6f) { bob.Floating = false; bob.gameObject.SetActive(false); line.Live = false; Go(St.Ready); } else ReelInVisual(StateT / 0.6f); break;
+                case St.Recover: if (StateT >= recoverLen) { bob.Floating = false; bob.gameObject.SetActive(false); line.Live = false; Go(St.Ready); } else ReelInVisual(StateT / recoverLen); break;
             }
 
             // cancel / quick reel-in (hold RMB 0.3 s), keeps the bait
@@ -176,6 +185,7 @@ namespace PortBoss.M1
                 if (!IsWater(Marker)) Marker = ValidPoint(transform.position, dir, dist, out _);
                 markerT.gameObject.SetActive(false);
                 CastFrom = transform.position;
+                rolled = false; rollId++; if (Coop.On) Coop.AskRoll(rollId, RodTier, BaitId); // answered long before the bite (≥ 4 s)
                 flightT0 = Time.time; flightLen = 0.55f + 0.03f * dist; flightFrom = rod.Tip.position;
                 bob.gameObject.SetActive(true); bob.Floating = false; bob.Dip = bob.Yank = 0;
                 line.Live = true; line.Slack = 0.02f; line.Arc = true; line.Reset(rod.Tip.position, rod.Tip.position);
@@ -212,6 +222,8 @@ namespace PortBoss.M1
         {
             var s = Skiff.I;
             if (s != null && s.Inside(p, 0.6f)) return false;
+            if (Coop.I != null) // not on a crewmate's float (fishing §4.2: the second cast's marker can't land there)
+                foreach (var m in Coop.I.Mates.Values) if (m != null && m.Fish != null && m.Fish.BobberOut && Flat(m.Fish.BobPos - p).magnitude < 1.5f) return false;
             float h = Sea.Height(p);
             if (Physics.Raycast(new Vector3(p.x, 60, p.z), Vector3.down, out var hit, 200, ~0, QueryTriggerInteraction.Ignore)
                 && (s == null || !hit.transform.IsChildOf(s.transform)) && hit.collider.GetComponentInParent<Angler>() == null)
@@ -219,7 +231,10 @@ namespace PortBoss.M1
             return true;
         }
 
-        void Flight()
+        void Flight() { if (FlightMove()) { Splashdown(); Go(St.Settle); } }
+
+        // the bobber's arc out to the marker (here, or a crewmate's as they cast): true once it is down
+        bool FlightMove()
         {
             float u = Mathf.Clamp01((Time.time - flightT0) / flightLen);
             float d = Vector3.Distance(Flat(flightFrom), Flat(Marker));
@@ -229,22 +244,26 @@ namespace PortBoss.M1
             var p = Vector3.Lerp(rod.Tip.position, target, u) + Vector3.up * apex * 4 * u * (1 - u);
             bob.transform.position = p; bob.transform.rotation = Quaternion.identity; bob.transform.localScale = Vector3.one;
             line.B = p; line.Slack = 0.0f;
-            if (u >= 1)
-            {
-                bob.Pos = target; bob.Floating = true; bob.Dip = 0.08f;
-                Fx.Splash(target, 0.6f, 12);
-                Snd.Play(d < 10 ? Synth.Plip : Synth.Plunk, target, 0.8f);
-                Go(St.Settle);
-            }
+            return u >= 1;
         }
 
-        void Settle()
+        void Splashdown()
+        {
+            var target = new Vector3(Marker.x, Sea.Height(Marker), Marker.z);
+            bob.gameObject.SetActive(true); bob.Pos = target; bob.Floating = true; bob.Dip = 0.08f;
+            Fx.Splash(target, 0.6f, 12);
+            Snd.Play(Vector3.Distance(Flat(transform.position), Flat(Marker)) < 10 ? Synth.Plip : Synth.Plunk, target, 0.8f);
+        }
+
+        void Settle() { if (SettleMove() >= 1) { bob.Dip = 0; line.Arc = false; StartWait(); } }
+
+        float SettleMove()
         {
             // dunk 8 cm, pop up, settle in 0.6 s (2 bounces)
             float u = StateT / SettleT;
             bob.Dip = 0.08f * Mathf.Exp(-u * 3.5f) * Mathf.Cos(u * Mathf.PI * 4f);
             line.B = bob.transform.position + Vector3.up * 0.08f; line.Slack = Mathf.Lerp(0, 0.05f, u);
-            if (u >= 1) { bob.Dip = 0; line.Arc = false; StartWait(); }
+            return u;
         }
 
         // ---------------- wait, nibbles, bite ----------------
@@ -254,7 +273,10 @@ namespace PortBoss.M1
             // (20 ms kept back from the top: the bite shows on the next frame, so it never lands after the rod's top)
             BiteWait = Rod.BiteLo + (Rod.BiteHi - Rod.BiteLo - 0.02f) * (float)Rng.NextDouble();
             WaitStart = Time.time; BiteAt = Time.time + BiteWait;
-            Hooked = FishDb.Roll(Rng, RodTier, BaitId);
+            // co-op: the host rolled it at the cast (fishing §4.4); solo, or if its answer were still on the way, here
+            RolledByHost = Coop.On && rolled;
+            Hooked = RolledByHost ? rolledSp : FishDb.Roll(Rng, RodTier, BaitId);
+            if (Coop.On && !rolled) Debug.Log("[PB] coop: the host's roll hadn't come by the splashdown: rolled here");
             int c = (int)Hooked.Class;
             Nibbles = Rng.Next(FishDb.NibbleLo[c], FishDb.NibbleHi[c] + 1); NibblesDone = 0;
             nibbleAt.Clear();
@@ -279,22 +301,31 @@ namespace PortBoss.M1
             bob.Pos += new Vector3(0.06f, 0, -0.04f) * dt; // drift
             if (NibblesDone < nibbleAt.Count && t >= nibbleAt[NibblesDone])
             {
-                NibblesDone++; nibT = 0;
-                Snd.Play(Synth.Tik, bob.transform.position, 0.5f, Random.Range(0.95f, 1.1f)); Snd.Rumble(0.15f, 0, 0.08f);
-                Fx.Ring(bob.transform.position, 0.5f, 0.6f, 0.6f);
+                NibblesDone++; Nibble(true);
                 OnLog?.Invoke($"nibble at {t:F2}");
             }
-            if (nibT >= 0) { nibT += dt; bob.Dip = Mathf.Sin(Mathf.Clamp01(nibT / 0.15f) * Mathf.PI) * 0.045f; if (nibT > 0.15f) { nibT = -1; bob.Dip = 0; } }
+            NibbleDip(dt);
             if (Ctl.Strike) { LastOutcome = "early"; Alerts.Push("Too soon!", "Nothing on the hook yet. The bait's still on.", Alerts.Kind.Info); OnLog?.Invoke("strike early"); Recover(); return; }
             if (Time.time >= BiteAt)
             {
                 // the bite: yanked fully under, dragged sideways, BLOOP + 3 ratchet clicks, punch-in
-                Go(St.Bite); BiteSeenAt = Time.time;
-                Snd.Play(Synth.Bloop, bob.transform.position, 1f); Snd.Play(Synth.Ratchet, rod.Tip.position, 0.7f);
-                Fx.Splash(bob.transform.position, 1.1f, 18); Snd.Rumble(0.8f, 0.8f, 0.3f);
-                if (CameraRig.I != null) CameraRig.I.FovPunch = 3f;
+                Go(St.Bite); BiteSeenAt = Time.time; BiteFx(true);
                 OnLog?.Invoke($"bite after {t:F2} s (planned {BiteWait:F2})");
             }
+        }
+
+        void Nibble(bool mine)
+        {
+            nibT = 0;
+            Snd.Play(Synth.Tik, bob.transform.position, 0.5f, Random.Range(0.95f, 1.1f)); if (mine) Snd.Rumble(0.15f, 0, 0.08f);
+            Fx.Ring(bob.transform.position, 0.5f, 0.6f, 0.6f);
+        }
+        void NibbleDip(float dt) { if (nibT >= 0) { nibT += dt; bob.Dip = Mathf.Sin(Mathf.Clamp01(nibT / 0.15f) * Mathf.PI) * 0.045f; if (nibT > 0.15f) { nibT = -1; bob.Dip = 0; } } }
+        void BiteFx(bool mine)
+        {
+            Snd.Play(Synth.Bloop, bob.transform.position, 1f); Snd.Play(Synth.Ratchet, rod.Tip.position, 0.7f);
+            Fx.Splash(bob.transform.position, 1.1f, 18);
+            if (mine) { Snd.Rumble(0.8f, 0.8f, 0.3f); if (CameraRig.I != null) CameraRig.I.FovPunch = 3f; }
         }
 
         Vector3 yankDir;
@@ -317,7 +348,42 @@ namespace PortBoss.M1
             }
         }
 
-        void Recover() { Go(St.Recover); bob.Dip = 0; line.Arc = false; }
+        void Recover(float len = 0.6f) { recoverLen = len; Go(St.Recover); bob.Dip = 0; line.Arc = false; }
+
+        // Tangled with a crewmate's line (the host saw them cross, fishing §4.2): the rod jerks, a boing, "Tangled!", and it
+        // reels in over 1.2 s, the bait kept.
+        public void Tangle()
+        {
+            if (State is not (St.Settle or St.Waiting)) return;
+            elevV += 600; Snd.Play(Synth.Boing, rod.Tip.position, 0.8f); Snd.Rumble(0.6f, 0.3f, 0.2f);
+            Alerts.Push("Tangled!", "Your line crossed a crewmate's. Reeling in; the bait's still on.", Alerts.Kind.Info);
+            LastOutcome = "tangled"; OnLog?.Invoke("tangled"); Recover(1.2f);
+        }
+        public bool Tangled => State == St.Recover && recoverLen > 1f;
+        public bool LineOut => State is St.Settle or St.Waiting;          // a line in the water the host checks for tangles
+        public bool BobberOut => State is St.Settle or St.Waiting or St.Bite;
+        public Vector3 TipPos => rod.Tip.position;
+
+        // Two lines in the water crossed (fishing §4.2): their floats within 1.5 m, or the lines within 0.5 m out past the
+        // rod tips (from 0.5 m beyond each: not two rods merely pointing past each other at the rail).
+        public static bool Crossed(Fishing a, Fishing b)
+        {
+            static Vector2 F(Vector3 v) => new(v.x, v.z);
+            Vector2 a1 = F(a.BobPos), b1 = F(b.BobPos);
+            if ((a1 - b1).magnitude < 1.5f) return true;
+            Vector2 a0 = F(a.TipPos), b0 = F(b.TipPos);
+            a0 += (a1 - a0).normalized * 0.5f; b0 += (b1 - b0).normalized * 0.5f;
+            return SegDist(a0, a1, b0, b1) < 0.5f;
+        }
+        static float SegDist(Vector2 p0, Vector2 p1, Vector2 q0, Vector2 q1)
+        {
+            static float Cross(Vector2 o, Vector2 a, Vector2 b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+            if (Cross(p0, p1, q0) * Cross(p0, p1, q1) < 0 && Cross(q0, q1, p0) * Cross(q0, q1, p1) < 0) return 0; // they cross
+            static float PtSeg(Vector2 p, Vector2 a, Vector2 b) { var ab = b - a; float t = Mathf.Clamp01(Vector2.Dot(p - a, ab) / Mathf.Max(1e-6f, ab.sqrMagnitude)); return (a + ab * t - p).magnitude; }
+            return Mathf.Min(Mathf.Min(PtSeg(p0, q0, q1), PtSeg(p1, q0, q1)), Mathf.Min(PtSeg(q0, p0, p1), PtSeg(q1, p0, p1)));
+        }
+
+        public void Rolled(int id, FishSpecies sp, float cm, float kg, ulong fish) { if (id != rollId) return; rolled = true; rolledSp = sp; rolledCm = cm; rolledKg = kg; rolledFish = fish; }
 
         void ReelIn(string why) { LastOutcome = "reeled"; Recover(); }
 
@@ -336,8 +402,8 @@ namespace PortBoss.M1
         void BeginFight()
         {
             var f = new Fish { Species = Hooked, CaughtAt = Time.time };
-            FishDb.RollSize(Rng, Hooked, out f.Cm, out f.Kg);
-            Catch = f;
+            if (RolledByHost) { f.Cm = rolledCm; f.Kg = rolledKg; f.Id = rolledFish; } else FishDb.RollSize(Rng, Hooked, out f.Cm, out f.Kg);
+            Catch = f; stopTimes.Clear(); fightT0 = Time.timeAsDouble;
             Hits = Misses = 0; Stop = 0; Snapped = false; HeavyFight = false;
             for (int i = 0; i < Result.Length; i++) { Result[i] = 0; ErrMs[i] = 0; }
             fishUnder = bob.Pos; fightPh = Random.value * 10;
@@ -408,6 +474,7 @@ namespace PortBoss.M1
             ErrMs[Stop] = timeout ? 999 : (Mathf.Abs(p - z) - ZoneW / 2) / PtrSpeed * 1000f;
             PointerShown = timeout ? PointerShown : p;
             Result[Stop] = hit ? 1 : -1;
+            if (!timeout) stopTimes.Add(tg - fightT0);
             if (hit)
             {
                 Hits++;
@@ -451,6 +518,7 @@ namespace PortBoss.M1
             fishGo = FishView.Make(Catch, null);
             fishGo.transform.position = fishUnder;
             FishView.Swim(fishGo, 0.16f, 3f);
+            if (Coop.On) Coop.Landed(rollId, Catch, stopTimes); // the host checks it against its roll (fishing §4.4)
             Go(St.Reel);
             OnLog?.Invoke($"landed {Catch.Species.Id} {Catch.Cm:F0} cm {Catch.Kg:F2} kg grade {Ponyo.GradeName[Catch.Grade]}");
         }
@@ -459,6 +527,34 @@ namespace PortBoss.M1
         void Reel()
         {
             float u = Mathf.Clamp01(StateT / ReelLen);
+            ReelMove(u);
+            if (u >= 1)
+            {
+                Landed(true);
+                IsNew = seen.Add(Catch.Species.Id);
+                IsBest = !IsNew && (!best.TryGetValue(Catch.Species.Id, out var b) || Catch.Kg >= b);
+                if (!best.TryGetValue(Catch.Species.Id, out var b2) || Catch.Kg > b2) best[Catch.Species.Id] = Catch.Kg;
+                TargetSlot = me.Bar.Target(Catch);
+                if (IsNew) Alerts.Push("NEW species", Catch.Species.Name + " · in your journal", Alerts.Kind.Crew);
+                if (CameraRig.I != null)
+                {
+                    // frame the hold-up from whichever 3/4 side has nothing between the camera and the fish
+                    float Clear(float side)
+                    {
+                        var dir = Quaternion.Euler(6, transform.eulerAngles.y + 180 + side * 32, 0) * Vector3.back;
+                        var from = HoldPoint(); var hits = Physics.RaycastAll(from, dir, 3.2f, ~0, QueryTriggerInteraction.Ignore); float best = 3.2f;
+                        foreach (var h in hits) if (h.collider.GetComponentInParent<Angler>() == null) best = Mathf.Min(best, h.distance);
+                        return best;
+                    }
+                    CameraRig.I.RevealSide = Clear(1) > Clear(-1) + 0.1f ? 1 : -1;
+                }
+                Go(St.Reveal);
+            }
+        }
+
+        // in on the line (here, or a crewmate's), u = 0..1 of the reel
+        void ReelMove(float u)
+        {
             reelSnd.volume = 0.35f; reelSnd.pitch = 0.8f + u * 0.8f;
             var hand = HoldPoint();
             var start = fishUnder;
@@ -483,43 +579,33 @@ namespace PortBoss.M1
             var to = hand - p; to.y = 0;
             if (to.sqrMagnitude > 0.01f) fishGo.transform.rotation = Quaternion.LookRotation(to.normalized, Vector3.up);
             line.B = p + fishGo.transform.forward * Catch.Cm / 200f; line.Slack = 0;
-            if (u >= 1)
-            {
-                jumped = false; reelSnd.volume = 0;
-                Snd.Play(Synth.Slap, p, 0.8f); Snd.Play(M1Assets.I.Splash, p, 0.25f, 1.6f);
-                line.Live = false;
-                FishView.Swim(fishGo, 0.05f, 1.6f);
-                IsNew = seen.Add(Catch.Species.Id);
-                IsBest = !IsNew && (!best.TryGetValue(Catch.Species.Id, out var b) || Catch.Kg >= b);
-                if (!best.TryGetValue(Catch.Species.Id, out var b2) || Catch.Kg > b2) best[Catch.Species.Id] = Catch.Kg;
-                TargetSlot = me.Bar.Target(Catch);
-                if (IsNew) Alerts.Push("NEW species", Catch.Species.Name + " · in your journal", Alerts.Kind.Crew);
-                AudioClip sting = Catch.Grade switch { 0 => Synth.Pluck, 1 => Synth.Chime, 2 => Synth.Shimmer, _ => Synth.Brass };
-                Snd.Play2D(sting, 0.6f);
-                if (Catch.Grade == 3) Fx.Splash(HoldPoint(), 0.5f, 16);
-                if (CameraRig.I != null)
-                {
-                    // frame the hold-up from whichever 3/4 side has nothing between the camera and the fish
-                    float Clear(float side)
-                    {
-                        var dir = Quaternion.Euler(6, transform.eulerAngles.y + 180 + side * 32, 0) * Vector3.back;
-                        var from = HoldPoint(); var hits = Physics.RaycastAll(from, dir, 3.2f, ~0, QueryTriggerInteraction.Ignore); float best = 3.2f;
-                        foreach (var h in hits) if (h.collider.GetComponentInParent<Angler>() == null) best = Mathf.Min(best, h.distance);
-                        return best;
-                    }
-                    CameraRig.I.RevealSide = Clear(1) > Clear(-1) + 0.1f ? 1 : -1;
-                }
-                Go(St.Reveal);
-            }
+        }
+
+        // out of the water and into the hands: the slap, the grade's sting (mine in my ears, a crewmate's from them)
+        void Landed(bool mine)
+        {
+            jumped = false; reelSnd.volume = 0;
+            var p = fishGo.transform.position;
+            Snd.Play(Synth.Slap, p, 0.8f); Snd.Play(M1Assets.I.Splash, p, 0.25f, 1.6f);
+            line.Live = false;
+            FishView.Swim(fishGo, 0.05f, 1.6f);
+            AudioClip sting = Catch.Grade switch { 0 => Synth.Pluck, 1 => Synth.Chime, 2 => Synth.Shimmer, _ => Synth.Brass };
+            if (mine) Snd.Play2D(sting, 0.6f); else Snd.Play(sting, p, 0.6f);
+            if (Catch.Grade == 3) Fx.Splash(HoldPoint(), 0.5f, 16);
         }
 
         Vector3 HoldPoint() => transform.TransformPoint(new Vector3(0, 1.32f, 0.45f) * me.Size);
 
-        void Reveal()
+        void RevealHold()
         {
             bool big = Catch.Cm > 140;
             fishGo.transform.position = big ? transform.TransformPoint(new Vector3(0, 0.25f, 1.0f + Catch.Cm / 400f)) : HoldPoint();
             fishGo.transform.rotation = Quaternion.LookRotation(transform.right, Vector3.up) * Quaternion.Euler(big ? 0 : -8f + Mathf.Sin(Time.time * 7) * 2f, 0, 0);
+        }
+
+        void Reveal()
+        {
+            RevealHold();
             bool full = TargetSlot < 0;
             if (StateT >= RevealMin)
             {
@@ -527,12 +613,15 @@ namespace PortBoss.M1
                 bool let = Ctl.LetGo;
                 if (full && Ctl.Bot || Ctl.Bot && Bot.LetGo) { let = true; keep = false; }
                 if (keep && full) { DropOnDeck(); return; }
-                if (keep) { int slot = me.Bar.Add(Catch); Hud.I?.FlyIn(fishGo.transform.position, slot); Snd.Play2D(Synth.Thup, 0.7f); OnLog?.Invoke($"kept slot {slot + 1}"); EndReveal(); return; }
+                if (keep) { int slot = Coop.On && Catch.Id != 0 ? Coop.KeepCatch(Catch) : me.Bar.Add(Catch); Hud.I?.FlyIn(fishGo.transform.position, slot); Snd.Play2D(Synth.Thup, 0.7f); OnLog?.Invoke($"kept slot {slot + 1}"); EndReveal(); return; }
                 if (let) { LetGo(); return; }
             }
         }
 
-        void Toss()
+        void Toss() { if (TossMove()) { me.Anim.Over = null; me.Anim.OverW = 0; EndReveal(); } }
+
+        // the throw back (here, or a crewmate's): true once it is over
+        bool TossMove()
         {
             var an = me.Anim;
             float len = (TossTo - TossFrom) / TossSpeed, t = Mathf.Min(TossTo, TossFrom + StateT * TossSpeed);
@@ -564,12 +653,14 @@ namespace PortBoss.M1
                     }
                 }
             }
-            if (StateT >= len + 0.2f && fishGo == null) { an.Over = null; an.OverW = 0; EndReveal(); }
+            return StateT >= len + 0.2f && fishGo == null;
         }
 
         void DropOnDeck()
         {
-            FishPickup.Drop(Catch, transform.TransformPoint(new Vector3(0, 0.15f, 0.8f)), transform.rotation);
+            var at = transform.TransformPoint(new Vector3(0, 0.15f, 0.8f));
+            if (Coop.On && Catch.Id != 0) Coop.DropFish(Catch, at); // the host puts it there, on every machine
+            else FishPickup.Drop(Catch, at, transform.rotation);
             Alerts.Push("Hotbar full", Catch.Species.Name + " is on the deck. Free a slot and pick it up (E).", Alerts.Kind.Info);
             OnLog?.Invoke("dropped on deck"); EndReveal();
         }
@@ -577,10 +668,11 @@ namespace PortBoss.M1
         // Letting a fish go: thrown back (Mixamo's Frisbee Throw, 0.4 -> 2.2 s of it at 1.5x: the wind-up across the body,
         // the fling, the follow-through). The fish rides the right hand and leaves it on the clip's release frame, then
         // arcs 4.5 m out into the sea. A fish too big to hold up (> 140 cm) just slides back in.
-        const float TossFrom = 0.4f, TossTo = 2.2f, TossRelease = 1.5f, TossSpeed = 1.5f;
+        public const float TossFrom = 0.4f, TossTo = 2.2f, TossRelease = 1.5f, TossSpeed = 1.5f; // (the hotbar toss throws with it too)
         Vector3 tossP0, tossTo; float tossAt = -1;
         void LetGo()
         {
+            if (Coop.On && Catch != null && Catch.Id != 0) Coop.FreeFish(Catch);
             if (fishGo != null && Catch.Cm <= 140 && M1Assets.I.Throw != null && me.Anim.HandR != null)
             {
                 // over the nearest side of the boat (turning to it through the wind-up), or straight ahead off the pier
@@ -833,6 +925,156 @@ namespace PortBoss.M1
                 case St.Reveal: c.M = CameraRig.Mode.Reveal; c.Focus = HoldPoint(); break;
                 default: c.M = CameraRig.Mode.Follow; break;
             }
+        }
+
+        // ---- co-op: what crewmates see of this angler (in their pose, 30 a second) and how a crewmate's copy plays it ----
+        public struct Net
+        {
+            public byte State, Rod, Nibbles, Stop, Flags; public sbyte R0, R1; // Flags: 1 frozen (a stop just judged), 2 tangled
+            public float T, Len, Power, Dip, Zone, ZoneW, Ptr, Cm, Kg; public Vector3 Marker, Bob, Under, TossTo; public short Species; public byte Grade;
+            static bool Fight(byte s) => s == (byte)St.Heavy || s == (byte)St.Minigame;
+            static bool Holds(byte s) => s == (byte)St.Reel || s == (byte)St.Reveal || s == (byte)St.Toss;
+            public void Write(ref FastBufferWriter w)
+            {
+                w.WriteValueSafe(State); if (State == 0) return;
+                w.WriteValueSafe(T); w.WriteValueSafe(Rod); w.WriteValueSafe(Len); w.WriteValueSafe(Power); w.WriteValueSafe(Dip);
+                w.WriteValueSafe(Marker); w.WriteValueSafe(Bob); w.WriteValueSafe(Under); w.WriteValueSafe(Nibbles); w.WriteValueSafe(Flags);
+                if (Fight(State)) { w.WriteValueSafe(Zone); w.WriteValueSafe(ZoneW); w.WriteValueSafe(Ptr); w.WriteValueSafe(Stop); w.WriteValueSafe(R0); w.WriteValueSafe(R1); }
+                if (Holds(State)) { w.WriteValueSafe(Species); w.WriteValueSafe(Cm); w.WriteValueSafe(Kg); w.WriteValueSafe(Grade); w.WriteValueSafe(TossTo); }
+            }
+            public static Net Read(ref FastBufferReader r)
+            {
+                var n = new Net(); r.ReadValueSafe(out n.State); if (n.State == 0) return n;
+                r.ReadValueSafe(out n.T); r.ReadValueSafe(out n.Rod); r.ReadValueSafe(out n.Len); r.ReadValueSafe(out n.Power); r.ReadValueSafe(out n.Dip);
+                r.ReadValueSafe(out n.Marker); r.ReadValueSafe(out n.Bob); r.ReadValueSafe(out n.Under); r.ReadValueSafe(out n.Nibbles); r.ReadValueSafe(out n.Flags);
+                if (Fight(n.State)) { r.ReadValueSafe(out n.Zone); r.ReadValueSafe(out n.ZoneW); r.ReadValueSafe(out n.Ptr); r.ReadValueSafe(out n.Stop); r.ReadValueSafe(out n.R0); r.ReadValueSafe(out n.R1); }
+                if (Holds(n.State)) { r.ReadValueSafe(out n.Species); r.ReadValueSafe(out n.Cm); r.ReadValueSafe(out n.Kg); r.ReadValueSafe(out n.Grade); r.ReadValueSafe(out n.TossTo); }
+                return n;
+            }
+        }
+
+        public Net NetState()
+        {
+            var n = new Net { State = (byte)State };
+            if (State == St.Stowed) return n;
+            n.T = StateT; n.Rod = (byte)RodTier; n.Power = Power; n.Dip = bob.Dip; n.Marker = Marker; n.Bob = bob.Pos; n.Under = fishUnder; n.Nibbles = (byte)NibblesDone;
+            n.Len = State == St.Flight ? flightLen : State == St.Reel ? ReelLen : State == St.Recover ? recoverLen : 0;
+            n.Flags = (byte)((Frozen ? 1 : 0) | (Tangled ? 2 : 0));
+            if (State is St.Heavy or St.Minigame && Hooked != null)
+            {
+                n.Zone = State == St.Minigame ? ZoneAt(Time.timeAsDouble) : ZoneC; n.ZoneW = ZoneW; n.Ptr = PointerShown;
+                n.Stop = (byte)Stop; n.R0 = (sbyte)Result[0]; n.R1 = (sbyte)Result[1];
+            }
+            if (State is St.Reel or St.Reveal or St.Toss && Catch != null)
+            { n.Species = (short)FishDb.All.IndexOf(Catch.Species); n.Cm = Catch.Cm; n.Kg = Catch.Kg; n.Grade = (byte)Catch.Grade; n.TossTo = tossTo; }
+            return n;
+        }
+
+        // a crewmate's: their two poses either side of the moment shown, and the blend (Angler sets them)
+        public Net NetA, NetB; public float NetK;
+        int shownStop;
+
+        void RemoteFish(float dt)
+        {
+            var n = NetB; var st = (St)n.State;
+            if (n.Rod > 0 && n.Rod != RodTier) { RodTier = n.Rod; Destroy(rod.gameObject); rod = RodView.Make(Game.ToonMat, RodTier); line.A = rod.Tip; }
+            if (st != State) RemoteEnter(st, n);
+            bool same = NetA.State == n.State; float k = same ? NetK : 1;
+            StateT = same ? Mathf.Lerp(NetA.T, n.T, k) : n.T;
+            Power = n.Power; Frozen = (n.Flags & 1) != 0;
+            switch (State)
+            {
+                case St.Charging: creakVol = 0.35f; creak.pitch = Mathf.Pow(2, 6 * Power / 12f) * 0.9f; break;
+                case St.Flight: FlightMove(); break;
+                case St.Settle: SettleMove(); break;
+                case St.Waiting:
+                    bob.Pos = Vector3.Lerp(same ? NetA.Bob : n.Bob, n.Bob, k);
+                    line.B = bob.transform.position + Vector3.up * 0.06f; line.Slack = 0.05f;
+                    if (n.Nibbles > NibblesDone) { NibblesDone = n.Nibbles; Nibble(false); }
+                    NibbleDip(dt);
+                    break;
+                case St.Bite:
+                    bob.Pos = Vector3.Lerp(same ? NetA.Bob : n.Bob, n.Bob, k);
+                    bob.Dip = 0.25f * Mathf.Clamp01(StateT / 0.25f); line.B = bob.transform.position; line.Slack = 0;
+                    break;
+                case St.Heavy: case St.Minigame:
+                    fishUnder = Vector3.Lerp(same ? NetA.Under : n.Under, n.Under, k); line.B = fishUnder; line.Slack = 0;
+                    if (Random.value < dt * 1.5f) Fx.Ring(new Vector3(fishUnder.x, Sea.Height(fishUnder), fishUnder.z), 0.8f, 0.7f, 0.5f);
+                    ZoneC = n.Zone; ZoneW = n.ZoneW; PointerShown = same ? Mathf.Lerp(NetA.Ptr, n.Ptr, k) : n.Ptr;
+                    while (shownStop < n.Stop && shownStop < 2) { RemoteStop(shownStop, shownStop == 0 ? n.R0 : n.R1); shownStop++; }
+                    break;
+                case St.Reel: if (fishGo != null) ReelMove(Mathf.Clamp01(StateT / ReelLen)); break;
+                case St.Reveal: if (fishGo != null) RevealHold(); break;
+                case St.Toss: TossMove(); break;
+                case St.Recover: ReelInVisual(Mathf.Clamp01(StateT / recoverLen)); break;
+            }
+            Pose(dt);
+        }
+
+        // a crewmate's stop, judged on their machine: the ding or the miss from out where the fish is
+        void RemoteStop(int i, int r)
+        {
+            Result[i] = r; Stop = i + 1;
+            if (r > 0) { Hits++; Snd.Play(Synth.Ding[Mathf.Clamp(Hits - 1, 0, 2)], fishUnder, 0.6f); Fx.Splash(fishUnder, 0.4f, 6); }
+            else
+            {
+                Misses++; Snd.Play(Synth.Miss, fishUnder, 0.6f); Fx.Splash(fishUnder + Vector3.up * 0.1f, 0.7f, 10);
+                if (Misses >= 2) Snd.Play(Synth.Snap, fishUnder, 0.8f);
+            }
+        }
+
+        Fish NetCatch(Net n) => new() { Species = n.Species >= 0 && n.Species < FishDb.All.Count ? FishDb.All[n.Species] : FishDb.All[0], Cm = n.Cm, Kg = n.Kg, Grade = n.Grade };
+
+        // a crewmate's fishing moved on: the one-off sounds and splashes of the new beat, and its bobber, line and fish
+        void RemoteEnter(St st, Net n)
+        {
+            var was = State; State = st; StateT = 0;
+            if (was == St.Toss) { me.Anim.Over = null; me.Anim.OverW = 0; }
+            if (st is not (St.Reel or St.Reveal or St.Toss)) { if (fishGo != null) Destroy(fishGo); fishGo = null; Catch = null; }
+            switch (st)
+            {
+                case St.Drawing: Snd.Play(Synth.Whoosh, transform.position, 0.25f, 1.6f); break;
+                case St.Charging: Power = 0; break;
+                case St.Flight:
+                    Marker = n.Marker; flightLen = Mathf.Max(0.1f, n.Len); flightT0 = Time.time - n.T;
+                    bob.gameObject.SetActive(true); bob.Floating = false; bob.Dip = bob.Yank = 0;
+                    line.Live = true; line.Slack = 0.02f; line.Arc = true; line.Reset(rod.Tip.position, rod.Tip.position);
+                    Snd.Play(Synth.Whoosh, transform.position, 0.3f + 0.5f * n.Power, 1.1f); Snd.Play(Synth.Zing, transform.position, 0.35f, Mathf.Lerp(1.2f, 0.8f, n.Power));
+                    break;
+                case St.Settle: Marker = n.Marker; line.Live = true; Splashdown(); break;
+                case St.Waiting:
+                    if (!bob.Floating) { bob.gameObject.SetActive(true); bob.Floating = true; line.Live = true; }
+                    bob.Pos = n.Bob; bob.Dip = 0; line.Arc = false; NibblesDone = n.Nibbles; nibT = -1;
+                    break;
+                case St.Bite: BiteFx(false); break;
+                case St.Strike: Snd.Play(Synth.Zing, rod.Tip.position, 0.5f, 1.3f); Snd.Play(Synth.Whoosh, transform.position, 0.5f, 1.4f); break;
+                case St.Heavy: case St.Minigame:
+                    if (was is not (St.Heavy or St.Minigame))
+                    {
+                        Hits = Misses = Stop = shownStop = 0; Result[0] = Result[1] = 0;
+                        bob.gameObject.SetActive(false); bob.Floating = false; line.Live = true; line.Arc = false; fishUnder = n.Under;
+                    }
+                    break;
+                case St.Reel:
+                    Catch = NetCatch(n); fishUnder = n.Under; ReelLen = Mathf.Max(0.1f, n.Len); jumped = false; line.Live = true;
+                    if (fishGo != null) Destroy(fishGo);
+                    fishGo = FishView.Make(Catch, null); fishGo.transform.position = fishUnder; FishView.Swim(fishGo, 0.16f, 3f);
+                    break;
+                case St.Reveal:
+                    if (fishGo == null) { Catch = NetCatch(n); fishGo = FishView.Make(Catch, null); fishGo.transform.position = HoldPoint(); }
+                    Landed(false);
+                    break;
+                case St.Toss:
+                    tossTo = n.TossTo; tossAt = -1;
+                    if (fishGo == null) { Catch = NetCatch(n); fishGo = FishView.Make(Catch, null); }
+                    break;
+                case St.Recover:
+                    recoverLen = Mathf.Max(0.1f, n.Len); bob.gameObject.SetActive(true); bob.Pos = n.Bob; bob.Dip = 0; line.Live = true; line.Arc = false;
+                    if ((n.Flags & 2) != 0) Snd.Play(Synth.Boing, rod.Tip.position, 0.8f); // tangled
+                    break;
+                case St.Ready: case St.Stowed: bob.Floating = false; bob.gameObject.SetActive(false); line.Live = false; break; // (the dangle hangs it again)
+            }
+            if (Catch != null) Hooked = Catch.Species; // (the reel's leap reads its class)
         }
 
         // The test bot's knobs (Bot.cs sets them).

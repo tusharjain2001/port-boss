@@ -190,11 +190,13 @@ namespace PortBoss.EditorTools
         static GameObject Character(string path, float armDown = -60)
         {
             if (AssetImporter.GetAtPath(path) is not ModelImporter mi) { Debug.LogWarning("[M1Build] missing " + path); return null; }
-            if (mi.animationType != ModelImporterAnimationType.Human || mi.materialImportMode != ModelImporterMaterialImportMode.None || mi.importAnimation)
+            if (mi.animationType != ModelImporterAnimationType.Human || mi.materialImportMode != ModelImporterMaterialImportMode.None || mi.importAnimation || !mi.isReadable)
             {
                 mi.animationType = ModelImporterAnimationType.Human; mi.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
                 mi.materialImportMode = ModelImporterMaterialImportMode.None; mi.importAnimation = false; mi.importCameras = false; mi.importLights = false;
-                mi.importBlendShapes = false; mi.SaveAndReimport();
+                mi.importBlendShapes = false;
+                mi.isReadable = true; // co-op repaints the player colour (armband, back patch) from the vertex colours at runtime
+                mi.SaveAndReimport();
             }
             var hd = mi.humanDescription; var hb = hd.human; bool changed = false;
             for (int i = 0; i < hb.Length; i++)
