@@ -216,6 +216,7 @@ namespace PortBoss.M1
         RectTransform At(RectTransform p, float x, float y, float w, float h, string n = "r") => UiKit.Rect(n, p).Place(new Vector2(0, 1), new Vector2(x, -y), new Vector2(w, h), new Vector2(0, 1));
         RectTransform Card(RectTransform p, float x, float y, float w, float h, Color? fill = null, float rad = 18, bool shadow = false, Color? line = null)
         { var c = UiKit.Card(p, "card", rad, fill ?? Ponyo.Paper, shadow, line ?? Ponyo.Hex("D9C9B0"), 2); c.Place(new Vector2(0, 1), new Vector2(x, -y), new Vector2(w, h), new Vector2(0, 1)); return c; }
+        static Text Fit(Text t, int min) { t.resizeTextForBestFit = true; t.resizeTextMinSize = min; t.resizeTextMaxSize = t.fontSize; t.horizontalOverflow = HorizontalWrapMode.Wrap; t.verticalOverflow = VerticalWrapMode.Truncate; return t; }
         Text T(RectTransform p, string s, Font f, int size, Color c, float x, float y, float w, float h, TextAnchor a = TextAnchor.UpperLeft)
         { var t = UiKit.Txt(p, s, f, size, c, a); t.rectTransform.Place(new Vector2(0, 1), new Vector2(x, -y), new Vector2(w, h), new Vector2(0, 1)); return t; }
         Text Caps(RectTransform p, string s, float x, float y, float w = 300, Color? c = null, TextAnchor a = TextAnchor.UpperLeft, int size = 12) => T(p, UiKit.Caps(s), UiKit.Bold, size, c ?? SubInk, x, y, w, 18, a);
@@ -542,7 +543,7 @@ namespace PortBoss.M1
             for (int i = c.Ledger.Count - 1; i >= 0 && i >= c.Ledger.Count - 40; i--)
             {
                 var e = c.Ledger[i];
-                T(list, e.What, UiKit.Bold, 15, Ponyo.Ink, 2, y, CW - 100, 22);
+                Fit(T(list, e.What, UiKit.Bold, 15, Ponyo.Ink, 2, y, CW - 100, 22), 11);   // one line: a long one shrinks a little
                 T(list, $"{e.Who} · {When(e.At)}", UiKit.Body, 12, SubInk, 2, y + 21, CW - 100, 18);
                 T(list, Signed(e.Amount), UiKit.Bold, 16, e.Amount >= 0 ? Ponyo.Hex("3E9A4E") : Ponyo.Poppy, CW - 110, y + 6, 108, 22, TextAnchor.UpperRight);
                 UiKit.Img(list, null, Ponyo.Hex("EADFCC"), "rule").rectTransform.Place(new Vector2(0, 1), new Vector2(0, -y - 46), new Vector2(CW, 1.5f), new Vector2(0, 1));
@@ -681,18 +682,29 @@ namespace PortBoss.M1
             var mask = UiKit.Rect("mask", frame); mask.Stretch(2); mask.gameObject.AddComponent<RectMask2D>();
             mapImg = UiKit.Rect("chart", mask).Place(new Vector2(0, 1), Vector2.zero, new Vector2(MapW, MapH), new Vector2(0, 1)).gameObject.AddComponent<RawImage>();
             mapImg.texture = Chart(); mapImg.raycastTarget = false;
-            // labels (map B's names)
+            // labels (map B's names), most important first: each one inside the frame, nudged up or down off the ones
+            // already placed (the harbour names sit close together at this scale)
+            var placed = new List<Rect>();
             void Label(string s, float sx, float sy, int size, Color c, bool bold = true, bool italic = false)
             {
                 var p = ToMap(FromSvg(sx, sy));
                 var t = UiKit.Txt(mapImg.rectTransform, italic ? s : UiKit.Caps(s), italic ? UiKit.Display : bold ? UiKit.Bold : UiKit.Body, size, c, TextAnchor.MiddleCenter);
-                t.rectTransform.Place(new Vector2(0, 1), new Vector2(p.x, -p.y), new Vector2(160, 20), new Vector2(0.5f, 0.5f)); t.horizontalOverflow = HorizontalWrapMode.Overflow;
+                t.horizontalOverflow = HorizontalWrapMode.Overflow;
+                float w = t.preferredWidth + 6, h = size + 4, cx = Mathf.Clamp(p.x, w / 2 + 4, MapW - w / 2 - 4);
+                var at = new Rect(cx - w / 2, p.y - h / 2, w, h);
+                foreach (var dy in new[] { 0f, 1, -1, 2, -2, 3, -3 })
+                {
+                    var r = new Rect(at.x, Mathf.Clamp(p.y + dy * (h + 2), h / 2 + 4, MapH - h / 2 - 4) - h / 2, w, h);
+                    if (!placed.Exists(o => o.Overlaps(r))) { at = r; break; }
+                }
+                placed.Add(at);
+                t.rectTransform.Place(new Vector2(0, 1), new Vector2(at.center.x, -at.center.y), new Vector2(w, h), new Vector2(0.5f, 0.5f));
             }
             Color ink = Ponyo.Hex("2F5D62"), land = Ponyo.Hex("5E5035");
-            Label("Old Saltmouth", 3330, 2330, 11, land); Label("Hale's Landing", 2640, 2400, 11, Ponyo.Hex("C2552D"));
-            Label("Crescent Isle", 3380, 2950, 16, land, false, true);
+            Label("Hale's Landing", 2640, 2400, 11, Ponyo.Hex("C2552D")); Label("Old Saltmouth", 3330, 2330, 11, land);
+            Label("Crescent Isle", 3380, 2950, 16, land, false, true); Label("Voss Harbour", 3950, 3030, 10, Ponyo.Hex("B03A2E"));
             Label("Gullrock", 2250, 2420, 10, ink); Label("Lantern Key", 1100, 2420, 10, ink); Label("Sorrel Isle", 4100, 1050, 10, ink);
-            Label("Mango Cay", 4300, 4120, 10, ink); Label("Voss Harbour", 3950, 3030, 10, Ponyo.Hex("B03A2E")); Label("Breaker Point", 2800, 4000, 10, ink);
+            Label("Mango Cay", 4300, 4120, 10, ink); Label("Breaker Point", 2800, 4000, 10, ink);
             Label("Wreck of the Margaret", 1000, 1600, 9, ink);
             // pins
             foreach (var pl in Places)
