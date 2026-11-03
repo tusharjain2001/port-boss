@@ -40,6 +40,7 @@ namespace PortBoss.M1
             }
             else
             {
+                me.Select(1); // (my own rod away: held ready, it stood right behind the rider in the pictures)
                 yield return Until(() => Mate() != null && Mate().Fish.State == Fishing.St.Reveal, 120);
                 a = Mate(); if (a != null) yield return Beats("rider's", a);
             }
