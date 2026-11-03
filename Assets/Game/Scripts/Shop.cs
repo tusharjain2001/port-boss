@@ -257,7 +257,7 @@ namespace PortBoss.M1
             }
             return y + 10;
         }
-        static Color BaitCol(int i) => i switch { 0 => Ponyo.Hex("D9826A"), 1 => Ponyo.Hex("F29A85"), 2 => Ponyo.Hex("8FA6C0"), 3 => Ponyo.Hex("E7D6C6"), _ => Ponyo.Hex("C98A1A") };
+        public static Color BaitCol(int i) => i switch { 0 => Ponyo.Hex("D9826A"), 1 => Ponyo.Hex("F29A85"), 2 => Ponyo.Hex("8FA6C0"), 3 => Ponyo.Hex("E7D6C6"), _ => Ponyo.Hex("C98A1A") };
         static string Hooks(int i) => i switch { 0 => "sprat, mullet, mackerel", 1 => "garfish, bream (Fibreglass rod)", 2 => "bigger fish further out", 3 => "squid lovers (Act 2)", _ => "" };
 
         // the sell panel: the hotbar's fish, one row per stack

@@ -43,7 +43,7 @@ namespace PortBoss.M1
         readonly Image[] slotGrade = new Image[8]; readonly Image[] slotFresh = new Image[8]; readonly float[] slotPulse = new float[8];
         RectTransform namePill, hotbarStrip; Text nameT, nameSub; float nameShow;
         RectTransform prompts; float promptsKey; string lastPrompt;
-        Text baitTag; RectTransform baitChip;
+        Text baitTag, baitKey; RectTransform baitChip; Image baitDot;
         // alerts
         readonly List<(RectTransform r, Alerts.A a, float h, Image life)> cards = new();
         readonly List<Alerts.A> held = new();
@@ -101,8 +101,9 @@ namespace PortBoss.M1
             }
             baitChip = UiKit.Card(root, "baitChip", 16, Ponyo.Paper, true);
             baitChip.Place(new Vector2(0.5f, 0), new Vector2(total / 2 + 16, 34), new Vector2(170, 38), new Vector2(0, 0));
-            var worm = UiKit.Img(baitChip, UiKit.Circle, Ponyo.Peach, "worm"); worm.rectTransform.Place(new Vector2(0, 0.5f), new Vector2(12, 0), new Vector2(16, 16), new Vector2(0, 0.5f));
+            var worm = baitDot = UiKit.Img(baitChip, UiKit.Circle, Ponyo.Peach, "worm"); worm.rectTransform.Place(new Vector2(0, 0.5f), new Vector2(12, 0), new Vector2(16, 16), new Vector2(0, 0.5f));
             baitTag = UiKit.Txt(baitChip, "", UiKit.Bold, 17, Ponyo.Ink, TextAnchor.MiddleLeft); baitTag.rectTransform.Stretch(); baitTag.rectTransform.offsetMin = new Vector2(36, 0);
+            var bk = UiKit.Key(baitChip, "R", 24); bk.Place(new Vector2(1, 0.5f), new Vector2(-10, 0), bk.sizeDelta, new Vector2(1, 0.5f)); baitKey = bk.GetComponentInChildren<Text>(); // hold: the pouch radial
 
             // item name pill (above the hotbar, 2 s after a switch)
             namePill = UiKit.Card(root, "itemName", 24, Ponyo.Paper, true);
@@ -374,7 +375,7 @@ namespace PortBoss.M1
             namePill.sizeDelta = new Vector2(Mathf.Max(460, nameT.preferredWidth + nameSub.preferredWidth + 70), 50);
             baitTag.text = sl.Rod && !me.AtHelm ? (fish.BaitCount[fish.BaitI] > 0 ? BaitText() : "<color=#E2553F>No bait: sprats only</color>") : "";
             baitChip.gameObject.SetActive(baitTag.text != "");
-            baitChip.sizeDelta = new Vector2(baitTag.preferredWidth + 52, 38);
+            baitKey.text = Ctl.PadLast ? "Y" : "R"; baitDot.color = Shop.BaitCol(fish.BaitI); baitChip.sizeDelta = new Vector2(baitTag.preferredWidth + 84, 38);
         }
 
         static readonly Color[] FreshCol = { Ponyo.Leaf, Ponyo.Hex("B5C95A"), Ponyo.Sunflower, Ponyo.Peach, Ponyo.Hex("8A6A4E") };

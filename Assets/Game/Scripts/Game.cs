@@ -60,7 +60,7 @@ namespace PortBoss.M1
             }
             Hud.Create(rig.UiCam, p);
             Sleep.Create(); // M3: Walt's cot, tired, the night skip
-            Firm.Create(); Phone.Create(); Shop.Create(); // M4: the company, the phone (Tab), the shop counters
+            Firm.Create(); Phone.Create(); Shop.Create(); Pouch.Create(); // M4: the company, the phone (Tab), the shop counters
             BakeIcons(a);
 
             sea = gameObject.AddComponent<AudioSource>(); sea.clip = a.Waves; sea.loop = true; sea.volume = 0.32f; sea.spatialBlend = 0; sea.Play();
@@ -183,7 +183,7 @@ namespace PortBoss.M1
         }
 
         // co-op adds: invite friends (a Steam crew I host), leave the crew
-        static string PauseText() => "Esc  resume\nQ  quit to desktop" + (Coop.On && Coop.IsHost && Coop.Lobby != null ? "\nI  invite friends (Steam)" : "") + (Coop.On ? "\nL  leave the crew (play on alone)" : "") + "\n\nF3 debug overlay · F5 rod tier · F6 bait";
+        static string PauseText() => "Esc  resume\nQ  save & quit to desktop" + (Coop.On && Coop.IsHost && Coop.Lobby != null ? "\nI  invite friends (Steam)" : "") + (Coop.On ? "\nL  leave the crew (play on alone)" : "") + "\n\nF3 debug overlay · F5 rod tier · F6 bait · hold R: the bait pouch";
 
         void OnApplicationQuit()
         {

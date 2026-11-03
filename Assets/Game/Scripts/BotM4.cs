@@ -73,19 +73,19 @@ namespace PortBoss.M1
             Shop.I.Hide(); yield return null;
         }
 
-        // the catch of one trip, from..to: each fish rolled by the game (rod, bait on the hook, the time and weather), the
-        // grade Rare with probability pRare, 1 bait spent (worms first, then shrimp)
-        int Catch(System.Random r, int n, double from, double to, float pRare)
+        // the catch of one trip, from..to: each fish rolled by the game (rod, the bait on the hook), the grade Rare with
+        // probability pRare(bait), 1 bait spent (the bait on the hook; when it runs out, worms, then shrimp)
+        int Catch(System.Random r, int n, double from, double to, System.Func<string, float> pRare)
         {
             var k = Firm.I.MyKit; int got = 0;
             for (int i = 0; i < n; i++)
             {
                 double at = from + (to - from) * (i + 0.5) / n;
-                int bi = k.Bait[0] > 0 ? 0 : k.Bait[1] > 0 ? 1 : -1;
+                int bi = k.Bait[k.BaitI] > 0 ? k.BaitI : k.Bait[0] > 0 ? 0 : k.Bait[1] > 0 ? 1 : -1;
                 string bait = bi >= 0 ? FishDb.Baits[bi].Id : "None";
                 var sp = FishDb.Roll(r, k.Rod, bait);
                 FishDb.RollSize(r, sp, out var cm, out var kg);
-                var f = new Fish { Species = sp, Grade = r.NextDouble() < pRare ? 1 : 0, Cm = cm, Kg = kg, CaughtAt = (float)at };
+                var f = new Fish { Species = sp, Grade = r.NextDouble() < pRare(bait) ? 1 : 0, Cm = cm, Kg = kg, CaughtAt = (float)at };
                 if (me.Bar.Add(f) < 0) { Debug.Log("[PB] m4: the hotbar is full: a fish let go"); continue; }
                 if (bi >= 0) k.Bait[bi]--;
                 if (!k.Best.TryGetValue(sp.Id, out var b) || cm > b) k.Best[sp.Id] = cm;
@@ -103,11 +103,12 @@ namespace PortBoss.M1
         IEnumerator FirstDay(string dir)
         {
             Ctl.Bot = true; Sleep.Off = true; hold = ArgF("-pb-hold", 0);
-            if (!string.IsNullOrEmpty(dir)) { shots = dir; Directory.CreateDirectory(dir); }
+            if (!string.IsNullOrEmpty(dir) && dir != "-") { shots = dir; Directory.CreateDirectory(dir); }
             yield return new WaitForSeconds(0.5f);
             var c = Firm.C; var r = new System.Random(4);
             sigma = 0.07f; float pGame = ExpectedMix()[1], mean = MeanPrice(1, "Worm"), pModel = Mathf.Clamp01(16f / mean - 1);
-            bool game = Arg("-pb-grades") == "game"; float p = game ? pGame : pModel;
+            bool game = Arg("-pb-grades") == "game";
+            float p(string bait) => game ? pGame : Mathf.Clamp01(16f / MeanPrice(1, bait == "None" ? "Worm" : bait) - 1); // the table: $16 a fish
             Debug.Log($"[PB] m4: a fish on Walt's bamboo + worms is worth ${mean:F2} Basic; the game's Rare odds for a practised player (sigma 70 ms): {pGame:P0} -> ${mean * (1 + pGame):F2} a fish. The table assumes $16 a fish (Rare {pModel:P0}). This run: {(game ? "the game's odds" : "the table's $16")}");
             var rows = new List<(string what, int want, int got)>();
             void Row(string what, int want) { rows.Add((what, want, c.Cash)); Debug.Log($"[PB] m4: firstday {DayTime.DayName(DayTime.Day(Sky.Minutes))} D{DayTime.Day(Sky.Minutes)} {DayTime.Clock(Sky.Minutes)} {what}: bank ${c.Cash} (table ${want}), earned ${c.Earned}"); }
@@ -141,6 +142,12 @@ namespace PortBoss.M1
             // Day 2 07:30: sell last night's fish (Good, 85%)
             Jump(2, 7.5); yield return SellAll(Firm.Kind.Pratt, "pratt-day2-morning"); Row("last night's fish", 128);
             Jump(2, 8); yield return Buy("Worm", 1); yield return Buy("Shrimp", 3); Row("worms + shrimp", 88);
+            // the bait pouch: hold R, point at the shrimp, let go
+            me.Select(0); yield return new WaitForSeconds(0.8f);
+            Pouch.I.BotShow(1); yield return M4Shot("pouch-radial"); yield return Hold(); Pouch.I.BotHide();
+            M4(Pouch.I.Pick(1) && fish.BaitId == "Shrimp", $"the pouch radial puts shrimp on the hook ({fish.BaitId})");
+            M4(!Pouch.Usable(3) && !Pouch.I.Pick(3), "the squid pocket waits for June's tackle pouch");
+            yield return M4Shot("bait-chip-shrimp");
             // trip 3, 09:00-15:00: 15 fish; Mari texts once TOTAL EARNED passes $250
             Jump(2, 9); Catch(r, 15, Sky.Minutes, DayTime.At(2, 15 * 60), p); StandIn("Fuel, trip 3", -8); Jump(2, 15);
             yield return SellAll(Firm.Kind.Pratt, "pratt-day2"); Row("sell", 224);
@@ -186,6 +193,14 @@ namespace PortBoss.M1
             yield return SellAll(Firm.Kind.Pratt, null); Row("sell", 283);
             Jump(3, 18); StandIn("Amara's order, 3 mackerel", 90); Row("Amara's order", 373);
             Phone.I.Show(Phone.Scr.Bank); yield return M4Shot("phone-bank-day3"); Phone.I.Hide();
+            // shrimp and the new fish (R11: the rod is a hard gate). Bamboo: shrimp swaps sprats for mullet and mackerel;
+            // the Fibreglass rod (June's, $450) + shrimp brings garfish and bream
+            string Mix(int rod, string bait) { float t = 0; foreach (var s in FishDb.All) t += FishDb.Weight(s, rod, bait); var o = new List<string>(); foreach (var s in FishDb.All) { float w = FishDb.Weight(s, rod, bait); if (w > 0) o.Add($"{s.Id} {w / t:P0}"); } return string.Join(", ", o); }
+            float Share(int rod, string bait, params string[] ids) { float t = 0, x = 0; foreach (var s in FishDb.All) { float w = FishDb.Weight(s, rod, bait); t += w; if (System.Array.IndexOf(ids, s.Id) >= 0) x += w; } return x / t; }
+            foreach (var (rd, bt) in new[] { (1, "Worm"), (1, "Shrimp"), (2, "Worm"), (2, "Shrimp") }) Debug.Log($"[PB] m4: bites on rod {rd} + {bt}: {Mix(rd, bt)}");
+            M4(Share(1, "Shrimp", "sprat") < Share(1, "Worm", "sprat") / 3 && Share(1, "Shrimp", "garfish", "bream") == 0, "bamboo + shrimp: far fewer sprats, no garfish/bream (the rod gate)");
+            M4(Share(2, "Shrimp", "garfish", "bream") > 0.5f && Share(2, "Shrimp", "garfish", "bream") > 3 * Share(2, "Worm", "garfish", "bream"), $"Fibreglass + shrimp: garfish and bream are {Share(2, "Shrimp", "garfish", "bream"):P0} of bites (worms: {Share(2, "Worm", "garfish", "bream"):P0})");
+            { var r2 = new System.Random(11); int n2 = 0; for (int i = 0; i < 200; i++) { var sp = FishDb.Roll(r2, 2, "Shrimp"); if (sp.Id is "garfish" or "bream") n2++; } M4(n2 > 100, $"200 real rolls on Fibreglass + shrimp: {n2} garfish/bream"); }
             // the table
             int within = 0; Debug.Log("[PB] m4: firstday | row | table | game | off");
             foreach (var x in rows)
@@ -215,14 +230,14 @@ namespace PortBoss.M1
                 // the pier with water in her and a fish on her deck, fresh and day-old fish in the hotbar
                 var r = new System.Random(9);
                 Sky.Jump(DayTime.At(1, 600));
-                Catch(r, 8, DayTime.At(1, 480), Sky.Minutes, 0.3f);
+                Catch(r, 8, DayTime.At(1, 480), Sky.Minutes, _ => 0.3f);
                 var sell = new List<Fish>(); foreach (var sl in me.Bar.S) if (sl.Fish.Count > 0 && sell.Count < 3) sell.Add(sl.Fish[0]);
                 Firm.I.Sell(Buyer.Pratt, sell);
                 Firm.I.Buy("bait:1", 2);
                 c.Earn(Firm.I.NewTx("test"), Firm.MyName, "A test windfall", 260, Sky.Minutes); c.Tick(Sky.Minutes);
                 Firm.I.AnswerMari(true); Firm.I.Track(true);
                 Sky.Jump(DayTime.At(2, 920)); yield return null; yield return null;
-                Catch(r, 4, DayTime.At(2, 800), Sky.Minutes, 0.3f);
+                Catch(r, 4, DayTime.At(2, 800), Sky.Minutes, _ => 0.3f);
                 s.Moored = false; s.transform.position += s.transform.forward * -14 + s.transform.right * 9; s.TakeOver(); s.AnchorNow(); s.Water = 0.32f; s.Leaking = true;
                 yield return new WaitForSeconds(0.5f);
                 var deckFish = new Fish { Species = FishDb.Get("mackerel"), Grade = 1, Cm = 33, Kg = 0.5f, CaughtAt = (float)Sky.Minutes - 30 };
