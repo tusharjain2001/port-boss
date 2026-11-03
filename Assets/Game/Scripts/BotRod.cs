@@ -40,6 +40,7 @@ namespace PortBoss.M1
             }
             else
             {
+                me.Select(1); // (my own rod away: held ready, it stood right behind the rider in the pictures)
                 yield return Until(() => Mate() != null && Mate().Fish.State == Fishing.St.Reveal, 120);
                 a = Mate(); if (a != null) yield return Beats("rider's", a);
             }
@@ -85,9 +86,24 @@ namespace PortBoss.M1
         {
             yield return new WaitForEndOfFrame();
             var ct = CameraRig.I.Cam.transform; var keep = (ct.position, ct.rotation);
-            var look = a.transform.position + Vector3.up * 1.15f;
-            var from = look + Quaternion.Euler(0, a.transform.eulerAngles.y + 35, 0) * new Vector3(0, 0.35f, 2.4f);
+            var look = a.transform.position + Vector3.up * 1.15f; var from = look;
+            foreach (float turn in new[] { -35f, 35f, -60f, 60f, -10f, -85f, 85f })   // the first with a clear view (a crate hid the hands; from his right, the mast stood behind him like a rod)
+            {
+                from = look + Quaternion.Euler(0, a.transform.eulerAngles.y + turn, 0) * new Vector3(0, 0.45f, 2.4f); bool clear = true;
+                foreach (var h in Physics.RaycastAll(from, look - from, Vector3.Distance(from, look) - 0.3f, ~0, QueryTriggerInteraction.Ignore))
+                    if (h.collider.GetComponentInParent<Angler>() == null) { clear = false; break; }
+                if (clear && !Physics.CheckSphere(from, 0.2f, ~0, QueryTriggerInteraction.Ignore)) break;
+            }
             ct.position = from; ct.rotation = Quaternion.LookRotation(look - from);
+            var fg = a.Fish.FishGo; var cam = CameraRig.I.Cam;
+            if (fg == null) Debug.Log($"[PB] rod: {what}: no fish object");
+            else
+            {
+                int rs = 0, on = 0; var b = new Bounds(fg.transform.position, Vector3.zero);
+                foreach (var r in fg.GetComponentsInChildren<Renderer>(true)) { rs++; if (r.enabled && r.gameObject.activeInHierarchy) { on++; b.Encapsulate(r.bounds); } }
+                var hl = a.Anim.HandL; var vp = cam.WorldToViewportPoint(fg.transform.position);
+                Debug.Log($"[PB] rod: {what}: fish {fg.name} active {fg.activeInHierarchy}, scale {fg.transform.lossyScale.x:F2}, renderers {on}/{rs}, bounds {b.size}, {(hl != null ? Vector3.Distance(hl.position, fg.transform.position) : -1):F2} m from the left hand, layer {LayerMask.LayerToName(fg.layer)}, culled by the camera {(cam.cullingMask & (1 << fg.layer)) == 0}, in view at {vp}");
+            }
             NameTags.I?.Place(); Canvas.ForceUpdateCanvases();
             Save(Path.Combine(shots, $"{(Coop.IsHost ? "host" : "rider")}-{shotN++:00}-{what}.png"));
             ct.SetPositionAndRotation(keep.position, keep.rotation);

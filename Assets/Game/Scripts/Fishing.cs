@@ -890,6 +890,7 @@ namespace PortBoss.M1
         public Vector3 RodTip => rod.Tip.position; // (tests)
         public bool RodOnBack => wasBack && swapT >= 1; public bool RodInHand => !wasBack; // (tests)
         public float HandToGrip => me.Anim.HandR != null ? Vector3.Distance(me.Anim.HandR.position, rod.Root.TransformPoint(RodView.GripR)) : -1;
+        public GameObject FishGo => fishGo; // (tests)
         public float FishToHandL => me.Anim.HandL != null && fishGo != null ? Vector3.Distance(me.Anim.HandL.position, HangHand()) : -1;
         bool wasBack = true; float swapT = 1; Vector3 swapP; Quaternion swapR = Quaternion.identity; Vector3 lastTip;
         float castClock = -1; St bodySt = St.Stowed;
