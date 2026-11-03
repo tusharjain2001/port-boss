@@ -83,12 +83,19 @@ def labelled_town():
     src = os.path.join(PROOF, 'town_overhead.png'); js = os.path.join(HERE, 'out', 'renders', 'town_labels.json')
     if not (os.path.exists(src) and os.path.exists(js)): return
     im = Image.open(src).convert('RGB'); d = ImageDraw.Draw(im); f = font('ZenMaruGothic-Bold.ttf', 30)
-    for k, L in enumerate(json.load(open(js))):
-        x, y = L['x'], L['y']; ty = y - 70 - 26 * (k % 3)
+    placed = []   # label boxes already drawn; a new box moves up until it overlaps none of them
+    labels = json.load(open(js))
+    for L in labels:
+        x, y = L['x'], L['y']; ty = y - 70; w = d.textlength(L['name'], font=f)
+        box = lambda t: (x - w / 2 - 12, t - 22, x + w / 2 + 12, t + 20)
+        hit = lambda b: any(b[0] < c[2] + 6 and c[0] < b[2] + 6 and b[1] < c[3] + 6 and c[1] < b[3] + 6 for c in placed)
+        while hit(box(ty)): ty -= 4
+        placed.append(box(ty))
         d.line((x, y, x, ty + 18), fill='#3F2C27', width=3); d.ellipse((x - 6, y - 6, x + 6, y + 6), fill='#F2994A', outline='#3F2C27', width=2)
-        w = d.textlength(L['name'], font=f)
-        d.rounded_rectangle((x - w / 2 - 12, ty - 22, x + w / 2 + 12, ty + 20), 12, fill='#FFFBF2', outline='#805C52', width=2)
-        d.text((x, ty), L['name'], fill='#3F2C27', font=f, anchor='mm')
+        L['ty'] = ty
+    for L, b in zip(labels, placed):   # boxes over every leader line
+        d.rounded_rectangle(b, 12, fill='#FFFBF2', outline='#805C52', width=2)
+        d.text((L['x'], L['ty']), L['name'], fill='#3F2C27', font=f, anchor='mm')
     im.save(os.path.join(PROOF, 'town_labelled.png')); print('wrote town_labelled.png')
 
 
