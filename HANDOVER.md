@@ -639,6 +639,24 @@ Proven headless:
   (3) and come back (4); the book still balances, Rider1's fish booked to the new connection. All four PASS plain and at
   150 ms + 2% loss, 0 exceptions (step 4 now ~11,000 requests). Solo regression PASS.
 
+**M2.1 (branch `m2-fixes`, 3 Nov): fixes after Manan and Tushar's co-op test and the code + look audits**
+(`Desktop/Port Boss/audit/2026-11-03-*.md`; Kufu picked what to fix). Proof: `Desktop/Port Boss/proof/M2.1/`.
+- Rod hold: `M1Anim` no longer keys the head down; `CharAnim.LookAt` aims the head after the clip (yaw ±50°, pitch ±25°,
+  the eyes cover up to 6°; the face axis from each body's rest pose). `Fishing` sets the target per beat (3° under the
+  horizon, the aim, the bobber, the fish held up; off in strike/fight/reel). `-pb-gazeshots <dir>` measures every body:
+  rod idle ~1.5°, waiting ~3-4° (was ~15°, dips to 25°).
+- **Headless runs go at ~1000 fps, and at that rate the standing-still deck hold never lands**: the jump tuck blends in
+  and bends every body over. Use **`-pb-fps 60`** for every still and film taken on the boat.
+- Co-op (code audit): the joiner's fish travel in `pb.hello` (kept, never wiped; no room = on the deck); an early
+  rejoin retires the stale roster entry; the host's anchor ask runs on a client driver's boat (`Coop.Owned`, from
+  pb-m3-day); crew failures are left alerts; voice bursts over 1000 bytes are dropped; "The crew is full" reaches
+  the client. cooptest covers each one (rider 3 joins holding a solo fish; rider 1 lingers while its copy rejoins).
+- Look (look audit): the rod keeps out of each body's measured head + hat on the wind-up; the power arc sits round the
+  distance label; joiners start on their own pier spot; the back rod is shown broken down; the minigame bar sits just
+  above the hotbar; quieter start + title; the sky ramp reaches #3A86E0 by ~9°; a seabed fill under the landing closes
+  the gap that drew the dark oval. Left for after the test: the catch card, the planks, the drive camera/wake, and
+  code-audit findings 8-12 (listed in LOG.md).
+
 **Known issues / not yet proven (from M1):**
 - **The worker model is a placeholder** (the old code-generated worker in a fisherman outfit). The real cast comes with the
   character kit (§7 step 2).
@@ -693,6 +711,7 @@ Differences now:
 | M1 headless setup + Win64 build | `bash tools/m1build.sh "$PWD/Builds/m1"` (add `-pbDev` for a dev build; log `Logs/pb/m1build.log`) |
 | Character kit: the crew (Blender CLI, headless) | `"/c/Program Files/Blender Foundation/Blender 5.2/blender.exe" -b -P art-src/kit/build_kit.py -- [pip bruno stretch rani gus sully \| all] [path/to/X Bot.fbx] [norender]` → `Assets/Game/Art/PB_Char_<Name>.fbx`, then the M1 build picks them up |
 | Crew in game (each body: close-up, game camera, walking) | `bash tools/m1test.sh Builds/m1/PortBoss.exe crew -pb-crewshots <dir>` (any test takes `-pb-body <name>`) |
+| Rod-hold gaze, every body (face angle per rod pose, profile + 3/4 close-ups; fails >12° off target) | `bash tools/m1test.sh Builds/m1/PortBoss.exe gaze -pb-gazeshots <dir> -pb-fps 60` (`-pb-fps 60` for any still or film on the boat: batch mode's ~1000 fps bends them over; `-pb-nogaze` = without the aim) |
 | Fishing bot, N casts (bite timer, grade mix) | `bash tools/m1test.sh Builds/m1/PortBoss.exe fish500 -pb-fishtest 500 -pb-timescale 8` (expect all bites in [4.0, 10.0] s; `-pb-sigma 70` = practised player; `-pb-rod n`, `-pb-bait id`, `-pb-fightheavy`) |
 | Boat test (drive, roll, anchor hold) | `bash tools/m1test.sh Builds/m1/PortBoss.exe boat -pb-boattest` |
 | Swim test (overboard, ladder back) | `bash tools/m1test.sh Builds/m1/PortBoss.exe swim -pb-swimtest` |
