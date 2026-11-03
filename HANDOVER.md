@@ -657,6 +657,21 @@ Proven headless:
   the gap that drew the dark oval. Left for after the test: the catch card, the planks, the drive camera/wake, and
   code-audit findings 8-12 (listed in LOG.md).
 
+**The final map, map B "Crescent Bay": Blender blockout (branch `panoptes/w-pb-map-b`, 3 Nov), waiting for Manan's verdict on shape and look:**
+- `art-src/world/`: `island_shape.py` (map-B's own control points from `make_maps.py`, a coastline distance field ->
+  heights + seabed, the route measure), `build_island.py` (`blender -b -P art-src/world/build_island.py`, ~40 s: terrain,
+  Old Saltmouth + the 7 shops at their pins, M1's real pier/shack + Biscuit at the town shore, lighthouse, wreck, the Cut +
+  causeway, Voss as blocks + breakwater + buoy line, P1-P3 buoys, rocks, trees, cumulus; 7 renders), `proof_sheet.py`
+  (map-B vs top-down sheets + the seabed check). Measures, the seabed format and 14 ambiguous points with picks:
+  `art-src/world/README.md`.
+- Seabed: `art-src/world/seabed/seabed_2048.png` (16-bit, h = v/65535*320-160 m, map-B's 5 x 5 km sheet).
+- Main island 1.87 x 2.31 km, 2.34 km^2; Voss 3.73 km round the south horn = 10.4 min at 6 m/s (gdd 12.4), 13.8 min at
+  M1's 4.5 m/s. Proof: `Desktop/Port Boss/proof/map-b/`. No Unity import yet.
+- Second pass (3 Nov): two variants as knobs (`ridge=220`, `horn=400`: Voss 12.4 min at 6 m/s / 8.3 in the Kestrel,
+  the gdd's numbers), sheets `ridge-140-vs-220.png` + `voss-distance-variant.png` for Manan's pick (defaults stay as
+  drawn); look pass (8 landmark shops named in `town_labelled.png`, Mari's boat, waterfront rows, lighthouse/wreck/reef
+  readable from the sea, shoreline variety); `art-src/world/IMPORT-PLAN.md` = how it goes into Unity (plan only).
+
 **Known issues / not yet proven (from M1):**
 - **The worker model is a placeholder** (the old code-generated worker in a fisherman outfit). The real cast comes with the
   character kit (§7 step 2).
