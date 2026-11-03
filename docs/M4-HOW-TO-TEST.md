@@ -125,4 +125,5 @@ Pull the M4 branch (or `main` once Kufu merges it) and run `bash tools/m1build.s
   - an old v1 save loads.
 - `-pb-banktest`: a host and a joiner over LAN. The joiner sells, buys and accepts Mari; the host's morning pays the rent
   and sends the joiner its copy.
-- Then the M1–M3 regressions (fishing, menus, co-op, sleep, the day, tossing, the boat, swimming), with 0 exceptions.
+- Then the M1–M3 regressions, `bash tools/m4reg.sh Builds/m1/PortBoss.exe` (fishing, menus, co-op, sleep, the day,
+  tossing, the boat, swimming), with 0 exceptions.
