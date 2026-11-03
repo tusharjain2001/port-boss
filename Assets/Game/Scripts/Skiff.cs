@@ -135,7 +135,8 @@ namespace PortBoss.M1
             pos = np; y = Mathf.Lerp(a.Y, b.Y, k); yaw = Mathf.LerpAngle(a.Yaw, b.Yaw, k);
             pitch = Mathf.LerpAngle(a.Pitch, b.Pitch, k); roll = Mathf.LerpAngle(a.Roll, b.Roll, k);
             Speed = Mathf.Lerp(a.Speed, b.Speed, k); Rudder = Mathf.Lerp(a.Rudder, b.Rudder, k); Notch = b.Notch;
-            bool wasAnch = Anchored; Moored = (b.Flags & 1) != 0; Anchored = (b.Flags & 2) != 0; AtHelm = (b.Flags & 4) != 0; AnchorT = b.AnchorT; Leaking = (b.Flags & 8) != 0; Water = b.Water;
+            bool wasAnch = Anchored; Moored = (b.Flags & 1) != 0; Anchored = (b.Flags & 2) != 0; AtHelm = (b.Flags & 4) != 0; AnchorT = b.AnchorT; Water = b.Water;
+            bool leak = (b.Flags & 8) != 0; if (leak != Leaking) { if (leak) SpringLeak(); else Patch(); } // (the toasts, here too)
             if (Anchored != wasAnch) Snd.Play(M1Assets.I.Splash, AnchorPt != null ? AnchorPt.position : transform.position, Anchored ? 0.7f : 0.3f);
             transform.SetPositionAndRotation(new Vector3(pos.x, y, pos.z), Quaternion.Euler(0, yaw, 0) * Quaternion.Euler(pitch, 0, roll));
         }
