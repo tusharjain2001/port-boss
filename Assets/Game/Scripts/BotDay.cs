@@ -71,7 +71,7 @@ namespace PortBoss.M1
             }
             Check(ui["2-day"] == Color.white && ui["5-night"].grayscale < 0.92f && ui["5-night"].b > ui["5-night"].r && ui["4-dusk"].b < ui["4-dusk"].r, $"the HUD follows the light (day {ui["2-day"]}, dusk {ui["4-dusk"]}, night {ui["5-night"]})");
             Check(bright["5-night"] > 30, $"night is never black (brightness {bright["5-night"]:F0} > 30)");
-            Check(bright["2-day"] > bright["5-night"] * 2, "day is far brighter than night");
+            Check(bright["2-day"] > bright["5-night"] * 1.6, $"day is far brighter than night ({bright["2-day"]:F0} vs {bright["5-night"]:F0}; the paper HUD, a quarter of the frame, stays light)");
             Check(bright["4-dusk"] < bright["3-golden"] && bright["5-night"] < bright["4-dusk"], "golden > dusk > night");
             Check(lamp["2-day"] < 0.01f && lamp["3-golden"] < 0.01f && lamp["5-night"] > 0.99f, "lamps off by day, on at night");
             // a whole day, 04:00 -> 04:00, a frame every 4 in-game minutes (Fair held, the sea side)

@@ -14,7 +14,7 @@ namespace PortBoss.M1
         public const float FillTime = 150, Scoop = 0.05f, ScoopEvery = 1.1f, PatchTime = 10;
         public float Water;                       // 0..1 inside the hull
         public bool Leaking;
-        public Vector3 HoleLocal = new(0.35f, 0.1f, -0.6f);
+        public Vector3 HoleLocal = new(0.35f, 0.1f, 0.5f);   // (midships: clear of the tiller's and the anchor's prompts)
         public float SpeedMul => Water >= 0.999f ? 0.3f : 1 - 0.3f * Water;
         public float List => 5f * Water;
 
@@ -111,7 +111,8 @@ namespace PortBoss.M1
             var p = Angler.I;
             if (p == null || !p.OnBoat || p.Swimming || p.Down) return;
             if (p.Braced) { Debug.Log("[PB] rogue: braced, safe"); OnRogue?.Invoke(false, false); return; }
-            bool rail = false; foreach (var r in Rails) if (r != null && Vector3.Distance(Flat(p.transform.position), Flat(r.position)) < 1.0f) rail = true;
+            var lp = transform.InverseTransformPoint(p.transform.position);  // near a rail = near the gunwale (the rail objects' origins sit mid-boat)
+            bool rail = Mathf.Abs(lp.x) > Hull.extents.x - 0.5f || Mathf.Abs(lp.z) > Hull.extents.z - 0.6f;
             bool over = rail && (TestOver || Weather.U(Sky.Seed, (int)at, 900 + (int)Coop.Me) < 0.25);
             var side = -transform.right;                               // the wave hits from starboard: you go to port
             p.Knock(over ? side * 4.5f + Vector3.up * 3.5f : side * 1.6f + Vector3.up * 1f);

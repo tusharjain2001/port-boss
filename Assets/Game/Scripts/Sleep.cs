@@ -27,7 +27,7 @@ namespace PortBoss.M1
         public const float HeadsUp = 5, FightWait = 10, BedHold = 1, NearBed = 30;
 
         // the local player's own night
-        float holdT; bool lying, passedOut; int tiredDay = -1, heavyDay = -1, passDay = -1;
+        float holdT; bool lying, passedOut, slumped; int tiredDay = -1, heavyDay = -1, passDay = -1;
         public string LastWake;                     // how I woke last time (tests)
         public bool Skipping;                       // a skip is under way (heads-up, waiting, the card)
         // the host's: who asked, when
@@ -133,7 +133,14 @@ namespace PortBoss.M1
         IEnumerator Faint(Angler me)
         {
             yield return null; yield return null;          // (a line out reels in first: no knock-down with a line out)
-            if (!me.Swimming) me.Knock(me.transform.forward * 0.6f + Vector3.up * 0.2f);
+            if (me.OnBoat || me.AtHelm)
+            {
+                // on a boat: no ragdoll (the knock carries the boat's speed and threw the driver overboard); throttle off,
+                // slump onto the deck where you are
+                var s = Skiff.I; if (me.AtHelm) me.LeaveHelm(); if (s != null && !s.Remote) s.Notch = 0;
+                slumped = true; me.LieH = 0.25f; StartCoroutine(Ease(me, 0, 1, 0.8f));
+            }
+            else if (!me.Swimming) me.Knock(me.transform.forward * 0.6f + Vector3.up * 0.2f);
         }
 
         // ---- asking for the skip: solo runs it here; co-op asks the host
@@ -220,6 +227,7 @@ namespace PortBoss.M1
             card.gameObject.SetActive(true);
             yield return new WaitForSeconds(Application.isBatchMode ? 0.6f : 2.6f);
             card.gameObject.SetActive(false);
+            if (slumped) { me.Lie = 0; slumped = false; }
             if (lying) { me.Lie = 0; lying = false; me.Teleport(BedSide, Quaternion.LookRotation(Cot.position - BedSide).eulerAngles.y + 180); }
             Frozen = false;
             yield return Fade(1, 0, 1f);

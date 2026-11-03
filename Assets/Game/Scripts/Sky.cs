@@ -318,7 +318,7 @@ namespace PortBoss.M1
             if (l != null && l.Spawn != null && l.LadderTop != null)
             {
                 var top = FromBlender(l.transform, l.Spawn, new Vector3(0.15f, -19.6f, 1.3f), l.LadderTop, new Vector3(1.2f, -20.6f, 1.3f), new Vector3(-0.4f, -21.65f, 1.3f + 2.35f));
-                Lamp(l.transform, top, 9f, 0.5f);
+                Lamp(l.transform, top, 9f, 2.2f);          // (the halo must be wider than the lantern housing, or the housing hides it)
                 // the shack's window: glass at Blender (-6.92, 12.28, F + 1.3), F from the ground in front of its step
                 var shack = Util.Find(l.transform, "Shack");
                 if (shack != null)
@@ -343,7 +343,7 @@ namespace PortBoss.M1
             if (s != null && s.Helm != null && s.AnchorPt != null)
             {
                 var at = FromBlender(s.transform, s.Helm, new Vector3(-0.32f, 1.80f, 0.12f), s.AnchorPt, new Vector3(0f, -2.0f, 0.69f), new Vector3(-0.51f, 2.28f, 0.90f));
-                Lamp(s.transform, at, 6f, 0.3f);
+                Lamp(s.transform, at, 6f, 1.2f);
             }
         }
 
