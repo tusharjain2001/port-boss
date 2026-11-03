@@ -78,7 +78,9 @@ namespace PortBoss.M1
             Assert.AreEqual("+$116 · 13 fish · Pratt", Alerts.Merge("+$87 · 9 fish · Pratt", "+$29 · 4 fish · Pratt"));
             Assert.AreEqual("−$36 · Shrimp ×30", Alerts.Merge("−$12 · Shrimp ×10", "−$24 · Shrimp ×20"));
             Assert.AreEqual("−$17 · Shrimp ×10, Worms ×10", Alerts.Merge("−$12 · Shrimp ×10", "−$5 · Worms ×10"));
-            Assert.AreEqual("+$182 · 9 fish · Pratt, 10 fish · Mari", Alerts.Merge("+$29 · 9 fish · Pratt", "+$153 · 10 fish · Mari"));
+            Assert.AreEqual("+$182 · 3 sales", Alerts.Merge("+$29 · 9 fish · Pratt", "+$153 · 10 fish · Mari", 3));   // two lines: summed up
+            Assert.AreEqual("+$192 · 4 sales", Alerts.Merge("+$182 · 3 sales", "+$10 · 1 fish · Pratt", 4));
+            Assert.AreEqual("−$17 · Shrimp ×10, Worms ×10", Alerts.Merge("−$12 · Shrimp ×10", "−$5 · Worms ×10", 2));
         }
 
         // batch: -executeMethod PortBoss.M1.M4Tests.RunAll (without the Test Runner)

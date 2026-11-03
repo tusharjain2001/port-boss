@@ -11,7 +11,7 @@ namespace PortBoss.M1
         public enum Kind { Message, Money, Info, Weather, Warning, Crew, Story }
         // Topic: what a toast is about; Ends: the topics it resolves ('|'-separated). A toast that ends a topic dismisses the
         // older toasts on it ("Hole patched" ends "She's sprung a leak!"), so two toasts never contradict each other.
-        public struct A { public string Sender, Text, Topic, Ends, Hint; public Kind K; public float Born; }
+        public struct A { public string Sender, Text, Topic, Ends, Hint; public Kind K; public float Born; public int N; }   // N: how many merged into it
         public static readonly List<A> Queue = new();
         public static System.Action<A> OnPush;
         // hint (M4): one action on the toast, after a "Tab" key cap ("Open phone")
@@ -28,8 +28,9 @@ namespace PortBoss.M1
             Kind.Crew => Ponyo.Leaf, Kind.Story => Ponyo.Night, _ => Ponyo.Paper3,
         };
         // two money toasts in a row become one: "+$87 · 9 fish · Pratt" + "+$29 · 4 fish · Pratt" = "+$116 · 13 fish · Pratt";
-        // "−$12 · Shrimp ×10" + "−$5 · Worms ×10" = "−$17 · Shrimp ×10, Worms ×10" (the Ledger keeps every line)
-        public static string Merge(string a, string b)
+        // "−$12 · Shrimp ×10" + "−$5 · Worms ×10" = "−$17 · Shrimp ×10, Worms ×10"; longer than one line: "−$168 · 5 buys"
+        // (n = how many it now holds; the Ledger keeps every line)
+        public static string Merge(string a, string b, int n = 2)
         {
             static (int amt, string rest) Split(string t)
             {
@@ -40,10 +41,12 @@ namespace PortBoss.M1
             if (xr == null || yr == null) return b;
             var num = new System.Text.RegularExpressions.Regex(@"\d+");
             var mx = num.Match(xr); var my = num.Match(yr);
-            string rest = mx.Success && my.Success && num.Replace(xr, "#", 1) == num.Replace(yr, "#", 1)
-                ? num.Replace(xr, (int.Parse(mx.Value) + int.Parse(my.Value)).ToString(), 1)
-                : xr.EndsWith(yr) || xr.Contains(", " + yr) ? xr : xr + ", " + yr;
-            int n = x + y; return $"{(n >= 0 ? "+" : "−")}${Mathf.Abs(n)} · {rest}";
+            int sum = x + y; string many = $"{n} {(sum >= 0 ? "sales" : "buys")}";
+            string rest = System.Text.RegularExpressions.Regex.IsMatch(xr, @"^\d+ (sales|buys)$") ? many
+                : mx.Success && my.Success && num.Replace(xr, "#", 1) == num.Replace(yr, "#", 1) ? num.Replace(xr, (int.Parse(mx.Value) + int.Parse(my.Value)).ToString(), 1)
+                : xr + ", " + yr;
+            if (rest.Length > 24) rest = many;   // (about one line of the toast)
+            return $"{(sum >= 0 ? "+" : "−")}${Mathf.Abs(sum)} · {rest}";
         }
         public static string Glyph(Kind k) => k switch { Kind.Message => "…", Kind.Money => "$", Kind.Warning => "!", Kind.Crew => "★", Kind.Story => "W", Kind.Weather => "~", _ => "i" };
     }
@@ -325,7 +328,7 @@ namespace PortBoss.M1
             int join = a.Sender is "Sold" or "Bought" ? cards.FindIndex(c => c.a.Sender == a.Sender && Time.unscaledTime - c.a.Born < Life(c.a)) : -1;
             if (join >= 0)
             {
-                var c0 = cards[join]; c0.a.Text = Alerts.Merge(c0.a.Text, a.Text); c0.a.Born = Time.unscaledTime - 0.22f;
+                var c0 = cards[join]; c0.a.N = Mathf.Max(1, c0.a.N) + 1; c0.a.Text = Alerts.Merge(c0.a.Text, a.Text, c0.a.N); c0.a.Born = Time.unscaledTime - 0.22f;
                 var body = c0.r.Find("body")?.GetComponent<Text>(); if (body != null) body.text = c0.a.Text;
                 c0.h = 62 + Mathf.Max(1, Mathf.CeilToInt(c0.a.Text.Length / 36f)) * 28; c0.r.sizeDelta = new Vector2(c0.r.sizeDelta.x, c0.h);
                 cards[join] = c0; return;
