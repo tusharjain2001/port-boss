@@ -758,14 +758,16 @@ namespace PortBoss.M1
             if (onBack != wasBack || snap)
             {
                 // from the hand to the back or back again: the rod travels there (0.3 s), no jump
-                swapT = snap ? 1 : 0; swapP = rod.Root.localPosition; swapR = rod.Root.localRotation; wasBack = onBack;
+                swapT = snap ? 1 : 0; swapP = rod.Root.localPosition; swapR = rod.Root.localRotation; swapLen = rodLen; wasBack = onBack;
             }
             swapT = Mathf.Min(1, swapT + dt / 0.3f);
             float sw = Mathf.SmoothStep(0, 1, swapT);
+            rodLen = Mathf.Lerp(swapLen, onBack ? BackLen : 1f, sw); rod.Root.localScale = new Vector3(1, 1, rodLen);
             if (onBack)
             {
-                // on the back strap (systems H7: long items show on your back when not in hand): diagonally across the
-                // back at 45 degrees (Kufu: not an antenna), butt low by the right hip, tip out past the left shoulder.
+                // on the back strap (systems H7: long items show on your back when not in hand): broken down into its two
+                // halves, diagonally across the back, butt low by the right hip, tip just past the left shoulder and never
+                // more than 0.2 m over the head or hat (look audit 3 Nov: four players were four antennae).
                 // It rides the chest bone, so it sits down with him at the tiller and leans when he leans.
                 var (bp, br) = BackStrap();
                 rod.Root.localRotation = Quaternion.Slerp(swapR, br, sw);
@@ -788,6 +790,7 @@ namespace PortBoss.M1
             float nod = (boatPitch * 0.8f + Mathf.Sin(Time.time * 1.7f) * 1.2f + Mathf.Sin(Time.time * 0.45f) * 2.2f) * calm;
             var handR = Quaternion.Euler(0, yawOff, 0) * Quaternion.Euler(-elev - nod, 0, -boatRoll * 0.6f + Mathf.Sin(Time.time * 0.9f) * 1.5f);
             rod.Root.localPosition = Vector3.Lerp(swapP, butt, sw); rod.Root.localRotation = Quaternion.Slerp(swapR, handR, sw);
+            KeepOffHead();
             // the rod loads against its own swing (the whip bends it back), and against the line when the line pulls
             var tipV = dt > 0 ? (rod.Tip.position - lastTip) / dt : Vector3.zero; lastTip = rod.Tip.position;
             float whip = State is St.Charging or St.Flight or St.Strike ? Mathf.Clamp01(Mathf.Abs(elevV) / 900f) * 0.6f : 0;
@@ -805,11 +808,17 @@ namespace PortBoss.M1
             var m = me.Model;
             // the chest's height and lean, in the model's frame (its offset from where it stands in the bind pose)
             var chest = chestBone != null ? m.InverseTransformPoint(chestBone.position) : new Vector3(0, 1.25f, 0);
-            var dir = new Vector3(-0.68f, 0.70f, -0.2f).normalized; // 45 degrees, leaning a little back off the body
             var butt = chest + new Vector3(0.24f, -0.5f, -0.2f);
+            // as steep as it can be (25-50 degrees) with the tip at most 0.2 m over the top of the head/hat, where it is now
+            float top = me.Head != null && me.HeadR > 0 ? m.InverseTransformPoint(me.Head.position).y + (me.HeadHi - me.HeadC.y) : chest.y + 0.6f;
+            float sinA = Mathf.Clamp((top + 0.2f - butt.y) / (RodView.Length * BackLen), Mathf.Sin(25 * Mathf.Deg2Rad), Mathf.Sin(50 * Mathf.Deg2Rad));
+            var flat = new Vector2(-0.96f, -0.28f) * Mathf.Sqrt(1 - sinA * sinA); // out past the left shoulder, a little back off the body
+            var dir = new Vector3(flat.x, sinA, flat.y);
             return (butt, Quaternion.LookRotation(dir, Vector3.back));
         }
         static readonly Vector3 OverShoulder = new(0.27f, 1.5f, 0.0f), Forward = new(0.16f, 1.24f, 0.46f);
+        const float BackLen = 0.55f; float rodLen = 1, swapLen = 1; // on the back the rod is its two halves (shown 55% long)
+        public Vector3 RodTip => rod.Tip.position; // (tests)
         bool wasBack = true; float swapT = 1; Vector3 swapP; Quaternion swapR = Quaternion.identity; Vector3 lastTip;
         float castClock = -1; St bodySt = St.Stowed;
 
@@ -830,6 +839,34 @@ namespace PortBoss.M1
                 line.Live = true; line.Arc = false; line.Slack = 0; line.B = hangP + (tip - hangP).normalized * 0.1f;
             }
             else if (State == St.Stowed && bob.gameObject.activeSelf && !bob.Floating) { bob.gameObject.SetActive(false); line.Live = false; }
+        }
+
+        // Look audit 3 Nov: on the wind-up the rod lay through the hat brim with the mitt inside it. The grip end of the rod
+        // (where it passes the head) keeps out of the head + hat cylinder (Angler.HeadR, measured from each body): the rod
+        // moves out sideways or up, whichever is less, and the hands, which hold it, come with it. Fatter where the mitts are.
+        public static int HeadPushes; // (tests) frames the rod had to be moved off the head
+        void KeepOffHead()
+        {
+            if (me.HeadR <= 0 || rod.Root.parent != me.Model) return;
+            for (int it = 0; it < 3; it++)
+            {
+                Vector3 push = Vector3.zero; float worst = 0;
+                for (int k = 0; k <= 14; k++)
+                {
+                    float t = k / 14f * 1.4f; // butt to 1.4 m up the rod: past that it's well clear of any head
+                    var p = rod.Root.localPosition + rod.Root.localRotation * new Vector3(0, 0, t);
+                    float margin = Mathf.Abs(t - RodView.GripR.z) < 0.12f || Mathf.Abs(t - RodView.GripL.z) < 0.12f ? 0.09f : 0.03f;
+                    if (p.y < me.HeadLo - margin || p.y > me.HeadHi + margin) continue;
+                    var d = new Vector2(p.x - me.HeadC.x, p.z - me.HeadC.z); float dist = d.magnitude;
+                    float side = me.HeadR + margin - dist, up = me.HeadHi + margin - p.y;
+                    if (side <= 0) continue;
+                    var dir = side <= up ? (dist > 0.01f ? new Vector3(d.x, 0, d.y) / dist : Vector3.right) : Vector3.up;
+                    float need = Mathf.Min(side, up);
+                    if (need > worst) { worst = need; push = dir; }
+                }
+                if (worst <= 0.001f) break;
+                rod.Root.localPosition += push * worst; butt += push * worst; HeadPushes++;
+            }
         }
 
         void GripRod()

@@ -91,6 +91,7 @@ namespace PortBoss.M1
             yield return Wait(() => Coop.I != null && Coop.I.Roster.Count >= 2, 30);
             yield return new WaitForSecondsRealtime(1.5f);
             Check($"the crew list shows both: {NameTags.I?.CrewNames}", NameTags.I != null && NameTags.I.CrewRows == 2);
+            if (what == "host") { float apart = 99; foreach (var m in Coop.I.Mates.Values) if (m != null) apart = Mathf.Min(apart, Vector3.Distance(m.transform.position, me.transform.position)); Check($"the joiner stands apart from me, not inside me: {apart:F2} m", apart >= 0.9f && apart < 5f); }
             if (shots != null) yield return Shot("crew-list-" + what);
             if (what == "join") { yield return new WaitForSecondsRealtime(2f); Debug.Log($"[PB] RESULT menu join: {(ok ? "PASS" : "FAIL")}"); Application.Quit(); yield break; }
             yield return Wait(() => Coop.I != null && Coop.I.Roster.Count < 2, 30);
@@ -793,7 +794,13 @@ namespace PortBoss.M1
             Debug.Log($"[PB] sailed out {Vector3.Distance(Flat(start), Flat(s.transform.position)):F0} m from the berth, anchored at {s.transform.position}");
             Board(); yield return new WaitForSeconds(0.8f);
             if (shotsOn) yield return Shot("0-anchored-open-sea");
-            if (Arg("-pb-dumpnear") != null) // debug: everything drawn near the water round the boat
+            DumpNear();
+        }
+
+        // -pb-dumpnear x,y (viewport): log every renderer covering that screen point, at the anchored shot and the cast charge
+        void DumpNear()
+        {
+            if (Arg("-pb-dumpnear") == null) return;
                 foreach (var r in Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None))
                 {
                     var b = r.bounds; if (!r.enabled || !r.gameObject.activeInHierarchy) continue;
@@ -806,6 +813,22 @@ namespace PortBoss.M1
                 }
         }
 
+        // the wind-up held, close: from her right side and from behind, framing the head, hat, mitts and rod (look audit:
+        // the rod and the mitt went through the hat brim)
+        IEnumerator ChargeClose()
+        {
+            yield return new WaitForEndOfFrame();
+            var ct = CameraRig.I.Cam.transform; var a = me.transform; var k = (ct.position, ct.rotation);
+            float h = me.Size * 1.78f; var hd = me.Head != null ? me.Head.position : a.position + Vector3.up * 0.8f * h;
+            foreach (var (tag, off) in new[] { ("side", a.right * 1.1f + a.forward * 0.25f), ("back", -a.forward * 1.0f + a.right * 0.35f + Vector3.up * 0.35f) })
+            {
+                ct.position = hd + off * h; ct.rotation = Quaternion.LookRotation(hd + Vector3.up * 0.05f * h - ct.position);
+                Save(Path.Combine(shots, $"charge-{tag}.png"));
+            }
+            ct.SetPositionAndRotation(k.position, k.rotation);
+            Debug.Log($"[PB] charge: the rod moved off the head on {Fishing.HeadPushes} frames so far");
+        }
+
         IEnumerator CastOnce(float power)
         {
             Ctl.Bot = true;
@@ -813,7 +836,7 @@ namespace PortBoss.M1
             Ctl.BotUse = true; Ctl.BotUsePressed = true; yield return null; Ctl.BotUsePressed = false;
             // hold for the wanted power on the 1.1 s ping-pong (first rise)
             while (fish.State == Fishing.St.Charging && fish.Power < power - 0.01f && fish.StateT < Fishing.ChargePeriod) yield return null;
-            if (shots != null) yield return Shot("1-charge");
+            if (shots != null) { yield return Shot("1-charge"); yield return ChargeClose(); } DumpNear();
             Ctl.BotUse = false; yield return null;
         }
 
@@ -1520,17 +1543,26 @@ namespace PortBoss.M1
 
         // -pb-crewshots <dir>: every crew body on the pier, in the game's light and toon shader: a 3/4 front close-up, the
         // game camera, and the game camera walking (the kit's proof in the real game, not Blender's preview).
+        int backFails;
         IEnumerator CrewShots()
         {
             yield return new WaitForSeconds(0.5f);
             Ctl.Bot = true; me.Select(1);
             var names = M1Assets.I.CrewNames ?? new string[0];
+            if (Arg("-pb-dumpwater") != null) // debug: what lies across the sea surface round the pier end (the look audit's dark oval)
+                foreach (var r in Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None))
+                {
+                    var bb = r.bounds; var m = Landing.I.Moor.position; float sea = Sea.Height(m);
+                    if (!r.enabled || !r.gameObject.activeInHierarchy || bb.size.x > 60 || Vector2.Distance(new Vector2(bb.center.x, bb.center.z), new Vector2(m.x, m.z)) > 12 || bb.min.y > sea + 0.3f || bb.max.y < sea - 0.3f) continue;
+                    Debug.Log($"[PB] water: {r.name} ({r.GetType().Name}) parent {(r.transform.parent ? r.transform.parent.name : "-")} mat {(r.sharedMaterial ? r.sharedMaterial.name + "/" + r.sharedMaterial.shader.name : "none")} at {bb.center} size {bb.size}");
+                }
             for (int i = 0; i < names.Length; i++)
             {
                 me.Teleport(Landing.I.Spawn.position + Vector3.up * 0.05f, Landing.I.Spawn.eulerAngles.y + 180);
                 me.Wear(i, me.Colour); CameraRig.I.Yaw = me.transform.eulerAngles.y; CameraRig.I.Pitch = 30;
                 yield return new WaitForSeconds(1.2f);
                 Debug.Log($"[PB] crew {names[i]}: size {me.Size:F3}");
+                { var top = me.Model.TransformPoint(new Vector3(me.HeadC.x, me.HeadHi, me.HeadC.z)).y; float over = fish.RodTip.y - top; Debug.Log($"[PB] crew {names[i]}: the rod on the back: tip {over:F2} m over the head/hat {(over <= 0.25f ? "ok" : "FAIL")}"); backFails += over <= 0.25f ? 0 : 1; }
                 yield return new WaitForEndOfFrame();
                 var ct = CameraRig.I.Cam.transform; var a = me.transform; var keep = (ct.position, ct.rotation);
                 float h = me.Size * 1.78f;
@@ -1543,7 +1575,7 @@ namespace PortBoss.M1
                 yield return Shot($"crew-{i}-{names[i]}-walk");
                 Ctl.BotMove = Vector2.zero; yield return new WaitForSeconds(0.5f);
             }
-            Debug.Log($"[PB] RESULT crewshots {names.Length} bodies");
+            Debug.Log($"[PB] RESULT crewshots {names.Length} bodies; back rod tip under 0.25 m over the head: {(backFails == 0 ? "PASS" : backFails + " FAIL")}");
             Application.Quit();
         }
 

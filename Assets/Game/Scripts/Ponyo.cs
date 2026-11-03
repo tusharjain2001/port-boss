@@ -45,11 +45,11 @@ namespace PortBoss.M1
             SkyMat = new Material(a.Sky);
             // towering cumulus round the horizon, sunlit cream tops, blue-violet shade (#98A6EA); thin cloud overhead
             SkyMat.SetColor("_CloudColor", Hex("FFF8EC")); SkyMat.SetColor("_CloudShade", Hex("98A6EA"));
-            SkyMat.SetFloat("_CloudCover", 0.28f); SkyMat.SetFloat("_CloudSharp", 0.1f); SkyMat.SetFloat("_CloudScale", 0.9f);
+            SkyMat.SetFloat("_CloudCover", 0.15f); SkyMat.SetFloat("_CloudSharp", 0.1f); SkyMat.SetFloat("_CloudScale", 0.9f);
             SkyMat.SetFloat("_CloudBank", 1f); SkyMat.SetFloat("_CloudBankHeight", 1f);
             RenderSettings.skybox = SkyMat;
 
-            Shader.SetGlobalColor("_LDSkyTop", Hex("3A86E0")); Shader.SetGlobalColor("_LDSkyHorizon", Hex("D6E8F2")); Shader.SetGlobalColor("_LDSkyBottom", Hex("CFE6F5"));
+            Shader.SetGlobalColor("_LDSkyTop", Hex("3A86E0")); Shader.SetGlobalColor("_LDSkyHorizon", Hex("CFE6F5")); Shader.SetGlobalColor("_LDSkyBottom", Hex("CFE6F5"));
             var mid = Hex("7DB4EC"); mid.a = 1; Shader.SetGlobalColor("_LDSkyMid", mid);
             var sunSky = Hex("FFF3DC"); sunSky.a = 0.0025f; Shader.SetGlobalColor("_LDSunSky", sunSky);
             var sd = -sg.transform.forward; Shader.SetGlobalVector("_LDSunDir", new Vector4(sd.x, sd.y, sd.z, 10));
@@ -75,9 +75,10 @@ namespace PortBoss.M1
             // luminous turquoise shallows (#46D6C8) to deep cobalt (#2160B8) by the water's real depth; the sky's
             // reflection without the sun disc; a soft sheen + small crisp sparkles; crisp white contact foam only
             // where hull, pilings and shore meet the water; crest foam only on waves steeper than a calm sea's
-            w.SetColor("_Shallow", Hex("46D6C8")); w.SetColor("_Deep", Hex("2160B8")); w.SetFloat("_DepthDist", 3.2f); w.SetFloat("_MinOpacity", 0.3f);
+            w.SetColor("_Shallow", Hex("46D6C8")); w.SetColor("_Deep", Hex("2160B8")); w.SetFloat("_DepthDist", 6f); w.SetFloat("_MinOpacity", 0.3f); // DepthDist 6 (was 3.2): a soft shallow-to-deep ramp, the seabed under the pier end showed as a hard dark oval (look audit 3 Nov)
             w.SetFloat("_Bands", 0); w.SetFloat("_Refraction", 0.03f); w.SetFloat("_Reflect", 0.34f); w.SetColor("_ReflTint", Hex("F4F8FF"));
-            w.SetFloat("_FresnelPow", 4); w.SetFloat("_SunSpec", 1.1f); w.SetFloat("_SunPow", 140); w.SetFloat("_SpecToon", 0f); w.SetFloat("_Sheen", 0.1f); // glitter lobe width, sheen
+            var dbg = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-pb-seadbg"); var dbgWhat = dbg >= 0 && dbg + 1 < System.Environment.GetCommandLineArgs().Length ? System.Environment.GetCommandLineArgs()[dbg + 1] : ""; // debug: -pb-seadbg glint|crest turns one off
+            w.SetFloat("_FresnelPow", 4); w.SetFloat("_SunSpec", dbgWhat == "glint" ? 0 : 1.1f); w.SetFloat("_SunPow", 140); w.SetFloat("_SpecToon", 0f); w.SetFloat("_Sheen", 0.1f); // glitter lobe width, sheen
             w.SetColor("_Foam", Color.white); w.SetFloat("_FoamDist", 0.5f); w.SetFloat("_FoamScale", 1.4f); w.SetFloat("_FoamSharp", 0.04f);
             w.SetFloat("_CrestFoam", 1f); w.SetFloat("_CrestSteep", 0.2f); // whitecaps only in rough weather (a Clear sea peaks ~0.1)
             var args = System.Environment.GetCommandLineArgs(); // debug: -pb-nocrest / -pb-nocontact (find what draws a foam patch)

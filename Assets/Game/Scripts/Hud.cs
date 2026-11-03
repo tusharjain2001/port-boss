@@ -37,14 +37,14 @@ namespace PortBoss.M1
         // hotbar
         readonly RectTransform[] slot = new RectTransform[8]; readonly RawImage[] slotIcon = new RawImage[8]; readonly Text[] slotCount = new Text[8];
         readonly Image[] slotGrade = new Image[8]; readonly Image[] slotFresh = new Image[8]; readonly float[] slotPulse = new float[8];
-        RectTransform namePill; Text nameT, nameSub; float nameShow;
+        RectTransform namePill, hotbarStrip; Text nameT, nameSub; float nameShow;
         RectTransform prompts; float promptsKey; string lastPrompt;
         Text baitTag; RectTransform baitChip;
         // alerts
         readonly List<(RectTransform r, Alerts.A a, float h, Image life)> cards = new();
         readonly List<Alerts.A> held = new();
         // cast
-        Image arc; Text distLabel;
+        Image arc, arcTrack; Text distLabel;
         // minigame
         RectTransform mg;
         RectTransform bar, zone, pointer;
@@ -82,7 +82,7 @@ namespace PortBoss.M1
         {
             // hotbar (bottom centre): 8 slots on a paper strip
             float sw = 84, gap = 10, total = 8 * sw + 7 * gap + 28;
-            var strip = UiKit.Card(root, "hotbar", 22, new Color(1, 0.984f, 0.949f, 0.92f));
+            var strip = hotbarStrip = UiKit.Card(root, "hotbar", 22, new Color(1, 0.984f, 0.949f, 0.92f));
             strip.Place(new Vector2(0.5f, 0), new Vector2(0, 26), new Vector2(total, sw + 24));
             for (int i = 0; i < 8; i++)
             {
@@ -110,9 +110,12 @@ namespace PortBoss.M1
             prompts = UiKit.Rect("prompts", root).Place(new Vector2(0.5f, 0), new Vector2(0, 26 + sw + 24 + 76), new Vector2(1200, 40), new Vector2(0.5f, 0));
             var hl = prompts.gameObject.AddComponent<HorizontalLayoutGroup>(); hl.spacing = 10; hl.childAlignment = TextAnchor.MiddleCenter; hl.childControlWidth = hl.childControlHeight = false; hl.childForceExpandWidth = false;
 
-            // cast arc (beside the crosshair) + distance label
+            // the cast's power: an arc filling round the distance label over the landing ring, on a faint track (look audit
+            // 3 Nov: alone at the screen centre, part-filled, it read as a loose white sliver floating over her hat)
+            arcTrack = UiKit.Img(root, UiKit.RingThin, new Color(1, 1, 1, 0.5f), "castArcTrack"); arcTrack.type = Image.Type.Filled; arcTrack.fillMethod = Image.FillMethod.Radial360; arcTrack.fillOrigin = (int)Image.Origin360.Bottom; arcTrack.fillClockwise = false; arcTrack.fillAmount = 60f / 360f;
+            arcTrack.rectTransform.Place(new Vector2(0, 0), Vector2.zero, new Vector2(110, 110)); arcTrack.rectTransform.localRotation = Quaternion.Euler(0, 0, -60); arcTrack.enabled = false;
             arc = UiKit.Img(root, UiKit.RingThin, Color.white, "castArc"); arc.type = Image.Type.Filled; arc.fillMethod = Image.FillMethod.Radial360; arc.fillOrigin = (int)Image.Origin360.Bottom; arc.fillClockwise = false;
-            arc.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0, 0), new Vector2(130, 130)); arc.rectTransform.localRotation = Quaternion.Euler(0, 0, -60); arc.enabled = false;
+            arc.rectTransform.Place(new Vector2(0, 0), Vector2.zero, new Vector2(110, 110)); arc.rectTransform.localRotation = Quaternion.Euler(0, 0, -60); arc.enabled = false;
             distLabel = UiKit.Txt(root, "", UiKit.Bold, 20, Color.white, TextAnchor.MiddleCenter); distLabel.rectTransform.Place(new Vector2(0, 0), Vector2.zero, new Vector2(160, 30));
             UiKit.Shade(distLabel, new Color(0.25f, 0.17f, 0.15f, 0.8f), new Vector2(1.5f, -1.5f));
 
@@ -130,7 +133,9 @@ namespace PortBoss.M1
         // The minigame is the bar and nothing else (Manan 1 Nov: no card, no title, no stop dots, grade chips or keys).
         void BuildMinigame()
         {
-            mg = UiKit.Rect("minigame", root).Place(new Vector2(0.5f, 0), new Vector2(0, 168), new Vector2(900, 262), new Vector2(0.5f, 0));
+            // the bar just above the hotbar (its centre 172 px up at 1080p), clear of the angler the camera frames above it (look
+            // audit 3 Nov: at 294 px it cut her in half while the rod bent)
+            mg = UiKit.Rect("minigame", root).Place(new Vector2(0.5f, 0), new Vector2(0, 46), new Vector2(900, 262), new Vector2(0.5f, 0));
             mg.gameObject.AddComponent<CanvasGroup>();
             bar = UiKit.Card(mg, "bar", 24, Ponyo.Hex("CFF2F0"), true); bar.Place(new Vector2(0.5f, 1), new Vector2(0, -136), new Vector2(830, 46), new Vector2(0.5f, 0.5f));
             var wave = UiKit.Img(bar, null, new Color(0.27f, 0.84f, 0.78f, 0.25f), "tide"); wave.rectTransform.Stretch(6); wave.rectTransform.offsetMax = new Vector2(-6, -24);
@@ -290,6 +295,8 @@ namespace PortBoss.M1
             float dt = Time.unscaledDeltaTime;
             Fx.Tick();
             if (Ctl.Key_(UnityEngine.InputSystem.Key.F3)) ShowDebug = !ShowDebug;
+            bool title = Title.Shown; // the title card stands alone: no hotbar or hints under it (look audit 3 Nov)
+            if (hotbarStrip.gameObject.activeSelf == title) { hotbarStrip.gameObject.SetActive(!title); prompts.gameObject.SetActive(!title); }
             Hotbar(dt); Prompts(); Cast(); Minigame(dt); Heavy(); Reveal(dt); Fly(dt); AlertsTick(dt); Debug_();
             fade.color = new Color(fade.color.r, fade.color.g, fade.color.b, FadeA);
         }
@@ -299,7 +306,7 @@ namespace PortBoss.M1
             var b = me.Bar;
             for (int i = 0; i < 8; i++)
             {
-                var s = b.S[i]; bool sel = i == b.Selected;
+                var s = b.S[i]; bool sel = i == b.Selected && !s.Empty; // an empty slot in hand isn't lit (look audit 3 Nov)
                 slotPulse[i] = Mathf.MoveTowards(slotPulse[i], 0, dt * 3);
                 float lift = sel ? 8 : 0;
                 var p = slot[i].anchoredPosition; p.y = Mathf.Lerp(p.y, lift, 1 - Mathf.Exp(-dt / 0.04f)); slot[i].anchoredPosition = p;
@@ -348,7 +355,7 @@ namespace PortBoss.M1
                         else if (!me.Bar.Sel.Rod && !me.Swimming)
                         {
                             if (me.Bar.Sel.Fish.Count > 0 && me.ThrowT < 0) { list.Add(("Q", "Drop")); list.Add(("Q", "Hold to toss")); }
-                            list.Add(("1", "Rod"));
+                            if (Time.time < 20f) list.Add(("1", "Rod")); // the first 20 s of play only (look audit 3 Nov)
                         }
                         break;
                 }
@@ -369,14 +376,15 @@ namespace PortBoss.M1
         void Cast()
         {
             bool on = fish.State == Fishing.St.Charging;
-            arc.enabled = on; distLabel.enabled = on;
+            arc.enabled = arcTrack.enabled = on; distLabel.enabled = on;
             if (!on) return;
             arc.fillAmount = fish.Power * 60f / 360f;
             arc.color = Color.Lerp(Color.white, Ponyo.Sunflower, fish.InSweet ? 1 : fish.Power * 0.6f);
             var cam = canvas.worldCamera; var sp = cam.WorldToScreenPoint(fish.Marker + Vector3.up * 0.9f);
-            if (sp.z < 0) { distLabel.enabled = false; return; }
+            if (sp.z < 0) { distLabel.enabled = arc.enabled = arcTrack.enabled = false; return; }
             RectTransformUtility.ScreenPointToLocalPointInRectangle(root, sp, cam, out var lp);
             distLabel.rectTransform.anchoredPosition = lp + root.rect.size * 0.5f;
+            arc.rectTransform.anchoredPosition = arcTrack.rectTransform.anchoredPosition = distLabel.rectTransform.anchoredPosition; // round the label
             distLabel.text = $"{fish.MarkerDist:0} m";
             distLabel.color = fish.MarkerSnapped ? Ponyo.Hex("FFB0A0") : fish.InSweet ? Ponyo.Sunflower : Color.white;
         }
@@ -387,7 +395,7 @@ namespace PortBoss.M1
             mgIn = Mathf.MoveTowards(mgIn, on ? 1 : 0, dt / (on ? 0.22f : 0.16f));
             mg.gameObject.SetActive(mgIn > 0.001f);
             if (!mg.gameObject.activeSelf || fish.Hooked == null) return;
-            mg.anchoredPosition = new Vector2(0, 168 - 24 * (1 - Util.EaseOutBack(mgIn)));
+            mg.anchoredPosition = new Vector2(0, 46 - 24 * (1 - Util.EaseOutBack(mgIn))); // (just above the hotbar: see BuildMinigame)
             mg.GetComponent<CanvasGroup>().alpha = mgIn;
             // a heavy fight shows the bar in red (one more try after a miss; the second miss snaps the line)
             UiKit.Fill(bar).color = fish.HeavyFight ? Ponyo.Hex("F6C9BE") : Ponyo.Hex("CFF2F0");

@@ -14,6 +14,12 @@ namespace PortBoss.M1
             if (prefab == null) return Placeholder(toon);
             var g = Instantiate(prefab); g.name = "WaltsLanding";
             Util.Colliders(g); Util.Toon(g, toon);
+            // A sea floor under everything, just below the land's lowest point (-4 m): the Blender seabed has a gap by the
+            // pier end, and through it the water showed its full deep colour as a hard dark oval (look audit 3 Nov).
+            var bed = GameObject.CreatePrimitive(PrimitiveType.Plane); bed.name = "SeabedFill"; Destroy(bed.GetComponent<Collider>());
+            var lb = new Bounds(g.transform.position, Vector3.zero); foreach (var r in g.GetComponentsInChildren<MeshRenderer>()) lb.Encapsulate(r.bounds); // only under the land model (the open sea past it stays bottomless, deep cobalt)
+            bed.transform.SetParent(g.transform, false); bed.transform.position = new Vector3(lb.center.x, -4.3f, lb.center.z); bed.transform.localScale = new Vector3(lb.size.x / 10f, 1, lb.size.z / 10f);
+            var bm = new Material(toon); bm.SetColor("_BaseColor", Ponyo.Hex("7C7690")); var br = bed.GetComponent<MeshRenderer>(); br.sharedMaterial = bm; br.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             var l = g.AddComponent<Landing>(); I = l;
             l.Moor = Util.Find(g.transform, "socket_moor"); l.Spawn = Util.Find(g.transform, "socket_spawn");
             l.LadderTop = Util.Find(g.transform, "socket_pier_ladder_top"); l.LadderBottom = Util.Find(g.transform, "socket_pier_ladder_bottom");

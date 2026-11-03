@@ -238,6 +238,7 @@ namespace PortBoss.M1
             if (me != null && a != null)
             {
                 if (Angler.Body != me.Crew || a.Colour != Colours[me.Slot]) { a.Fish.Stow(); a.Wear(me.Crew, Colours[me.Slot]); }
+                if (!startSpot) { startSpot = true; StartSpot(a, me.Slot); }
             }
             foreach (var e in Roster)
             {
@@ -260,6 +261,29 @@ namespace PortBoss.M1
                 if (mine && s.Remote) s.TakeOver(); else if (!mine) s.Remote = true;
                 if (!mine && a != null && a.AtHelm) a.LeaveHelm(); // someone else got there first
             }
+        }
+
+        // Joining from the start (still on the spawn): my own spot by slot, ~1.2 m apart on the pier, never inside whoever
+        // stands on the spawn (look audit 3 Nov). The host (slot 0) keeps the spawn; a rejoin's saved place comes after this.
+        bool startSpot;
+        public static Vector3 SpotFor(int slot)
+        {
+            var sp = Landing.I != null ? Landing.I.Spawn : null; if (sp == null) return Vector3.zero;
+            var r = Vector3.ProjectOnPlane(sp.right, Vector3.up).normalized; var f = Vector3.ProjectOnPlane(sp.forward, Vector3.up).normalized;
+            var tries = slot switch { 1 => new[] { r, -r, f, -f }, 2 => new[] { -r, r, -f, f }, 3 => new[] { f + r, f - r, -f + r, -f - r }, _ => new[] { Vector3.zero } };
+            foreach (var t in tries)
+            {
+                var p = sp.position + t * 1.2f;
+                if (Ground(p, out var at) && Mathf.Abs(at.y - sp.position.y) < 0.35f) return at; // on the pier, not off its edge
+            }
+            return sp.position;
+        }
+        void StartSpot(Angler a, byte slot)
+        {
+            if (IsHost || Landing.I == null || Landing.I.Spawn == null) return;
+            if (Vector3.Distance(a.transform.position, Landing.I.Spawn.position) > 1.5f) return; // joined mid-play: stay put
+            var p = SpotFor(slot); a.Teleport(p + Vector3.up * 0.05f, a.transform.eulerAngles.y);
+            Log($"my start spot (slot {slot}): {Vector3.Distance(p, Landing.I.Spawn.position):F2} m from the spawn");
         }
 
         // ---------------------------------------------------------------- asks (client -> host): the tiller, the anchor, a body

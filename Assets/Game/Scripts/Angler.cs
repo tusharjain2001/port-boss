@@ -27,6 +27,7 @@ namespace PortBoss.M1
         public Vector3 Vel;               // own walking velocity (not the boat's)
         public float Size = 1;            // body height / the 1.78 m worker the rod and hold poses were made on
         public float BellyFront, BellyHalf; // this body's belly (m): the rod is held just in front of it
+        public Vector3 HeadC; public float HeadR, HeadLo, HeadHi; // head + hat as an upright cylinder (Model space, rest pose): the rod keeps out
         public const float SwimDepth = 1.3f;
         // co-op (M2): which crew member and player colour this body wears; a Remote body is someone else's, placed by
         // the poses they send (Coop) instead of input and physics
@@ -98,6 +99,31 @@ namespace PortBoss.M1
 
         public void Wear(int index, Color colour) => Wear(M1Assets.I, index, colour);
 
+        // The head and hat (brim, helmet) as a cylinder round the head joint, from the mesh as built (the rest pose, before
+        // any clip): from the neck up, as wide as the mesh is above the head joint (the brim, the helmet: the T-posed arms
+        // are lower) within 0.3 x the height of the head's axis.
+        // Look audit 3 Nov: on the cast's wind-up the rod lay through Pip's sou'wester brim, the mitt inside it.
+        void MeasureHead(Animator anim)
+        {
+            HeadR = 0; if (Head == null) return;
+            var neck = anim.isHuman ? anim.GetBoneTransform(HumanBodyBones.Neck) : null; float h = Size * 1.78f;
+            var c = Model.InverseTransformPoint(Head.position);
+            float lo = neck != null ? Model.InverseTransformPoint(neck.position).y : c.y - 0.1f * h, hi = c.y, r = 0, cap = 0.3f * h; // (Sully's rig has no neck)
+            foreach (var smr in body.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            {
+                var m = smr.sharedMesh; if (m == null || !m.isReadable) continue;
+                var toModel = Model.worldToLocalMatrix * smr.transform.localToWorldMatrix;
+                foreach (var v in m.vertices)
+                {
+                    var q = toModel.MultiplyPoint3x4(v); if (q.y < c.y - 0.03f) continue;
+                    float d = new Vector2(q.x - c.x, q.z - c.z).magnitude; if (d > cap) continue;
+                    r = Mathf.Max(r, d); hi = Mathf.Max(hi, q.y);
+                }
+            }
+            HeadC = c; HeadLo = lo; HeadHi = hi; HeadR = r;
+            Debug.Log($"[PB] head of {body.name}: {r:F2} m round, {lo:F2}-{hi:F2} m up");
+        }
+
         // Put on a body: the crew member's model under Model (or the placeholder worker when the kit isn't built), its clip
         // driver, ragdoll and springs. Swapped in place by F9, so it builds everything a body needs.
         void Wear(M1Assets a, int index, Color colour)
@@ -134,6 +160,7 @@ namespace PortBoss.M1
             foreach (var c in body.GetComponentsInChildren<Collider>()) Destroy(c);
             var anim = body.GetComponentInChildren<Animator>();
             Head = anim.isHuman ? anim.GetBoneTransform(HumanBodyBones.Head) : null;
+            MeasureHead(anim);
             var skin = ScriptableObject.CreateInstance<PortBoss.Skin>();
             skin.Idle = a.Idle; skin.Walk = a.Walk; skin.Run = a.Run; skin.Sprint = a.Sprint; skin.Jump = a.Jump; skin.Land = a.Land;
             skin.SwimIdle = a.SwimIdle; skin.Swim = a.Swim; skin.Climb = a.Climb; skin.Drive = a.Drive ?? a.Idle; skin.Push = a.Idle;
