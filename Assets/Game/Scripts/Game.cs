@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -66,10 +67,14 @@ namespace PortBoss.M1
             Cursor.visible = false;
             BuildPause();
 
-            void Welcome()
+            // the welcome tips one at a time, 6 s apart (look audit 3 Nov: three at once were a wall of text)
+            void Welcome() => StartCoroutine(Tips());
+            IEnumerator Tips()
             {
                 Alerts.Push("Grandpa Walt", "Biscuit's yours now, kiddo. She leaks a bit, but she floats. The fish are out past the pier.", Alerts.Kind.Story);
+                yield return new WaitForSeconds(6f);
                 Alerts.Push("How to fish", "1 rod · hold LMB to cast, release · strike on the bite · Space stops the bar", Alerts.Kind.Info);
+                yield return new WaitForSeconds(6f);
                 Alerts.Push("Biscuit", "E at the tiller to take her out. E at the bow for the anchor.", Alerts.Kind.Info);
             }
             Debug.Log($"[PB] hotbar self-test: {Hotbar.SelfTest()}");

@@ -21,6 +21,12 @@ namespace PortBoss.M1
 
         IEnumerator Start()
         {
+            // -pb-solofish n: n fish caught "solo" (Id 0) in the hotbar before joining a crew (code audit P0: joining must keep them)
+            if (Arg("-pb-solofish") != null && Angler.I != null)
+            {
+                int k = (int)ArgF("-pb-solofish", 1); for (int i = 0; i < k; i++) Angler.I.Bar.Add(new Fish { Species = FishDb.All[1], Grade = 0, Cm = 77.7f + i, Kg = 0.1f }); // (77.7 cm, 78.7 ...: found again by length)
+                Debug.Log($"[PB] solo fish: {k} in my hotbar before joining (frame {Time.frameCount}, joined {Coop.Joined})");
+            }
             var ts = Arg("-pb-timescale"); if (ts != null) Time.timeScale = ArgF("-pb-timescale", 1);
             var q = Arg("-pb-quit"); if (q != null) StartCoroutine(QuitAfter(ArgF("-pb-quit", 60)));
             if (Arg("-pb-fps") != null) Time.captureFramerate = (int)ArgF("-pb-fps", 60); // -pb-fps n: game time steps 1/n s a frame, like a real PC (batch mode otherwise runs ~1000 fps)
@@ -29,7 +35,7 @@ namespace PortBoss.M1
             var rod = Arg("-pb-rod"); if (rod != null) fish.SetRod((int)ArgF("-pb-rod", 1));
             var bait = Arg("-pb-bait"); if (bait != null) fish.BaitI = Mathf.Max(0, System.Array.FindIndex(FishDb.Baits, b => b.Id == bait));
             Fishing.Bot.FightHeavy = Arg("-pb-fightheavy") != null; Fishing.Bot.LetGo = Arg("-pb-letgo") != null; // -pb-letgo: every catch thrown back
-            Fishing.Bot.OldFacing = Arg("-pb-oldfacing") != null; Fishing.Bot.ForceHeavy = Arg("-pb-forceheavy") != null; // test: every hook is heavy
+            Fishing.Bot.OldFacing = Arg("-pb-oldfacing") != null; Fishing.Bot.NoGaze = Arg("-pb-nogaze") != null; Fishing.Bot.ForceHeavy = Arg("-pb-forceheavy") != null; // test: every hook is heavy
             sigma = ArgF("-pb-sigma", 70) / 1000f;
             fish.OnLog += s => Debug.Log("[PB] fish " + s);
             var icons = Arg("-pb-icons"); // the painted rod icon, as a file (proof)
@@ -50,6 +56,7 @@ namespace PortBoss.M1
             else if (Arg("-pb-knocktest") != null) yield return KnockTest(Arg("-pb-knocktest"));
             else if (Arg("-pb-crewshots") != null) { shots = Arg("-pb-crewshots"); Directory.CreateDirectory(shots); yield return CrewShots(); }
             else if (Arg("-pb-waitcam") != null) { shots = Arg("-pb-waitcam"); Directory.CreateDirectory(shots); yield return WaitCam(); }
+            else if (Arg("-pb-gazeshots") != null) { shots = Arg("-pb-gazeshots"); Directory.CreateDirectory(shots); yield return GazeShots(); }
             else if (Arg("-pb-fadetest") != null) { shots = Arg("-pb-fadetest"); Directory.CreateDirectory(shots); yield return FadeTest(); }
             else if (Arg("-pb-cooptest") != null) yield return CoopTest(Arg("-pb-cooptest"), (int)ArgF("-pb-coopn", 1));
             else if (Arg("-pb-tosstest") != null) yield return TossTest();
@@ -85,6 +92,7 @@ namespace PortBoss.M1
             yield return Wait(() => Coop.I != null && Coop.I.Roster.Count >= 2, 30);
             yield return new WaitForSecondsRealtime(1.5f);
             Check($"the crew list shows both: {NameTags.I?.CrewNames}", NameTags.I != null && NameTags.I.CrewRows == 2);
+            if (what == "host") { float apart = 99; foreach (var m in Coop.I.Mates.Values) if (m != null) apart = Mathf.Min(apart, Vector3.Distance(m.transform.position, me.transform.position)); Check($"the joiner stands apart from me, not inside me: {apart:F2} m", apart >= 0.9f && apart < 5f); }
             if (shots != null) yield return Shot("crew-list-" + what);
             if (what == "join") { yield return new WaitForSecondsRealtime(2f); Debug.Log($"[PB] RESULT menu join: {(ok ? "PASS" : "FAIL")}"); Application.Quit(); yield break; }
             yield return Wait(() => Coop.I != null && Coop.I.Roster.Count < 2, 30);
@@ -147,6 +155,14 @@ namespace PortBoss.M1
             var crews = new HashSet<int>(); foreach (var e in c.Roster) crews.Add(e.Crew);
             Debug.Log($"[PB] coop: roster {c.Roster.Count}: {string.Join(", ", c.Roster.ConvertAll(e => $"{e.Name}={M1Assets.I.CrewNames[e.Crew]}/slot{e.Slot}"))}; me {M1Assets.I.CrewNames[Angler.Body]}");
             if (c.Roster.Count < n + 1 || crews.Count != c.Roster.Count) { fails++; Debug.Log("[PB] coop: FAIL roster incomplete or a crew member twice"); }
+            if (!host && Arg("-pb-solofish") != null)
+            {
+                // a newcomer who caught fish alone first: they're still in the hotbar, now booked by the host (Id != 0)
+                for (float w = 0; me.Bar.FishCount > 0 && FirstFish().Id == 0 && w < 10; w += Time.unscaledDeltaTime) yield return null;
+                int k = (int)ArgF("-pb-solofish", 1); bool kept = me.Bar.FishCount >= k && FirstFish() != null && FirstFish().Id != 0;
+                Debug.Log($"[PB] coop: joined holding {k} solo fish: {me.Bar.FishCount} in my hotbar, booked as id {FirstFish()?.Id}: {(kept ? "kept" : "FAIL")}");
+                if (!kept) fails++;
+            }
             int idx = c.Roster.FindIndex(e => e.Id == Coop.Me), myIdx = idx; bool shotToss = false;
             var crew = new List<Coop.Entry>(c.Roster); ulong meId = Coop.Me; // (the host leaving clears the roster and my id before the riders report)
             if (!host)
@@ -391,6 +407,8 @@ namespace PortBoss.M1
             IEnumerator Step5()
             {
                 float t5 = Time.time; AudioListener.volume = 0; // (nothing is played aloud on this PC)
+                int dropped = Coop.VoiceDropped; c.TestBurst(); // code audit F: a 1500-byte voice burst never throws, it's dropped
+                Expect5($"a 1500-byte voice burst dropped ({Coop.VoiceDropped - dropped})", Coop.VoiceDropped == dropped + 1);
                 IEnumerator Until(float t) { while (Time.time < t5 + t) yield return null; }
                 // (by name: cooptest.sh starts "Rider3" with its mic off, whatever slot it joins in; the one who swims off and
                 // talks from 20 m and 45 m is the slot-2 rider unless that's the mic-off one)
@@ -473,15 +491,14 @@ namespace PortBoss.M1
                     Debug.Log($"[PB] coop: rejoin before: ids={string.Join(",", ids)} at {l.x:F3} {l.y:F3} {l.z:F3} crew {M1Assets.I.CrewNames[Angler.Body]} slot 1");
                     yield return new WaitForSeconds(0.5f); leaveNow = true; step6On = true; yield break;
                 }
-                // the others: rider 1 goes (the list shrinks), comes back (as a new connection), the list is whole again
+                // the others: rider 1 comes back as a new connection while its old one is still open (as a quit Steam hasn't
+                // noticed yet: code audit E). The host retires the old entry at once: one Rider1, its own colour and crew
+                // member, never a stranger; the list is whole throughout
                 Expect6($"the crew list shows all {n + 1}: {NameTags.I?.CrewNames}", NameTags.I != null && NameTags.I.CrewRows == n + 1);
-                for (float w = 0; c.Roster.Count > n && w < 20; w += Time.deltaTime) yield return null;
-                yield return new WaitForSeconds(0.3f); // (the HUD redraws the list after the roster changes)
-                Expect6($"Rider1 left: the list shows {NameTags.I?.CrewRows}", c.Roster.Count == n && NameTags.I.CrewRows == n);
-                for (float w = 0; c.Roster.Count < n + 1 && w < 60; w += Time.deltaTime) yield return null;
+                for (float w = 0; !c.Roster.Exists(e => e.Name == r1.Name && e.Id != r1.Id) && w < 90; w += Time.deltaTime) yield return null;
                 yield return new WaitForSeconds(2.5f);
                 var back = c.Roster.Find(e => e.Name == r1.Name);
-                Expect6($"Rider1 is back: {NameTags.I?.CrewNames}, as {(back != null ? M1Assets.I.CrewNames[back.Crew] : "?")} in slot {back?.Slot}", back != null && back.Id != r1.Id && back.Crew == r1.Crew && back.Slot == r1.Slot && NameTags.I.CrewRows == n + 1);
+                Expect6($"Rider1 is back: {NameTags.I?.CrewNames}, as {(back != null ? M1Assets.I.CrewNames[back.Crew] : "?")} in slot {back?.Slot}", back != null && back.Id != r1.Id && back.Crew == r1.Crew && back.Slot == r1.Slot && NameTags.I.CrewRows == n + 1 && c.Roster.FindAll(e => e.Name == r1.Name).Count == 1);
                 if (host) Expect6($"the book still balances: {(c.Book.Check() == "" ? "yes" : c.Book.Check())}", c.Book.Check() == "");
                 if (host && back != null) Expect6($"Rider1's fish are booked to the new connection ({c.Book.Bar(back.Id).FishCount})", c.Book.Bar(back.Id).FishCount > 0 && !c.Book.Bars.ContainsKey(r1.Id));
                 if (host && back != null && cshots != null) yield return CoopShot("crew-list-after-rejoin", c.Mates.TryGetValue(back.Id, out var bm) ? bm.transform.position + Vector3.up * 1.2f : me.transform.position);
@@ -572,8 +589,15 @@ namespace PortBoss.M1
                 // the tiller to rider 1, then back
                 var r1 = c.Roster.Find(e => e.Slot == 1); ulong owner = 0; float ownT = -1; var at = s.transform.position;
                 var myLo = Vector3.one * 99; var myHi = -myLo;
+                bool askedAnchor = false; float stillFor = 0; var lastAt = s.transform.position;
                 for (float w = 0; w < 25; w += Time.deltaTime)
                 {
+                    // code audit D: once rider 1 has stopped the boat (still at the tiller), I ask for the anchor: the ask
+                    // goes to the driver, the boat's owner, who drops it
+                    var mv = s.transform.position - lastAt; mv.y = 0; lastAt = s.transform.position; // (it heaves on the waves even stopped)
+                    stillFor = Time.deltaTime > 0 && mv.magnitude / Time.deltaTime < 0.3f ? stillFor + Time.deltaTime : 0;
+                    if (!askedAnchor && ownT >= 0 && r1 != null && c.BoatOwner == r1.Id && Vector3.Distance(at, s.transform.position) > 3 && stillFor > 0.3f)
+                    { askedAnchor = true; Coop.Request(Coop.Ask.Anchor); Debug.Log($"[PB] coop: I asked for the anchor while {r1.Name} has the tiller"); }
                     if (c.BoatOwner != Coop.Me && ownT < 0) { owner = c.BoatOwner; ownT = w; }
                     if (ownT >= 0 && c.BoatOwner == Coop.Me && w > ownT + 3) break;
                     if (ownT >= 0 && me.OnBoat) { var l = s.transform.InverseTransformPoint(me.transform.position); myLo = Vector3.Min(myLo, l); myHi = Vector3.Max(myHi, l); Own(); }
@@ -681,6 +705,10 @@ namespace PortBoss.M1
                     for (float t = 0; t < 6; t += Time.deltaTime) { Ctl.BotSteer = 0.5f; if (Mathf.Abs(t - 4f) < Time.deltaTime) yield return CoopShot("i-drive"); yield return null; }
                     Ctl.BotSteer = 0; Ctl.BotThrottle = -1; yield return null; Ctl.BotThrottle = 0; yield return null; Ctl.BotThrottle = -1; yield return null; Ctl.BotThrottle = 0;
                     for (float w = 0; Mathf.Abs(s.Speed) > 0.05f && w < 8; w += Time.deltaTime) yield return null;
+                    // code audit D: the host asks for the anchor while I hold the tiller; it must come down on my boat
+                    for (float w = 0; !s.Anchored && w < 4; w += Time.deltaTime) yield return null;
+                    Debug.Log($"[PB] coop: the host dropped the anchor while I had the tiller: {(s.Anchored ? "ok" : "FAIL")}");
+                    if (!s.Anchored) fails++; else s.ToggleAnchor(); // (up again for the steps after)
                     me.LeaveHelm(); me.Teleport(s.transform.TransformPoint(keep), s.transform.eulerAngles.y + 90);
                     sawMove = false; idx = -1;
                 }
@@ -693,11 +721,23 @@ namespace PortBoss.M1
             if (myCasts > 0) { Debug.Log($"[PB] coop: step 3: I cast {myCasts} times, the host rolled {byHost} of the fish"); if (byHost != myCasts) fails++; }
             Debug.Log($"[PB] coop: step 4: {(step4On ? step4 : "NEVER STARTED")}"); fails += step4On ? step4Fails : 1;
             Debug.Log($"[PB] coop: step 5: {(step5On ? step5 : "NEVER FINISHED")}"); fails += step5On ? step5Fails : 1;
+            if (leaveNow)
+            {
+                // code audit E: I stay connected (a quit Steam hasn't noticed yet) while a new copy of me joins; the host must
+                // take the new one as me and close this old connection
+                bool retired = false; for (float w = 0; w < 60; w += Time.unscaledDeltaTime) { if (!Coop.On) { retired = true; break; } yield return null; }
+                Debug.Log($"[PB] coop: step 6: the host closed my old connection when the new copy of me came back: {(retired ? "ok" : "FAIL")}"); if (!retired) fails++;
+            }
             Debug.Log($"[PB] coop: step 6: {(step6On ? (leaveNow ? "I left (a new copy of me comes back)" : step6) : "NEVER FINISHED")}"); fails += step6On ? step6Fails : 1;
             if (lo.Count < n) { fails++; Debug.Log($"[PB] coop: FAIL watched only {lo.Count} crewmates under way"); }
             Debug.Log($"[PB] RESULT coop rider: {(fails == 0 ? "PASS" : fails + " FAIL")}");
             Application.Quit();
         }
+
+        Fish FirstFish() { foreach (var sl in me.Bar.S) if (sl.Fish.Count > 0) return sl.Fish[0]; return null; }
+        // the -pb-solofish fish (77.7 cm, 78.7 ...) in my hotbar, booked, or lying on the deck (no room)
+        static bool Solo(Fish f) => f.Cm > 77f && f.Cm < 90f && Mathf.Abs(f.Cm - Mathf.Round(f.Cm - 0.7f) - 0.7f) < 0.01f;
+        int SoloKept() { int k = 0; foreach (var sl in me.Bar.S) foreach (var f in sl.Fish) if (Solo(f) && f.Id != 0) k++; foreach (var p in FishPickup.All) if (p != null && Solo(p.F)) k++; return k; }
 
         // M2 step 6: rider 1 back (a new copy, the same name): its hotbar, crew member and place as it left them
         IEnumerator Rejoin(int n)
@@ -708,7 +748,7 @@ namespace PortBoss.M1
             yield return new WaitForSeconds(2f);
             var s = Skiff.I; var ids = new List<ulong>(); foreach (var sl in me.Bar.S) foreach (var f in sl.Fish) ids.Add(f.Id); ids.Sort();
             var l = s.transform.InverseTransformPoint(me.transform.position); var e = c?.Find(Coop.Me);
-            Debug.Log($"[PB] coop: rejoin after: ids={string.Join(",", ids)} at {l.x:F3} {l.y:F3} {l.z:F3} crew {M1Assets.I.CrewNames[Angler.Body]} slot {e?.Slot}");
+            Debug.Log($"[PB] coop: rejoin after: ids={string.Join(",", ids)} at {l.x:F3} {l.y:F3} {l.z:F3} crew {M1Assets.I.CrewNames[Angler.Body]} slot {e?.Slot} solo {(int)ArgF("-pb-solofish", 0)} kept {SoloKept()}");
             if (!Coop.Placed) { fails++; Debug.Log("[PB] coop: FAIL the host never put me back"); }
             if (NameTags.I == null || NameTags.I.CrewRows != n + 1) { fails++; Debug.Log($"[PB] coop: FAIL the crew list shows {NameTags.I?.CrewRows} of {n + 1}"); }
             else Debug.Log($"[PB] coop: rejoin: the crew list shows {NameTags.I.CrewNames}");
@@ -755,7 +795,13 @@ namespace PortBoss.M1
             Debug.Log($"[PB] sailed out {Vector3.Distance(Flat(start), Flat(s.transform.position)):F0} m from the berth, anchored at {s.transform.position}");
             Board(); yield return new WaitForSeconds(0.8f);
             if (shotsOn) yield return Shot("0-anchored-open-sea");
-            if (Arg("-pb-dumpnear") != null) // debug: everything drawn near the water round the boat
+            DumpNear();
+        }
+
+        // -pb-dumpnear x,y (viewport): log every renderer covering that screen point, at the anchored shot and the cast charge
+        void DumpNear()
+        {
+            if (Arg("-pb-dumpnear") == null) return;
                 foreach (var r in Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None))
                 {
                     var b = r.bounds; if (!r.enabled || !r.gameObject.activeInHierarchy) continue;
@@ -768,6 +814,22 @@ namespace PortBoss.M1
                 }
         }
 
+        // the wind-up held, close: from her right side and from behind, framing the head, hat, mitts and rod (look audit:
+        // the rod and the mitt went through the hat brim)
+        IEnumerator ChargeClose()
+        {
+            yield return new WaitForEndOfFrame();
+            var ct = CameraRig.I.Cam.transform; var a = me.transform; var k = (ct.position, ct.rotation);
+            float h = me.Size * 1.78f; var hd = me.Head != null ? me.Head.position : a.position + Vector3.up * 0.8f * h;
+            foreach (var (tag, off) in new[] { ("side", a.right * 1.1f + a.forward * 0.25f), ("back", -a.forward * 1.0f + a.right * 0.35f + Vector3.up * 0.35f) })
+            {
+                ct.position = hd + off * h; ct.rotation = Quaternion.LookRotation(hd + Vector3.up * 0.05f * h - ct.position);
+                Save(Path.Combine(shots, $"charge-{tag}.png"));
+            }
+            ct.SetPositionAndRotation(k.position, k.rotation);
+            Debug.Log($"[PB] charge: the rod moved off the head on {Fishing.HeadPushes} frames so far");
+        }
+
         IEnumerator CastOnce(float power)
         {
             Ctl.Bot = true;
@@ -775,7 +837,7 @@ namespace PortBoss.M1
             Ctl.BotUse = true; Ctl.BotUsePressed = true; yield return null; Ctl.BotUsePressed = false;
             // hold for the wanted power on the 1.1 s ping-pong (first rise)
             while (fish.State == Fishing.St.Charging && fish.Power < power - 0.01f && fish.StateT < Fishing.ChargePeriod) yield return null;
-            if (shots != null) yield return Shot("1-charge");
+            if (shots != null) { yield return Shot("1-charge"); yield return ChargeClose(); } DumpNear();
             Ctl.BotUse = false; yield return null;
         }
 
@@ -1484,17 +1546,26 @@ namespace PortBoss.M1
 
         // -pb-crewshots <dir>: every crew body on the pier, in the game's light and toon shader: a 3/4 front close-up, the
         // game camera, and the game camera walking (the kit's proof in the real game, not Blender's preview).
+        int backFails;
         IEnumerator CrewShots()
         {
             yield return new WaitForSeconds(0.5f);
             Ctl.Bot = true; me.Select(1);
             var names = M1Assets.I.CrewNames ?? new string[0];
+            if (Arg("-pb-dumpwater") != null) // debug: what lies across the sea surface round the pier end (the look audit's dark oval)
+                foreach (var r in Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None))
+                {
+                    var bb = r.bounds; var m = Landing.I.Moor.position; float sea = Sea.Height(m);
+                    if (!r.enabled || !r.gameObject.activeInHierarchy || bb.size.x > 60 || Vector2.Distance(new Vector2(bb.center.x, bb.center.z), new Vector2(m.x, m.z)) > 12 || bb.min.y > sea + 0.3f || bb.max.y < sea - 0.3f) continue;
+                    Debug.Log($"[PB] water: {r.name} ({r.GetType().Name}) parent {(r.transform.parent ? r.transform.parent.name : "-")} mat {(r.sharedMaterial ? r.sharedMaterial.name + "/" + r.sharedMaterial.shader.name : "none")} at {bb.center} size {bb.size}");
+                }
             for (int i = 0; i < names.Length; i++)
             {
                 me.Teleport(Landing.I.Spawn.position + Vector3.up * 0.05f, Landing.I.Spawn.eulerAngles.y + 180);
                 me.Wear(i, me.Colour); CameraRig.I.Yaw = me.transform.eulerAngles.y; CameraRig.I.Pitch = 30;
                 yield return new WaitForSeconds(1.2f);
                 Debug.Log($"[PB] crew {names[i]}: size {me.Size:F3}");
+                { var top = me.Model.TransformPoint(new Vector3(me.HeadC.x, me.HeadHi, me.HeadC.z)).y; float over = fish.RodTip.y - top; Debug.Log($"[PB] crew {names[i]}: the rod on the back: tip {over:F2} m over the head/hat {(over <= 0.25f ? "ok" : "FAIL")}"); backFails += over <= 0.25f ? 0 : 1; }
                 yield return new WaitForEndOfFrame();
                 var ct = CameraRig.I.Cam.transform; var a = me.transform; var keep = (ct.position, ct.rotation);
                 float h = me.Size * 1.78f;
@@ -1507,7 +1578,7 @@ namespace PortBoss.M1
                 yield return Shot($"crew-{i}-{names[i]}-walk");
                 Ctl.BotMove = Vector2.zero; yield return new WaitForSeconds(0.5f);
             }
-            Debug.Log($"[PB] RESULT crewshots {names.Length} bodies");
+            Debug.Log($"[PB] RESULT crewshots {names.Length} bodies; back rod tip under 0.25 m over the head: {(backFails == 0 ? "PASS" : backFails + " FAIL")}");
             Application.Quit();
         }
 
@@ -1534,6 +1605,83 @@ namespace PortBoss.M1
             yield return Shot("waitcam-high");
             ok &= y1 > y0 + 1f && fish.State == Fishing.St.Waiting;
             Debug.Log($"[PB] RESULT waitcam: {(ok ? "PASS" : "FAIL")}");
+            Application.Quit();
+        }
+
+        // -pb-gazeshots <dir> (Manan 3 Nov: "looks a little too much down while holding a fishing rod"): every body on
+        // Biscuit, rod in hand, then one fish played out. Logs where the face points (degrees below level, from the head's
+        // bind pose: CharAnim.FaceDown) in each rod pose, the mean and the lowest of its sway, and saves a profile and a
+        // 3/4 close-up of each. PASS = where the eyes aim (rod idle, waiting, bite, the hold-up) the face is never more than
+        // 12° off the line to its target, and rod idle / waiting average under 8° down and never dip past 10°.
+        // Run it with -pb-fps 60: at batch mode's ~1000 fps the standing-still deck hold never lands (a 2 mm step down a
+        // frame), so the jump tuck blends in and bends her over; -pb-gazenoshots measures without the screenshot frames.
+        IEnumerator GazeShots()
+        {
+            yield return new WaitForSeconds(0.5f);
+            yield return SailOut(false); Ctl.Bot = true;
+            var names = M1Assets.I.CrewNames ?? new string[0]; bool ok = names.Length > 0;
+            var sk = Skiff.I.transform; var keep = sk.InverseTransformPoint(me.transform.position); float keepYaw = me.transform.eulerAngles.y - sk.eulerAngles.y; // boat-relative: she swings on the anchor
+            for (int i = 0; i < names.Length; i++)
+            {
+                me.Select(1); yield return new WaitForSeconds(0.4f); // rod away before the body swap (as F9 does)
+                me.Teleport(sk.TransformPoint(keep), sk.eulerAngles.y + keepYaw); me.Wear(i, me.Colour); yield return null; me.Select(0);
+                yield return new WaitForSeconds(1.5f);
+                var seen = new Dictionary<Fishing.St, (float sum, int n, float lo, float hi)>(); var shot = new HashSet<Fishing.St>();
+                IEnumerator Close(string what)
+                {
+                    yield return new WaitForEndOfFrame();
+                    var ct = CameraRig.I.Cam.transform; var a = me.transform; var k = (ct.position, ct.rotation);
+                    float h = me.Size * 1.78f; var hd = me.Head.position;
+                    foreach (var (tag, off) in new[] { ("side", a.right * 0.75f + a.forward * 0.1f), ("34", a.forward * 0.6f - a.right * 0.45f) })
+                    {
+                        ct.position = hd + off * h + Vector3.up * 0.05f * h;
+                        ct.rotation = Quaternion.LookRotation(hd - Vector3.up * 0.12f * h + a.forward * 0.15f * h - ct.position);
+                        Save(Path.Combine(shots, $"gaze-{i}-{names[i]}-{what}-{tag}.png"));
+                    }
+                    ct.SetPositionAndRotation(k.position, k.rotation);
+                }
+                bool sampling = true, dipShot = false; int spikes = 0, landing = 0; var airS = new Dictionary<Fishing.St, (float sum, float max)>(); var offMax = new Dictionary<Fishing.St, float>(); bool noShots = Arg("-pb-gazenoshots") != null;
+                IEnumerator Sample()
+                {
+                    while (sampling)
+                    {
+                        var st = fish.State; float d = me.Anim.FaceDown;
+                        float air = me.Anim.AirW; // the jump tuck / landing crouch blended in (a long frame drops her off the rolling deck)
+                        if (!float.IsNaN(d) && fish.StateT > 0.4f) { var aw = airS.TryGetValue(st, out var av0) ? av0 : default; airS[st] = (aw.sum + air, Mathf.Max(aw.max, air)); if (air > 0.03f) landing++; }
+                        if (!float.IsNaN(d) && fish.StateT > 0.4f)
+                        {
+                            var s = seen.TryGetValue(st, out var v) ? v : (sum: 0f, n: 0, lo: 99f, hi: -99f);
+                            seen[st] = (s.sum + d, s.n + 1, Mathf.Min(s.lo, d), Mathf.Max(s.hi, d));
+                            if (st is Fishing.St.Ready or Fishing.St.Waiting or Fishing.St.Bite or Fishing.St.Reveal) offMax[st] = Mathf.Max(offMax.TryGetValue(st, out var om) ? om : 0, Mathf.Abs(d - me.Anim.GazeTo)); // the face against the line to its target
+                            if (d > 10f && st is Fishing.St.Ready or Fishing.St.Waiting && spikes++ < 12)
+                                Debug.Log($"[PB] gaze dip {names[i]} {st} t {fish.StateT:F2}: face {d:F1}° (before the aim {me.Anim.GazeRaw:F1}°, aim {me.Anim.GazeWant:F1}°), dt {Time.deltaTime * 1000:F0} ms, lean {me.Model.localEulerAngles}, clip {me.Anim.Act?.name}, frame {Time.frameCount}");
+                            if (d > 20f && !dipShot && !noShots) { dipShot = true; Debug.Log($"[PB] gaze big dip {names[i]} {st} t {fish.StateT:F2}: {d:F1}° (before the aim {me.Anim.GazeRaw:F1}°), clip {me.Anim.Act?.name}"); yield return Close("dip-" + st.ToString().ToLowerInvariant()); }
+                            if (!noShots && fish.StateT > 0.8f && shot.Add(st) && st is Fishing.St.Ready or Fishing.St.Waiting or Fishing.St.Minigame or Fishing.St.Reel or Fishing.St.Reveal)
+                                yield return Close(st.ToString().ToLowerInvariant());
+                        }
+                        yield return null;
+                    }
+                }
+                var sampler = StartCoroutine(Sample());
+                yield return new WaitForSeconds(4f); // a rod-idle sway
+                yield return CastOnce(0.6f);
+                yield return PlayFish(r => { });
+                yield return new WaitForSeconds(0.5f);
+                sampling = false; StopCoroutine(sampler);
+                foreach (var (st, s) in seen)
+                {
+                    float mean = s.sum / s.n; bool calm = st is Fishing.St.Ready or Fishing.St.Waiting;
+                    bool aimed = offMax.TryGetValue(st, out var off);
+                    bool good = (!aimed || off <= 12f) && (!calm || (mean >= -1f && mean <= 8f && s.hi <= 10f));
+                    ok &= good;
+                    var ai = airS.TryGetValue(st, out var av) ? av : default;
+                    Debug.Log($"[PB] gaze {names[i]} {st}: face {mean:F1}° down on average, {s.lo:F1}..{s.hi:F1}° (lowest dip {s.hi:F1}°){(aimed ? $", at most {off:F1}° off its target" : "")}{(calm || aimed ? good ? " ok" : " FAIL" : "")}; jump/land blend mean {ai.sum / s.n:F3} max {ai.max:F2}");
+                }
+                Debug.Log($"[PB] gaze {names[i]}: {landing} frames with the jump tuck / landing blended in over 3%");
+                ok &= seen.ContainsKey(Fishing.St.Ready) && seen.ContainsKey(Fishing.St.Waiting);
+                while (fish.State != Fishing.St.Ready) yield return null;
+            }
+            Debug.Log($"[PB] RESULT gazeshots {names.Length} bodies: {(ok ? "PASS" : "FAIL")}");
             Application.Quit();
         }
 

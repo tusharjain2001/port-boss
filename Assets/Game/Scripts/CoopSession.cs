@@ -39,20 +39,23 @@ namespace PortBoss.M1
                 // an invite accepted (overlay) or "Join game" in the friends list, while the game runs
                 SteamFriends.OnGameLobbyJoinRequested += (l, friend) => { Debug.Log($"[PB] coop: {new Friend(friend).Name} invited us"); _ = JoinLobby(l); };
                 Debug.Log($"[PB] coop: Steam ok: {SteamClient.Name}");
-                // launched from an invite while the game wasn't running: +connect_lobby <id>
+                // launched from an invite while the game wasn't running: +connect_lobby <id>. Only once Port Boss has its own
+                // Steam app ID: on test app 480 Steam starts Spacewar instead (code audit 3 Nov), so start the game first.
                 var a = Environment.GetCommandLineArgs(); int i = Array.IndexOf(a, "+connect_lobby");
                 if (i >= 0 && i + 1 < a.Length && ulong.TryParse(a[i + 1], out var id)) _ = JoinLobby(new Lobby(id));
             }
             catch (Exception e) { Debug.Log("[PB] coop: Steam isn't running (" + e.Message + "): solo and LAN still work"); }
         }
         public static void SteamTick() { if (SteamOk) SteamClient.RunCallbacks(); }
+        // a crew that didn't happen: the title menu's line, the log and a left alert (the menu may be closed by now)
+        static void Fail(string why) { Status = why; Log(why); Alerts.Push("Crew", why, Alerts.Kind.Warning); }
         public static string MyName
         {
             get
             {
                 var a = Environment.GetCommandLineArgs(); int i = Array.IndexOf(a, "-pb-name");
                 if (i >= 0 && i + 1 < a.Length) return a[i + 1];
-                return SteamOk ? SteamClient.Name : PlayerPrefs.GetString("m1.name", "Crew");
+                return SteamOk ? SteamClient.Name : PlayerPrefs.GetString("m1.name", Environment.MachineName); // (LAN: unique per PC, so a rejoin finds its own key)
             }
         }
         // who I am across a rejoin: my Steam account, else (LAN, tests) my name
@@ -71,17 +74,21 @@ namespace PortBoss.M1
         public static async Task JoinLobby(Lobby l)
         {
             if (!SteamOk) return;
-            if (I != null) Leave(); // (an invite while in another crew: leave it for this one)
-            var r = await l.Join();
-            if (r != RoomEnter.Success) { Status = "Couldn't join that crew (" + r + ")."; Debug.Log("[PB] coop: " + Status); return; }
-            if (l.GetData(LobbyKey) != LobbyVal) { l.Leave(); Status = "That isn't a Port Boss crew (or another version)."; return; }
-            Lobby = l; var owner = l.Owner.Id;
-            Debug.Log($"[PB] coop: joined the lobby of {l.Owner.Name} ({l.MemberCount} in it)");
-            // my own crew (the same Steam account twice on one PC): Steam can't connect to itself, and a Steam crew has no
-            // LAN side, so say how to test on one PC instead
-            if (owner == SteamClient.SteamId) { l.Leave(); Lobby = null; Status = "That's your own crew (the same Steam account). On one PC, use Host / Join on this network."; return; }
-            Make(MyName).plan = new Plan { Steam = true, SteamHost = owner };
-            Title.Close();
+            try
+            {
+                if (I != null) Leave(); // (an invite while in another crew: leave it for this one)
+                var r = await l.Join();
+                if (r != RoomEnter.Success) { Fail("Couldn't join that crew (" + r + ")."); return; }
+                if (l.GetData(LobbyKey) != LobbyVal) { l.Leave(); Fail("That isn't a Port Boss crew (or another version)."); return; }
+                Lobby = l; var owner = l.Owner.Id;
+                Debug.Log($"[PB] coop: joined the lobby of {l.Owner.Name} ({l.MemberCount} in it)");
+                // my own crew (the same Steam account twice on one PC): Steam can't connect to itself, and a Steam crew has
+                // no LAN side, so say how to test on one PC instead
+                if (owner == SteamClient.SteamId) { l.Leave(); Lobby = null; Fail("That's your own crew (the same Steam account). On one PC, use Host / Join on this network."); return; }
+                Make(MyName).plan = new Plan { Steam = true, SteamHost = owner };
+                Title.Close();
+            }
+            catch (Exception e) { Debug.LogException(e); Fail("Couldn't join that crew (" + e.Message + ")."); } // (a fire-and-forget Task: never lose why)
         }
 
         // Friends hosting a Port Boss crew right now (their game has a lobby): the title menu's "Join a friend".
@@ -129,12 +136,16 @@ namespace PortBoss.M1
 
         async Task MakeLobby()
         {
-            var l = await SteamMatchmaking.CreateLobbyAsync(MaxCrew);
-            if (l == null) { Status = "Steam couldn't make a lobby; LAN still works."; Log(Status); return; }
-            var lobby = l.Value;
-            lobby.SetFriendsOnly(); lobby.SetJoinable(true);
-            lobby.SetData(LobbyKey, LobbyVal); lobby.SetData("name", myName + "'s crew");
-            Lobby = lobby; Log($"lobby made: friends can join (invite them from the pause menu: I)");
+            try
+            {
+                var l = await SteamMatchmaking.CreateLobbyAsync(MaxCrew);
+                if (l == null) { Fail("Steam couldn't make a lobby, so friends can't join. Host on this network still works."); return; }
+                var lobby = l.Value;
+                lobby.SetFriendsOnly(); lobby.SetJoinable(true);
+                lobby.SetData(LobbyKey, LobbyVal); lobby.SetData("name", myName + "'s crew");
+                Lobby = lobby; Log($"lobby made: friends can join (invite them from the pause menu: I)");
+            }
+            catch (Exception e) { Debug.LogException(e); Fail("Steam couldn't make a lobby (" + e.Message + ")."); }
         }
 
         // ---------------------------------------------------------------- rejoin (host)

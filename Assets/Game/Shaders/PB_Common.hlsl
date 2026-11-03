@@ -32,7 +32,7 @@ float3 LDSkyNoDisc(float3 dir)
 {
     float y = dir.y;
     float3 mid = _LDSkyMid.a > 0 ? _LDSkyMid.rgb : lerp(_LDSkyHorizon.rgb, _LDSkyTop.rgb, 0.5);
-    float3 c = y > 0 ? lerp(lerp(_LDSkyHorizon.rgb, mid, smoothstep(0.0, 0.16, y)), _LDSkyTop.rgb, smoothstep(0.16, 0.75, y))
+    float3 c = y > 0 ? lerp(lerp(_LDSkyHorizon.rgb, mid, smoothstep(0.0, 0.16, y)), _LDSkyTop.rgb, smoothstep(0.16, 0.75, y)) // (the sea keeps its reflection as it was: look audit 3 Nov, "keep the sea colour")
                      : lerp(_LDSkyHorizon.rgb, _LDSkyBottom.rgb, saturate(-y * 6));
     float s = saturate(dot(dir, normalize(_LDSunDir.xyz)));
     return c + _LDSunSky.rgb * pow(s, max(_LDSunDir.w, 1)) * 0.6;
@@ -42,7 +42,7 @@ float3 LDSkyGradient(float3 dir)
 {
     float y = dir.y;
     float3 mid = _LDSkyMid.a > 0 ? _LDSkyMid.rgb : lerp(_LDSkyHorizon.rgb, _LDSkyTop.rgb, 0.5);
-    float3 c = y > 0 ? lerp(lerp(_LDSkyHorizon.rgb, mid, smoothstep(0.0, 0.16, y)), _LDSkyTop.rgb, smoothstep(0.16, 0.75, y))
+    float3 c = y > 0 ? lerp(lerp(_LDSkyHorizon.rgb, mid, smoothstep(0.0, 0.05, y)), _LDSkyTop.rgb, smoothstep(0.05, 0.16, y)) // the cream only in the bottom ~3 deg, the full Ponyo blue from ~9 deg up (look audit 3 Nov: it came only at ~50 deg, above anything the game camera frames)
                      : lerp(_LDSkyHorizon.rgb, _LDSkyBottom.rgb, saturate(-y * 6));
     float s = saturate(dot(dir, normalize(_LDSunDir.xyz)));
     c += _LDSunSky.rgb * pow(s, max(_LDSunDir.w, 1)) * 0.6;             // glow around the sun

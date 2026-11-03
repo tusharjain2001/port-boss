@@ -41,6 +41,12 @@ namespace PortBoss
         public World.Ladder? Ladder;  // on this ladder: hands and feet on the rungs, from how high the player is
         public float LadderW;
         public float WaterY = float.NaN; // treading water at this surface height: arms down in the water, sculling
+        // Eyes on this point (x NaN = off): the neck and head turn so the face looks at it, after the clip: yaw within 50° of
+        // the body, pitch within 25°, the eyes covering up to 6° of the drop (~5° of head to a bobber 10 m out, 24° to a
+        // fish held up),
+        // so the clip's sway never dips the head. Eases in and out at ~6/s (look audit 3 Nov).
+        // Manan 3 Nov: holding the rod he stared down at the deck.
+        public Vector3 LookAt = new(float.NaN, 0, 0);
         // An action clip (M1 fishing: rod idle, cast, fight, reel, hold-up) that stands in for Idle: the gaits still
         // blend over it by speed. ActTime >= 0 drives its time from outside (the cast follows the charge); < 0 plays
         // it at its own speed. Switching clips crossfades like every other weight here (~0.2 s).
@@ -98,6 +104,48 @@ namespace PortBoss
             legRU = B(HumanBodyBones.RightUpperLeg); legRL = B(HumanBodyBones.RightLowerLeg); legRF = B(HumanBodyBones.RightFoot);
             fingerL = B(HumanBodyBones.LeftMiddleProximal); fingerR = B(HumanBodyBones.RightMiddleProximal);
             if (armLU != null) shoulderY = armLU.position.y - a.transform.position.y; // in the bind pose, standing
+            neck = B(HumanBodyBones.Neck); faceLocal = FaceAxis();
+        }
+
+        // Which way the face points, in the head bone's own space, read off the rest pose the body is built in (Init runs
+        // before any clip: upright, arms out, looking ahead): up = hips to head, ahead = across the shoulders x up. Works
+        // on any body, whatever its bone axes (the toes were no good: on Pip they point down); zero if it can't tell.
+        Vector3 FaceAxis()
+        {
+            if (head == null || hips == null || armLU == null || armRU == null) return Vector3.zero;
+            var up = (head.position - hips.position).normalized;
+            var fwd = Vector3.Cross(Vector3.ProjectOnPlane(armRU.position - armLU.position, up), up);
+            return fwd.sqrMagnitude < 1e-4f ? Vector3.zero : Quaternion.Inverse(head.rotation) * fwd.normalized;
+        }
+        Transform neck; Vector3 faceLocal, lastLook; float lookW;
+        [System.NonSerialized] public float GazeRaw, GazeWant, GazeTo; // the last frame: where the face pointed before the aim, and the aim (tests)
+        public float FaceDown => head != null && faceLocal != Vector3.zero ? Mathf.Asin(Mathf.Clamp((head.rotation * faceLocal).normalized.y, -1, 1)) * -Mathf.Rad2Deg : float.NaN; // degrees below level (tests)
+
+        void Gaze()
+        {
+            bool on = !float.IsNaN(LookAt.x);
+            if (on) lastLook = LookAt;
+            lookW = Mathf.Lerp(lookW, on ? 1f : 0f, 1 - Mathf.Exp(-6f * Time.deltaTime)); // eases in and out at ~6/s
+            if (lookW < 0.01f || head == null || faceLocal == Vector3.zero) return;
+            var body = Facing != null ? Facing : transform;
+            var d = lastLook - head.position; var flat = new Vector3(d.x, 0, d.z);
+            // yaw: the face turns to the target, at most 50° either side of where the body faces
+            var fwd = Vector3.ProjectOnPlane(body.forward, Vector3.up).normalized;
+            float wantYaw = flat.sqrMagnitude > 1e-4f ? Mathf.Clamp(Vector3.SignedAngle(fwd, flat, Vector3.up), -50f, 50f) : 0f;
+            var face = head.rotation * faceLocal; face.y = 0;
+            if (face.sqrMagnitude < 1e-4f) return;
+            float yaw = Mathf.DeltaAngle(Vector3.SignedAngle(fwd, face, Vector3.up), wantYaw) * lookW;
+            if (neck != null) neck.rotation = Quaternion.AngleAxis(yaw * 0.4f, Vector3.up) * neck.rotation;
+            head.rotation = Quaternion.AngleAxis(neck != null ? yaw * 0.6f : yaw, Vector3.up) * head.rotation;
+            // pitch: the eyes cover up to 6° of it, the head the rest, within 25° up or down
+            GazeTo = Mathf.Atan2(-d.y, Mathf.Max(flat.magnitude, 0.3f)) * Mathf.Rad2Deg;
+            float want = Mathf.Clamp(GazeTo - Mathf.Clamp(GazeTo * 0.5f, -6f, 6f), -25f, 25f);
+            GazeRaw = FaceDown; GazeWant = want;
+            float turn = Mathf.Clamp(want - GazeRaw, -35f, 35f) * lookW;
+            face = head.rotation * faceLocal; face.y = 0;
+            var axis = Vector3.Cross(Vector3.up, face.normalized); // + turns the face down
+            if (neck != null) neck.rotation = Quaternion.AngleAxis(turn * 0.4f, axis) * neck.rotation;
+            head.rotation = Quaternion.AngleAxis(neck != null ? turn * 0.6f : turn, axis) * head.rotation;
         }
 
         // ---------- locomotion ----------
@@ -110,6 +158,7 @@ namespace PortBoss
         bool measuredGaits;
         float phase, speedS, airT, landT = -1;
         public float Phase => phase; // the shared stride: 0 = left heel strike, ~0.5 = right (footsteps)
+        public float AirW => w != null ? w[(int)Slot.Jump] + w[(int)Slot.Land] : 0; // how much of the jump tuck / landing crouch is blended in (tests)
         Slot last;
 
         public void Tick(Slot want, float speed)
@@ -386,6 +435,7 @@ namespace PortBoss
                 Aim(armLU, armLL, -t.up * 0.7f + t.forward * 0.4f - t.right * 0.3f, Laugh);
                 Aim(armLL, armLH, t.right * 0.8f + t.forward * 0.3f, Laugh);
             }
+            Gaze();
         }
 
         float ArmLen => Dist(armLU, armLL) + Dist(armLL, armLH);

@@ -1,5 +1,26 @@
 # Port Boss M2: co-op on the boat (how to test)
 
+## What changed since M2 (this is build M2.1, 3 Nov)
+From your co-op test this morning and two audits of the M2 build:
+- **Holding the rod, everyone keeps their chin up** and looks at the horizon, then at the bobber, then at the fish they
+  hold up (all six crew). Before, they stared at the deck.
+- **On the cast wind-up the rod and mitts stay clear of the hat**, and the cast power arc now sits round the distance
+  label instead of floating in the middle of the screen.
+- **The rod on your back is broken down into its two halves**, so no more antennae over everyone's heads.
+- **A friend who joins starts on their own spot on the pier**, not inside you.
+- **The fishing bar sits just above the hotbar**, so you can see your angler during the fight.
+- **Quieter start:** the welcome tips come one at a time, the "1 Rod" hint shows only for the first 20 s, an empty
+  slot isn't lit, and the title card has no hotbar under it.
+- **A bluer sky** near the horizon, and **no dark oval in the water** by the pier end.
+- **Co-op fixes:**
+  - fish you caught alone before joining a crew are kept (they used to vanish);
+  - if you quit and come straight back, you're yourself again (same fish, colour and crew member), not a stranger;
+  - the host can drop the anchor while a friend drives;
+  - if joining fails, a note on the left says why;
+  - a fifth player is told "The crew is full".
+- **Steam invite: start `PortBoss.exe` first, then accept** (see section 2). With the game closed, Steam starts
+  "Spacewar" instead.
+
 M2 adds co-op: up to 4 of you on Biscuit, fishing together, handing fish around, talking by voice, over Steam or your
 home network. This page is for Tushar and Manan. Play together on two PCs for about 30 minutes, tick the boxes, and note
 anything that felt wrong.
@@ -15,9 +36,11 @@ anything that felt wrong.
 ## 2. Getting into one crew over Steam (the main test)
 1. **Tushar:** run `PortBoss.exe`. The title menu shows. Pick **2 Host a crew on Steam**.
 2. **Tushar:** press **Esc**, then **I**. Steam's invite window opens. Invite Manan. Press Esc to close the menu.
-3. **Manan:** accept the invite in Steam. If the game isn't running yet, Steam starts it and joins you.
+3. **Manan:** start `PortBoss.exe` first and wait on the title menu, **then** accept the invite in Steam. Don't accept it
+   with the game closed: on Steam's test app (480) Steam would start "Spacewar", not Port Boss. (That works only once Port
+   Boss has its own Steam app ID.)
    - Other ways in: run `PortBoss.exe` and pick **3 Join a friend on Steam**, then choose "Tushar's crew"; or right-click
-     Tushar in your Steam friends list and pick **Join game**.
+     Tushar in your Steam friends list and pick **Join game** (also with the game already running).
 4. You should both appear on Walt's pier. Each of you sees the other's name over their head and both names in the
    **crew list** (top right).
 

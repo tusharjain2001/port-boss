@@ -103,6 +103,7 @@ namespace PortBoss.M1
         void Draw()
         {
             foreach (Transform c in list) Destroy(c.gameObject);
+            card.sizeDelta = new Vector2(720, Mathf.Max(380, 160 + rows.Count * 72 + 96)); // the card fits its rows (no dead strip under them)
             for (int i = 0; i < rows.Count; i++)
             {
                 var r = rows[i];
