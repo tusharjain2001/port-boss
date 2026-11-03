@@ -104,7 +104,9 @@ Pull the M4 branch (or `main` once Kufu merges it) and run `bash tools/m1build.s
   - **Grades.** With Walt's bamboo rod and worms, a fish is worth $8.25 Basic. A practised player lands about 1 in 5
     Rare (×2), so that's about $10 a fish. Getting $16 would need ~94% Rare.
   So either the table or the prices need a decision (economy, not M4 code). `firstday.txt` (saturation on) and
-  `firstday-game.txt` (the game's grade odds) in the proof folder have the numbers; `firstday-table.txt` is the check.
+  `firstday-game.txt` (the game's grade odds) in the proof folder have the numbers. The check is
+  `firstday-table-mean.txt`: the mean of 4 runs with different catches under the table's assumptions (one run alone
+  is ~15 random fish a sale, about ±$12 on a row).
 - **The map.** The counters and Mari's boat are on temporary spots on Walt's Landing, as planned, until map B is in the
   scene.
 
@@ -114,7 +116,7 @@ Pull the M4 branch (or `main` once Kufu merges it) and run `bash tools/m1build.s
   operations); the fish ledger; Pratt 60% / Mari 100% / saturation / freshness; the v1 → v2 save migration; a newer
   save refused; gzip + CRC.
 - `-pb-firstday`: the practised player's first three days through the real shops, phone, pouch and nights. The bank is
-  compared with the economy table at 15 rows (the check: `-pb-sat off`, the table's assumptions), and every phone
+  compared with the economy table at 15 rows (the check: `-pb-sat off`, the table's assumptions, the mean of 4 runs), and every phone
   screen is captured (`proof/M4/phone/`). The same run is filmed as `firstday.mp4`.
 - `-pb-savetest`:
   - a lived-in world is saved, then reloaded in a second process: the world's hash and JSON must be identical;
