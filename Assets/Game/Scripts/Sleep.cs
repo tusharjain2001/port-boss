@@ -32,7 +32,21 @@ namespace PortBoss.M1
         public bool Skipping;                       // a skip is under way (heads-up, waiting, the card)
         // the host's: who asked, when
         bool hostRun;
-        Image vignette, fade; RectTransform card; Text cardTitle, cardBody;
+        Image vignette, fade; RectTransform card, cardRows; Text cardTitle, cardBody;
+        // the night card's rows (built fresh each night): labels left, amounts right, like a page of the Ledger
+        const float CardW = 540, CardTop = 140; float cy; static readonly Color Money = Ponyo.Hex("3E9A4E");
+        void CardClear() { for (int i = cardRows.childCount - 1; i >= 0; i--) Destroy(cardRows.GetChild(i).gameObject); cy = 0; }
+        Text CT(string s, Font f, int size, Color c, TextAnchor a, float x, float w, float h)
+        { var t = UiKit.Txt(cardRows, s, f, size, c, a); t.supportRichText = true; t.rectTransform.Place(new Vector2(0, 1), new Vector2(x, -cy), new Vector2(w, h), new Vector2(0, 1)); return t; }
+        void CardRow(string l, string r, Color rc, Font rf = null, int size = 20, float h = 32)
+        { CT(l, UiKit.Body, Mathf.Min(size, 20), Ponyo.Ink, TextAnchor.MiddleLeft, 0, CardW * 0.7f, h); CT(r, rf ?? UiKit.Bold, size, rc, TextAnchor.MiddleRight, 0, CardW, h); cy += h + 2; }
+        void CardCaps(string s, string right = null)
+        {
+            CT(UiKit.Caps(s), UiKit.Bold, 13, Ponyo.InkSoft, TextAnchor.MiddleLeft, 0, CardW, 20);
+            if (right != null) CT(right, UiKit.Body, 13, Ponyo.InkSoft, TextAnchor.MiddleRight, 0, CardW, 20);
+            cy += 26;
+        }
+        void CardRule() { var i = UiKit.Img(cardRows, null, Ponyo.Paper3, "rule"); i.rectTransform.Place(new Vector2(0, 1), new Vector2(0, -cy - 5), new Vector2(CardW, 2), new Vector2(0, 1)); cy += 12; }
 
         public static void Create()
         {
@@ -220,10 +234,10 @@ namespace PortBoss.M1
             // the night card: the day that ended, tomorrow's forecast with how sure Dot is
             int newDay = DayTime.Day(to);
             cardTitle.text = $"Day {fromDay} · {DayTime.DayName(fromDay)} is over";
-            var sb = new System.Text.StringBuilder();
-            sb.AppendLine(k == Kind.PassOut ? $"{name} passed out at {DayTime.Clock(from)}." : $"{name} slept through the night.");
-            sb.AppendLine();
-            // M4: the day's money (each of the crew), Mari's rent this morning, the bank, fish about to turn; then the save
+            cardBody.text = k == Kind.PassOut ? $"{name} passed out at {DayTime.Clock(from)}." : $"{name} slept through the night.";
+            CardClear();
+            // M4: the day's money as a little ledger (each of the crew), Mari's rent this morning, the bank, fish about to
+            // turn; then tomorrow's forecast with how sure Dot is; then the save
             var co = Firm.C; bool saved = false;
             if (co != null)
             {
@@ -231,19 +245,30 @@ namespace PortBoss.M1
                 var (inS, outS, by) = co.DaySummary(DayTime.At(fromDay, DayTime.Wake), to);
                 by.RemoveAll(x => x.who == Company.MariName);
                 int sales = 0; foreach (var x in by) sales += x.amount;
-                sb.AppendLine($"The day's sales  <b>+${sales}</b>" + (outS > 0 ? $"   ·   spent <b>${outS}</b>" : ""));
-                if (Coop.On && by.Count > 0) sb.AppendLine("<size=19>" + string.Join("   ", by.ConvertAll(x => $"{x.who} +${x.amount}")) + "</size>");
+                CardCaps("The day");
+                CardRow("Sales", $"+${sales:N0}", Ponyo.Ink);
+                if (Coop.On && by.Count > 1) foreach (var x in by) CardRow("    " + x.who, $"+${x.amount:N0}", Ponyo.InkSoft, UiKit.Body, 18, 28);
+                if (outS > 0) CardRow("Spent", $"−${outS:N0}", Ponyo.Ink);
                 var rent = co.Ledger.Find(e => e.Tx == $"rent:mari:{DayTime.Day(to - DayTime.Wake)}");
-                if (rent != null) sb.AppendLine($"Mari's rent this morning  <color=#3E9A4E><b>+${rent.Amount}</b></color>");
-                sb.AppendLine($"Company bank  <b>${co.Cash:N0}</b>");
+                if (rent != null) CardRow("Mari's rent this morning", $"+${rent.Amount}", Money);
+                CardRule();
+                CardRow("Company bank", $"${co.Cash:N0}", Ponyo.Ink, UiKit.DisplayBold, 26, 40);
                 int turning = 0; if (me != null) foreach (var s in me.Bar.S) foreach (var f in s.Fish) if (f.Fresh >= 2) turning++;
-                if (turning > 0) sb.AppendLine($"<color=#E2553F>{turning} fish {(turning == 1 ? "is" : "are")} going off: sell today</color>");
-                sb.AppendLine();
+                if (turning > 0) { CT($"{turning} fish {(turning == 1 ? "is" : "are")} going off: sell today", UiKit.Bold, 17, Ponyo.Poppy, TextAnchor.MiddleLeft, 0, CardW, 28); cy += 30; }
+                cy += 12;
             }
-            sb.AppendLine($"Day {newDay} · {DayTime.DayName(newDay)}, 7:00 AM");
-            for (int b = 0; b < 3; b++) sb.AppendLine($"{Weather.BlockName[b],-10} {Sky.W.Shown(newDay, b, 0)}   {new string('●', Weather.Dots(b, 0))}{new string('○', 4 - Weather.Dots(b, 0))}");
-            if (saved) sb.AppendLine("<size=17><color=#7A625A>Saved ✓</color></size>");
-            cardBody.text = sb.ToString();
+            CardCaps($"Tomorrow · {DayTime.DayName(newDay)}, Day {newDay}", "how sure Dot is");
+            for (int b = 0; b < 3; b++)
+            {
+                var wx = Sky.W.Shown(newDay, b, 0); int dots = Weather.Dots(b, 0); var ink = wx == Wx.Storm ? Ponyo.Poppy : Ponyo.Ink;
+                var ic = UiKit.Img(cardRows, Glyphs.Get(wx.ToString()), ink, "icon"); ic.rectTransform.Place(new Vector2(0, 1), new Vector2(0, -cy - 3), new Vector2(28, 28), new Vector2(0, 1));
+                CT(Weather.BlockName[b], UiKit.Bold, 19, Ponyo.Ink, TextAnchor.MiddleLeft, 44, 160, 34);
+                CT(wx.ToString(), UiKit.Body, 19, ink, TextAnchor.MiddleLeft, 190, 200, 34);
+                CT($"<color=#3F2C27>{new string('●', dots)}</color>{new string('●', 4 - dots)}", UiKit.Body, 16, Ponyo.Paper3, TextAnchor.MiddleRight, 0, CardW, 34);
+                cy += 36;
+            }
+            if (saved) { cy += 10; CT("Saved ✓", UiKit.Body, 15, Ponyo.InkSoft, TextAnchor.MiddleCenter, 0, CardW, 22); cy += 22; }
+            card.sizeDelta = new Vector2(660, CardTop + cy + 36);
             card.gameObject.SetActive(true);
             yield return new WaitForSeconds(Application.isBatchMode ? 0.6f : 4.5f);
             card.gameObject.SetActive(false);
@@ -316,7 +341,8 @@ namespace PortBoss.M1
             card = UiKit.Card(hud, "night card", 26, Ponyo.Paper, true);
             card.Place(new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(660, 600));
             cardTitle = UiKit.Txt(card, "", UiKit.Display, 40, Ponyo.Ink, TextAnchor.UpperCenter); cardTitle.rectTransform.Stretch(30);
-            cardBody = UiKit.Txt(card, "", UiKit.Body, 22, Ponyo.Ink, TextAnchor.MiddleCenter); cardBody.supportRichText = true; cardBody.rectTransform.Stretch(34); cardBody.rectTransform.offsetMax = new Vector2(-34, -84);
+            cardBody = UiKit.Txt(card, "", UiKit.Body, 20, Ponyo.InkSoft, TextAnchor.UpperCenter); cardBody.rectTransform.Place(new Vector2(0.5f, 1), new Vector2(0, -90), new Vector2(600, 28), new Vector2(0.5f, 1));
+            cardRows = UiKit.Rect("rows", card).Place(new Vector2(0.5f, 1), new Vector2(0, -CardTop), new Vector2(CardW, 10), new Vector2(0.5f, 1));
             card.gameObject.SetActive(false);
         }
     }
