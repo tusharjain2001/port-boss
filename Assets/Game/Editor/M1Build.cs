@@ -42,6 +42,12 @@ namespace PortBoss.EditorTools
             a.FishIds = ids.Select(p => Path.GetFileNameWithoutExtension(p).Substring("PB_Fish_".Length)).ToArray();
             a.Fish = ids.Select(Model).ToArray();
             Debug.Log($"[M1Build] boat {(a.Boat != null)}, landing {(a.Landing != null)}, fish {a.Fish.Count(f => f != null)}: {string.Join(" ", a.FishIds)}");
+            // map B, Crescent Bay (art-src/world/build_island.py -- export): the cells, the props, the anchors, the seabed
+            const string wd = Root + "/Art/World";
+            a.Cells = Directory.Exists(wd) ? Directory.GetFiles(wd, "PB_Island_c*.fbx").Select(p => p.Replace('\\', '/')).OrderBy(p => p).Select(Model).ToArray() : new GameObject[0];
+            a.WorldProps = Model(wd + "/PB_World_Props.fbx"); a.WorldJson = AssetDatabase.LoadAssetAtPath<TextAsset>(wd + "/PB_World.json");
+            a.Seabed = SeabedTex(wd + "/PB_Seabed.png");
+            Debug.Log($"[M1Build] map: {a.Cells.Count(c => c != null)} cells, props {(a.WorldProps != null)}, json {(a.WorldJson != null)}, seabed {(a.Seabed != null ? a.Seabed.format.ToString() : "missing")}");
 
             // our dock worker + the Mixamo clips: reuse the old build's importer setup (reflection: they're private there)
             var pb = typeof(PortBossBuild);
@@ -100,6 +106,18 @@ namespace PortBoss.EditorTools
                 mi.SaveAndReimport();
             }
             return AssetDatabase.LoadAssetAtPath<GameObject>(path);
+        }
+
+        // The seabed: 16-bit, linear, read on the CPU too (Seabed.cs), clamped, bilinear, no mips, no compression
+        static Texture2D SeabedTex(string path)
+        {
+            if (AssetImporter.GetAtPath(path) is not TextureImporter ti) { Debug.LogWarning("[M1Build] missing " + path); return null; }
+            ti.textureType = TextureImporterType.Default; ti.sRGBTexture = false; ti.mipmapEnabled = false; ti.isReadable = true;
+            ti.wrapMode = TextureWrapMode.Clamp; ti.filterMode = FilterMode.Bilinear; ti.npotScale = TextureImporterNPOTScale.None;
+            ti.alphaSource = TextureImporterAlphaSource.None; ti.textureCompression = TextureImporterCompression.Uncompressed; ti.maxTextureSize = 2048;
+            var ps = ti.GetPlatformTextureSettings("Standalone"); ps.overridden = true; ps.format = TextureImporterFormat.R16; ps.maxTextureSize = 2048; ps.textureCompression = TextureImporterCompression.Uncompressed;
+            ti.SetPlatformTextureSettings(ps); ti.SaveAndReimport();
+            return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
         }
 
         // A body's belly, from its bind-pose mesh: how far it sticks out in front (+Z in the imported prefab) and half its

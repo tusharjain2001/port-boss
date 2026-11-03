@@ -1,0 +1,826 @@
+{
+ "cell": 512.0,
+ "landing": {
+  "pos": [
+   12.352,
+   0.0,
+   0.0
+  ],
+  "yaw": -90.0
+ },
+ "seabed": {
+  "x0": -2840.0,
+  "z0": -2450.0,
+  "size": 5000.0,
+  "hmin": -160.0,
+  "hmax": 240.0,
+  "px": 2048
+ },
+ "anchors": [
+  {
+   "id": "tackle",
+   "name": "Hook, Line & Sinker",
+   "pos": [
+    55.4,
+    4.02,
+    69.982
+   ],
+   "fwd": [
+    -1.0,
+    -0.0038
+   ],
+   "ground": true
+  },
+  {
+   "id": "doyle",
+   "name": "Doyle Boatworks",
+   "pos": [
+    29.016,
+    1.6,
+    -70.589
+   ],
+   "fwd": [
+    -0.9986,
+    -0.0535
+   ],
+   "ground": true
+  },
+  {
+   "id": "plank",
+   "name": "Plank & Post",
+   "pos": [
+    114.418,
+    5.512,
+    -100.45
+   ],
+   "fwd": [
+    -0.9968,
+    -0.0803
+   ],
+   "ground": true
+  },
+  {
+   "id": "pub",
+   "name": "The Mooring Line",
+   "pos": [
+    104.404,
+    4.02,
+    40.206
+   ],
+   "fwd": [
+    -0.9993,
+    0.0367
+   ],
+   "ground": true
+  },
+  {
+   "id": "pratts",
+   "name": "Pratt's Fish Market",
+   "pos": [
+    153.207,
+    10.756,
+    -20.316
+   ],
+   "fwd": [
+    -0.9989,
+    -0.0464
+   ],
+   "ground": true
+  },
+  {
+   "id": "surf",
+   "name": "Swell Surf Co.",
+   "pos": [
+    -283.323,
+    1.636,
+    -732.001
+   ],
+   "fwd": [
+    -0.9994,
+    -0.0356
+   ],
+   "ground": true
+  },
+  {
+   "id": "post",
+   "name": "Post office + Nell's",
+   "pos": [
+    144.802,
+    11.964,
+    109.854
+   ],
+   "fwd": [
+    -0.9996,
+    -0.0282
+   ],
+   "ground": true
+  },
+  {
+   "id": "hartleys",
+   "name": "Hartley's Outfitters",
+   "pos": [
+    199.812,
+    15.757,
+    45.354
+   ],
+   "fwd": [
+    -0.9977,
+    0.068
+   ],
+   "ground": true
+  },
+  {
+   "id": "office",
+   "name": "Walt's shack (the office)",
+   "pos": [
+    23.552,
+    0.0,
+    5.38
+   ],
+   "fwd": [
+    -1.0,
+    -0.0
+   ],
+   "ground": true
+  },
+  {
+   "id": "mari_mooring",
+   "name": "Mari's mooring (the pier beside her boat)",
+   "pos": [
+    -2.148,
+    1.3,
+    1.1
+   ],
+   "fwd": [
+    -0.0,
+    1.0
+   ],
+   "ground": true
+  },
+  {
+   "id": "mari_boat",
+   "name": "Mari's taco boat",
+   "pos": [
+    -2.148,
+    0.0,
+    3.3
+   ],
+   "fwd": [
+    -1.0,
+    -0.0
+   ],
+   "ground": false
+  },
+  {
+   "id": "lighthouse",
+   "name": "Dot's lighthouse (harbour master)",
+   "pos": [
+    -898.642,
+    10.103,
+    858.658
+   ],
+   "fwd": [
+    0.0,
+    -1.0
+   ],
+   "ground": true
+  },
+  {
+   "id": "cut",
+   "name": "Walt's Cut (the Voss Causeway)",
+   "pos": [
+    -199.0,
+    2.0,
+    -902.0
+   ],
+   "fwd": [
+    1.0,
+    0.0
+   ],
+   "ground": true
+  },
+  {
+   "id": "bay_shallows",
+   "name": "Bay Shallows",
+   "pos": [
+    -340.0,
+    0.0,
+    -150.0
+   ],
+   "fwd": [
+    1.0,
+    0.0
+   ],
+   "ground": false
+  },
+  {
+   "id": "gullrock",
+   "name": "Gullrock",
+   "pos": [
+    -460.0,
+    0.0,
+    -10.0
+   ],
+   "fwd": [
+    1.0,
+    0.0
+   ],
+   "ground": false
+  },
+  {
+   "id": "lantern_key",
+   "name": "Lantern Key",
+   "pos": [
+    -1520.0,
+    0.0,
+    -110.0
+   ],
+   "fwd": [
+    1.0,
+    0.0
+   ],
+   "ground": false
+  },
+  {
+   "id": "wreck",
+   "name": "Wreck of the Margaret",
+   "pos": [
+    -1740.0,
+    0.0,
+    770.0
+   ],
+   "fwd": [
+    1.0,
+    0.0
+   ],
+   "ground": false
+  },
+  {
+   "id": "breaker_point",
+   "name": "Breaker Point surf",
+   "pos": [
+    -240.0,
+    0.0,
+    -1350.0
+   ],
+   "fwd": [
+    1.0,
+    0.0
+   ],
+   "ground": false
+  },
+  {
+   "id": "sorrel",
+   "name": "Sorrel Isle",
+   "pos": [
+    1160.0,
+    0.0,
+    1550.0
+   ],
+   "fwd": [
+    1.0,
+    0.0
+   ],
+   "ground": false
+  },
+  {
+   "id": "mango_cay",
+   "name": "Mango Cay",
+   "pos": [
+    1310.0,
+    0.0,
+    -1700.0
+   ],
+   "fwd": [
+    1.0,
+    0.0
+   ],
+   "ground": false
+  },
+  {
+   "id": "voss",
+   "name": "Voss Harbour (round the south horn)",
+   "pos": [
+    1110.0,
+    0.0,
+    -450.0
+   ],
+   "fwd": [
+    1.0,
+    0.0
+   ],
+   "ground": false
+  },
+  {
+   "id": "p1",
+   "name": "Expansion site P1",
+   "pos": [
+    -50.0,
+    0.0,
+    195.0
+   ],
+   "fwd": [
+    1.0,
+    0.0
+   ],
+   "ground": false
+  },
+  {
+   "id": "p2",
+   "name": "Expansion site P2",
+   "pos": [
+    -90.0,
+    0.0,
+    400.0
+   ],
+   "fwd": [
+    1.0,
+    0.0
+   ],
+   "ground": false
+  },
+  {
+   "id": "p3",
+   "name": "Expansion site P3",
+   "pos": [
+    -130.0,
+    0.0,
+    -240.0
+   ],
+   "fwd": [
+    1.0,
+    0.0
+   ],
+   "ground": false
+  }
+ ],
+ "cells": [
+  {
+   "file": "PB_Island_c-4_-1.fbx",
+   "i": -4,
+   "j": -1,
+   "tris": {
+    "c-4_-1_Terrain_LOD0": 5270,
+    "c-4_-1_Terrain_LOD1": 1460,
+    "c-4_-1_Terrain_LOD2": 424
+   }
+  },
+  {
+   "file": "PB_Island_c-4_0.fbx",
+   "i": -4,
+   "j": 0,
+   "tris": {
+    "c-4_0_Terrain_LOD0": 2304,
+    "c-4_0_Terrain_LOD1": 690,
+    "c-4_0_Terrain_LOD2": 220
+   }
+  },
+  {
+   "file": "PB_Island_c-4_1.fbx",
+   "i": -4,
+   "j": 1,
+   "tris": {
+    "c-4_1_Terrain_LOD0": 1030,
+    "c-4_1_Terrain_LOD1": 292,
+    "c-4_1_Terrain_LOD2": 84
+   }
+  },
+  {
+   "file": "PB_Island_c-3_-3.fbx",
+   "i": -3,
+   "j": -3,
+   "tris": {
+    "c-3_-3_Terrain_LOD0": 818,
+    "c-3_-3_Terrain_LOD1": 278,
+    "c-3_-3_Terrain_LOD2": 108,
+    "c-3_-3_Rocks": 166,
+    "c-3_-3_Trees": 76
+   }
+  },
+  {
+   "file": "PB_Island_c-3_-2.fbx",
+   "i": -3,
+   "j": -2,
+   "tris": {
+    "c-3_-2_Terrain_LOD0": 5328,
+    "c-3_-2_Terrain_LOD1": 1472,
+    "c-3_-2_Terrain_LOD2": 418,
+    "c-3_-2_Rocks": 1014,
+    "c-3_-2_Trees": 3153
+   }
+  },
+  {
+   "file": "PB_Island_c-3_-1.fbx",
+   "i": -3,
+   "j": -1,
+   "tris": {
+    "c-3_-1_Terrain_LOD0": 1260,
+    "c-3_-1_Terrain_LOD1": 374,
+    "c-3_-1_Terrain_LOD2": 126
+   }
+  },
+  {
+   "file": "PB_Island_c-3_0.fbx",
+   "i": -3,
+   "j": 0,
+   "tris": {
+    "c-3_0_Terrain_LOD0": 130,
+    "c-3_0_Terrain_LOD1": 60,
+    "c-3_0_Terrain_LOD2": 28
+   }
+  },
+  {
+   "file": "PB_Island_c-3_1.fbx",
+   "i": -3,
+   "j": 1,
+   "tris": {
+    "c-3_1_Rocks": 20
+   }
+  },
+  {
+   "file": "PB_Island_c-3_2.fbx",
+   "i": -3,
+   "j": 2,
+   "tris": {
+    "c-3_2_Terrain_LOD0": 1746,
+    "c-3_2_Terrain_LOD1": 466,
+    "c-3_2_Terrain_LOD2": 136,
+    "c-3_2_Rocks": 40
+   }
+  },
+  {
+   "file": "PB_Island_c-2_-3.fbx",
+   "i": -2,
+   "j": -3,
+   "tris": {
+    "c-2_-3_Terrain_LOD0": 4838,
+    "c-2_-3_Terrain_LOD1": 1388,
+    "c-2_-3_Terrain_LOD2": 422,
+    "c-2_-3_Rocks": 720,
+    "c-2_-3_Trees": 2409
+   }
+  },
+  {
+   "file": "PB_Island_c-2_-2.fbx",
+   "i": -2,
+   "j": -2,
+   "tris": {
+    "c-2_-2_Terrain_LOD0": 12098,
+    "c-2_-2_Terrain_LOD1": 3290,
+    "c-2_-2_Terrain_LOD2": 920,
+    "c-2_-2_Rocks": 460,
+    "c-2_-2_Trees": 9167
+   }
+  },
+  {
+   "file": "PB_Island_c-2_-1.fbx",
+   "i": -2,
+   "j": -1,
+   "tris": {
+    "c-2_-1_Terrain_LOD0": 4348,
+    "c-2_-1_Terrain_LOD1": 1230,
+    "c-2_-1_Terrain_LOD2": 368,
+    "c-2_-1_Rocks": 486,
+    "c-2_-1_Trees": 70
+   }
+  },
+  {
+   "file": "PB_Island_c-2_0.fbx",
+   "i": -2,
+   "j": 0,
+   "tris": {
+    "c-2_0_Terrain_LOD0": 4338,
+    "c-2_0_Terrain_LOD1": 1230,
+    "c-2_0_Terrain_LOD2": 374,
+    "c-2_0_Rocks": 557,
+    "c-2_0_Trees": 50
+   }
+  },
+  {
+   "file": "PB_Island_c-2_1.fbx",
+   "i": -2,
+   "j": 1,
+   "tris": {
+    "c-2_1_Terrain_LOD0": 11958,
+    "c-2_1_Terrain_LOD1": 3198,
+    "c-2_1_Terrain_LOD2": 870,
+    "c-2_1_Rocks": 1009,
+    "c-2_1_Trees": 6517
+   }
+  },
+  {
+   "file": "PB_Island_c-2_2.fbx",
+   "i": -2,
+   "j": 2,
+   "tris": {
+    "c-2_2_Terrain_LOD0": 1474,
+    "c-2_2_Terrain_LOD1": 466,
+    "c-2_2_Terrain_LOD2": 154,
+    "c-2_2_Rocks": 211,
+    "c-2_2_Trees": 607
+   }
+  },
+  {
+   "file": "PB_Island_c-1_-3.fbx",
+   "i": -1,
+   "j": -3,
+   "tris": {
+    "c-1_-3_Terrain_LOD0": 10152,
+    "c-1_-3_Terrain_LOD1": 2746,
+    "c-1_-3_Terrain_LOD2": 768,
+    "c-1_-3_Rocks": 20,
+    "c-1_-3_Trees": 2010
+   }
+  },
+  {
+   "file": "PB_Island_c-1_-2.fbx",
+   "i": -1,
+   "j": -2,
+   "tris": {
+    "c-1_-2_Terrain_LOD0": 16148,
+    "c-1_-2_Terrain_LOD1": 4386,
+    "c-1_-2_Terrain_LOD2": 1218,
+    "c-1_-2_Rocks": 220,
+    "c-1_-2_Trees": 5332,
+    "c-1_-2_Town": 744,
+    "c-1_-2_Windows": 12
+   }
+  },
+  {
+   "file": "PB_Island_c-1_-1.fbx",
+   "i": -1,
+   "j": -1,
+   "tris": {
+    "c-1_-1_Terrain_LOD0": 16984,
+    "c-1_-1_Terrain_LOD1": 2342,
+    "c-1_-1_Terrain_LOD2": 736,
+    "c-1_-1_Rocks": 222
+   }
+  },
+  {
+   "file": "PB_Island_c-1_0.fbx",
+   "i": -1,
+   "j": 0,
+   "tris": {
+    "c-1_0_Terrain_LOD0": 14268,
+    "c-1_0_Terrain_LOD1": 2038,
+    "c-1_0_Terrain_LOD2": 656,
+    "c-1_0_Rocks": 175
+   }
+  },
+  {
+   "file": "PB_Island_c-1_1.fbx",
+   "i": -1,
+   "j": 1,
+   "tris": {
+    "c-1_1_Terrain_LOD0": 16166,
+    "c-1_1_Terrain_LOD1": 4386,
+    "c-1_1_Terrain_LOD2": 1218,
+    "c-1_1_Rocks": 247,
+    "c-1_1_Trees": 9065
+   }
+  },
+  {
+   "file": "PB_Island_c-1_2.fbx",
+   "i": -1,
+   "j": 2,
+   "tris": {
+    "c-1_2_Terrain_LOD0": 5310,
+    "c-1_2_Terrain_LOD1": 1490,
+    "c-1_2_Terrain_LOD2": 448,
+    "c-1_2_Rocks": 680,
+    "c-1_2_Trees": 2357
+   }
+  },
+  {
+   "file": "PB_Island_c0_-3.fbx",
+   "i": 0,
+   "j": -3,
+   "tris": {
+    "c0_-3_Terrain_LOD0": 5874,
+    "c0_-3_Terrain_LOD1": 1642,
+    "c0_-3_Terrain_LOD2": 494,
+    "c0_-3_Rocks": 204,
+    "c0_-3_Trees": 1292
+   }
+  },
+  {
+   "file": "PB_Island_c0_-2.fbx",
+   "i": 0,
+   "j": -2,
+   "tris": {
+    "c0_-2_Terrain_LOD0": 16158,
+    "c0_-2_Terrain_LOD1": 4386,
+    "c0_-2_Terrain_LOD2": 1218,
+    "c0_-2_Rocks": 106,
+    "c0_-2_Trees": 13561
+   }
+  },
+  {
+   "file": "PB_Island_c0_-1.fbx",
+   "i": 0,
+   "j": -1,
+   "tris": {
+    "c0_-1_Terrain_LOD0": 33762,
+    "c0_-1_Terrain_LOD1": 4252,
+    "c0_-1_Terrain_LOD2": 1178,
+    "c0_-1_Rocks": 727,
+    "c0_-1_Trees": 4669,
+    "c0_-1_Town": 155399,
+    "c0_-1_Windows": 16492,
+    "c0_-1_Garden": 6006
+   }
+  },
+  {
+   "file": "PB_Island_c0_0.fbx",
+   "i": 0,
+   "j": 0,
+   "tris": {
+    "c0_0_Terrain_LOD0": 34458,
+    "c0_0_Terrain_LOD1": 4350,
+    "c0_0_Terrain_LOD2": 1214,
+    "c0_0_Rocks": 513,
+    "c0_0_Trees": 4616,
+    "c0_0_Town": 105969,
+    "c0_0_Windows": 11280,
+    "c0_0_Garden": 5314
+   }
+  },
+  {
+   "file": "PB_Island_c0_1.fbx",
+   "i": 0,
+   "j": 1,
+   "tris": {
+    "c0_1_Terrain_LOD0": 16080,
+    "c0_1_Terrain_LOD1": 4358,
+    "c0_1_Terrain_LOD2": 1218,
+    "c0_1_Rocks": 200,
+    "c0_1_Trees": 6138
+   }
+  },
+  {
+   "file": "PB_Island_c0_2.fbx",
+   "i": 0,
+   "j": 2,
+   "tris": {
+    "c0_2_Terrain_LOD0": 3284,
+    "c0_2_Terrain_LOD1": 958,
+    "c0_2_Terrain_LOD2": 298,
+    "c0_2_Rocks": 517,
+    "c0_2_Trees": 440
+   }
+  },
+  {
+   "file": "PB_Island_c1_-2.fbx",
+   "i": 1,
+   "j": -2,
+   "tris": {
+    "c1_-2_Terrain_LOD0": 7100,
+    "c1_-2_Terrain_LOD1": 1958,
+    "c1_-2_Terrain_LOD2": 574,
+    "c1_-2_Rocks": 795,
+    "c1_-2_Trees": 1672
+   }
+  },
+  {
+   "file": "PB_Island_c1_-1.fbx",
+   "i": 1,
+   "j": -1,
+   "tris": {
+    "c1_-1_Terrain_LOD0": 33092,
+    "c1_-1_Terrain_LOD1": 4152,
+    "c1_-1_Terrain_LOD2": 1156,
+    "c1_-1_Rocks": 349,
+    "c1_-1_Trees": 699
+   }
+  },
+  {
+   "file": "PB_Island_c1_0.fbx",
+   "i": 1,
+   "j": 0,
+   "tris": {
+    "c1_0_Terrain_LOD0": 31764,
+    "c1_0_Terrain_LOD1": 3988,
+    "c1_0_Terrain_LOD2": 1102,
+    "c1_0_Rocks": 500,
+    "c1_0_Trees": 1220
+   }
+  },
+  {
+   "file": "PB_Island_c1_1.fbx",
+   "i": 1,
+   "j": 1,
+   "tris": {
+    "c1_1_Terrain_LOD0": 6446,
+    "c1_1_Terrain_LOD1": 1794,
+    "c1_1_Terrain_LOD2": 522,
+    "c1_1_Rocks": 756,
+    "c1_1_Trees": 660
+   }
+  },
+  {
+   "file": "PB_Island_c2_-4.fbx",
+   "i": 2,
+   "j": -4,
+   "tris": {
+    "c2_-4_Terrain_LOD0": 6486,
+    "c2_-4_Terrain_LOD1": 1732,
+    "c2_-4_Terrain_LOD2": 496
+   }
+  },
+  {
+   "file": "PB_Island_c2_-2.fbx",
+   "i": 2,
+   "j": -2,
+   "tris": {
+    "c2_-2_Terrain_LOD0": 66,
+    "c2_-2_Terrain_LOD1": 34,
+    "c2_-2_Terrain_LOD2": 18
+   }
+  },
+  {
+   "file": "PB_Island_c2_-1.fbx",
+   "i": 2,
+   "j": -1,
+   "tris": {
+    "c2_-1_Terrain_LOD0": 6248,
+    "c2_-1_Terrain_LOD1": 1806,
+    "c2_-1_Terrain_LOD2": 560,
+    "c2_-1_Rocks": 866
+   }
+  },
+  {
+   "file": "PB_Island_c2_0.fbx",
+   "i": 2,
+   "j": 0,
+   "tris": {
+    "c2_0_Terrain_LOD0": 4722,
+    "c2_0_Terrain_LOD1": 1376,
+    "c2_0_Terrain_LOD2": 436,
+    "c2_0_Rocks": 609
+   }
+  },
+  {
+   "file": "PB_Island_c2_2.fbx",
+   "i": 2,
+   "j": 2,
+   "tris": {
+    "c2_2_Terrain_LOD0": 114,
+    "c2_2_Terrain_LOD1": 60,
+    "c2_2_Terrain_LOD2": 30
+   }
+  },
+  {
+   "file": "PB_Island_c2_3.fbx",
+   "i": 2,
+   "j": 3,
+   "tris": {
+    "c2_3_Terrain_LOD0": 3726,
+    "c2_3_Terrain_LOD1": 1012,
+    "c2_3_Terrain_LOD2": 294
+   }
+  },
+  {
+   "file": "PB_Island_c3_-4.fbx",
+   "i": 3,
+   "j": -4,
+   "tris": {
+    "c3_-4_Terrain_LOD0": 2902,
+    "c3_-4_Terrain_LOD1": 826,
+    "c3_-4_Terrain_LOD2": 246
+   }
+  },
+  {
+   "file": "PB_Island_c3_-1.fbx",
+   "i": 3,
+   "j": -1,
+   "tris": {
+    "c3_-1_Terrain_LOD0": 456,
+    "c3_-1_Terrain_LOD1": 176,
+    "c3_-1_Terrain_LOD2": 66,
+    "c3_-1_Rocks": 40
+   }
+  },
+  {
+   "file": "PB_Island_c3_0.fbx",
+   "i": 3,
+   "j": 0,
+   "tris": {
+    "c3_0_Terrain_LOD0": 214,
+    "c3_0_Terrain_LOD1": 88,
+    "c3_0_Terrain_LOD2": 34,
+    "c3_0_Rocks": 11
+   }
+  }
+ ],
+ "props": {
+  "DotsLighthouse": 636,
+  "WreckOfTheMargaret": 116,
+  "VossCauseway": 48,
+  "VossHarbour_blocks": 3360,
+  "Expansion_markers": 672,
+  "MarisTacoBoat": 228,
+  "socket_north": 0,
+  "socket_east": 0
+ }
+}

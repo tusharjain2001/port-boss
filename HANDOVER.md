@@ -56,7 +56,10 @@ Glossary:
   in 6 states with Dot's storm calls; fish rot over 48 h shown on the hotbar; storms bring leaks (patch, bail) and rogue
   waves (hold C to brace). All of it works in co-op (the host owns the clock).
 - **Map B "Crescent Bay":** a Blender blockout of the final island in `art-src/world/` with **Manan's picks: the ridge at
-  220 m and the south horn stretched +400 m** (Voss 4.48 km away = 12.4 min in Biscuit at 6 m/s). Not in Unity yet.
+  220 m and the south horn stretched +400 m** (Voss 4.48 km away = 12.4 min in Biscuit at 6 m/s). **In the game (branch
+  `panoptes/w-pb-map-import`, 3 Nov, not yet hand-tested; Manan tests it with M4):** the island in 40 cells with LODs and
+  colliders, the seabed texture in `PB_Water` + `Seabed.cs`, Walt's Landing on the town shore, the blockout shops/props,
+  24 named anchors for M4 (`Places.Get(id)`), see `art-src/world/IMPORT-PLAN.md` §9. Proof `Desktop/Port Boss/proof/map-import/`.
 - **Headless test stills now use `-pb-fps 60`:** batch mode runs at ~1000 fps, and at that rate the standing-still deck
   hold never lands, so the jump tuck bends every body over in the pictures. A test artefact, not a game bug.
 - Regression on the merged head (3 Nov, Manan's PC, `Desktop/Port Boss/proof/M3/regression/summary.txt` +
@@ -768,14 +771,14 @@ sheet, a 24 h lapse film, sleep and storm shots, `regression/summary.txt`).
 **The final map, map B "Crescent Bay": Blender blockout (branch `panoptes/w-pb-map-b`, merged with M3, 3 Nov). Manan's
 picks (3 Nov): the ridge at 220 m and the south horn stretched +400 m; they are now the defaults (`b0d279e`): island
 2.06 x 2.32 km, 2.46 km², crest 229 m; Voss 4.48 km round the horn = 12.4 min in Biscuit at 6 m/s (8.3 in the Kestrel),
-the gdd's numbers. Not imported into Unity yet: `art-src/world/IMPORT-PLAN.md` is the plan.**
+the gdd's numbers. Imported into Unity 3 Nov (branch `panoptes/w-pb-map-import`): `art-src/world/IMPORT-PLAN.md` §9.**
 - `art-src/world/`: `island_shape.py` (map-B's own control points from `make_maps.py`, a coastline distance field ->
   heights + seabed, the route measure), `build_island.py` (`blender -b -P art-src/world/build_island.py`, ~40 s: terrain,
   Old Saltmouth + the 7 shops at their pins, M1's real pier/shack + Biscuit at the town shore, lighthouse, wreck, the Cut +
   causeway, Voss as blocks + breakwater + buoy line, P1-P3 buoys, rocks, trees, cumulus; 7 renders), `proof_sheet.py`
   (map-B vs top-down sheets + the seabed check). Measures, the seabed format and 14 ambiguous points with picks:
   `art-src/world/README.md`.
-- Seabed: `art-src/world/seabed/seabed_2048.png` (16-bit, h = v/65535*320-160 m, map-B's 5 x 5 km sheet).
+- Seabed: `art-src/world/seabed/seabed_2048.png` (16-bit, h = v/65535*400-160 m, map-B's 5 x 5 km sheet; row 0 north).
 - Main island 1.87 x 2.31 km, 2.34 km^2; Voss 3.73 km round the south horn = 10.4 min at 6 m/s (gdd 12.4), 13.8 min at
   M1's 4.5 m/s. Proof: `Desktop/Port Boss/proof/map-b/`. No Unity import yet.
 - Second pass (3 Nov): two variants as knobs (`ridge=220`, `horn=400`: Voss 12.4 min at 6 m/s / 8.3 in the Kestrel,
@@ -862,6 +865,10 @@ Differences now:
 | M3 sleep in co-op (host + rider, 5 rounds: a fight holds the skip, ladder, tiller, deck, both pass out = one skip; the clocks agree) | `bash tools/sleeptest.sh Builds/m1/PortBoss.exe m3coopsleep -pb-fps 60` |
 | M3 storm (roll at anchor and driving, the leak, patch, bail, brace, rogue waves, overboard) | `bash tools/m1test.sh Builds/m1/PortBoss.exe m3storm -pb-stormtest <dir> -pb-fps 60 -pb-seed 7` |
 | Start anywhere in time / weather | any run takes `-pb-seed n`, `-pb-day n`, `-pb-hour h`, `-pb-weather clear\|fair\|breezy\|fog\|rain\|storm` |
+| Map B: the seabed at 7 spots + the axes, Biscuit round the island (20 legs, ~12 km, moored back), an A* walk office -> 7 shops -> pier ladder (no path / stuck / fall = FAIL) | `bash tools/m1test.sh Builds/m1/PortBoss.exe maptour -pb-maptour -pb-fps 60 -pb-quit 1800` (`-pb-mapwalkonly` skips the boat; ~2 min) |
+| Map B looks + perf: 5 views (2 from the sea, 3 in town) x dawn/day/dusk/night, no HUD; fps, draw items, tris at 5 spots | `bash tools/m1test.sh Builds/m1/PortBoss.exe mapshots -pb-mapshots <dir>` (`<dir>/fps.txt`); any spot: `-pb-mapview <dir> -pb-views "name:x,y,z>lx,ly,lz;..."` |
+| Map B 60 s flight (round the island, down onto the town and the pier) | `bash tools/m1test.sh Builds/m1/PortBoss.exe mapfilm -pb-mapfilm <dir>`, then ffmpeg (30 fps jpg frames) |
+| Map B export (Blender, ~35 s) | `"/c/Program Files/Blender Foundation/Blender 5.1/blender.exe" -b --factory-startup -P art-src/world/build_island.py -- export norender` -> `Assets/Game/Art/World/` |
 | Film frames for the capture video | `bash tools/m1test.sh Builds/m1/PortBoss.exe film -pb-film <dir> -pb-filmsecs 60`, then `ffmpeg -framerate 30 -i f_%05d.png -c:v libx264 -crf 20 -pix_fmt yuv420p capture.mp4` |
 
 - Logs go to `Logs/pb/m1/<name>/log.txt`, and every run prints its exception count: it must be 0.
