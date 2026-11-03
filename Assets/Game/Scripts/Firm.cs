@@ -218,11 +218,23 @@ namespace PortBoss.M1
         {
             var g = new GameObject("sign text"); g.transform.SetParent(root, false); g.transform.localPosition = p; g.transform.localRotation = Quaternion.Euler(0, 180, 0);
             var tm = g.AddComponent<TextMesh>(); tm.text = text; tm.font = UiKit.DisplayBold; tm.fontSize = 96; tm.characterSize = size; tm.anchor = TextAnchor.MiddleCenter; tm.alignment = TextAlignment.Center; tm.color = col;
-            g.GetComponent<MeshRenderer>().sharedMaterial = UiKit.DisplayBold.material;
+            g.GetComponent<MeshRenderer>().sharedMaterial = SignMat();
+        }
+        // the font's own material draws through walls in URP (GUI/Text Shader: unity_GUIZTestMode unset): a depth-tested copy
+        static Material signMat;
+        static Material SignMat()
+        {
+            if (signMat != null) return signMat;
+            signMat = new Material(UiKit.DisplayBold.material) { name = "sign text (depth tested)" };
+            signMat.SetFloat("unity_GUIZTestMode", (float)UnityEngine.Rendering.CompareFunction.LessEqual);
+            Font.textureRebuilt += f => { if (f == UiKit.DisplayBold && signMat != null) signMat.mainTexture = f.material.mainTexture; };
+            return signMat;
         }
 
         // a market counter: a plank counter, a striped awning on two posts, the shop's name painted on a board. +Z is the
         // customer's side. ponytail: code-built until each shop has its Blender model (M5 shops).
+        // On a map-B anchor the shop building is map B's (June's house, Pratt's market hall, 1 m behind the anchor): then
+        // only the counter and a small name board on it, at the door (Kufu 4 Nov: one building per place, not two).
         void Counter(Stall s)
         {
             var root = new GameObject("Counter " + s.Name).transform; root.SetParent(s.At, false);
@@ -231,11 +243,23 @@ namespace PortBoss.M1
             Box(root, "counter", new Vector3(0, 0.47f, 0.1f), new Vector3(1.9f, 0.94f, 0.62f), wood);
             Box(root, "counter top", new Vector3(0, 0.96f, 0.14f), new Vector3(2.02f, 0.06f, 0.74f), top);
             Box(root, "kick", new Vector3(0, 0.07f, 0.42f), new Vector3(1.86f, 0.14f, 0.02f), woodDk);
-            for (int i = -1; i <= 1; i += 2) Box(root, "post", new Vector3(0.98f * i, 1.25f, -0.18f), new Vector3(0.08f, 2.5f, 0.08f), woodDk);
-            for (int k = 0; k < 6; k++) Box(root, "awning", new Vector3(-0.85f + k * 0.34f, 2.42f, 0.18f), new Vector3(0.34f, 0.04f, 1.0f), k % 2 == 0 ? a1 : a2, new Vector3(-14, 0, 0));
-            Box(root, "board", new Vector3(0, 2.72f, -0.18f), new Vector3(1.9f, 0.42f, 0.06f), Ponyo.Hex("F3EBDD"));
-            Box(root, "board edge", new Vector3(0, 2.72f, -0.215f), new Vector3(1.98f, 0.5f, 0.02f), woodDk);
-            Sign(root, s.K == Kind.June ? "Hook, Line & Sinker" : "Pratt's Fish Market", new Vector3(0, 2.72f, -0.15f + 0.0f), Ponyo.Ink, 0.0125f);
+            string name = s.K == Kind.June ? "Hook, Line & Sinker" : "Pratt's Fish Market";
+            if (s.Real)
+            {
+                for (int i = -1; i <= 1; i += 2) Box(root, "sign post", new Vector3(0.72f * i, 1.4f, -0.15f), new Vector3(0.05f, 0.82f, 0.05f), woodDk);
+                Box(root, "board", new Vector3(0, 1.6f, -0.15f), new Vector3(1.6f, 0.34f, 0.05f), Ponyo.Hex("F3EBDD"));
+                Box(root, "board edge", new Vector3(0, 1.6f, -0.185f), new Vector3(1.68f, 0.42f, 0.02f), woodDk);
+                Box(root, "board stripe", new Vector3(0, 1.79f, -0.15f), new Vector3(1.68f, 0.05f, 0.06f), a1);
+                Sign(root, name, new Vector3(0, 1.6f, -0.12f), Ponyo.Ink, 0.0098f);
+            }
+            else
+            {
+                for (int i = -1; i <= 1; i += 2) Box(root, "post", new Vector3(0.98f * i, 1.25f, -0.18f), new Vector3(0.08f, 2.5f, 0.08f), woodDk);
+                for (int k = 0; k < 6; k++) Box(root, "awning", new Vector3(-0.85f + k * 0.34f, 2.42f, 0.18f), new Vector3(0.34f, 0.04f, 1.0f), k % 2 == 0 ? a1 : a2, new Vector3(-14, 0, 0));
+                Box(root, "board", new Vector3(0, 2.72f, -0.18f), new Vector3(1.9f, 0.42f, 0.06f), Ponyo.Hex("F3EBDD"));
+                Box(root, "board edge", new Vector3(0, 2.72f, -0.215f), new Vector3(1.98f, 0.5f, 0.02f), woodDk);
+                Sign(root, name, new Vector3(0, 2.72f, -0.15f), Ponyo.Ink, 0.0125f);
+            }
             // goods on the counter: bait tubs at June's, an ice tray at Pratt's
             if (s.K == Kind.June) for (int i = 0; i < 3; i++) Box(root, "tub", new Vector3(-0.55f + i * 0.5f, 1.07f, 0.12f), new Vector3(0.3f, 0.16f, 0.3f), i == 0 ? Ponyo.Peach : i == 1 ? Ponyo.Hex("F2B8A0") : Ponyo.Hex("C9D6E0"));
             else { Box(root, "ice", new Vector3(0, 1.02f, 0.14f), new Vector3(1.5f, 0.06f, 0.5f), Ponyo.Hex("DCEFF5")); Box(root, "scale", new Vector3(0.7f, 1.12f, 0.1f), new Vector3(0.24f, 0.16f, 0.2f), Ponyo.Hex("B9B2A6")); }

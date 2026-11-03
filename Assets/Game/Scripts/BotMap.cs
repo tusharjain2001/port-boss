@@ -204,10 +204,11 @@ namespace PortBoss.M1
         }
 
         // ------------------------------------------------------------------ pictures and numbers
-        // -pb-mapview <dir> -pb-views "name:x,y,z>lx,ly,lz;..." (noon, fair): look at any spot (debugging the map)
+        // -pb-mapview <dir> -pb-views "name:x,y,z>lx,ly,lz;..." (noon, fair): look at any spot (debugging the map); -pb-hour h, -pb-mari: Mari moored
         IEnumerator MapView(string views)
         {
             Ctl.Bot = true; Sleep.Off = true; Sky.ForceWx = 1; Sky.Jump(DayTime.At(2, ArgF("-pb-hour", 12) * 60)); Time.captureFramerate = 60;
+            if (Arg("-pb-mari") != null && Firm.C != null) { Firm.C.Mari = DealSt.Active; Firm.C.MariAccepted = Sky.Minutes - 120; } // her boat moored (the counter shots)
             yield return new WaitForSeconds(0.5f);
             static Vector3 V(string s) { var f = s.Split(','); return new Vector3(float.Parse(f[0], CultureInfo.InvariantCulture), float.Parse(f[1], CultureInfo.InvariantCulture), float.Parse(f[2], CultureInfo.InvariantCulture)); }
             foreach (var v in views.Split(';'))
