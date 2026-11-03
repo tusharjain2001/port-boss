@@ -88,6 +88,42 @@ namespace PortBoss.M1
         public static int Stage(double ageMin) => ageMin >= Full ? 4 : Math.Max(0, (int)(ageMin / 720));
     }
 
+    // The M3 rule check (no Unity): the clock, the bed and tired hours, the six lighting states and their blend, rot.
+    // Run by tools/daycheck.sh (dotnet) and in the game by -pb-weathertest. Returns the failures, empty = all held.
+    public static class DayCheck
+    {
+        public static System.Collections.Generic.List<string> Run()
+        {
+            var f = new System.Collections.Generic.List<string>();
+            void Eq(object a, object b, string what) { if (!Equals(a, b)) f.Add($"{what}: {a} != {b}"); }
+            Eq(DayTime.Day(420), 1, "new game is Day 1"); Eq(DayTime.Clock(420), "7:00 AM", "clock"); Eq(DayTime.Clock(1440 + 780), "1:00 PM", "clock pm"); Eq(DayTime.Clock(1440 * 2 + 5), "12:05 AM", "midnight");
+            Eq(DayTime.NextWake(1380), 1440 + 420.0, "sleep 23:00 -> next 07:00"); Eq(DayTime.NextWake(1440 + 60), 1440 + 420.0, "01:00 -> same morning 07:00"); Eq(DayTime.NextWake(420), 1440 + 420.0, "07:00 -> tomorrow");
+            Eq(DayTime.BedOk(900), false, "15:00 too early"); Eq(DayTime.BedOk(1200), true, "20:00 bed"); Eq(DayTime.BedOk(1440 + 290), true, "04:50 bed");
+            Eq(DayTime.Tired(1379), false, "22:59 not tired"); Eq(DayTime.Tired(1380), true, "23:00 tired"); Eq(DayTime.PassOut(1440 + 119), false, "01:59 up"); Eq(DayTime.PassOut(1440 + 120), true, "02:00 pass out");
+            foreach (var (m, st) in new[] { (180.0, LightState.Night), (390.0, LightState.Dawn), (720.0, LightState.Day), (1110.0, LightState.Golden), (1215.0, LightState.Dusk), (1410.0, LightState.Night) })
+            { var t = DayTime.TimeState(m); Eq(t.a, st, $"state at {DayTime.Clock(m)}"); Eq(t.k, 0f, $"settled at {DayTime.Clock(m)}"); }
+            // smooth: the blend never jumps between half minutes (a state change only at k = 0 or 1)
+            var prev = DayTime.TimeState(0);
+            for (double m = 0.5; m < 1440; m += 0.5)
+            {
+                var t = DayTime.TimeState(m);
+                bool same = t.a == prev.a && t.b == prev.b;
+                if (same) { if (Math.Abs(t.k - prev.k) > 0.05f) f.Add($"blend jump at {DayTime.Clock(m)}"); }
+                else if (!(t.a == prev.b && prev.k > 0.99f) && !(prev.a == prev.b && t.a == prev.a && t.k < 0.01f) && !(t.a == t.b && prev.b == t.a && prev.k > 0.99f)) f.Add($"state jump at {DayTime.Clock(m)}: {prev} -> {t}");
+                prev = t;
+            }
+            if (!(DayTime.SunElevation(720) > 55 && DayTime.SunElevation(1215) < 5)) f.Add("sun: high at noon, down by 20:15");
+            Eq(Rot.Stage(0), 0, "rot fresh"); Eq(Rot.Stage(719.9), 0, "rot < 12 h"); Eq(Rot.Stage(720), 1, "rot 12 h Good"); Eq(Rot.Stage(2879.9), 3, "rot 47.99 h Old"); Eq(Rot.Stage(2880), 4, "rot exactly 48 h Rotten");
+            double caught = DayTime.At(1, 18 * 60);
+            Eq(Rot.Names[Rot.Stage(DayTime.NextWake(DayTime.At(1, 22 * 60)) - caught)], "Good", "catch 18:00, sleep 22:00, wake 07:00 = Good (13 h)");
+            Eq(Rot.Names[Rot.Stage(DayTime.At(3, 12 * 60) - caught)], "Old", "Day 3 noon (42 h) = Old");
+            var a = new Weather(99); var b = new Weather(99);              // same seed, any roll order: the same weather
+            for (int d = 60; d >= 1; d--) for (int k = 3; k >= 0; k--) Eq(a.Block(d, k), b.Block(d, k), $"weather determinism D{d}/{k}");
+            for (int d = 1; d <= 60; d++) for (int k = 0; k < 4; k++) Eq(new Weather(99).Block(d, k), a.Block(d, k), $"weather fresh-roll D{d}/{k}");
+            return f;
+        }
+    }
+
     // Weather (systems §1.5): 4 blocks a day, Morning 07-12, Afternoon 12-17, Evening 17-22, Night 22-07, each rolled
     // from the one before by a Markov table, seeded by (world seed, day) so a reload never rerolls. Any machine with the
     // seed gets the same weather, so co-op only shares the seed and the clock.

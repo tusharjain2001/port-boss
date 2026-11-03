@@ -30,7 +30,9 @@ namespace PortBoss.M1
         IEnumerator WeatherTest(int n)
         {
             yield return null;
-            bool all = true;
+            var rules = DayCheck.Run(); bool all = rules.Count == 0;
+            foreach (var x in rules) Debug.Log("[PB] m3: FAIL rule " + x);
+            Debug.Log($"[PB] m3: rules (clock, bed hours, lighting blend, rot) {(all ? "PASS" : rules.Count + " FAIL")}");
             foreach (int seed in new[] { Sky.Seed, 12345 })
             {
                 var r = Weather.SelfTest(seed, n, out bool ok); all &= ok;

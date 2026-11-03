@@ -23,6 +23,7 @@ namespace PortBoss.M1
         {
             var ts = Arg("-pb-timescale"); if (ts != null) Time.timeScale = ArgF("-pb-timescale", 1);
             var q = Arg("-pb-quit"); if (q != null) StartCoroutine(QuitAfter(ArgF("-pb-quit", 60)));
+            if (Arg("-pb-fps") != null) Time.captureFramerate = (int)ArgF("-pb-fps", 60); // -pb-fps n: game time steps 1/n s a frame, like a real PC (batch mode otherwise runs ~1000 fps)
             yield return null; yield return null;
             me = Angler.I; fish = me.Fish;
             var rod = Arg("-pb-rod"); if (rod != null) fish.SetRod((int)ArgF("-pb-rod", 1));
