@@ -14,6 +14,7 @@ namespace PortBoss.M1
         public static Transform Root;
         public static bool On => Root != null;
         public static readonly List<Renderer> Windows = new(); public static Material Glow;   // the town's lit windows (Sky turns them on with the lamps)
+        public static Material Ground; public static float GroundSat, GroundBri;   // the hill, trees and gardens: Sky mutes them at night (upward faces catch the sky light)
 
         [System.Serializable] public class Anchor { public string id, name; public float[] pos, fwd; public bool ground; }
         [System.Serializable] class Spot { public float[] pos; public float yaw; }
@@ -41,6 +42,9 @@ namespace PortBoss.M1
                 if (N != null && E != null) Debug.Log($"[PB] map axes: socket_north at {N.position} (want 0,0,500), socket_east at {E.position} (want 500,0,0)");
             }
             Util.Toon(Root.gameObject, toon);
+            Ground = new Material(toon) { name = "PB_Toon_Ground" }; GroundSat = Ground.GetFloat("_Saturation"); GroundBri = Ground.GetFloat("_Brightness");
+            foreach (var r in Root.GetComponentsInChildren<MeshRenderer>())
+                if (r.name.Contains("_Terrain") || r.name.EndsWith("_Trees") || r.name.EndsWith("_Garden")) Util.Toon(r.gameObject, Ground);
             // the panes that light up at dusk (a cell's "_Windows" mesh): one shared glow, no shadows, no collider
             Windows.Clear(); Glow = Util.Soft(new Color(1f, 0.74f, 0.42f, 0f), Texture2D.whiteTexture);
             foreach (var r in Root.GetComponentsInChildren<MeshRenderer>())

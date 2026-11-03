@@ -231,17 +231,44 @@ namespace PortBoss.M1
             ("sea-town", new(-110, 2.5f, 10), new(80, 10, 5)),              // from a boat in the bay: the waterfront, the quay
             ("town-above", new(120, 45, 60), new(10, 0, -10)),             // over Old Saltmouth's roofs to the bay
             ("town-quay", new(60, 6, 62), new(20, 2, 0)),                  // the waterfront street by Hook, Line & Sinker
-            ("town-yard", new(36, 3.2f, 12), new(-10, 1, 0)) };            // Walt's yard: the shack, the pier, Mari's boat
+            ("town-yard", new(36, 3.2f, 12), new(-10, 1, 0)),              // Walt's yard: the shack, the pier, Mari's boat
+            ("town-lane", new(63.3f, 4.7f, 113.3f), new(78.8f, 5.5f, 97.7f)) };   // up a cross lane from the quay, at eye height
+        // a shop's front at eye height: the first clear spot out from its door (not under a roof, the facade in sight)
+        (string n, Vector3 at, Vector3 look)? Front(string n, string id, float back, float up)
+        {
+            var a = Places.Get(id); if (a == null) { mapFails++; Debug.Log($"[PB] FAIL mapshots: no anchor {id}"); return null; }
+            var f = a.forward; f.y = 0; f.Normalize(); var r = Vector3.Cross(Vector3.up, f); var look = a.position - f * back + Vector3.up * up;
+            foreach (var (d, l) in new[] { (16f, 4f), (16f, -4f), (20f, 0f), (12f, 3f), (12f, -3f), (24f, 0f), (9f, 0f) })
+            {
+                var p = a.position + f * d + r * l;
+                if (!Physics.Raycast(p + Vector3.up * 6, Vector3.down, out var g, 20) || Mathf.Abs(g.point.y - a.position.y) > 4) continue;
+                var eye = g.point + Vector3.up * 1.7f;
+                if (Physics.Raycast(eye, Vector3.up, 40)) continue;                                   // under a roof or an awning
+                if (Physics.Linecast(eye, look, out var b) && (b.point - look).magnitude > 5) continue;
+                return (n, eye, look);
+            }
+            return (n, a.position + f * 16 + Vector3.up * 2.5f, look);
+        }
         static void HudShown(bool on) { var u = CameraRig.I.UiCam; if (u != CameraRig.I.Cam) u.cullingMask = on ? 1 << CameraRig.UiLayer : 0; }
 
         IEnumerator MapShots()
         {
             Ctl.Bot = true; Sleep.Off = true; yield return new WaitForSeconds(0.5f);
             Time.captureFramerate = 60; HudShown(false);   // (the look: no HUD cards over it)
+            var views = new List<(string n, Vector3 at, Vector3 look)>(Views);
+            foreach (var fr in new[] { Front("front-pratts", "pratts", 8, 4.5f), Front("front-june", "tackle", 4, 2.8f) }) if (fr != null) { views.Add(fr.Value); Debug.Log($"[PB] mapshots: {fr.Value.n} from {fr.Value.at} to {fr.Value.look}"); }
+            Transform mb = Places.Get("mari_boat"), mo = Places.Get("mari_mooring");                 // Mari's taco boat from the pier, and at her hatch
+            if (mb != null && mo != null)
+            {
+                Vector3 ex = mo.position - mb.position; ex.y = 0; ex.Normalize(); Vector3 ey = -mb.forward; ey.y = 0; ey.Normalize(); Vector3 B = mb.position; B.y = Sea.Level;
+                views.Add(("mari-boat", mo.position + ex * 3.6f - ey * 7f + Vector3.up * 1.6f, B + ey * 0.5f + Vector3.up * 2f));
+                views.Add(("mari-hatch", mo.position + ex * 1.1f + ey * 3.5f + Vector3.up * 1.1f, B - ey * 0.3f + Vector3.up * 2.2f));
+            }
+            else { mapFails++; Debug.Log("[PB] FAIL mapshots: no mari anchors"); }
             foreach (var hr in States)
             {
                 Sky.ForceWx = hr.wx; Sky.Jump(DayTime.At(2, hr.h * 60));
-                foreach (var v in Views) { FlyCam(v.at, v.look); yield return new WaitForSeconds(0.6f); yield return Shot(hr.n + "-" + v.n); }
+                foreach (var v in views) { FlyCam(v.at, v.look); yield return new WaitForSeconds(0.6f); yield return Shot(hr.n + "-" + v.n); }
                 Debug.Log($"[PB] mapshots: {hr.n}: state {Sky.I.State}, brightness {LastBright:F0}");
             }
             HudShown(true);
