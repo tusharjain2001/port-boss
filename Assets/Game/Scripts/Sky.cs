@@ -256,6 +256,7 @@ namespace PortBoss.M1
             }
             foreach (var r in windows) if (r != null) { r.enabled = LampW > 0.01f; r.sharedMaterial.SetColor("_BaseColor", new Color(1f, 0.74f, 0.42f, LampW)); }
             if (Map.Glow != null) { foreach (var r in Map.Windows) r.enabled = LampW > 0.01f; Map.Glow.SetColor("_BaseColor", new Color(1.7f, 1.2f, 0.62f, LampW)); }   // the town's lit windows (HDR: over the bloom threshold, so they twinkle from the sea)
+            if (Map.Ground != null) { Map.Ground.SetFloat("_Saturation", Map.GroundSat * (1 - 0.45f * NightW)); Map.Ground.SetFloat("_Brightness", Map.GroundBri * (1 - 0.4f * NightW)); }   // the hill takes the night like the houses
             var cam = Camera.main;
             if (cam != null) foreach (var (_, glow, _) in lamps) if (glow != null) glow.rotation = Quaternion.LookRotation(glow.position - cam.transform.position);
 

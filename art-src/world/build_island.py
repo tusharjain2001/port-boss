@@ -36,7 +36,8 @@ PAL = dict(dark='#805C52', ink='#3F2C27', paper='#FFFBF2', cream2='#F8EFDD', cre
            # the finished town (4 Nov): window glass, stone plinths/steps/kerbs, cobbles, soft wall pastels, shutters
            glass='#3D6E9E', glass2='#5A8DB8', stone='#A8998A', stone2='#8C7F72', cob='#B8A07C', cob2='#A58C6A', cob3='#C6B08C',
            wmint='#CFEBDB', wsky='#CCE1F2', wbutter='#F8E5AE', wrose='#F5CFC3', wlav='#DDD6EE', sage='#86B59A', navy='#2D4F7C',
-           flower='#E8577A', flower2='#F4B63F', hedge='#5E9E58')
+           flower='#E8577A', flower2='#F4B63F', hedge='#5E9E58',
+           earth='#D2B48A', earth2='#C4A57A', scrub='#64A35A', quay='#9A8B7C')
 NAMES = list(PAL); CI = {n: i for i, n in enumerate(NAMES)}
 def srgb(h): h = h.lstrip('#'); return tuple(int(h[i:i + 2], 16) / 255 for i in (0, 2, 4))
 def lin(h): return tuple(c ** 2.2 for c in srgb(h)) + (1,)
@@ -283,8 +284,9 @@ def terrain_mesh(name, GX, GY, coll, floor=-6.0, keep_z=-1.0, skirt=0.0):
     be = samp(F['beach'], cx, cy)
     ki = F['kind'][np.clip(((S.YN - cy) / CS).astype(int), 0, S.N - 1), np.clip(((cx - S.XW) / CS).astype(int), 0, S.N - 1)]
     nn = S.waves(cx, cy, 11, [(140, 1), (90, 0.7), (55, 0.5)]); nn2 = S.waves(cx, cy, 5, [(230, 1), (120, 0.6)])
+    nf = S.waves(cx, cy, 17, [(52, 1), (37, 0.8), (26, 0.6), (19, 0.45), (13, 0.3)])
     ci = np.full(len(tris), CI['grass'])
-    ci[nn > 0.35] = CI['grass2']; ci[nn2 > 0.9] = CI['leaf']
+    ci[nf > 0.9] = CI['grass2']; ci[nn2 > 0.9] = CI['leaf']
     ci[(cz > 122 + 10 * nn) & (nn2 > -0.2)] = CI['heath']
     ci[(ki == 1) & (nz > 0.9) & (nn < -0.25)] = CI['grass2']                               # town gardens (the streets are their own mesh)
     ci[(be > 0.45) & (cz > 3.0) & (cz < 6.5) & (nz > 0.8) & (nn > -0.3)] = CI['dune']        # dune grass behind the sand
@@ -296,7 +298,7 @@ def terrain_mesh(name, GX, GY, coll, floor=-6.0, keep_z=-1.0, skirt=0.0):
     strata = np.floor((cz + 4 * nn) / 7).astype(int) % 3                                      # banded sea cliffs, not one grey
     ci[steep] = np.array([CI['rock'], CI['rock2'], CI['cliff']])[strata[steep]]
     sc_ = (nz < 0.78) & ~coast                                                               # steep hillside: mottled scrub
-    ci[sc_] = np.where(nn[sc_] > 0.15, CI['tree3'], np.where(nn2[sc_] > 0, CI['grass2'], CI['leaf']))
+    ci[sc_] = np.where(nf[sc_] > 0.7, CI['scrub'], np.where(nf[sc_] < -1.2, CI['leaf'], CI['grass2']))
     ci[(nz < 0.55) & ~coast] = CI['rock2']                                                    # ...rock only where it's very steep
     ci[(cz < 0.9) & (be <= 0.08) & (ki == 0)] = CI['rock2']
     ci[ki == 3] = CI['sand']
@@ -394,18 +396,18 @@ def window(mb, m, ox, oy, nx, ny, z, front, lit, shut):
     the glass proud of it, a sill; at the front a cross bar, maybe a flower box; maybe shutters; maybe a lit pane."""
     yaw = math.atan2(nx, -ny)                                   # local -Y (out of the window) -> (nx, ny)
     def at(off, dx=0.0, dz=0.0): return m @ M((ox + nx * off - ny * dx, oy + ny * off + nx * dx, z + dz), (0, 0, yaw))
-    mb.add(box(1.3, 0.1, 1.45), 'paper', at(0.0))
-    mb.add(box(1.0, 0.12, 1.15), 'glass', at(0.02))
-    mb.add(box(1.5, 0.3, 0.12), 'paper', at(0.1, 0, -0.78))
+    mb.add(box(1.3, 0.1, 1.75), 'paper', at(0.0))
+    mb.add(box(1.0, 0.12, 1.45), 'glass', at(0.02))
+    mb.add(box(1.5, 0.3, 0.12), 'paper', at(0.1, 0, -0.93))
     if front:
-        mb.add(box(0.08, 0.06, 1.15), 'paper', at(0.1)); mb.add(box(1.0, 0.06, 0.08), 'paper', at(0.1))
+        mb.add(box(0.08, 0.06, 1.45), 'paper', at(0.1)); mb.add(box(1.0, 0.06, 0.08), 'paper', at(0.1, 0, 0.15))
     if shut: 
-        for sx in (-0.95, 0.95): mb.add(box(0.55, 0.08, 1.25), shut, at(0.03, sx))
+        for sx in (-0.95, 0.95): mb.add(box(0.55, 0.08, 1.55), shut, at(0.03, sx))
     if front and lit is not None and lit.random() < 0.3:          # a flower box
-        mb.add(box(1.2, 0.3, 0.25), 'midwood', at(0.22, 0, -0.62))
-        mb.add(blob(1, (0.55, 0.16, 0.18), int(ox * 13 + z * 7) % 97, 0.25, 2.0), lit.choice(('flower', 'flower2', 'poppy', 'paper')), at(0.22, 0, -0.42))
+        mb.add(box(1.2, 0.3, 0.25), 'midwood', at(0.22, 0, -0.77))
+        mb.add(blob(1, (0.55, 0.16, 0.18), int(ox * 13 + z * 7) % 97, 0.25, 2.0), lit.choice(('flower', 'flower2', 'poppy', 'paper')), at(0.22, 0, -0.57))
     if lit is not None and lit.random() < 0.5 and WIN is not None:   # lit after dusk (Map.cs: Sky's lamp weight)
-        WIN.add(box(0.96, 0.13, 1.1), 'paper', at(0.025))
+        WIN.add(box(0.96, 0.13, 1.4), 'paper', at(0.025))
 
 
 HOUSES = []                            # (x, y, yaw, w, d, z0) of every house built (the gardens go round them)
@@ -424,20 +426,32 @@ def house(mb, x, y, yaw, w, d, storeys, wall, roof, z0, hipped=False, chimney=Fa
         mb.add(box(1.0, 1.0, 0.2), 'stone2', m @ M((w * 0.28, d * 0.18, z0 + ht + rh * 0.6 + 1.25)))
     shut = rk.choice((None, None, 'teal', 'sage', 'blue', 'navy', 'red', 'sun')) if wall not in ('teal', 'sky', 'blue') else None
     door = shut or rk.choice(('navy', 'red', 'teal', 'midwood', 'sage'))
-    mb.add(box(1.45, 0.1, 2.45), 'paper', m @ M((0, -d / 2, z0 + 1.2)))               # the door: frame, door, step
-    mb.add(box(1.1, 0.16, 2.1), door, m @ M((0, -d / 2 - 0.02, z0 + 1.05)))
-    mb.add(box(1.9, 0.9, 0.3), 'stone2', m @ M((0, -d / 2 - 0.45, z0 + 0.1)))
+    for sy in (-1, 1):                                                                # the doors, front and back: frame, door, step
+        mb.add(box(1.45, 0.1, 2.45), 'paper', m @ M((0, sy * d / 2, z0 + 1.2)))
+        mb.add(box(1.1, 0.16, 2.1), door, m @ M((0, sy * (d / 2 + 0.02), z0 + 1.05)))
+        mb.add(box(1.9, 0.9, 0.3), 'stone2', m @ M((0, sy * (d / 2 + 0.45), z0 + 0.1)))
+    band = 'paper' if wall not in ('paper', 'cream2') else 'stone'
+    for k in range(1, storeys): mb.add(box(w + 0.1, d + 0.1, 0.16), band, m @ M((0, 0, z0 + 2.9 * k + 0.1)))   # a band at each floor
     ncol = max(2, int(w / 2.4)); xs = np.linspace(-w / 2 + w / (2 * ncol), w / 2 - w / (2 * ncol), ncol) if ncol > 1 else [0.0]
     nside = max(1, int(d / 3.2)); ys = np.linspace(-d / 2 + d / (2 * nside), d / 2 - d / (2 * nside), nside) if nside > 1 else [0.0]
     for k in range(storeys):
         z = z0 + 1.6 + 2.9 * k
         for fx in xs:
-            if k == 0 and abs(fx) < 1.1: continue                                      # (the door)
+            if k == 0 and abs(fx) < 1.1: continue                                      # (the doors)
             window(mb, m, fx, -d / 2, 0, -1, z, True, rk, shut)
-            window(mb, m, fx, d / 2, 0, 1, z, False, rk, None)
+            window(mb, m, fx, d / 2, 0, 1, z, True, rk, shut)
         for fy in ys:
-            for sx in (-1, 1): window(mb, m, sx * w / 2, fy, sx, 0, z, False, rk, None)
+            for sx in (-1, 1): window(mb, m, sx * w / 2, fy, sx, 0, z, False, rk, shut)
     return z0 + ht + rh                                                                 # the ridge height
+
+
+def hull(W, Lg, Hh):
+    """A boat hull: flat deck outline with a pointed bow (+Y), tapering in to a narrow keel Hh below; top at z=0."""
+    bm = bmesh.new(); top = [(-W / 2, -Lg / 2), (W / 2, -Lg / 2), (W / 2, Lg * 0.18), (W * 0.28, Lg * 0.4), (0, Lg / 2), (-W * 0.28, Lg * 0.4), (-W / 2, Lg * 0.18)]
+    R = [[bm.verts.new((x * k, y * (1 - 0.18 * (1 - k) / 0.55) - 0.2 * (1 - k) / 0.55, z)) for x, y in top] for k, z in ((1, 0), (0.94, -0.35), (0.45, -Hh))]
+    for a, b in zip(R, R[1:]):                                                           # (a sheer band, then the hull down to the keel)
+        for i in range(len(top)): j = (i + 1) % len(top); bm.faces.new((a[i], a[j], b[j], b[i]))
+    bm.faces.new(list(reversed(R[0]))); bm.faces.new(R[-1]); bmesh.ops.recalc_face_normals(bm, faces=bm.faces); return bm
 
 
 def fish_sign(mb, m, loc, L, col, fin='peach'):
@@ -453,10 +467,10 @@ def umbrella(mb, m, x, y, z, col):
     mb.add(cyl(0.55, 0.08, 8), 'weath', m @ M((x, y, z + 0.75)))
 
 
-def bulbs(mb, a, b, n=9, sag=0.8):
+def bulbs(mb, a, b, n=9, sag=0.8, r=0.16):
     for k in range(n + 1):
         t = k / n; p = a.lerp(b, t); p.z -= sag * 4 * t * (1 - t)
-        mb.add(blob(1, (0.16,) * 3, 70 + k, 0.0), 'sun', Matrix.Translation(p))
+        mb.add(blob(1, (r,) * 3, 70 + k, 0.0), 'sun', Matrix.Translation(p))
 
 
 # The landmarks: each a different silhouette, front (-Y local) to the bay. Kufu's list (3 Nov) and map B's pins:
@@ -466,18 +480,36 @@ def lm_tackle(mb, x, y, z, yaw):
     m = M((x, y, 0), (0, 0, yaw)); top = house(mb, x, y, yaw, 7.5, 7, 2, 'teal', 'red', z)
     for s in (-1.4, 1.4): mb.add(cyl(0.1, 1.6, 6), 'ink', m @ M((s, 0, top + 0.6)))
     fish_sign(mb, m, (0, 0, top + 2.0), 6.0, 'sun')
-    mb.add(cyl(0.16, 2.6, 6), 'iron', m @ M((2.6, -4.3, z + 4.4)))                     # the giant hook on the front
-    mb.add(blob(1, (0.7, 0.16, 0.5), 34, 0.0), 'iron', m @ M((2.25, -4.3, z + 3.05)))
+    fy = -3.5 - 0.12                                                                     # the shop front: a sign over the door
+    mb.add(box(3.4, 0.14, 0.75), 'paper', m @ M((0, fy, z + 2.75))); mb.add(box(3.1, 0.18, 0.55), 'navy', m @ M((0, fy, z + 2.75)))
+    fish_sign(mb, m, (0, fy - 0.18, z + 2.75), 1.5, 'sun')
+    rx_ = -2.7                                                                           # a rod rack against the wall, left of the door
+    for k in (-0.6, 0.6): mb.add(cyl(0.05, 1.3, 6), 'midwood', m @ M((rx_ + k, fy - 0.35, z + 0.65)))
+    mb.add(box(1.4, 0.12, 0.1), 'midwood', m @ M((rx_, fy - 0.35, z + 1.2))); mb.add(box(1.4, 0.3, 0.12), 'midwood', m @ M((rx_, fy - 0.35, z + 0.15)))
+    for k, col in enumerate(('ink', 'poppy', 'sky', 'ink', 'sun')):
+        mb.add(cyl(0.025, 2.9, 5, 0.012), col, m @ M((rx_ - 0.5 + k * 0.25, fy - 0.3, z + 1.55), (D(-6), D(-4 + k * 2), 0)))
+    cx_ = 2.7                                                                            # the bait cooler, right of the door
+    mb.add(box(1.1, 0.65, 0.6), 'sky', m @ M((cx_, fy - 0.45, z + 0.32))); mb.add(box(1.16, 0.7, 0.1), 'paper', m @ M((cx_, fy - 0.45, z + 0.66)))
+    mb.add(box(0.5, 0.06, 0.2), 'paper', m @ M((cx_, fy - 0.79, z + 0.4)))
     return top + 3.2
 
 
 def lm_boatworks(mb, x, y, z, yaw):
     m = M((x, y, 0), (0, 0, yaw)); w, d, h = 16, 20, 6.5
     mb.add(box(w, d, h + 4), 'weath', m @ M((0, 0, z + h / 2 - 2)))
-    bm = cyl(w / 2 + 0.6, d + 1.0, 14)
-    mb.add(bm, 'red', m @ M((0, 0, z + h), (D(90), 0, 0)) @ Matrix.Diagonal((1, 0.55, 1, 1)))   # red barrel roof
-    mb.add(box(10, 0.3, 5.6), 'ink', m @ M((0, -d / 2 - 0.1, z + 2.8)))               # the open shed doors
-    mb.add(box(9, 0.4, 1.7), 'blue', m @ M((0, -d / 2 - 0.3, z + h + 1.2)))           # the sign board
+    mb.add(gable(d + 1.4, w + 1.4, 5.2), 'red', m @ M((0, 0, z + h), (0, 0, D(90))))     # a pitched roof, gable end to the bay
+    mb.add(gable(d + 0.04, w, 5.0), 'weath', m @ M((0, 0, z + h), (0, 0, D(90))))        # (the gable walls under it)
+    mb.add(box(w + 0.3, d + 0.3, 0.3), 'paper', m @ M((0, 0, z + h)))                    # the eaves band
+    mb.add(box(10.8, 0.25, 6.0), 'paper', m @ M((0, -d / 2 - 0.05, z + 3.0)))             # the big doors: frame, the dark shed, leaves
+    mb.add(box(10, 0.3, 5.6), 'ink', m @ M((0, -d / 2 - 0.1, z + 2.8)))
+    for sx in (-1, 1): mb.add(box(2.6, 0.22, 5.4), 'blue', m @ M((sx * 6.6, -d / 2 - 0.12, z + 2.75)))
+    mb.add(box(8, 0.35, 1.5), 'blue', m @ M((0, -d / 2 - 0.3, z + h + 1.3)))             # the sign board, a boat painted on it
+    mb.add(blob(1, (2.2, 0.12, 0.42), 36, 0.03, 0.6), 'red', m @ M((0, -d / 2 - 0.5, z + h + 1.15)))
+    mb.add(box(3.2, 0.12, 0.18), 'paper', m @ M((0, -d / 2 - 0.52, z + h + 1.45)))
+    mb.add(cyl(0.07, 1.2, 6), 'paper', m @ M((0.3, -d / 2 - 0.52, z + h + 1.7)))
+    rw = random.Random(9)
+    for fy in (-6, 0, 6):
+        for sx in (-1, 1): window(mb, m, sx * w / 2, fy, sx, 0, z + 3.4, False, rw, None)
     run = 24; drop = z + 1.8; ang = math.atan2(drop, run)
     mb.add(box(6, run, 0.6), 'midwood', m @ M((0, -d / 2 - run / 2, z - drop / 2 - 0.2), (-ang, 0, 0)))   # slipway
     zb = z - drop * 8 / run + 1.0
@@ -514,16 +546,51 @@ def lm_pub(mb, x, y, z, yaw):
     return top + 1
 
 
+DOOR5 = [6.8]                          # Pratt's door distance from its centre (past its front steps)
+
+
 def lm_market(mb, x, y, z, yaw):
     m = M((x, y, 0), (0, 0, yaw)); w, d = 24, 11
-    mb.add(box(w + 1, d + 1, 0.5), 'conc2', m @ M((0, 0, z + 0.1)))
-    for sx in np.linspace(-w / 2 + 0.6, w / 2 - 0.6, 6):
-        for sy in (-d / 2 + 0.5, d / 2 - 0.5): mb.add(cyl(0.2, 4.2, 6), 'paper', m @ M((sx, sy, z + 2.2)))
-    for k in range(6):                                                                   # the striped roof
-        mb.add(gable(w / 6 + 0.02, d + 1.6, 2.6), 'blue' if k % 2 else 'paper', m @ M((-w / 2 + w / 12 + k * w / 6, 0, z + 4.3)))
-    for k in range(3): mb.add(box(w * 0.8, 1.1, 1.0), 'weath', m @ M((0, -3 + k * 3, z + 0.85)))   # fish counters
-    mb.add(cyl(0.1, 2.2, 6), 'ink', m @ M((0, 0, z + 7.8))); fish_sign(mb, m, (0, 0, z + 9.0), 4.2, 'conc2', 'blue')
-    return z + 10
+    def g(a, b): v = m @ Vector((a, b, 0)); return H(v.x, v.y)
+    z0, z = z, max(g(a, b) for a in np.linspace(-w / 2, w / 2, 7) for b in np.linspace(-d / 2, d / 2, 4)) + 0.1   # the floor clears the slope
+    ht = z - z0 + 4.4; mb.add(box(w + 1, d + 1, ht), 'stone', m @ M((0, 0, z + 0.35 - ht / 2)))   # a stone plinth down into the hill
+    mb.add(box(w + 1.2, d + 1.2, 0.2), 'conc2', m @ M((0, 0, z + 0.35)))
+    gf = g(0, -d / 2 - 4); ns = max(0, math.ceil((z + 0.35 - gf) / 0.3))                  # steps down to the street in front
+    for i in range(ns):
+        top = gf + (i + 1) * (z + 0.35 - gf) / ns; yy = -d / 2 - 0.5 - (ns - 1 - i) * 0.45 - 0.225
+        mb.add(box(9, 0.45, top - gf + 1), 'stone' if i % 2 else 'conc2', m @ M((0, yy, (top + gf - 1) / 2)))
+    DOOR5[0] = d / 2 + 0.5 + ns * 0.45 + 1.2; log('market floor %.1f (ground %.1f, front %.1f), %d steps, door %.1f' % (z, z0, gf, ns, DOOR5[0]))
+    zf, ph, rh = z + 0.45, 4.1, 4.2                                                      # floor top, post height, roof height
+    for sx in np.linspace(-w / 2 + 0.5, w / 2 - 0.5, 5):                                 # timber posts on stone footings
+        for sy in (-d / 2 + 0.5, d / 2 - 0.5):
+            mb.add(box(0.8, 0.8, 0.45), 'stone', m @ M((sx, sy, zf + 0.22))); mb.add(box(0.42, 0.42, ph), 'midwood', m @ M((sx, sy, zf + ph / 2)))
+    for sy in (-d / 2 + 0.5, d / 2 - 0.5): mb.add(box(w + 0.4, 0.5, 0.5), 'midwood', m @ M((0, sy, zf + ph - 0.05)))   # the eaves beams
+    for sx in np.linspace(-w / 2 + 0.5, w / 2 - 0.5, 5): mb.add(box(0.35, d - 0.6, 0.35), 'midwood', m @ M((sx, 0, zf + ph - 0.1)))
+    mb.add(box(w - 0.4, 0.3, ph), 'weath', m @ M((0, d / 2 - 0.4, zf + ph / 2)))          # the back wall, the low side walls
+    for sx in (-1, 1): mb.add(box(0.3, d - 1.2, 1.1), 'weath', m @ M((sx * (w / 2 - 0.5), 0, zf + 0.55)))
+    for k in range(6):                                                                   # the striped pitched roof, gable ends, eaves boards
+        mb.add(gable(w / 6 + 0.02, d + 2.2, rh), 'blue' if k % 2 else 'paper', m @ M((-w / 2 - 0.3 + (w + 0.6) / 12 + k * (w + 0.6) / 6, 0, zf + ph + 0.2)))
+    for sx in (-1, 1): mb.add(gable(0.2, d + 1.0, rh - 0.4), 'paper', m @ M((sx * (w / 2 + 0.1), 0, zf + ph + 0.2)))
+    for sy in (-1, 1): mb.add(box(w + 0.7, 0.12, 0.4), 'paper', m @ M((0, sy * (d / 2 + 1.1), zf + ph + 0.25)))
+    for cy in (-2.2, 1.6):                                                               # two fish counters: ice trays, the catch laid out
+        mb.add(box(w * 0.7, 1.4, 0.95), 'midwood', m @ M((0, cy, zf + 0.48))); mb.add(box(w * 0.7 - 0.3, 1.2, 0.14), 'wsky', m @ M((0, cy, zf + 1.0)))
+        for k in range(14):
+            fx_ = -w * 0.35 + 0.9 + k * (w * 0.7 - 1.8) / 13
+            mb.add(blob(1, (0.38, 0.13, 0.1), 80 + k, 0.05, 0.6), ('conc2', 'sky', 'peach', 'iron')[k % 4], m @ M((fx_, cy + 0.25 * ((k % 2) * 2 - 1), zf + 1.12), (0, 0, 0.3 * ((k % 3) - 1))))
+    rk = random.Random(5)
+    for sx in (-1, 1):                                                                   # fish crates on ice at the ends
+        for k in range(3):
+            cx_, cy_ = sx * (w / 2 - 2.0), -d / 2 + 1.6 + k * 1.0
+            for j in range(rk.randint(1, 3)): mb.add(box(0.85, 0.6, 0.38), 'wood', m @ M((cx_ + rk.uniform(-0.1, 0.1), cy_, zf + 0.2 + j * 0.4)))
+            mb.add(box(0.75, 0.5, 0.06), 'wsky', m @ M((cx_, cy_, zf + 0.42 + (j) * 0.4)))
+    for sx in (-4.5, 4.5):                                                               # hanging scales over the front counter
+        mb.add(cyl(0.02, 1.2, 4), 'ink', m @ M((sx, -2.2, zf + ph - 0.7))); mb.add(cyl(0.2, 0.25, 10), 'paper', m @ M((sx, -2.2, zf + ph - 1.4), (D(90), 0, 0)))
+        mb.add(cyl(0.35, 0.05, 10), 'iron', m @ M((sx, -2.2, zf + ph - 1.9)))
+    sy_ = -d / 2 - 0.1                                                                   # the sign hangs under the front eave
+    for sx in (-2.2, 2.2): mb.add(cyl(0.025, 0.5, 4), 'ink', m @ M((sx, sy_, zf + ph - 0.55)))
+    mb.add(box(5.6, 0.16, 1.2), 'paper', m @ M((0, sy_, zf + ph - 1.4))); mb.add(box(5.2, 0.2, 0.9), 'blue', m @ M((0, sy_, zf + ph - 1.4)))
+    fish_sign(mb, m, (0, sy_ - 0.2, zf + ph - 1.4), 2.6, 'paper', 'sun')
+    return zf + ph + rh
 
 
 def lm_surf(mb, x, y, z, yaw):
@@ -583,29 +650,61 @@ def resample(P, step=2.0):
     return np.stack([np.interp(t, s_, P[:, 0]), np.interp(t, s_, P[:, 1])], -1)
 
 
-def ribbon(mb, P, wd, rs):
+def ribbon(mb, P, wd, rs, quay=False, earth=False):
     """A cobbled street draped on the ground: 2 rows of setts in 3 tones, a stone kerb each side with a lip down to the
     grass (no gap shows on a cross slope). It is part of the town mesh, so it collides (you walk on it)."""
-    P = resample(P, 2.0); n = len(P)
-    if n < 2: return
+    # quay: level across, at least 1.2 m up, its water side a stone wall down under the sea. earth: a packed-earth path,
+    # no kerb. Returns the resampled line, its normals and the street's height along it (the furniture stands on it).
+    P = resample(P, 1.5 if earth else 2.0); n = len(P)
+    if n < 2: return P, None, None
     T = np.gradient(P, axis=0); T /= np.hypot(*T.T)[:, None] + 1e-9; N_ = np.stack([-T[:, 1], T[:, 0]], -1)
-    def Z(x, y): return max(H(x, y), H(x + 1, y), H(x - 1, y), H(x, y + 1), H(x, y - 1)) + 0.1
-    bm = bmesh.new(); cols = []; rows = []
-    offs = (-wd / 2 - 0.4, -wd / 2, 0.0, wd / 2, wd / 2 + 0.4)
+    lift = 0.05 if earth else 0.07
+    def Z(x, y): return max(H(x, y), H(x + 0.5, y), H(x - 0.5, y), H(x, y + 0.5), H(x, y - 0.5)) + lift
+    bm = bmesh.new(); cols = []; rows = []; Zr = []; walls = []
+    kb = 0.15 if earth else 0.4
+    offs = (-wd / 2 - kb, -wd / 2, 0.0, wd / 2, wd / 2 + kb)
     for k in range(n):
-        r = []
-        for o in offs:
-            x, y = P[k] + N_[k] * o; r.append(bm.verts.new((x, y, Z(x, y) + (0.08 if abs(o) > wd / 2 - 0.01 else 0.0))))
-        for o in (offs[0], offs[-1]):                                       # the lip down to the grass
-            x, y = P[k] + N_[k] * o; r.append(bm.verts.new((x, y, H(x, y) - 0.4)))
-        rows.append(r)
+        pts = [P[k] + N_[k] * o for o in offs]
+        zs = [max(max(Z(*q) for q in pts), 1.2)] * 5 if quay else [Z(*q) for q in pts]
+        wet = (0 if SDF(*pts[0]) < SDF(*pts[-1]) else 4) if quay else -1             # (the quay's water side)
+        r = [bm.verts.new((q[0], q[1], z + (0.08 if abs(o) > wd / 2 - 0.01 and not earth else 0.0))) for q, z, o in zip(pts, zs, offs)]
+        for j in (0, 4):                                                    # the lip down to the grass (the quay wall)
+            q = pts[j]; g = H(*q); r.append(bm.verts.new((q[0], q[1], min(g - 0.3, -1.8) if j == wet and g < 1.0 else g - 0.3)))
+        rows.append(r); Zr.append(zs[2]); walls.append(wet)
+    if earth: top = lambda c: rs.choice(('earth', 'earth2', 'earth'))
+    else: top = lambda c: 'stone' if c in (0, 3) else rs.choice(('cob', 'cob2', 'cob3', 'cob'))
     for k in range(n - 1):
         a, b = rows[k], rows[k + 1]
         for c in range(4):
-            bm.faces.new((a[c], b[c], b[c + 1], a[c + 1])); cols.append('stone' if c in (0, 3) else rs.choice(('cob', 'cob2', 'cob3', 'cob')))
-        bm.faces.new((a[5], b[5], b[0], a[0])); cols.append('stone2')
-        bm.faces.new((a[4], b[4], b[6], a[6])); cols.append('stone2')
+            bm.faces.new((a[c], b[c], b[c + 1], a[c + 1])); cols.append(top(c))
+        bm.faces.new((a[5], b[5], b[0], a[0])); cols.append('quay' if walls[k] == 0 else 'earth2' if earth else 'stone2')
+        bm.faces.new((a[4], b[4], b[6], a[6])); cols.append('quay' if walls[k] == 4 else 'earth2' if earth else 'stone2')
     it = iter(cols); mb.add(bm, lambda c_, n_: next(it))
+    return P, N_, np.array(Zr)
+
+
+def nearest_pt(x, y, streets):
+    best, at = 1e9, None
+    for P, _ in streets:
+        A = np.asarray(P); d = np.hypot(A[:, 0] - x, A[:, 1] - y); i = int(d.argmin())
+        if d[i] < best: best, at = float(d[i]), tuple(A[i])
+    return at, best
+
+
+def before_shop(x, y, depth=28, half=10):
+    # in the open ground in front of a shop's door (no house may stand there: the counters face the street)
+    for _, _, sx, sy, _, yaw in SHOP_SPOTS:
+        dx, dy = x - sx, y - sy; d = dx * math.sin(yaw) - dy * math.cos(yaw); l = dx * math.cos(yaw) + dy * math.sin(yaw)
+        if 0 < d < depth and abs(l) < half: return True
+    return False
+
+
+def in_house(x, y, pad=0.4):
+    for hx, hy, yaw, hw, hd, _ in HOUSES:
+        if abs(x - hx) > 12 or abs(y - hy) > 12: continue
+        c, s_ = math.cos(yaw), math.sin(yaw); lx = (x - hx) * c + (y - hy) * s_; ly = -(x - hx) * s_ + (y - hy) * c
+        if abs(lx) < hw / 2 + pad and abs(ly) < hd / 2 + pad: return True
+    return False
 
 
 def bollard(mb, x, y, z):
@@ -637,21 +736,38 @@ def quay_lamp(mb, x, y, z):
 
 def build_streets(mb, shore, px, py, tx, ty, rr):
     """The quay along the town's waterline and a lane from every shop door to it (or to a lane already built)."""
-    q = []
-    for p, (nx, ny) in shore:
-        if math.hypot((p[0] - tx) * 0.85, p[1] - ty) > 300: q.append(None); continue
-        x, y = p[0] + nx * 5.5, p[1] + ny * 5.5
-        ok = H(x, y) > 0.5 and KIND(x, y) == 1 and math.hypot(x - px - 12, y - py - 3) > 24 and all(math.hypot(x - sx, y - sy) > {2: 21}.get(n, 14) for n, _, sx, sy, _, _ in SHOP_SPOTS)
-        q.append((x, y) if ok else None)
-    runs, cur = [], []
-    for v in q + [None]:
-        if v is not None and (not cur or math.dist(cur[-1], v) < 8): cur.append(v); continue
-        if len(cur) > 6: runs.append(cur)
-        cur = [v] if v is not None else []
-    for r in runs:
-        A = np.array(r); A = np.stack([np.convolve(np.pad(A[:, i], 4, mode='edge'), np.ones(9) / 9, 'valid') for i in (0, 1)], -1)
-        STREETS.append((list(map(tuple, resample(A, 2.0))), 5.0))
-    log('quay runs', len(runs), [len(r) for r in runs])
+    def clear_of_shops(x, y): return math.hypot(x - px - 12, y - py - 3) > 24 and all(math.hypot(x - sx, y - sy) > {2: 21}.get(n, 14) for n, _, sx, sy, _, _ in SHOP_SPOTS)
+    def along(off, wd, ok, tag):
+        q = []
+        for p, (nx, ny) in shore:
+            if math.hypot((p[0] - tx) * 0.85, p[1] - ty) > 300: q.append(None); continue
+            x, y = p[0] + nx * off, p[1] + ny * off
+            q.append((x, y) if KIND(x, y) == 1 and clear_of_shops(x, y) and ok(x, y) else None)
+        runs, cur = [], []
+        for v in q + [None]:
+            if v is not None and (not cur or math.dist(cur[-1], v) < 8): cur.append(v); continue
+            if len(cur) > 6: runs.append(cur)
+            cur = [v] if v is not None else []
+        out = []
+        for r in runs:
+            A = np.array(r); A = np.stack([np.convolve(np.pad(A[:, i], 4, mode='edge'), np.ones(9) / 9, 'valid') for i in (0, 1)], -1)
+            out.append((list(map(tuple, resample(A, 2.0))), wd))
+        log(tag, len(runs), [len(r) for r in runs]); return out
+    quays = along(3.0, 5.0, lambda x, y: H(x, y) > -0.3, 'quay runs')           # its water side right at the waterline
+    STREETS.extend(quays)
+    STREETS.extend(along(22.5, 4.0, lambda x, y: H(x, y) > 0.8 and slope(x, y) < 0.45 and street_d(x, y) > 6, 'back street runs'))
+    def gS(x, y):
+        gx = SDF(x + 2, y) - SDF(x - 2, y); gy = SDF(x, y + 2) - SDF(x, y - 2); g = math.hypot(gx, gy) or 1; return gx / g, gy / g
+    nl = 0
+    for P, _ in quays:                                                                    # lanes up from the quay, every ~70 m
+        for i in range(12, len(P) - 6, 35):
+            x, y = P[i]; L_ = [(x, y)]
+            for _ in range(60):
+                gx, gy = gS(x, y); x, y = x + gx * 2, y + gy * 2
+                if KIND(x, y) != 1 or slope(x, y) > 0.45 or H(x, y) > 38 or not clear_of_shops(x, y): break
+                L_.append((x, y))
+            if len(L_) > 12: STREETS.append((L_, 3.2)); nl += 1
+    log('cross lanes', nl)
     lm = [(x, y) for _, _, x, y, _, _ in SHOP_SPOTS]
     for hL in TERRACES:                                                                   # streets along the hill's contours
         q = []
@@ -687,32 +803,56 @@ def build_streets(mb, shore, px, py, tx, ty, rr):
         return at, best
     doors = []
     for n, name, x, y, z, yaw in SHOP_SPOTS:
-        dd = {2: 11.0, 3: 5.6, 5: 6.8}.get(n, 5.2) + 2.0
+        dd = {2: 11.0, 3: 5.6, 5: DOOR5[0]}.get(n, 5.2) + 2.0
         doors.append((x + math.sin(yaw) * dd, y - math.cos(yaw) * dd))
     doors.append((px + 12 + 8, py + 3))                                                   # Walt's yard
     for d in sorted(doors, key=lambda d: nearest(*d)[1]):
         at, dist = nearest(*d)
         if at is None or dist < 3 or dist > 260: continue
         STREETS.append(([d, at], 3.6))
-    for P, wd in STREETS: ribbon(mb, P, wd, rr)
-    # the quay's furniture: bollards on the water side, lamps, benches looking out, crates by the shops
+    for n, name, x, y, z, yaw in SHOP_SPOTS:                                            # a cobbled forecourt before each door (M4's counter stands on it)
+        fx, fy = math.sin(yaw), -math.cos(yaw); d0 = {2: 11.0, 3: 5.6, 5: DOOR5[0]}.get(n, 5.2) - 1.0
+        STREETS.append(([(x + fx * d0, y + fy * d0), (x + fx * (d0 + 9), y + fy * (d0 + 9))], 4.9))
+    RZ = [ribbon(mb, P, wd, rr, quay=(wd >= 5)) for P, wd in STREETS]
+    # the quay's furniture: bollards on its edge, lamps on the land side, benches looking out, crates behind
     k = 0
-    for P, wd in STREETS:
-        if wd < 5: continue
-        R_ = resample(P, 2.0); T = np.gradient(R_, axis=0)
+    for (P, wd), (R_, N_, Zr) in zip(STREETS, RZ):
+        if wd < 5 or N_ is None: continue
         for i in range(2, len(R_) - 2):
-            t = T[i] / (np.hypot(*T[i]) + 1e-9); nx, ny = -t[1], t[0]
+            nx, ny = N_[i]
             if SDF(*(R_[i] + (nx, ny))) > SDF(*R_[i]): nx, ny = -nx, -ny                 # (n points to the water)
-            x, y = R_[i] + np.array((nx, ny)) * (wd / 2 + 0.9); k += 1
-            if H(x, y) < 0.2: continue
-            if k % 5 == 0: bollard(mb, x, y, H(x, y))
-            if k % 9 == 2: quay_lamp(mb, x, y, H(x, y))
-            if k % 17 == 7: bench(mb, x, y, H(x, y), math.atan2(nx, -ny) + math.pi)
+            n2 = np.array((nx, ny)); z = Zr[i] + 0.08; k += 1
+            if k % 5 == 0: bollard(mb, *(R_[i] + n2 * (wd / 2 + 0.2)), z)
+            if k % 9 == 2: quay_lamp(mb, *(R_[i] - n2 * (wd / 2 + 0.2)), z)
+            if k % 17 == 7: bench(mb, *(R_[i] + n2 * (wd / 2 - 0.6)), Zr[i], math.atan2(nx, -ny) + math.pi)
             if k % 23 == 11:
-                cx, cy = R_[i] - np.array((nx, ny)) * (wd / 2 + 1.6); crates(mb, cx, cy, H(cx, cy), math.atan2(t[1], t[0]), rr)
-    for d in doors[:-1]:
-        cx, cy = d[0] + 3.5, d[1] + 1.5
-        if SDF(cx, cy) > 8 and street_d(cx, cy) > 1.0: crates(mb, cx, cy, H(cx, cy), 0.3, rr)
+                cx, cy = R_[i] - n2 * (wd / 2 + 1.6)
+                crates(mb, cx, cy, H(cx, cy), math.atan2(-nx, ny), rr)
+    # by each shop's counter: barrels and crates on one side of the door, a bench and potted plants on the other
+    for n, name, x, y, z, yaw in SHOP_SPOTS:
+        if n == 1: continue                                                              # (June's has her rod rack and bait cooler)
+        fx, fy = math.sin(yaw), -math.cos(yaw); sx_, sy_ = math.cos(yaw), math.sin(yaw)
+        dd = {2: 11.0, 3: 5.6, 5: DOOR5[0]}.get(n, 5.2) - 0.2
+        for side in (-1, 1):
+            cx, cy = x + fx * dd + sx_ * side * 4.4, y + fy * dd + sy_ * side * 4.4             # (all of it >= 2.5 m from the anchor: M4's counter stands there)
+            if SDF(cx, cy) < 6 or street_d(cx, cy) < 0.5: continue
+            if side < 0: crates(mb, cx, cy, H(cx, cy), yaw + math.pi, rr)                      # (the barrels on the far side)
+            else:
+                bench(mb, cx, cy, H(cx, cy), yaw + math.pi)
+                for k2 in (-1, 1):
+                    qx, qy = cx + sx_ * k2 * 1.5, cy + sy_ * k2 * 1.5; g = H(qx, qy)
+                    mb.add(cyl(0.32, 0.5, 8, 0.4), 'rust', M((qx, qy, g + 0.25)))
+                    mb.add(blob(1, (0.45,) * 3, 50 + n * 3 + k2, 0.2, 1.0), rr.choice(('hedge', 'flower', 'flower2')), M((qx, qy, g + 0.75)))
+    # Walt's yard: a packed-earth path from the pier root past the shack, his crates and a net rack behind it
+    yard = [(px + 1, py), (px + 8, py + 1.5), (px + 14, py + 2.5), (px + 20, py + 3)]
+    ribbon(mb, yard, 3.0, rr, earth=True); STREETS.append((yard, 3.0))
+    pad = [(px + 1, py + 5), (px + 16, py + 7)]                                         # the packed-earth yard round the shack
+    ribbon(mb, pad, 7.0, rr, earth=True); STREETS.append((pad, 7.0))
+    for cx, cy, a in ((px + 9.5, py + 13.5, 0.2), (px - 0.5, py + 10.5, -0.3)): crates(mb, cx, cy, H(cx, cy), a, rr)
+    for k2 in range(3):
+        cx, cy = px + 12 + k2 * 1.6, py + 9; g = H(cx, cy)
+        mb.add(cyl(0.07, 1.9, 6), 'midwood', M((cx, cy, g + 0.95)))
+    mb.add(box(3.6, 0.06, 1.3), 'rope', M((px + 13.6, py + 9, H(px + 13.6, py + 9) + 1.2)))
 
 
 def build_town(coll):
@@ -746,10 +886,10 @@ def build_town(coll):
         nx, ny = gx / g, gy / g; qx, qy = p[0] + nx * 15, p[1] + ny * 15
         if KIND(qx, qy) != 1 or not (9 < SDF(qx, qy) < 24) or not (1.2 < H(qx, qy) < 14): continue
         if math.hypot(qx - px - 12, qy - py - 3) < 36 or any(math.hypot(qx - a, qy - b) < 14 for a, b, _ in placed): continue
-        if any(math.hypot(qx - a, qy - b) < 5.6 for a, b in rows) or street_d(qx, qy) < 4.5: continue
+        if any(math.hypot(qx - a, qy - b) < 5.6 for a, b in rows) or street_d(qx, qy) < 4.5 or before_shop(qx, qy): continue
         rows.append((qx, qy)); k += 1
         yaw = math.atan2(-ny, -nx) + math.pi / 2
-        house(mb, qx, qy, yaw, rr.uniform(4.8, 5.6), 7, rr.choice((2, 2, 3)), walls[k % len(walls)], roofs[(k * 5) % len(roofs)],
+        house(mb, qx, qy, yaw, rr.uniform(4.8, 5.6), 7, rr.choice((2, 2, 2, 3)), walls[k % len(walls)], roofs[(k * 5) % len(roofs)],
               H(qx, qy) - 0.2, hipped=False, chimney=rr.random() < 0.4)
         if k % 3 == 0:                                                                   # a dinghy off the quay
             dx, dy = p[0] - nx * rr.uniform(12, 28), p[1] - ny * rr.uniform(12, 28)
@@ -775,7 +915,7 @@ def build_town(coll):
                 cz = [H(x + a * math.cos(yaw) - b * math.sin(yaw), y + a * math.sin(yaw) + b * math.cos(yaw)) for a in (-w / 2, w / 2) for b in (-d / 2, d / 2)]
                 if max(cz) - min(cz) > 4.5 or min(cz) < 1.2 or SDF(x, y) < 9: continue
                 if any(math.hypot(x - a, y - b) < c + 5 for a, b, c in placed) or any(math.hypot(x - a, y - b) < 7.0 for a, b in th): continue
-                if street_d(x, y) < 3.4: continue
+                if street_d(x, y) < 3.4 or before_shop(x, y): continue
                 fz = H(x + fx * (d / 2 + 0.6), y + fy * (d / 2 + 0.6))                        # (the door's floor at the street's level)
                 house(mb, x, y, yaw, w, d, rr.choice((2, 2, 3, 1)), rr.choice(walls), rr.choice(roofs), min(min(cz), fz),
                       hipped=rr.random() < 0.2, chimney=rr.random() < 0.5)
@@ -789,7 +929,7 @@ def build_town(coll):
         z = H(x, y)
         if not (1.2 < z < 48) or SDF(x, y) < 9 or slope(x, y) > 0.42 or KIND(x, y) in (2, 3): return None
         if math.hypot(x - px - 12, y - py - 3) < 34: return None                         # Walt's Landing yard
-        if any(math.hypot(x - a, y - b) < c + 7 for a, b, c in placed) or street_d(x, y) < 6.5: return None
+        if any(math.hypot(x - a, y - b) < c + 7 for a, b, c in placed) or street_d(x, y) < 6.5 or before_shop(x, y): return None
         return 7.0
     hs = scatter(60, (tx - 420, tx + 420, ty - 380, ty + 380), t, 12.0, 13, 120000)
     walls = ['paper', 'cream2', 'wbutter', 'peach', 'paper', 'wrose', 'wmint', 'wsky', 'cream2', 'wlav']; roofs = ['red', 'poppy', 'red', 'rust', 'poppy', 'blue', 'teal']
@@ -802,6 +942,16 @@ def build_town(coll):
         house(mb, x, y, yaw, w, d, R.choice((1, 2, 2, 3)) if k < 70 else R.choice((1, 2)), R.choice(walls), R.choice(roofs), z,
               hipped=rr.random() < 0.3, chimney=rr.random() < 0.5)
     log('houses', len(hs))
+    paths = []
+    for hx, hy, yaw, hw, hd, z0 in HOUSES:
+        fx, fy = math.sin(yaw), -math.cos(yaw); F = (hx + fx * (hd / 2 + 1.0), hy + fy * (hd / 2 + 1.0))
+        at, dist = nearest_pt(*F, STREETS + paths)
+        if at is None or dist < 2.0 or dist > 28: continue
+        pts = [(F[0] + (at[0] - F[0]) * t, F[1] + (at[1] - F[1]) * t) for t in np.linspace(0, 1, max(2, int(dist)))]
+        if any(in_house(*q, 0.3) for q in pts[1:]) or any(math.hypot(q[0] - a, q[1] - b) < 9 for q in pts for _, _, a, b, _, _ in SHOP_SPOTS): continue
+        paths.append(([F, at], 1.5))
+    for P, wd in paths: ribbon(mb, P, wd, rr, earth=True)
+    STREETS.extend(paths); log('door paths', len(paths))
     gm = MB(); rg = random.Random(31); nt = 0
     def clear(x, y, r):
         if street_d(x, y) < r + 0.6 or H(x, y) < 1.2 or SDF(x, y) < 6: return False
@@ -849,12 +999,23 @@ def build_town(coll):
 def build_maris(coll, land):
     """Mari Duarte's taco boat, moored across the pier from Biscuit (her Day-3+ state: she pays $40/day to moor here)."""
     mb = MB(); L = land.matrix_world @ M((-3.3, -14.5, 0))
-    mb.add(blob(1, (1.6, 4.0, 0.95), 37, 0.03, 0.6), lambda c, n: 'poppy' if c.z < 0.35 else 'sun', L @ M((0, 0, 0.15)))
-    mb.add(box(2.4, 6.0, 0.25), 'weath', L @ M((0, 0, 0.85)))
-    mb.add(box(2.2, 2.6, 1.9), 'teal', L @ M((0, 0.8, 1.9))); mb.add(box(0.1, 1.6, 0.8), 'ink', L @ M((1.12, 0.8, 2.2)))
-    mb.add(box(1.2, 3.0, 0.12), 'poppy', L @ M((1.6, 0.8, 2.8), (0, D(18), 0)))
-    mb.add(cyl(0.06, 3.4, 6), 'ink', L @ M((0, -2.4, 2.6)))
-    bulbs(mb, L @ Vector((0, -2.4, 4.2)), L @ Vector((0, 2.0, 2.9)), 6, 0.3)
+    mb.add(hull(3.0, 8.0, 1.3), lambda c, n: 'paper' if c.z > 0.5 else 'poppy', L @ M((0, 0, 0.95)))   # a shaped hull, a white band
+    mb.add(box(2.7, 6.6, 0.12), 'weath', L @ M((0, -0.3, 0.95)))                          # the deck
+    mb.add(box(2.2, 3.4, 2.0), 'teal', L @ M((0, 0.6, 2.0)))                             # the galley cabin
+    mb.add(box(2.6, 3.9, 0.16), 'paper', L @ M((0, 0.6, 3.08)))
+    for sx in (-1, 1):                                                                   # serving hatches both sides: shelf, awning
+        mb.add(box(0.06, 2.0, 0.95), 'ink', L @ M((sx * 1.11, 0.6, 2.3))); mb.add(box(0.06, 2.2, 0.08), 'paper', L @ M((sx * 1.13, 0.6, 2.82)))
+        mb.add(box(0.45, 2.2, 0.08), 'midwood', L @ M((sx * 1.3, 0.6, 1.8)))
+        for k in range(4): mb.add(box(1.1, 0.57, 0.06), 'poppy' if k % 2 else 'paper', L @ M((sx * 1.6, 0.6 - 0.86 + k * 0.57, 3.0), (0, D(-20 * sx), 0)))
+    mb.add(blob(1, (0.95, 0.3, 0.6), 38, 0.03, 0.8), 'sun', L @ M((0, 0.6, 3.55)))      # a giant taco on the roof
+    mb.add(blob(1, (0.8, 0.22, 0.25), 39, 0.2, 1.4), 'leaf', L @ M((0, 0.6, 3.95)))
+    for k in (-0.4, 0.1, 0.5): mb.add(blob(1, (0.14,) * 3, 40 + int(k * 10), 0.0), 'poppy', L @ M((k, 0.6, 4.05)))
+    mb.add(box(0.08, 0.95, 1.25), 'ink', L @ M((1.0, -2.2, 1.65), (0, D(-8), 0)))       # the chalk menu board on deck
+    mb.add(box(0.1, 1.05, 1.35), 'midwood', L @ M((0.97, -2.2, 1.65), (0, D(-8), 0)))
+    for k in range(4): mb.add(box(0.02, 0.6 - 0.08 * (k % 2), 0.06), 'paper', L @ M((1.06, -2.2, 2.0 - k * 0.22), (0, D(-8), 0)))
+    mb.add(cyl(0.06, 3.4, 6), 'ink', L @ M((0, -2.9, 2.6)))                              # the light mast; two strands to the cabin
+    for sx in (-1, 1): bulbs(mb, L @ Vector((0, -2.9, 4.2)), L @ Vector((sx * 1.2, -1.1, 3.1)), 8, 0.25, 0.08)
+    bulbs(mb, L @ Vector((-1.2, 2.3, 3.1)), L @ Vector((1.2, 2.3, 3.1)), 5, 0.2, 0.08)
     LABELS.append(("Mari's taco boat (Day 3+)", tuple(L @ Vector((0, 0, 3)))))
     return finish(mb, 'MarisTacoBoat', coll, 30)
 
@@ -1128,7 +1289,7 @@ def export_unity(coll, land):
     A = []
     def anchor(id_, name, p, f, ground=True): A.append(dict(id=id_, name=name, pos=U(p), fwd=UF(*f), ground=ground))
     ids = {1: 'tackle', 2: 'doyle', 3: 'plank', 4: 'pub', 5: 'pratts', 6: 'surf', 7: 'post', 8: 'hartleys'}
-    door = {1: 4.6, 2: 11.0, 3: 5.6, 4: 5.6, 5: 6.8, 6: 3.6, 7: 5.2, 8: 5.2}     # half the building's depth + 1 m
+    door = {1: 4.6, 2: 11.0, 3: 5.6, 4: 5.6, 5: DOOR5[0], 6: 3.6, 7: 5.2, 8: 5.2}     # half the building's depth + 1 m (Pratt's: past its steps)
     for n, name, x, y, z, yaw in SHOP_SPOTS:
         fx, fy = math.sin(yaw), -math.cos(yaw)                                   # the front is local -Y
         ax, ay = x + fx * door[n], y + fy * door[n]; anchor(ids[n], name, (ax, ay, H(ax, ay)), (fx, fy))
@@ -1211,6 +1372,27 @@ def main():
             u, v, dep = world_to_camera_view(sc, cam, Vector(p))
             if dep > 0 and 0 <= u <= 1 and 0 <= v <= 1: out.append(dict(name=name, x=u * sc.render.resolution_x, y=(1 - v) * sc.render.resolution_y))
         import json; json.dump(out, open(os.path.join(REN, 'town_labels%s.json' % ('_' + TAG if TAG else '')), 'w'), indent=1)
+    # street level, as the game's -pb-mapshots sees it (Unity (x, y, z) = Blender (x, z, y) here)
+    def eye(x, y): return (x, y, max(H(x, y), 1.3) + 1.7)
+    shoot(cam, 'st_quay.png', (60, 62, 6), (20, 0, 2), 30, near=0.3)
+    shoot(cam, 'st_yard.png', (36, 12, 3.2), (-10, 0, 1), 30, near=0.3)
+    lane = next((P for P, wd in STREETS if abs(wd - 3.2) < 0.01 and len(P) > 16), None)
+    if lane: log('st_lane eye', eye(*lane[4]), 'look', lane[15], H(*lane[15]) + 1.5)
+    if lane: shoot(cam, 'st_lane.png', eye(*lane[4]), (lane[15][0], lane[15][1], H(*lane[15]) + 1.5), 30, near=0.3)
+    Lm = land.matrix_world                                                               # Mari's boat from the pier, and close on its hatch
+    shoot(cam, 'st_mari.png', tuple(Lm @ Vector((2.5, -21.5, 2.9))), tuple(Lm @ Vector((-3.3, -14.0, 2.0))), 30, near=0.3)
+    shoot(cam, 'st_mari2.png', tuple(Lm @ Vector((-0.2, -11.0, 2.4))), tuple(Lm @ Vector((-3.3, -14.8, 2.2))), 30, near=0.3)
+    door = {1: 4.6, 5: DOOR5[0]}
+    for n, tag in ((5, 'st_pratts'), (1, 'st_june')):                                   # a clear spot in front of the door
+        _, _, x, y, z, yaw = next(s_ for s_ in SHOP_SPOTS if s_[0] == n); fx, fy = math.sin(yaw), -math.cos(yaw); rx, ry = math.cos(yaw), math.sin(yaw)
+        ax, ay = x + fx * door[n], y + fy * door[n]
+        dg = bpy.context.evaluated_depsgraph_get(); sc = bpy.context.scene; tgt = Vector((x, y, H(ax, ay) + {1: 2.6, 5: 4.8}[n]))
+        for dd, lat in ((20, 4), (20, -4), (16, 5), (16, -5), (24, 0), (14, 0), (11, 3), (11, -3), (9, 0)):
+            ex, ey = ax + fx * dd + rx * lat, ay + fy * dd + ry * lat; e = Vector((ex, ey, max(H(ex, ey), z - 0.5, 1.3) + 1.7)); dv = tgt - e
+            up = sc.ray_cast(dg, e, Vector((0, 0, 1)), distance=40)[0]                     # under a roof or an awning
+            hit, hp, _, _, ho = sc.ray_cast(dg, e, dv.normalized(), distance=dv.length)[:5]
+            if SDF(ex, ey) > 1 and not up and (not hit or (hp - tgt).length < 6): break
+        shoot(cam, tag + '.png', tuple(e), tuple(tgt), 30, near=0.3)
     os.makedirs(PROOF, exist_ok=True)
     for f in sorted(os.listdir(REN)):
         if f.endswith('.png') and (not TAG or f.endswith('_' + TAG + '.png')): shutil.copy2(os.path.join(REN, f), os.path.join(PROOF, f))
