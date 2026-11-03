@@ -66,6 +66,15 @@ namespace PortBoss.M1
             foreach (var f in fs) { Bars[from].Remove(f); Bars[to].Add(f); To(f.Id, Kind.Bar, to); }
             return true;
         }
+        // M4: sold at a buyer: these fish of this hotbar leave the world, all or nothing
+        public bool Sell(ulong who, IList<ulong> ids)
+        {
+            if (ids.Count == 0) return false;
+            var seen = new HashSet<ulong>();
+            foreach (var id in ids) if (!Is(id, Kind.Bar, who) || !seen.Add(id)) return false;
+            foreach (var id in ids) { Lift(id); Gone(id); }
+            return true;
+        }
         public bool Toss(ulong who, ulong id) { if (!Is(id, Kind.Bar, who)) return false; Lift(id); To(id, Kind.Air, who); return true; }
         public bool InAir(ulong id) => Where.TryGetValue(id, out var p) && p.K == Kind.Air;
         public bool Catch(ulong id, ulong who) { if (!InAir(id) || Bar(who).Add(All[id]) < 0) return false; To(id, Kind.Bar, who); return true; }
@@ -111,7 +120,7 @@ namespace PortBoss.M1
                 // a random fish of anyone's (races: often not the asker's, or already moved)
                 ulong any = AnyFish(_ => true), mine = AnyFish(kv => kv.Value.Who == w && (kv.Value.K == Kind.Bar || kv.Value.K == Kind.Hands));
                 ulong id = r.NextDouble() < 0.7 ? mine : any;
-                switch (r.Next(9))
+                switch (r.Next(10))
                 {
                     case 0: l.Make(w, sp[r.Next(3)], r.Next(2), 30, 0.4f, i); applied = true; break;
                     case 1: applied = l.Keep(w, id); break;
@@ -127,7 +136,8 @@ namespace PortBoss.M1
                     }
                     case 6: applied = l.Toss(w, id); break;
                     case 7: { ulong a = AnyFish(kv => kv.Value.K == Kind.Air); applied = r.NextDouble() < 0.5 ? l.Catch(a, P()) : l.Land(a, r.NextDouble() < 0.5); break; }
-                    default: applied = l.Expire(AnyFish(kv => kv.Value.K == Kind.Deck)); break;
+                    case 8: applied = l.Expire(AnyFish(kv => kv.Value.K == Kind.Deck)); break;
+                    default: { var ids = new List<ulong> { id }; if (r.NextDouble() < 0.3) ids.Add(id); applied = l.Sell(w, ids); break; } // (a fish twice in one sale: refused)
                 }
                 if (applied) ok++; else refused++;
                 var c = l.Check(); if (c != "") return $"step {i}: {c}";

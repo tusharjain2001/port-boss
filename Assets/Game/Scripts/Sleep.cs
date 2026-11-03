@@ -223,11 +223,29 @@ namespace PortBoss.M1
             var sb = new System.Text.StringBuilder();
             sb.AppendLine(k == Kind.PassOut ? $"{name} passed out at {DayTime.Clock(from)}." : $"{name} slept through the night.");
             sb.AppendLine();
+            // M4: the day's money (each of the crew), Mari's rent this morning, the bank, fish about to turn; then the save
+            var co = Firm.C; bool saved = false;
+            if (co != null)
+            {
+                if (Sky.Authority) { co.Tick(Sky.Minutes); saved = Save.Enabled && Save.Write("morning"); }
+                var (inS, outS, by) = co.DaySummary(DayTime.At(fromDay, DayTime.Wake), to);
+                by.RemoveAll(x => x.who == Company.MariName);
+                int sales = 0; foreach (var x in by) sales += x.amount;
+                sb.AppendLine($"The day's sales  <b>+${sales}</b>" + (outS > 0 ? $"   ·   spent <b>${outS}</b>" : ""));
+                if (Coop.On && by.Count > 0) sb.AppendLine("<size=19>" + string.Join("   ", by.ConvertAll(x => $"{x.who} +${x.amount}")) + "</size>");
+                var rent = co.Ledger.Find(e => e.Tx == $"rent:mari:{DayTime.Day(to - DayTime.Wake)}");
+                if (rent != null) sb.AppendLine($"Mari's rent this morning  <color=#3E9A4E><b>+${rent.Amount}</b></color>");
+                sb.AppendLine($"Company bank  <b>${co.Cash:N0}</b>");
+                int turning = 0; if (me != null) foreach (var s in me.Bar.S) foreach (var f in s.Fish) if (f.Fresh >= 2) turning++;
+                if (turning > 0) sb.AppendLine($"<color=#E2553F>{turning} fish {(turning == 1 ? "is" : "are")} going off: sell today</color>");
+                sb.AppendLine();
+            }
             sb.AppendLine($"Day {newDay} · {DayTime.DayName(newDay)}, 7:00 AM");
             for (int b = 0; b < 3; b++) sb.AppendLine($"{Weather.BlockName[b],-10} {Sky.W.Shown(newDay, b, 0)}   {new string('●', Weather.Dots(b, 0))}{new string('○', 4 - Weather.Dots(b, 0))}");
+            if (saved) sb.AppendLine("<size=17><color=#7A625A>Saved ✓</color></size>");
             cardBody.text = sb.ToString();
             card.gameObject.SetActive(true);
-            yield return new WaitForSeconds(Application.isBatchMode ? 0.6f : 2.6f);
+            yield return new WaitForSeconds(Application.isBatchMode ? 0.6f : 4.5f);
             card.gameObject.SetActive(false);
             Hud.I?.Quiet(false);
             if (slumped) { me.Lie = 0; slumped = false; }
@@ -296,9 +314,9 @@ namespace PortBoss.M1
             vignette.rectTransform.Stretch(); vignette.rectTransform.SetAsFirstSibling(); vignette.enabled = false;
             fade = UiKit.Img(hud, null, new Color(Ponyo.Night.r, Ponyo.Night.g, Ponyo.Night.b, 0), "night fade"); fade.rectTransform.Stretch(); fade.enabled = false;
             card = UiKit.Card(hud, "night card", 26, Ponyo.Paper, true);
-            card.Place(new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(620, 380));
+            card.Place(new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(660, 600));
             cardTitle = UiKit.Txt(card, "", UiKit.Display, 40, Ponyo.Ink, TextAnchor.UpperCenter); cardTitle.rectTransform.Stretch(30);
-            cardBody = UiKit.Txt(card, "", UiKit.Body, 24, Ponyo.Ink, TextAnchor.MiddleCenter); cardBody.rectTransform.Stretch(34); cardBody.rectTransform.offsetMax = new Vector2(-34, -84);
+            cardBody = UiKit.Txt(card, "", UiKit.Body, 22, Ponyo.Ink, TextAnchor.MiddleCenter); cardBody.supportRichText = true; cardBody.rectTransform.Stretch(34); cardBody.rectTransform.offsetMax = new Vector2(-34, -84);
             card.gameObject.SetActive(false);
         }
     }

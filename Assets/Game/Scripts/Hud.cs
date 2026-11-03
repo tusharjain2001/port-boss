@@ -11,13 +11,15 @@ namespace PortBoss.M1
         public enum Kind { Message, Money, Info, Weather, Warning, Crew, Story }
         // Topic: what a toast is about; Ends: the topics it resolves ('|'-separated). A toast that ends a topic dismisses the
         // older toasts on it ("Hole patched" ends "She's sprung a leak!"), so two toasts never contradict each other.
-        public struct A { public string Sender, Text, Topic, Ends; public Kind K; public float Born; }
+        public struct A { public string Sender, Text, Topic, Ends, Hint; public Kind K; public float Born; }
         public static readonly List<A> Queue = new();
         public static System.Action<A> OnPush;
-        public static void Push(string sender, string text, Kind k = Kind.Info, string topic = null, string ends = null)
+        // hint (M4): one action on the toast, after a "Tab" key cap ("Open phone")
+        public static void Push(string sender, string text, Kind k = Kind.Info, string topic = null, string ends = null, string hint = null)
         {
-            var a = new A { Sender = sender, Text = text, K = k, Topic = topic, Ends = ends, Born = Time.unscaledTime };
-            Queue.Add(a); Debug.Log($"[PB] alert {k}: {sender}: {text}");
+            var a = new A { Sender = sender, Text = text, K = k, Topic = topic, Ends = ends, Hint = hint, Born = Time.unscaledTime };
+            Queue.Add(a); if (Queue.Count > 100) Queue.RemoveAt(0); // (the phone's Notifications: the 100 newest)
+            Debug.Log($"[PB] alert {k}: {sender}: {text}");
             OnPush?.Invoke(a);
         }
         public static Color Col(Kind k) => k switch
@@ -302,7 +304,7 @@ namespace PortBoss.M1
             if (same >= 0) { var c0 = cards[same]; c0.a.Born = Time.unscaledTime - 0.22f; cards[same] = c0; return; }
             var c = UiKit.Card(root, "alert", 20, Ponyo.Paper, true);
             int lines = Mathf.Max(1, Mathf.CeilToInt(a.Text.Length / 36f));
-            float h = 62 + lines * 28;
+            float h = 62 + lines * 28 + (a.Hint != null ? 34 : 0);
             c.Place(new Vector2(0, 1), new Vector2(-480, -40), new Vector2(452, h), new Vector2(0, 1));
             var st = UiKit.Img(c, UiKit.Circle, Alerts.Col(a.K), "stamp"); st.rectTransform.Place(new Vector2(0, 1), new Vector2(18, -18), new Vector2(40, 40), new Vector2(0, 1));
             UiKit.Img(st.transform, UiKit.RingSprite, Ponyo.Line, "edge").rectTransform.Stretch(-1);
@@ -311,6 +313,13 @@ namespace PortBoss.M1
             var t = UiKit.Txt(c, a.Text, UiKit.Body, 20, Ponyo.Ink, TextAnchor.UpperLeft); t.rectTransform.Stretch(); t.rectTransform.offsetMin = new Vector2(72, 18); t.rectTransform.offsetMax = new Vector2(-18, -38);
             var life = UiKit.Img(c, null, Alerts.Col(a.K == Alerts.Kind.Info ? Alerts.Kind.Crew : a.K), "life"); life.rectTransform.anchorMin = new Vector2(0, 0); life.rectTransform.anchorMax = new Vector2(1, 0); life.rectTransform.pivot = new Vector2(0, 0);
             life.rectTransform.offsetMin = new Vector2(16, 6); life.rectTransform.offsetMax = new Vector2(-16, 10);
+            if (a.Hint != null)
+            {
+                var row = UiKit.Rect("hint", c).Place(new Vector2(0, 0), new Vector2(72, 18), new Vector2(360, 28), new Vector2(0, 0));
+                var key = UiKit.Key(row, "Tab", 26); key.Place(new Vector2(0, 0.5f), Vector2.zero, key.sizeDelta, new Vector2(0, 0.5f));
+                var ht = UiKit.Txt(row, a.Hint, UiKit.Bold, 16, Ponyo.InkSoft, TextAnchor.MiddleLeft); ht.rectTransform.Stretch(); ht.rectTransform.offsetMin = new Vector2(key.sizeDelta.x + 10, 0);
+                t.rectTransform.offsetMin = new Vector2(72, 52);
+            }
             var aa = a; aa.Born = Time.unscaledTime;
             cards.Insert(0, (c, aa, h, life));
             Snd.Play2D(a.K == Alerts.Kind.Warning ? Synth.Bloop : M1Assets.I.Click, a.K == Alerts.Kind.Warning ? 0.25f : 0.2f, a.K == Alerts.Kind.Warning ? 0.7f : 1.1f);

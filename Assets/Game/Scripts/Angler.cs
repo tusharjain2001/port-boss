@@ -352,6 +352,7 @@ namespace PortBoss.M1
             float run = Mathf.Lerp(4.2f, 5.8f, Mathf.SmoothStep(0, 1, SprintW)) * (1 - 0.08f * load);
             float max = Swimming ? (Ctl.Sprint ? 2.2f : 1.4f) : Ctl.Walk ? 1.4f : OnBoat ? 2.6f : run;
             if (Fish.Holding && !Swimming) max = Mathf.Min(max, OnBoat ? 2.2f : 3.6f); // careful with a rod out
+            if (Phone.IsOpen) max = Mathf.Min(max, 1.4f);  // M4: walking with the phone out (systems §1.2.1)
             var target = wish * max * Sleep.WalkMul * (Braced ? 0.4f : 1); // (M3: -10% from 01:30, tired; braced: a slow shuffle)
             bool grounded = Cc.isGrounded;
             // A hard reverse at speed (> 120°, over 60% of a run): a 0.15 s skid, feet planted, leaning back, then the turn.
@@ -526,7 +527,7 @@ namespace PortBoss.M1
         {
             Prompt = null;
             var s = Skiff.I;
-            if (Busy || Fish.Locked) return;
+            if (Busy || Fish.Locked || Shop.Open) return;
             // ladders from the water
             if (Swimming)
             {
@@ -559,6 +560,7 @@ namespace PortBoss.M1
             }
             if (OnBoat && s.AnchorPt != null && Near(s.AnchorPt.position, 1.4f) && !s.Moored) { Prompt = s.AnchorT >= 0 ? "…" : s.Anchored ? "Raise the anchor" : "Drop the anchor"; if (Ctl.Interact) { if (s.Remote) Coop.Request(Coop.Ask.Anchor); else s.ToggleAnchor(); } return; }
             var leak = s.LeakPrompt(this); if (leak != null) { Prompt = leak; return; }  // M3: patch the leak, bail
+            var shop = Firm.Prompt(this); if (shop != null) { Prompt = shop; return; } // M4: the shop counters
             var bed = Sleep.BedPrompt(this); if (bed != null) { Prompt = bed; return; } // M3: Walt's cot
             var pick = FishPickup.Nearest(transform.position, 1.6f);
             if (pick != null) { Prompt = Bar.Full ? "Hotbar full" : "Pick up " + pick.F.Species.Name; if (Ctl.Interact && !Bar.Full) pick.Take(this); return; }

@@ -32,6 +32,9 @@ namespace PortBoss.M1
             if (Arg("-pb-fps") != null) Time.captureFramerate = (int)ArgF("-pb-fps", 60); // -pb-fps n: game time steps 1/n s a frame, like a real PC (batch mode otherwise runs ~1000 fps)
             yield return null; yield return null;
             me = Angler.I; fish = me.Fish;
+            // M4: the kit starts with June's 10 worms; the older tests fish far more than that (all bait 99), the M4 ones
+            // (and -pb-realbait) buy their own
+            if (Application.isBatchMode && !M4Run) for (int i = 0; i < 5; i++) fish.BaitCount[i] = 99;
             var rod = Arg("-pb-rod"); if (rod != null) fish.SetRod((int)ArgF("-pb-rod", 1));
             var bait = Arg("-pb-bait"); if (bait != null) fish.BaitI = Mathf.Max(0, System.Array.FindIndex(FishDb.Baits, b => b.Id == bait));
             Fishing.Bot.FightHeavy = Arg("-pb-fightheavy") != null; Fishing.Bot.LetGo = Arg("-pb-letgo") != null; // -pb-letgo: every catch thrown back
@@ -61,6 +64,7 @@ namespace PortBoss.M1
             else if (Arg("-pb-cooptest") != null) yield return CoopTest(Arg("-pb-cooptest"), (int)ArgF("-pb-coopn", 1));
             else if (Arg("-pb-tosstest") != null) yield return TossTest();
             else if (Arg("-pb-menutest") != null) yield return MenuTest(Arg("-pb-menutest"));
+            else if (M4Tests() is IEnumerator m4) yield return m4; // M4 (BotM4.cs)
             else if (DayTests() is IEnumerator m3) yield return m3; // M3 (BotDay.cs)
         }
 
@@ -75,7 +79,7 @@ namespace PortBoss.M1
             yield return Wait(() => Title.Shown, 5); Check("the title menu is up", Title.Shown);
             yield return new WaitForSecondsRealtime(0.5f);
             if (shots != null && what == "host") yield return Shot("title-main");
-            if (what == "host") Title.I.Choose(3);
+            if (what == "host") Title.I.Choose("Host on this network");
             else
             {
                 Title.I.GoTo("address"); yield return null; Title.I.Type("127.0.0.1:7999"); Title.I.Choose(1); // nobody there

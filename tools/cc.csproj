@@ -8,5 +8,6 @@
     <Reference Include="@(Lib->'$(PB_PROJECT)/Library/ScriptAssemblies/Unity.%(Identity).dll')" Private="false" />
     <Reference Include="$(PB_PROJECT)/Assets/Plugins/Facepunch.Steamworks/Facepunch.Steamworks.Win64.dll" Private="false" />
     <Reference Include="$(PB_PROJECT)/Library/ScriptAssemblies/UnityEngine.UI.dll" Private="false" />
+    <Reference Include="$(PB_PROJECT)/Library/PackageCache/com.unity.ext.nunit@*/net472/unity-custom/nunit.framework.dll" Private="false" />
   </ItemGroup>
 </Project>

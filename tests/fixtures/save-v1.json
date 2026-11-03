@@ -1,0 +1,4 @@
+{"schema":1,"id":"w-fixture-v1","name":"Fixture harbour (schema 1)","key":"name:Manan","seed":42,"minute":2040,
+ "cash":132,"earned":92,"rod":1,"bait":[4,0,0,0,0],
+ "player":{"name":"Manan","x":0.4,"y":1.3,"z":-2.1,"yaw":180,"boat":false,"sel":1,
+  "bar":[{"sp":"mackerel","g":0,"cm":31.5,"kg":0.42,"at":1900,"slot":1},{"sp":"mackerel","g":1,"cm":34,"kg":0.5,"at":1950,"slot":2}]}}

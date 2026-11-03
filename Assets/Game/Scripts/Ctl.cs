@@ -14,6 +14,9 @@ namespace PortBoss.M1
         // bot overrides (the -pb-* scenarios)
         public static bool Bot; public static Vector2 BotMove; public static bool BotUse, BotUsePressed, BotStrike, BotInteract, BotInteractHeld, BotDropHeld, BotCancel, BotJump, BotSprint, BotJumpHeld = true, BotBrace; public static int BotSlot = -1;
 
+        // M4: a screen has the mouse. 1: the phone (you still walk; no looking, casting or hotbar scroll); 2: a shop or
+        // menu (no moving either). UiEsc: the frame a screen took Esc (so it doesn't open the pause menu too).
+        public static int Ui; public static int UiEsc = -1;
         static bool K_(Key k) => K != null && K[k].isPressed;
         static bool KD(Key k) => K != null && K[k].wasPressedThisFrame;
 
@@ -22,6 +25,7 @@ namespace PortBoss.M1
             get
             {
                 if (Bot) return BotMove;
+                if (Ui >= 2) return Vector2.zero;
                 var v = Vector2.zero;
                 if (K_(Key.W)) v.y += 1; if (K_(Key.S)) v.y -= 1; if (K_(Key.D)) v.x += 1; if (K_(Key.A)) v.x -= 1;
                 if (K != null && K.anyKey.isPressed) PadLast = false;
@@ -34,7 +38,7 @@ namespace PortBoss.M1
         {
             get
             {
-                if (Bot) return Vector2.zero;
+                if (Bot || Ui > 0) return Vector2.zero;
                 var v = Vector2.zero;
                 if (M != null) v += M.delta.ReadValue() * 0.08f * Settings.MouseSens;
                 if (P != null) v += P.rightStick.ReadValue() * 160f * Time.unscaledDeltaTime * Settings.PadSens;
@@ -45,21 +49,21 @@ namespace PortBoss.M1
 
         public static bool Sprint => Bot ? BotSprint : K_(Key.LeftShift) || (P != null && P.leftStickButton.isPressed);
         public static bool Walk => !Bot && K_(Key.LeftCtrl);
-        public static bool Jump => Bot ? BotJump : KD(Key.Space) || (P != null && P.buttonSouth.wasPressedThisFrame);
+        public static bool Jump => Bot ? BotJump : Ui < 2 && KD(Key.Space) || (P != null && P.buttonSouth.wasPressedThisFrame);
         public static bool JumpHeld => Bot ? BotJumpHeld : K_(Key.Space) || (P != null && P.buttonSouth.isPressed); // let go early: a lower hop
-        public static bool Interact => Bot ? BotInteract : KD(Key.E) || (P != null && P.buttonWest.wasPressedThisFrame);
+        public static bool Interact => Bot ? BotInteract : Ui < 2 && KD(Key.E) || (P != null && P.buttonWest.wasPressedThisFrame);
         public static bool Brace => Bot ? BotBrace : K_(Key.C) || (P != null && P.rightStickButton.isPressed); // M3: hold to brace on deck
-        public static bool InteractHeld => Bot ? BotInteractHeld : K_(Key.E) || (P != null && P.buttonWest.isPressed);
+        public static bool InteractHeld => Bot ? BotInteractHeld : Ui < 2 && K_(Key.E) || (P != null && P.buttonWest.isPressed);
         public static bool PushToTalk => !Bot && K_(Key.V); // (when Settings.Voice is push-to-talk)
-        public static bool DropHeld => Bot ? BotDropHeld : K_(Key.Q) || (P != null && P.dpad.down.isPressed); // tap: drop; hold: toss
-        public static bool Drop => !Bot && (KD(Key.Q) || (P != null && P.dpad.down.wasPressedThisFrame));
+        public static bool DropHeld => Bot ? BotDropHeld : Ui == 0 && K_(Key.Q) || (P != null && P.dpad.down.isPressed); // tap: drop; hold: toss
+        public static bool Drop => !Bot && Ui == 0 && (KD(Key.Q) || (P != null && P.dpad.down.wasPressedThisFrame));
         public static bool LetGo => !Bot && (KD(Key.Q) || (P != null && P.buttonWest.wasPressedThisFrame));
         public static bool Keep => Bot ? BotInteract : KD(Key.E) || (P != null && P.buttonSouth.wasPressedThisFrame);
 
         // Use = cast / strike (LMB / RT); Strike also takes Space / A (the minigame and the bite)
-        public static bool Use => Bot ? BotUse : (M != null && M.leftButton.isPressed) || (P != null && P.rightTrigger.ReadValue() > 0.5f);
-        public static bool UsePressed => Bot ? BotUsePressed : (M != null && M.leftButton.wasPressedThisFrame) || (P != null && P.rightTrigger.wasPressedThisFrame);
-        public static bool Strike => Bot ? BotStrike : UsePressed || KD(Key.Space) || (P != null && P.buttonSouth.wasPressedThisFrame);
+        public static bool Use => Bot ? BotUse : Ui == 0 && (M != null && M.leftButton.isPressed) || (P != null && P.rightTrigger.ReadValue() > 0.5f);
+        public static bool UsePressed => Bot ? BotUsePressed : Ui == 0 && (M != null && M.leftButton.wasPressedThisFrame) || (P != null && P.rightTrigger.wasPressedThisFrame);
+        public static bool Strike => Bot ? BotStrike : UsePressed || Ui == 0 && KD(Key.Space) || (P != null && P.buttonSouth.wasPressedThisFrame);
         public static bool CancelHeld => Bot ? BotCancel : (M != null && M.rightButton.isPressed) || (P != null && P.buttonEast.isPressed);
         public static bool CancelPressed => !Bot && ((M != null && M.rightButton.wasPressedThisFrame) || (P != null && P.buttonEast.wasPressedThisFrame));
 
@@ -83,6 +87,7 @@ namespace PortBoss.M1
             get
             {
                 if (Bot) { int b = BotSlot; BotSlot = -1; return b; }
+                if (Ui >= 2) return -1;
                 for (int i = 0; i < 8; i++) if (KD(Key.Digit1 + i)) return i;
                 return -1;
             }
@@ -93,6 +98,7 @@ namespace PortBoss.M1
         {
             get
             {
+                if (Ui > 0 && !Bot) return 0;
                 if (P != null) { if (P.rightShoulder.wasPressedThisFrame) return 1; if (P.leftShoulder.wasPressedThisFrame) return -1; }
                 float s = M != null ? M.scroll.ReadValue().y : 0;
                 wheelAcc -= s / WheelNotch;

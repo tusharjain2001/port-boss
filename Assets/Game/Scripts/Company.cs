@@ -53,7 +53,8 @@ namespace PortBoss.M1
         public int[] Bait = { 10, 0, 0, 0, 0 };                    // June's free bag of worms (10)
         public int BaitI;                                          // the bait on the hook
         public bool Pouch5;
-        public Kit Copy() => new() { Rod = Rod, Bait = (int[])Bait.Clone(), BaitI = BaitI, Pouch5 = Pouch5 };
+        public Dictionary<string, float> Best = new();              // the journal: species -> the biggest landed (cm)
+        public Kit Copy() => new() { Rod = Rod, Bait = (int[])Bait.Clone(), BaitI = BaitI, Pouch5 = Pouch5, Best = new(Best) };
     }
 
     public enum DealSt { None, Offered, Declined, Active, GaveUp }
@@ -297,12 +298,15 @@ namespace PortBoss.M1
         }
         public static void WriteKit(Json.W w, Kit k)
         {
-            w.Obj().K("rod").V(k.Rod).K("baitI").V(k.BaitI).K("pouch5").V(k.Pouch5).K("bait").Arr(); foreach (var b in k.Bait) w.V(b); w.End().End();
+            w.Obj().K("rod").V(k.Rod).K("baitI").V(k.BaitI).K("pouch5").V(k.Pouch5).K("bait").Arr(); foreach (var b in k.Bait) w.V(b); w.End();
+            w.K("best").Obj(); var ks = new List<string>(k.Best.Keys); ks.Sort(StringComparer.Ordinal); foreach (var id in ks) w.K(id).V(k.Best[id]); w.End();
+            w.End();
         }
         public static Kit ReadKit(Dictionary<string, object> o)
         {
             var k = new Kit { Rod = Json.I(o, "rod", 1), BaitI = Json.I(o, "baitI"), Pouch5 = Json.B(o, "pouch5") };
             if (o.TryGetValue("bait", out var b) && b is List<object> l) for (int i = 0; i < 5 && i < l.Count; i++) k.Bait[i] = Convert.ToInt32(l[i], CultureInfo.InvariantCulture);
+            if (o.TryGetValue("best", out var bo) && bo is Dictionary<string, object> bd) foreach (var kv in bd) k.Best[kv.Key] = (float)Convert.ToDouble(kv.Value, CultureInfo.InvariantCulture);
             return k;
         }
         public static Company Read(Dictionary<string, object> o)
@@ -443,6 +447,20 @@ namespace PortBoss.M1
             public W V(double v) { Pre(); sb.Append(v.ToString("R", CultureInfo.InvariantCulture)); return this; }
             public W V(float v) { Pre(); sb.Append(((double)v).ToString("R", CultureInfo.InvariantCulture)); return this; }
             public W V(bool v) { Pre(); sb.Append(v ? "true" : "false"); return this; }
+            // a parsed value back out (Parse's kinds)
+            public W Any(object v)
+            {
+                switch (v)
+                {
+                    case Dictionary<string, object> d: Obj(); var ks = new List<string>(d.Keys); ks.Sort(StringComparer.Ordinal); foreach (var k in ks) { K(k); Any(d[k]); } return End();
+                    case List<object> l: Arr(); foreach (var x in l) Any(x); return End();
+                    case string str: return V(str);
+                    case bool b: return V(b);
+                    case double db: return V(db);
+                    case null: Pre(); sb.Append("null"); return this;
+                    default: return V(Convert.ToDouble(v, CultureInfo.InvariantCulture));
+                }
+            }
             void Str(string s)
             {
                 sb.Append('"');
@@ -459,6 +477,7 @@ namespace PortBoss.M1
         }
 
         // values: Dictionary<string, object>, List<object>, string, double, bool, null
+        public static string Write(object v) => new W().Any(v).ToString();
         public static object Parse(string s) { int i = 0; var v = Val(s, ref i); Ws(s, ref i); if (i != s.Length) throw new FormatException("json: trailing data at " + i); return v; }
         static void Ws(string s, ref int i) { while (i < s.Length && char.IsWhiteSpace(s[i])) i++; }
         static object Val(string s, ref int i)
@@ -504,6 +523,6 @@ namespace PortBoss.M1
         public static bool B(Dictionary<string, object> o, string k, bool def = false) => o.TryGetValue(k, out var v) && v is bool b ? b : def;
         public static string S(Dictionary<string, object> o, string k, string def = null) => o.TryGetValue(k, out var v) && v is string s ? s : def;
         public static Dictionary<string, object> O(Dictionary<string, object> o, string k) => o.TryGetValue(k, out var v) ? v as Dictionary<string, object> : null;
-        public static List<object> L(Dictionary<string, object> o, string k) => o.TryGetValue(k, out var v) ? v as List<object> : null;
+        public static List<object> L(Dictionary<string, object> o, string k) => (o.TryGetValue(k, out var v) ? v as List<object> : null) ?? new List<object>();
     }
 }

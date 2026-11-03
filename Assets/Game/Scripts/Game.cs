@@ -60,12 +60,14 @@ namespace PortBoss.M1
             }
             Hud.Create(rig.UiCam, p);
             Sleep.Create(); // M3: Walt's cot, tired, the night skip
+            Firm.Create(); Phone.Create(); Shop.Create(); // M4: the company, the phone (Tab), the shop counters
             BakeIcons(a);
 
             sea = gameObject.AddComponent<AudioSource>(); sea.clip = a.Waves; sea.loop = true; sea.volume = 0.32f; sea.spatialBlend = 0; sea.Play();
             if (!Application.isBatchMode) Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
             BuildPause();
+            Application.quitting += () => { if (!Application.isBatchMode) Save.OnQuit(); }; // M4: closing the window saves too
 
             // the welcome tips one at a time, 6 s apart (look audit 3 Nov: three at once were a wall of text)
             void Welcome() => StartCoroutine(Tips());
@@ -194,11 +196,11 @@ namespace PortBoss.M1
             Coop.SteamTick(); // (lobby callbacks, invites, the mic)
             if (Title.Shown) return;
             // (co-op never stops the world: the menu opens, the boat and the crew carry on)
-            if (Ctl.Escape && !Ctl.Bot) { Paused = !Paused; Time.timeScale = Paused && !Coop.On ? 0 : 1; pause.gameObject.SetActive(Paused); pauseT.text = PauseText(); Cursor.lockState = Paused ? CursorLockMode.None : CursorLockMode.Locked; Cursor.visible = Paused; }
-            if (Paused && Ctl.Key_(UnityEngine.InputSystem.Key.Q)) Application.Quit();
+            if (Ctl.Escape && !Ctl.Bot && Ctl.Ui == 0 && Ctl.UiEsc != Time.frameCount) { Paused = !Paused; Time.timeScale = Paused && !Coop.On ? 0 : 1; pause.gameObject.SetActive(Paused); pauseT.text = PauseText(); Cursor.lockState = Paused ? CursorLockMode.None : CursorLockMode.Locked; Cursor.visible = Paused; }
+            if (Paused && Ctl.Key_(UnityEngine.InputSystem.Key.Q)) { Save.OnQuit(); Application.Quit(); } // M4: save & quit
             if (Paused && Ctl.Key_(UnityEngine.InputSystem.Key.I)) Coop.Invite();
             if (Paused && Coop.On && Ctl.Key_(UnityEngine.InputSystem.Key.L)) { Coop.Leave(); Paused = false; Time.timeScale = 1; pause.gameObject.SetActive(false); Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false; Alerts.Push("Crew", "You left the crew. Biscuit's all yours.", Alerts.Kind.Info); }
-            if (!Paused && !Application.isBatchMode && Cursor.lockState != CursorLockMode.Locked && UnityEngine.InputSystem.Mouse.current != null && UnityEngine.InputSystem.Mouse.current.leftButton.wasPressedThisFrame) Cursor.lockState = CursorLockMode.Locked;
+            if (!Paused && Ctl.Ui == 0 && !Application.isBatchMode && Cursor.lockState != CursorLockMode.Locked && UnityEngine.InputSystem.Mouse.current != null && UnityEngine.InputSystem.Mouse.current.leftButton.wasPressedThisFrame) Cursor.lockState = CursorLockMode.Locked;
             // gulls now and then
             gullT -= Time.deltaTime;
             if (gullT <= 0 && M1Assets.I.Gull != null) { gullT = Random.Range(9f, 22f); var c = Camera.main; if (c != null) Snd.Play(M1Assets.I.Gull, c.transform.position + Random.onUnitSphere * 40 + Vector3.up * 20, Random.Range(0.25f, 0.45f), Random.Range(0.9f, 1.15f), 0.9f); }
