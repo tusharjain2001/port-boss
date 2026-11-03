@@ -36,9 +36,12 @@ namespace PortBoss.M1
         IEnumerator AtCounter(Firm.Kind k)
         {
             var s = Firm.I.Stalls.Find(x => x.K == k);
-            var back = s.At.forward; back.y = 0;
-            me.Teleport(s.Front + back.normalized * 0.4f, Quaternion.LookRotation(-back).eulerAngles.y);
-            CameraRig.I.Yaw = Quaternion.LookRotation(-back).eulerAngles.y + 20; CameraRig.I.Pitch = 14;
+            // a counter's anchor faces out of its door (the customer stands in front, facing in); Mari's mooring anchor is
+            // on the pier deck facing her boat (stand on it, facing her)
+            var f = s.At.forward; f.y = 0; f.Normalize();
+            var at = k == Firm.Kind.Mari ? s.At.position : s.Front + f * 0.4f; float yaw = Quaternion.LookRotation(k == Firm.Kind.Mari ? f : -f).eulerAngles.y;
+            me.Teleport(at + Vector3.up * 0.02f, yaw);
+            CameraRig.I.Yaw = yaw + 20; CameraRig.I.Pitch = 14;
             yield return null; yield return null;
             Shop.Show(s); yield return null; yield return null;
         }
