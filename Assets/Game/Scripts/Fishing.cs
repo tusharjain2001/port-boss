@@ -900,17 +900,18 @@ namespace PortBoss.M1
                 St.Toss => YawTo(tossTo),
                 _ => float.NaN,
             };
-            // and the eyes with it (Manan 3 Nov: chin up): the horizon with the rod at rest, the aim, the bobber, the fish
-            me.Anim.LookAt = me.AtHelm || me.Swimming || Bot.NoGaze ? new Vector3(float.NaN, 0, 0) : State switch
+            // and the eyes with it (Manan 3 Nov: chin up; look audit): 3° under the horizon with the rod at rest, the aim
+            // while casting, the bobber, the fish held up. Off in the strike, fight and reel (the clips look right there).
+            var nowhere = new Vector3(float.NaN, 0, 0);
+            var horizon = (me.Head != null ? me.Head.position : transform.position + Vector3.up * 1.4f) + transform.forward * 10f + Vector3.down * 0.52f; // tan 3° x 10 m
+            me.Anim.LookAt = me.AtHelm || me.Swimming || me.Down || Bot.NoGaze ? nowhere : State switch
             {
-                St.Drawing or St.Ready or St.Recover => transform.position + transform.forward * 40f,
+                St.Drawing or St.Ready => horizon,
                 St.Charging or St.Flight => Marker,
-                St.Settle or St.Waiting or St.Bite or St.Strike => bob.Pos,
-                St.Heavy or St.Minigame => fishUnder,
-                St.Reel => fishGo != null ? fishGo.transform.position : fishUnder,
-                St.Reveal => fishGo != null ? fishGo.transform.position : transform.position + transform.forward * 40f,
+                St.Settle or St.Waiting or St.Bite => bob.Pos,
+                St.Reveal => fishGo != null ? fishGo.transform.position : horizon,
                 St.Toss => tossTo,
-                _ => new Vector3(float.NaN, 0, 0),
+                _ => nowhere,
             };
             if (Bot.OldFacing) // the M1 rule, kept only so -pb-cast8 can show the before (camera yaw, then the last bobber spot)
                 me.FaceYaw = State == St.Charging ? CameraRig.I.Yaw : State is St.Flight or St.Settle or St.Waiting or St.Bite or St.Strike ? YawTo(bob.Pos) : me.FaceYaw;

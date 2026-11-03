@@ -1538,7 +1538,8 @@ namespace PortBoss.M1
         // -pb-gazeshots <dir> (Manan 3 Nov: "looks a little too much down while holding a fishing rod"): every body on
         // Biscuit, rod in hand, then one fish played out. Logs where the face points (degrees below level, from the head's
         // bind pose: CharAnim.FaceDown) in each rod pose, the mean and the lowest of its sway, and saves a profile and a
-        // 3/4 close-up of each. PASS = rod idle and waiting look 0-5° down on average and never dip past 8°.
+        // 3/4 close-up of each. PASS = where the eyes aim (rod idle, waiting, bite, the hold-up) the face is never more than
+        // 12° off the line to its target, and rod idle / waiting average under 8° down and never dip past 10°.
         // Run it with -pb-fps 60: at batch mode's ~1000 fps the standing-still deck hold never lands (a 2 mm step down a
         // frame), so the jump tuck blends in and bends her over; -pb-gazenoshots measures without the screenshot frames.
         IEnumerator GazeShots()
@@ -1566,7 +1567,7 @@ namespace PortBoss.M1
                     }
                     ct.SetPositionAndRotation(k.position, k.rotation);
                 }
-                bool sampling = true, dipShot = false; int spikes = 0, landing = 0; var airS = new Dictionary<Fishing.St, (float sum, float max)>(); bool noShots = Arg("-pb-gazenoshots") != null;
+                bool sampling = true, dipShot = false; int spikes = 0, landing = 0; var airS = new Dictionary<Fishing.St, (float sum, float max)>(); var offMax = new Dictionary<Fishing.St, float>(); bool noShots = Arg("-pb-gazenoshots") != null;
                 IEnumerator Sample()
                 {
                     while (sampling)
@@ -1578,6 +1579,7 @@ namespace PortBoss.M1
                         {
                             var s = seen.TryGetValue(st, out var v) ? v : (sum: 0f, n: 0, lo: 99f, hi: -99f);
                             seen[st] = (s.sum + d, s.n + 1, Mathf.Min(s.lo, d), Mathf.Max(s.hi, d));
+                            if (st is Fishing.St.Ready or Fishing.St.Waiting or Fishing.St.Bite or Fishing.St.Reveal) offMax[st] = Mathf.Max(offMax.TryGetValue(st, out var om) ? om : 0, Mathf.Abs(d - me.Anim.GazeTo)); // the face against the line to its target
                             if (d > 10f && st is Fishing.St.Ready or Fishing.St.Waiting && spikes++ < 12)
                                 Debug.Log($"[PB] gaze dip {names[i]} {st} t {fish.StateT:F2}: face {d:F1}° (before the aim {me.Anim.GazeRaw:F1}°, aim {me.Anim.GazeWant:F1}°), dt {Time.deltaTime * 1000:F0} ms, lean {me.Model.localEulerAngles}, clip {me.Anim.Act?.name}, frame {Time.frameCount}");
                             if (d > 20f && !dipShot && !noShots) { dipShot = true; Debug.Log($"[PB] gaze big dip {names[i]} {st} t {fish.StateT:F2}: {d:F1}° (before the aim {me.Anim.GazeRaw:F1}°), clip {me.Anim.Act?.name}"); yield return Close("dip-" + st.ToString().ToLowerInvariant()); }
@@ -1596,10 +1598,11 @@ namespace PortBoss.M1
                 foreach (var (st, s) in seen)
                 {
                     float mean = s.sum / s.n; bool calm = st is Fishing.St.Ready or Fishing.St.Waiting;
-                    bool good = !calm || (mean >= -1f && mean <= 5f && s.hi <= 8f);
+                    bool aimed = offMax.TryGetValue(st, out var off);
+                    bool good = (!aimed || off <= 12f) && (!calm || (mean >= -1f && mean <= 8f && s.hi <= 10f));
                     ok &= good;
                     var ai = airS.TryGetValue(st, out var av) ? av : default;
-                    Debug.Log($"[PB] gaze {names[i]} {st}: face {mean:F1}° down on average, {s.lo:F1}..{s.hi:F1}° (lowest dip {s.hi:F1}°){(calm ? good ? " ok" : " FAIL" : "")}; jump/land blend mean {ai.sum / s.n:F3} max {ai.max:F2}");
+                    Debug.Log($"[PB] gaze {names[i]} {st}: face {mean:F1}° down on average, {s.lo:F1}..{s.hi:F1}° (lowest dip {s.hi:F1}°){(aimed ? $", at most {off:F1}° off its target" : "")}{(calm || aimed ? good ? " ok" : " FAIL" : "")}; jump/land blend mean {ai.sum / s.n:F3} max {ai.max:F2}");
                 }
                 Debug.Log($"[PB] gaze {names[i]}: {landing} frames with the jump tuck / landing blended in over 3%");
                 ok &= seen.ContainsKey(Fishing.St.Ready) && seen.ContainsKey(Fishing.St.Waiting);

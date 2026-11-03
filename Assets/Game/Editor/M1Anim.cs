@@ -36,11 +36,11 @@ namespace PortBoss.EditorTools
         }
         static float S(float t, float period, float phase = 0) => Mathf.Sin((t / period + phase) * 2 * Mathf.PI);
 
-        // The stance every rod clip shares: knees soft, a little forward over the rod, chin level (the game aims the eyes:
+        // The stance every rod clip shares: knees soft, a touch forward over the rod, chin level (the game aims the eyes:
         // CharAnim.LookAt; Manan 3 Nov: the head was keyed 8° down on top of the lean and he stared at the deck).
-        static readonly P Stance = Pz(hy: -0.025f, pitch: 4);
+        static readonly P Stance = Pz(hy: -0.025f, pitch: 1, headPitch: -6); // -6: cancels Breathing Idle's own ~6° nod (look audit 3 Nov)
         // Braced against a fish: sat back on the heels, knees bent, chest back.
-        static readonly P Brace = Pz(hy: -0.07f, hz: -0.05f, pitch: -9);
+        static readonly P Brace = Pz(hy: -0.07f, hz: -0.05f, pitch: -9, headPitch: 6);
 
         const float HelmDrop = 0.5f, HelmBack = 0.26f;
         const float CastApex = Fishing.CastApex, CastWhip = Fishing.CastWhip, CastLen = Fishing.CastLen; // the rod follows these beats in Fishing
@@ -58,14 +58,14 @@ namespace PortBoss.EditorTools
                     + Pz(hx: 0.028f * S(t, L), roll: -2.2f * S(t, L), hipYaw: 2f * S(t, L, 0.25f), headYaw: 6f * S(t, L, 0.1f)));
                 // Waiting for a bite: settled onto one hip, then the other; a slow sway with the boat; head drifting.
                 a.Wait = rig.Save("Fish_Wait", L, true, 10, t => Stance
-                    + Pz(hx: 0.045f * S(t, L), hy: -0.01f * Mathf.Abs(S(t, L)), roll: -3.5f * S(t, L), yaw: 3f * S(t, L, 0.3f), pitch: 1.5f * S(t, L * 0.5f),
-                         headYaw: -5f * S(t, L, 0.15f), headPitch: 3f * S(t, L * 0.5f, 0.2f)));
+                    + Pz(hx: 0.045f * S(t, L), hy: -0.01f * Mathf.Abs(S(t, L)), roll: -3.5f * S(t, L), yaw: 3f * S(t, L, 0.3f), pitch: 0.8f * S(t, L * 0.5f),
+                         headYaw: -5f * S(t, L, 0.15f), headPitch: 1.5f * S(t, L * 0.5f, 0.2f))); // a small sway: it never dips her to the deck
                 // The cast: wind-up (weight to the back foot, chest coiled right and back, eyes on the target), held
                 // while the power swings, then the whip (hips drive forward, chest uncoils past square, lean in),
                 // follow-through low, and up into the wait.
                 var windup = Pz(hx: 0.04f, hy: -0.045f, hz: -0.07f, hipYaw: 14, yaw: 26, pitch: -10, roll: 3, headYaw: -30, headPitch: 6);
                 var whip = Pz(hx: -0.03f, hy: -0.05f, hz: 0.08f, hipYaw: -8, yaw: -14, pitch: 14, roll: -3, headYaw: 12, headPitch: 10);
-                var follow = Pz(hx: -0.02f, hy: -0.04f, hz: 0.07f, hipYaw: -5, yaw: -8, pitch: 12, headYaw: 6, headPitch: 14);
+                var follow = Pz(hx: -0.02f, hy: -0.04f, hz: 0.07f, hipYaw: -5, yaw: -8, pitch: 12, headYaw: 6, headPitch: -4); // eyes lift with the flying float
                 a.Cast = rig.Save("Fish_Cast", CastLen, false, 30, t => Keys(t,
                     (0f, Stance), (CastApex, windup), (CastApex + 0.04f, windup), (CastWhip, whip), (0.85f, follow), (CastLen, Stance + Pz(hx: 0.0f))));
                 // Strike: a sharp jerk back (0.12 s), then braced.
