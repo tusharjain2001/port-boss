@@ -227,6 +227,7 @@ namespace PortBoss.M1
         static readonly (string n, Vector3 at, Vector3 look)[] Views = {
             ("sea-west", new(-950, 22, -160), new(60, 20, 10)),          // from off the bay mouth: the town, the horns
             ("sea-north", new(-500, 40, 2200), new(150, 40, 300)),         // from the open north: the whole crescent, the horizon
+            ("sea-town", new(-110, 2.5f, 10), new(80, 10, 5)),              // from a boat in the bay: the waterfront, the quay
             ("town-above", new(120, 45, 60), new(10, 0, -10)),             // over Old Saltmouth's roofs to the bay
             ("town-quay", new(60, 6, 62), new(20, 2, 0)),                  // the waterfront street by Hook, Line & Sinker
             ("town-yard", new(36, 3.2f, 12), new(-10, 1, 0)) };            // Walt's yard: the shack, the pier, Mari's boat
@@ -259,6 +260,7 @@ namespace PortBoss.M1
         IEnumerator MapPerf((string n, double h, int wx) st, List<string> lines)
         {
             Sky.ForceWx = st.wx; Sky.Jump(DayTime.At(2, st.h * 60)); Time.captureFramerate = 0;
+            yield return null; yield return null;                                            // (Sky takes the new state on its next update)
             var spots = new (string n, Vector3 at, Vector3 look)[] {
                 ("landing (player height)", Landing.I.Spawn.position + new Vector3(0, 1.7f, 0), new(-300, 0, 0)),
                 ("town street", Places.Get("pub").position + new Vector3(0, 1.7f, 0), Places.Get("hartleys").position),
