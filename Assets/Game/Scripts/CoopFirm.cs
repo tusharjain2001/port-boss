@@ -38,6 +38,7 @@ namespace PortBoss.M1
                 if (coT > 0) return;
                 coT = 0.5f;
                 if (!Firm.I.Dirty && Roster.Count == coRoster) return;
+                if (Roster.Count != coRoster) coForce = true;              // a new crewmate gets the company at once
                 coRoster = Roster.Count; Firm.I.Dirty = false;
                 var json = Firm.C.ToJson(); if (json == coLast && !coForce) return;
                 coLast = json; coForce = false;
@@ -158,6 +159,7 @@ namespace PortBoss.M1
             Deliver(() =>
             {
                 Log($"{(kind == 0 ? "sell" : "buy")} {tx}: {(ok ? "ok" : "refused: " + why)}");
+                if (kind == 0) Firm.I.Answered(tx);
                 if (!ok) { Alerts.Push(kind == 0 ? "Market" : "Hook, Line & Sinker", why, Alerts.Kind.Info); return; }
                 if (kind == 1)
                 {

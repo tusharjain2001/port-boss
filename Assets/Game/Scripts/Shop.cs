@@ -77,7 +77,7 @@ namespace PortBoss.M1
                 || (me.transform.position - stall.Front).magnitude > 3.5f || !stall.IsOpen(Sky.Minutes) || stall.K == Firm.Kind.Mari && !Firm.C.MariHere(Sky.Minutes))
             { Ctl.UiEsc = Time.frameCount; if (!stall.IsOpen(Sky.Minutes)) Alerts.Push(stall.Name, "Closing up. Come back tomorrow.", Alerts.Kind.Info); Hide(); return; }
             var c = Firm.C; bank.text = "$" + c.Cash.ToString("N0", System.Globalization.CultureInfo.InvariantCulture);
-            string k = $"{tab}|{c.Cash}|{c.MariToday}|{c.Ledger.Count}|{Bag()}|{string.Join(",", qty)}|{(int)(Sky.Minutes / 30)}";
+            string k = $"{tab}|{c.Cash}|{c.MariToday}|{c.Ledger.Count}|{Bag()}|{string.Join(",", qty)}|{Firm.I.Selling.Count}|{(int)(Sky.Minutes / 30)}";
             if (k != key) { key = k; Draw(); }
             Nav(kb, pad);
         }
@@ -273,7 +273,7 @@ namespace PortBoss.M1
             {
                 var s = me.Bar.S[si]; if (s.Fish.Count == 0) continue; any = true;
                 var f0 = s.Fish[0]; var sp = f0.Species;
-                var ok = s.Fish.FindAll(f => f.Fresh < 4 && (b == Buyer.Pratt || sp.Class == FishClass.Everyday));
+                var ok = s.Fish.FindAll(f => f.Fresh < 4 && !Firm.I.Selling.Contains(f.Id) && (b == Buyer.Pratt || sp.Class == FishClass.Everyday));
                 if (b == Buyer.Mari && ok.Count > left) ok = ok.GetRange(0, Mathf.Max(0, left));
                 int[] p = ok.Count > 0 ? c.Quote(b, (all.Count > 0 ? Concat(all, ok) : ok).ConvertAll(Firm.Lot), m, out _) : null;
                 if (p != null && all.Count > 0) p = p[all.Count..];                 // priced after the stacks above it (saturation)
@@ -296,7 +296,7 @@ namespace PortBoss.M1
                 }
                 else
                 {
-                    string why = fr0 >= 4 ? "Rotten. Nobody wants it." : b == Buyer.Mari && sp.Class != FishClass.Everyday ? "Mari only takes everyday fish" : b == Buyer.Mari && left <= 0 ? "Mari's had her 10 today" : "";
+                    string why = fr0 >= 4 ? "Rotten. Nobody wants it." : b == Buyer.Mari && sp.Class != FishClass.Everyday ? "Mari only takes everyday fish" : b == Buyer.Mari && left <= 0 ? (c.MariToday >= Market.MariDaily ? "Mari's had her 10 today" : $"Mari takes {Market.MariDaily} a day") : "";
                     T(r, why, UiKit.Bold, 15, Ponyo.InkSoft, RW - 300, 38, 284, 22, TextAnchor.UpperRight);
                 }
                 y += 106;

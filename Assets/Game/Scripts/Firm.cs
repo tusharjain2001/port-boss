@@ -117,9 +117,10 @@ namespace PortBoss.M1
         // sells these fish of my hotbar; the toast says how it went (co-op client: when the host answers)
         public void Sell(Buyer b, List<Fish> fish)
         {
+            fish = fish.FindAll(f => !Selling.Contains(f.Id));     // a double tap while the host answers: once only
             if (fish.Count == 0) return;
             var tx = NewTx("sell");
-            if (Coop.On && !Coop.IsHost) { CoopFirm.AskSell(tx, b, fish); return; }
+            if (Coop.On && !Coop.IsHost) { var ids = fish.ConvertAll(f => f.Id); asked[tx] = ids; Selling.UnionWith(ids); CoopFirm.AskSell(tx, b, fish); return; }
             var p = c.Sell(tx, MyName, b, fish.ConvertAll(Lot), Sky.Minutes, out var why);
             if (p == null) { Alerts.Push(Market.Name[(int)b], why, Alerts.Kind.Info); return; }
             if (Coop.On) Coop.I.Book.Sell(Coop.Me, fish.ConvertAll(f => f.Id)); // the host's hotbar is the book's: it goes from both
@@ -127,6 +128,9 @@ namespace PortBoss.M1
             Sold(b, fish.Count, p);
             Dirty = true;
         }
+        // (co-op client) fish asked for, not answered yet: the shop leaves them out
+        public readonly HashSet<ulong> Selling = new(); readonly Dictionary<string, List<ulong>> asked = new();
+        public void Answered(string tx) { if (asked.Remove(tx, out var ids)) Selling.ExceptWith(ids); }
         public static void Sold(Buyer b, int n, int[] p)
         {
             int sum = 0; foreach (var x in p) sum += x;

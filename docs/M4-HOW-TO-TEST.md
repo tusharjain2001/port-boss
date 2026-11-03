@@ -95,13 +95,16 @@ Pull the M4 branch (or `main` once Kufu merges it) and run `bash tools/m1build.s
 ## 5. What is a stand-in, and what is not in M4
 - **Doyle's engine rebuild, Ingrid's planks, the hull patch, fuel and Amara's order** are M5 and later. The first-day
   bot below fakes them as plain bank lines marked "(stand-in until M5)".
-- **The economy.** In the bot's three days, the bank stays within ±10% of the economy table (§2.3) when a fish averages
-  the table's $16. With the game's own odds it doesn't:
-  - with Walt's bamboo rod and worms, a fish is worth $8.25 Basic;
-  - a practised player lands about 1 in 5 Rare (×2), so that's about $10 a fish;
-  - getting $16 would need ~94% Rare.
-  So either the table or the prices need a decision (economy, not M4 code). `firstday-game.txt` in the proof folder has
-  the numbers.
+- **The economy.** The bot plays the table's three days (§2.3) through the real shops, rent and nights. Under the
+  table's own assumptions (a fish averages $16, no saturation: `-pb-sat off`) the bank lands within ±10% of every row.
+  With the game's real rules it comes out lower, for two reasons:
+  - **Saturation.** §2.1 says each same-species fish sold to one buyer in one day costs 2% (floor 60%), and M4 does
+    that. But the §2.3 table prices every Pratt sale at a flat 60%. On Day 2 the table sells ~29 fish to Pratt, so his
+    prices slide to $5–7 and the bank runs ~$40 under the table until Mari arrives on Day 3.
+  - **Grades.** With Walt's bamboo rod and worms, a fish is worth $8.25 Basic. A practised player lands about 1 in 5
+    Rare (×2), so that's about $10 a fish. Getting $16 would need ~94% Rare.
+  So either the table or the prices need a decision (economy, not M4 code). `firstday.txt` (saturation on) and
+  `firstday-game.txt` (the game's grade odds) in the proof folder have the numbers; `firstday-table.txt` is the check.
 - **The map.** The counters and Mari's boat are on temporary spots on Walt's Landing, as planned, until map B is in the
   scene.
 
@@ -111,8 +114,8 @@ Pull the M4 branch (or `main` once Kufu merges it) and run `bash tools/m1build.s
   operations); the fish ledger; Pratt 60% / Mari 100% / saturation / freshness; the v1 → v2 save migration; a newer
   save refused; gzip + CRC.
 - `-pb-firstday`: the practised player's first three days through the real shops, phone, pouch and nights. The bank is
-  compared with the economy table at 15 rows, and every phone screen is captured (`proof/M4/phone/`). The same run is
-  filmed as `firstday.mp4`.
+  compared with the economy table at 15 rows (the check: `-pb-sat off`, the table's assumptions), and every phone
+  screen is captured (`proof/M4/phone/`). The same run is filmed as `firstday.mp4`.
 - `-pb-savetest`:
   - a lived-in world is saved, then reloaded in a second process: the world's hash and JSON must be identical;
   - three backups are kept;

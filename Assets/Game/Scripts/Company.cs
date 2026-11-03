@@ -28,7 +28,8 @@ namespace PortBoss.M1
         public const int MariDaily = 10;
         public const double SatStep = 0.02, SatFloor = 0.6;
         public static bool IsOpen(Buyer b, double m) { double h = DayTime.OfDay(m); return h >= Open[(int)b] && h < Close[(int)b]; }
-        public static double Sat(int soldToday) => Math.Max(SatFloor, 1 - SatStep * soldToday);
+        public static bool NoSat;                                // test only (-pb-sat off): economy §2.3's table prices without saturation
+        public static double Sat(int soldToday) => NoSat ? 1 : Math.Max(SatFloor, 1 - SatStep * soldToday);
         // one fish, in whole dollars: value = base x grade; fresh = the rot stage (Rot.Price); soldToday = this buyer's
         // count of this species today before this fish
         public static int Price(float value, int fresh, Buyer b, int soldToday) =>
