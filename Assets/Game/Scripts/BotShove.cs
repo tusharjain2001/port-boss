@@ -21,7 +21,7 @@ namespace PortBoss.M1
             var D = s.transform.position - S; D.y = 0; D.Normalize();
             float Yaw(Vector3 d) => Mathf.Atan2(d.x, d.z) * Mathf.Rad2Deg;
             Vector3 Deck(float x, float z) => s.transform.TransformPoint(new Vector3(x, 1.0f, z));
-            float[] at = { 0, 9, 24, 66 }, len = { 9, 15, 42, 12 };
+            float[] at = { 0, 9, 24, 66 }, len = { 9, 15, 42, 30 };
 
             for (int round = 1; round <= 4; round++)
             {
@@ -41,6 +41,13 @@ namespace PortBoss.M1
                     if (round is 2 or 3) { me.Select(0); CameraRig.I.Yaw = s.transform.eulerAngles.y + 90; } else me.Select(1);
                 }
                 yield return new WaitForSeconds(1.2f);
+                Debug.Log($"[PB] shove: round {round}: I stand at {s.transform.InverseTransformPoint(me.transform.position)} on the boat (meant {s.transform.InverseTransformPoint(host ? hostAt : riderAt)}), on board {me.OnBoat}");
+                if (host && Mate() is Angler mm)
+                {
+                    var dd = mm.transform.position - me.transform.position; dd.y = 0;
+                    Debug.Log($"[PB] shove: round {round}: I see the rider at {s.transform.InverseTransformPoint(mm.transform.position)} on the boat, {dd.magnitude:F2} m off");
+                    me.Teleport(me.transform.position, Yaw(dd)); CameraRig.I.Yaw = Yaw(dd); yield return null;
+                }
                 if (host) yield return ShoveRound(round, r0 + len[round - 1] - 0.5f, Mate);
                 else yield return ShovedRound(round, r0 + len[round - 1] - 0.5f);
             }
@@ -56,6 +63,13 @@ namespace PortBoss.M1
             var m = mate(); if (m == null) { Check(false, $"round {round}: no crewmate"); yield break; }
             if (round == 2) yield return Until(() => m.Fish.State == Fishing.St.Waiting && m.Fish.StateT > 1f, until - Time.time - 4);
             if (round == 3) yield return Until(() => m.Fish.State is Fishing.St.Strike or Fishing.St.Heavy or Fishing.St.Minigame, until - Time.time - 4);
+            // round 4: wait till I see them up and at the rail (round 3 can leave them swimming back: the two copies' clocks
+            // drift apart under -pb-fps, so the fixed timetable alone shoved the spot they had not reached yet)
+            if (round == 4)
+            {
+                yield return Until(() => { var d = m.transform.position - me.transform.position; d.y = 0; return !m.Down && !m.Swimming && Angler.NearRail(m, d.normalized); }, until - Time.time - 4);
+                var dd = m.transform.position - me.transform.position; dd.y = 0; me.Teleport(me.transform.position, Mathf.Atan2(dd.x, dd.z) * Mathf.Rad2Deg); CameraRig.I.Yaw = Mathf.Atan2(dd.x, dd.z) * Mathf.Rad2Deg; yield return null;
+            }
             Debug.Log($"[PB] shove: round {round}: shoving the rider ({Vector3.Distance(me.transform.position, m.transform.position):F2} m off, their fishing {m.Fish.State}, at the rail: {Angler.NearRail(m, (m.transform.position - me.transform.position).normalized)})");
             int sent = Angler.ShovesSent; float lo = 99, hi = -1; bool sawDown = false, shot1 = false, shot2 = false;
             Ctl.BotShove = true; yield return null; Ctl.BotShove = false;

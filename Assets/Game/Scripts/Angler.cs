@@ -387,7 +387,7 @@ namespace PortBoss.M1
                 crouchT = -1; rising = false;
             }
             float g = Swimming ? 0 : Jump(dt, grounded, load);
-            var step = Crowd(Vel * dt, dt); var shove = step / dt - Vel;
+            var step = Crowd(Vel * dt, dt, target.sqrMagnitude > 0.01f); var shove = step / dt - Vel;
             Cc.Move(step + Vector3.up * (vy - 0.5f * g * dt) * dt); // the exact arc at any frame rate
             vy -= g * dt;
             Land();
@@ -416,7 +416,7 @@ namespace PortBoss.M1
         // their capsule (two radii apart) and slides round it, my speed into them goes too; I never move them, so walking
         // can't shove anyone off the boat. Overlapping anyway (a late pose, a teleport): out at 0.8 m/s, no jolt.
         public const float Apart = 0.6f;
-        Vector3 Crowd(Vector3 step, float dt)
+        Vector3 Crowd(Vector3 step, float dt, bool pressing)
         {
             var c = Coop.I; if (c == null) return step;
             foreach (var m in c.Mates.Values)
@@ -428,7 +428,9 @@ namespace PortBoss.M1
                 float into = -Vector3.Dot(step, n), gap = Mathf.Max(0, r - Apart);
                 if (into > gap) step += n * (into - gap);                               // up to their side, then along it
                 if (r < Apart + 0.02f) { float v = -Vector3.Dot(Vel, n); if (v > 0) Vel += n * v; }
-                if (r < Apart) step += n * Mathf.Min(Apart - r, 0.8f * dt);
+                // out of an overlap: only if I'm the one pressing to move, or it's deep (a teleport, a spawn). A few cm from their
+                // pose running ahead of where they stopped mustn't nudge someone standing still (crowd test: 5 cm).
+                if (r < Apart && (pressing || r < Apart - 0.1f)) step += n * Mathf.Min(Apart - r, 0.8f * dt);
             }
             return step;
         }
@@ -693,14 +695,17 @@ namespace PortBoss.M1
             }
             if (!Ctl.Shove || Time.time < shoveReady || !Coop.On || Busy || Down || Swimming || helm || RepairT >= 0 || Fish.Locked || Sleep.Frozen) return;
             var look = CameraRig.I != null ? Quaternion.Euler(0, CameraRig.I.Yaw, 0) * Vector3.forward : transform.forward;
-            shoveAt = null; float bd = ShoveReach;
+            shoveAt = null; float bd = ShoveReach; string seen = "";
             foreach (var kv in Coop.I.Mates)
             {
                 var m = kv.Value; if (m == null || m.Down) continue;
-                var d = m.transform.position - transform.position; if (Mathf.Abs(d.y) > 1f) continue; d.y = 0; float r = d.magnitude;
+                var d = m.transform.position - transform.position; float dy = d.y; d.y = 0; float r = d.magnitude;
+                seen += $" {m.name} {r:F2} m (up {dy:+0.00;-0.00}, {Vector3.Angle(d, look):0}° off the view, {Vector3.Angle(d, transform.forward):0}° off me)";
+                if (Mathf.Abs(dy) > 1f) continue;
                 if (r > bd || r < 1e-3f || Vector3.Angle(d, look) > 55 && Vector3.Angle(d, transform.forward) > 55) continue;
                 shoveAt = m; shoveTo = kv.Key; bd = r;
             }
+            Debug.Log($"[PB] shove: G: {(shoveAt != null ? "at " + shoveAt.name : "no one in reach")};{seen}");
             ShoveT = 0; shoveSent = false; shoveReady = Time.time + (shoveAt != null ? ShoveCool : ShoveLen + 0.1f);
             if (shoveAt != null) { var d = shoveAt.transform.position - transform.position; transform.rotation = Quaternion.Euler(0, Mathf.Atan2(d.x, d.z) * Mathf.Rad2Deg, 0); }
             Snd.Play(Synth.Whoosh, transform.position, 0.4f, 1.5f);
@@ -789,7 +794,7 @@ namespace PortBoss.M1
             var d = s.Hole - transform.position; d.y = 0;
             if (d.sqrMagnitude > 0.0025f) transform.rotation = Quaternion.Euler(0, Mathf.MoveTowardsAngle(transform.eulerAngles.y, Mathf.Atan2(d.x, d.z) * Mathf.Rad2Deg, 360f * dt), 0);
             var mv = s.transform.TransformPoint(kneelAt) - transform.position; mv.y = 0;
-            if (mv.sqrMagnitude > 1e-4f) Cc.Move(Crowd(mv * Mathf.Min(1, dt * 6), dt)); // (round a crewmate, never into them)
+            if (mv.sqrMagnitude > 1e-4f) Cc.Move(Crowd(mv * Mathf.Min(1, dt * 6), dt, true)); // (round a crewmate, never into them)
         }
 
         void Repairing()

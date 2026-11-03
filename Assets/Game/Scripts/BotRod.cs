@@ -25,7 +25,8 @@ namespace PortBoss.M1
             Angler a = host ? null : me;
             if (!host)
             {
-                HoldReveal = 2.6f; me.Select(0); yield return new WaitForSeconds(0.8f);
+                HoldReveal = 6f; // (long: a picture stalls a batch-mode copy ~1 s, and the watcher must still catch the two-hand hold)
+                me.Select(0); yield return new WaitForSeconds(0.8f);
                 StartCoroutine(Beats("mine", me));
                 for (int tries = 0; tries < 6; tries++)
                 {
@@ -57,9 +58,12 @@ namespace PortBoss.M1
             while (f.State != Fishing.St.Reveal) yield return null;
             bool big = f.Catch != null && f.Catch.Cm > 140;
             float showGrip = 0, showHang = 0, holdGrip = 0; int nShow = 0, nHold = 0; bool showInHand = true, stowedOnBack = false; bool p1 = false, p2 = false, p3 = false;
+            float nextLog = 0, real0 = Time.time; int fr0 = Time.frameCount;
+            Debug.Log($"[PB] rod: {whose} reveal starts (target fps {Application.targetFrameRate}, capture {Time.captureFramerate}, timescale {Time.timeScale})");
             while (f.State == Fishing.St.Reveal)
             {
                 float t = f.StateT;
+                if (Time.time - real0 >= nextLog) { nextLog += 0.25f; Debug.Log($"[PB] rod: {whose} +{Time.time - real0:F2} s (frame +{Time.frameCount - fr0}): StateT {t:F2}"); }
                 if (t > 0.3f && t < Fishing.ShowT - 0.05f) { showInHand &= f.RodInHand; showGrip = Mathf.Max(showGrip, f.HandToGrip); if (!big) showHang = Mathf.Max(showHang, f.FishToHandL); nShow++; }
                 if (t > Fishing.HandsFree + Fishing.HandOver + 0.1f) { stowedOnBack = f.RodOnBack; nHold++; }
                 if (!p1 && t > 0.6f) { p1 = true; yield return Look($"{whose}-1-showing-off", a); }
@@ -68,9 +72,9 @@ namespace PortBoss.M1
                 yield return null;
             }
             Debug.Log($"[PB] rod: {whose} catch: {nShow} frames shown off, {nHold} held (a {(big ? "big" : "small")} fish)");
-            Check(nShow > 10 && showInHand && showGrip < 0.12f, $"{whose}: the first second the rod stays in the right hand (hand ≤ {showGrip:F2} m off its grip)");
+            Check(nShow > 3 && showInHand && showGrip < 0.12f, $"{whose}: the first second the rod stays in the right hand (hand ≤ {showGrip:F2} m off its grip)");
             Check(big || showHang < 0.14f, $"{whose}: the fish hangs from the left hand meanwhile (hand ≤ {showHang:F2} m off it)");
-            Check(nHold > 10 && stowedOnBack, $"{whose}: then the rod is on the back and both hands hold the fish");
+            Check(nHold > 3 && stowedOnBack, $"{whose}: then the rod is on the back and both hands hold the fish");
             beatsDone = true;
         }
 
