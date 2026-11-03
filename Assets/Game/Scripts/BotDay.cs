@@ -139,6 +139,7 @@ namespace PortBoss.M1
             Ctl.BotBrace = true; s.RogueNow(); yield return new WaitForSeconds(Skiff.RogueWarn + 1.5f); Ctl.BotBrace = false;
             Check(!kn && !me.Down && me.OnBoat, "braced (hold C), the rogue wave can't take you");
             s.RogueNow(); yield return new WaitForSeconds(1.5f);
+            Check(Hud.I.ToastsShown("Rogue wave! Hold C to brace!") == 1, $"a second rogue-wave warning refreshes the first toast, no copy ({Hud.I.ToastsShown("Rogue wave! Hold C to brace!")} up)");
             if (shots != null) { CameraRig.I.Pitch = 16; CameraRig.I.Yaw = s.transform.eulerAngles.y + 120; yield return Shot("rogue-1-warning"); }
             yield return Until(() => kn, 4);
             if (shots != null) { yield return new WaitForSeconds(0.3f); yield return Shot("rogue-2-knocked"); }
@@ -204,10 +205,14 @@ namespace PortBoss.M1
             LookAt(Sleep.Cot.position);
             yield return LieDown();
             Check(Sleep.I.Lying, "21:00: hold E 1 s on the cot lies down");
-            yield return new WaitForSeconds(1.5f); if (shots != null) yield return Shot("sleep-2-card");
+            yield return Until(() => Sleep.I.CardUp, 6); yield return new WaitForSeconds(0.2f);
+            Check(Sleep.I.CardUp && Hud.I.ToastsShown() == 0, $"the night card shows with the toast stack hidden ({Hud.I.ToastsShown()} toasts up)");
+            if (shots != null) yield return Shot("sleep-2-card");
             yield return WaitSkip();
             Check(Sky.Day == 2 && Sky.Hour >= 7 && Sky.Hour < 7.25, "woke Day 2 at 7:00 AM: " + WakeLine());
             Check(Sleep.I.LastWake == "in bed" && Vector3.Distance(me.transform.position, Sleep.BedSide) < 0.6f, "woke beside the cot");
+            yield return new WaitForSeconds(0.3f);
+            Check(Hud.I.ToastsShown() > 0, $"toasts show again after the card ({Hud.I.ToastsShown()} up: the morning toast)");
             Check(mack.Fresh == 1, $"caught 18:00, slept 21:00 -> 07:00: the mackerel is {Rot.Names[mack.Fresh]} ({(Sky.Minutes - mack.CaughtAt) / 60:F1} h old; want Good)");
             me.Select(2); // (its name pill shows the freshness in the morning shot)
             Debug.Log($"[PB] m3: Day 2 weather {Sky.W.Block(2, 0)}/{Sky.W.Block(2, 1)}/{Sky.W.Block(2, 2)} (seed {Sky.Seed})");

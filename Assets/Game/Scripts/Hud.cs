@@ -260,12 +260,27 @@ namespace PortBoss.M1
         void OnAlert(Alerts.A a)
         {
             bool fighting = fish != null && fish.State is Fishing.St.Minigame or Fishing.St.Heavy or Fishing.St.Reel or Fishing.St.Reveal;
-            if (fighting && a.K != Alerts.Kind.Warning && a.Sender != "NEW species") { held.Add(a); return; }
+            if (quiet || fighting && a.K != Alerts.Kind.Warning && a.Sender != "NEW species") { if (!held.Exists(x => Same(x, a))) held.Add(a); return; }
             Show(a);
+        }
+
+        static bool Same(Alerts.A x, Alerts.A y) => x.Sender == y.Sender && x.Text == y.Text;
+
+        // M3: while the night card is up the toast stack fades away (the old day's toasts go); toasts that arrive meanwhile
+        // wait and show once it is gone (Sleep.Night)
+        bool quiet; float quietA = 1;
+        public int ToastsShown(string text = null) => quietA <= 0 ? 0 : cards.FindAll(c => text == null || c.a.Text == text).Count; // (tests)
+        public void Quiet(bool on)
+        {
+            quiet = on;
+            if (!on) { foreach (var a in held) Show(a); held.Clear(); }
         }
 
         void Show(Alerts.A a)
         {
+            // the same toast already up: refresh its timer instead of stacking a copy (kept in place, no slide-in again)
+            int same = cards.FindIndex(c => Same(c.a, a));
+            if (same >= 0) { var c0 = cards[same]; c0.a.Born = Time.unscaledTime - 0.22f; cards[same] = c0; return; }
             var c = UiKit.Card(root, "alert", 20, Ponyo.Paper, true);
             int lines = Mathf.Max(1, Mathf.CeilToInt(a.Text.Length / 36f));
             float h = 62 + lines * 28;
@@ -439,8 +454,7 @@ namespace PortBoss.M1
             if (!on && rv.gameObject.activeSelf)
             {
                 SetReveal(false);
-                foreach (var a in held) Show(a);
-                held.Clear();
+                if (!quiet) { foreach (var a in held) Show(a); held.Clear(); }
             }
             if (!on) return;
             rvIn = Mathf.MoveTowards(rvIn, 1, dt / 0.28f);
@@ -477,6 +491,8 @@ namespace PortBoss.M1
         void AlertsTick(float dt)
         {
             float y = -40;
+            quietA = Mathf.MoveTowards(quietA, quiet ? 0 : 1, dt / 0.4f);
+            if (quiet && quietA <= 0) { foreach (var c in cards) Destroy(c.r.gameObject); cards.Clear(); }
             for (int i = 0; i < cards.Count; i++)
             {
                 var (r, a, h, life) = cards[i];
@@ -485,7 +501,7 @@ namespace PortBoss.M1
                 float x = 40 - 480 * (1 - Util.EaseOutBack(inT)) - 8 * outT;
                 bool visible = i < 4;
                 var cg = r.GetComponent<CanvasGroup>() ?? r.gameObject.AddComponent<CanvasGroup>();
-                cg.alpha = (1 - outT) * (visible ? 1 : 0) * (i == 3 ? 0.7f : 1);
+                cg.alpha = (1 - outT) * (visible ? 1 : 0) * (i == 3 ? 0.7f : 1) * quietA;
                 r.localScale = Vector3.one * (i == 3 ? 0.97f : 1);
                 var cur = r.anchoredPosition; r.anchoredPosition = new Vector2(x, Mathf.Lerp(cur.y, y, 1 - Mathf.Exp(-dt / 0.06f)));
                 life.rectTransform.anchorMax = new Vector2(Mathf.Clamp01(1 - age / L), 0);

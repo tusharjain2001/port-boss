@@ -93,6 +93,7 @@ namespace PortBoss.M1
         }
 
         public bool Lying => lying;
+        public bool CardUp => card != null && card.gameObject.activeSelf;
         public bool CotTaken;                       // someone is in the cot (co-op: the host says who)
 
         void LieDown(Angler me)
@@ -208,6 +209,7 @@ namespace PortBoss.M1
             var me = Angler.I; double from = Sky.Minutes; int fromDay = DayTime.Day(from - DayTime.Wake);
             bool mine = !Coop.On || who == Coop.Me;
             Log($"night: {name} {(k == Kind.Bed ? "slept" : "passed out")}, {DayTime.Clock(from)} Day {DayTime.Day(from)} -> {DayTime.Clock(to)} Day {DayTime.Day(to)}");
+            Hud.I?.Quiet(true);                            // the toasts fade with the day; new ones wait for the morning
             yield return Fade(0, 1, 1.2f);
             // where I wake
             string how = Wake(me, mine && k == Kind.Bed);
@@ -227,6 +229,7 @@ namespace PortBoss.M1
             card.gameObject.SetActive(true);
             yield return new WaitForSeconds(Application.isBatchMode ? 0.6f : 2.6f);
             card.gameObject.SetActive(false);
+            Hud.I?.Quiet(false);
             if (slumped) { me.Lie = 0; slumped = false; }
             if (lying) { me.Lie = 0; lying = false; me.Teleport(BedSide, Quaternion.LookRotation(Cot.position - BedSide).eulerAngles.y + 180); }
             Frozen = false;
