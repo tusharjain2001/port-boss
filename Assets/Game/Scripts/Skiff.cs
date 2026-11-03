@@ -9,7 +9,7 @@ namespace PortBoss.M1
     // ponytail: no rigid-body buoyancy; the arcade float can't capsize or jitter the walkable deck. Real buoy-point
     // physics only if boats need to collide with each other (M2+).
     [DefaultExecutionOrder(-100)]
-    public class Skiff : MonoBehaviour
+    public partial class Skiff : MonoBehaviour
     {
         public static Skiff I;
         public Transform Helm, TillerGrip, LadderTop, LadderBottom, AnchorPt, Motor, Prop, CamPoint;
@@ -97,23 +97,23 @@ namespace PortBoss.M1
 
         public struct Pose
         {
-            public float T, X, Y, Z, Yaw, Pitch, Roll, Speed, Rudder, AnchorT; public sbyte Notch; public byte Flags;
+            public float T, X, Y, Z, Yaw, Pitch, Roll, Speed, Rudder, AnchorT, Water; public sbyte Notch; public byte Flags;
             public void Write(ref Unity.Netcode.FastBufferWriter w)
             {
                 w.WriteValueSafe(T); w.WriteValueSafe(X); w.WriteValueSafe(Y); w.WriteValueSafe(Z); w.WriteValueSafe(Yaw); w.WriteValueSafe(Pitch); w.WriteValueSafe(Roll);
-                w.WriteValueSafe(Speed); w.WriteValueSafe(Rudder); w.WriteValueSafe(AnchorT); w.WriteValueSafe(Notch); w.WriteValueSafe(Flags);
+                w.WriteValueSafe(Speed); w.WriteValueSafe(Rudder); w.WriteValueSafe(AnchorT); w.WriteValueSafe(Water); w.WriteValueSafe(Notch); w.WriteValueSafe(Flags);
             }
             public static Pose Read(ref Unity.Netcode.FastBufferReader r)
             {
                 var p = new Pose(); r.ReadValueSafe(out p.T); r.ReadValueSafe(out p.X); r.ReadValueSafe(out p.Y); r.ReadValueSafe(out p.Z); r.ReadValueSafe(out p.Yaw);
-                r.ReadValueSafe(out p.Pitch); r.ReadValueSafe(out p.Roll); r.ReadValueSafe(out p.Speed); r.ReadValueSafe(out p.Rudder); r.ReadValueSafe(out p.AnchorT);
+                r.ReadValueSafe(out p.Pitch); r.ReadValueSafe(out p.Roll); r.ReadValueSafe(out p.Speed); r.ReadValueSafe(out p.Rudder); r.ReadValueSafe(out p.AnchorT); r.ReadValueSafe(out p.Water);
                 r.ReadValueSafe(out p.Notch); r.ReadValueSafe(out p.Flags); return p;
             }
         }
         public Pose NetPose(float t) => new()
         {
-            T = t, X = pos.x, Y = y, Z = pos.z, Yaw = yaw, Pitch = pitch, Roll = roll, Speed = Speed, Rudder = Rudder, AnchorT = AnchorT, Notch = (sbyte)Notch,
-            Flags = (byte)((Moored ? 1 : 0) | (Anchored ? 2 : 0) | (AtHelm ? 4 : 0)),
+            T = t, X = pos.x, Y = y, Z = pos.z, Yaw = yaw, Pitch = pitch, Roll = roll, Speed = Speed, Rudder = Rudder, AnchorT = AnchorT, Water = Water, Notch = (sbyte)Notch,
+            Flags = (byte)((Moored ? 1 : 0) | (Anchored ? 2 : 0) | (AtHelm ? 4 : 0) | (Leaking ? 8 : 0)),
         };
 
         // This copy becomes the real boat (its driver, or the host when the driver leaves): carry on from where it is shown.
@@ -135,7 +135,7 @@ namespace PortBoss.M1
             pos = np; y = Mathf.Lerp(a.Y, b.Y, k); yaw = Mathf.LerpAngle(a.Yaw, b.Yaw, k);
             pitch = Mathf.LerpAngle(a.Pitch, b.Pitch, k); roll = Mathf.LerpAngle(a.Roll, b.Roll, k);
             Speed = Mathf.Lerp(a.Speed, b.Speed, k); Rudder = Mathf.Lerp(a.Rudder, b.Rudder, k); Notch = b.Notch;
-            bool wasAnch = Anchored; Moored = (b.Flags & 1) != 0; Anchored = (b.Flags & 2) != 0; AtHelm = (b.Flags & 4) != 0; AnchorT = b.AnchorT;
+            bool wasAnch = Anchored; Moored = (b.Flags & 1) != 0; Anchored = (b.Flags & 2) != 0; AtHelm = (b.Flags & 4) != 0; AnchorT = b.AnchorT; Leaking = (b.Flags & 8) != 0; Water = b.Water;
             if (Anchored != wasAnch) Snd.Play(M1Assets.I.Splash, AnchorPt != null ? AnchorPt.position : transform.position, Anchored ? 0.7f : 0.3f);
             transform.SetPositionAndRotation(new Vector3(pos.x, y, pos.z), Quaternion.Euler(0, yaw, 0) * Quaternion.Euler(pitch, 0, roll));
         }
@@ -148,7 +148,8 @@ namespace PortBoss.M1
             Rudder = Mathf.Abs(Steer) > 0.05f ? Mathf.MoveTowards(Rudder, Steer * 35f, 120f * dt) : Mathf.MoveTowards(Rudder, 0, 60f * dt);
             if (!AtHelm && Notch != 0 && !Moored) { Notch = 0; Alerts.Push("Biscuit", "Throttle eased to stop.", Alerts.Kind.Info); } // no runaway boats
 
-            float want = Moored || Anchored ? 0 : TargetSpeed;
+            LeakTick(dt);
+            float want = Moored || Anchored ? 0 : TargetSpeed * SpeedMul;
             float acc = Mathf.Abs(want) > Mathf.Abs(Speed) ? 1.1f : 0.8f;
             Speed = Mathf.MoveTowards(Speed, want, acc * dt);
             float sp01 = Mathf.Clamp01(Mathf.Abs(Speed) / 2f);
@@ -190,7 +191,7 @@ namespace PortBoss.M1
             float hP = Sea.Height(pos + q * new Vector3(-0.85f, 0, 0)), hR = Sea.Height(pos + q * new Vector3(0.85f, 0, 0));
             float ty = (hB + hS + hP + hR) * 0.25f - 0.02f;
             float tp = Mathf.Clamp(-Mathf.Atan2(hB - hS, 4.2f) * Mathf.Rad2Deg, -3f, 3f) - 2.5f * Mathf.Clamp01(Speed / MaxSpeed);
-            float tr = Mathf.Clamp(Mathf.Atan2(hR - hP, 1.7f) * Mathf.Rad2Deg, -6f, 6f) - Rudder / 35f * 3f * Mathf.Clamp01(Mathf.Abs(Speed) / MaxSpeed);
+            float tr = Mathf.Clamp(Mathf.Atan2(hR - hP, 1.7f) * Mathf.Rad2Deg, -6f, 6f) - Rudder / 35f * 3f * Mathf.Clamp01(Mathf.Abs(Speed) / MaxSpeed) + List; // (+ the list of a boat shipping water)
             Spring(ref y, ref vy, ty, 3.2f, dt); Spring(ref pitch, ref vp, tp, 2.6f, dt); Spring(ref roll, ref vr, tr, 2.4f, dt);
             transform.SetPositionAndRotation(new Vector3(pos.x, y, pos.z), q * Quaternion.Euler(pitch, 0, roll));
             // the deck's colliders where the hull is now (auto-sync is off): the walkers' controllers and their "on the deck?"
@@ -216,6 +217,7 @@ namespace PortBoss.M1
         {
             if (Motor != null) Motor.localRotation = Quaternion.Euler(0, Rudder * 0.34f, 0); // ±12°: the tiller swings clear of the helmsman (visual only)
             if (Prop != null) Prop.Rotate(0, Speed * 900f * dt, 0, Space.Self);
+            WaterVisual();
             engineVol = Mathf.MoveTowards(engineVol, Moored ? 0.12f : 0.25f + 0.5f * Mathf.Abs(Notch) / 3f, dt);
             engine.volume = engineVol; engine.pitch = 0.75f + 0.55f * Mathf.Abs(Speed) / MaxSpeed;
             // the sea is cut out inside the hull (PB_Water): its footprint, inset a little from the planking

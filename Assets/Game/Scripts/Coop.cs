@@ -227,7 +227,7 @@ namespace PortBoss.M1
         }
 
         // ---------------------------------------------------------------- asks (client -> host): the tiller, the anchor, a body
-        public enum Ask : byte { Helm, LeaveHelm, Anchor, NextCrew }
+        public enum Ask : byte { Helm, LeaveHelm, Anchor, NextCrew, Scoop, Patch }
 
         public static void Request(Ask what)
         {
@@ -236,7 +236,14 @@ namespace PortBoss.M1
             else I.Send("pb.ask", w => w.WriteValueSafe((byte)what), NetworkDelivery.ReliableSequenced);
         }
 
-        void OnAsk(ulong from, FastBufferReader r) { r.ReadValueSafe(out byte b); Deliver(() => Handle(from, (Ask)b), true); }
+        void OnAsk(ulong from, FastBufferReader r) { r.ReadValueSafe(out byte b); Deliver(() => { if (nm.IsServer) Handle(from, (Ask)b); else Owned((Ask)b); }, true); }
+
+        // a client driving the boat: the host forwards a crewmate's anchor, scoop or patch to the real copy, here
+        static void Owned(Ask what)
+        {
+            var s = Skiff.I; if (s == null || s.Remote) return;
+            if (what == Ask.Anchor) s.ToggleAnchor(); else if (what == Ask.Scoop) s.ScoopOut(); else if (what == Ask.Patch) s.Patch();
+        }
 
         void Handle(ulong from, Ask what)
         {
@@ -254,6 +261,10 @@ namespace PortBoss.M1
                 case Ask.Anchor:
                     if (BoatOwner == nm.LocalClientId) s?.ToggleAnchor();
                     else SendTo(BoatOwner, "pb.ask", w => w.WriteValueSafe((byte)Ask.Anchor), NetworkDelivery.ReliableSequenced);
+                    break;
+                case Ask.Scoop: case Ask.Patch:                       // M3 leaks: the water belongs to the real boat
+                    if (BoatOwner == nm.LocalClientId) { if (what == Ask.Scoop) s?.ScoopOut(); else s?.Patch(); }
+                    else SendTo(BoatOwner, "pb.ask", w => w.WriteValueSafe((byte)what), NetworkDelivery.ReliableSequenced);
                     break;
                 case Ask.NextCrew:
                     e.Crew = FreeCrew(e.Crew + 1, from); Log($"{e.Name} is now {CrewName(e.Crew)}");

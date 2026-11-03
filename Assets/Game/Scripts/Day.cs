@@ -120,6 +120,14 @@ namespace PortBoss.M1
             var a = new Weather(99); var b = new Weather(99);              // same seed, any roll order: the same weather
             for (int d = 60; d >= 1; d--) for (int k = 3; k >= 0; k--) Eq(a.Block(d, k), b.Block(d, k), $"weather determinism D{d}/{k}");
             for (int d = 1; d <= 60; d++) for (int k = 0; k < 4; k++) Eq(new Weather(99).Block(d, k), a.Block(d, k), $"weather fresh-roll D{d}/{k}");
+            int leaks = 0;                                                    // the storm leak: only in a storm block, inside it, seeded
+            for (int d = 1; d <= 400; d++) for (int k = 0; k < 4; k++)
+            {
+                double at = a.LeakAt(d, k); bool storm = a.Block(d, k) == Wx.Storm;
+                if (storm != !double.IsNaN(at)) f.Add($"leak only in a storm D{d}/{k}");
+                if (storm) { leaks++; if (Weather.BlockAt(at) != (d, k)) f.Add($"leak inside its storm D{d}/{k}"); if (at != new Weather(99).LeakAt(d, k)) f.Add($"leak seeded D{d}/{k}"); }
+            }
+            if (leaks == 0) f.Add("no storm leaks in 400 days");
             return f;
         }
     }
@@ -215,6 +223,8 @@ namespace PortBoss.M1
             return (day, 3);
         }
         public static double StartOf(int day, int b) => DayTime.At(day, BlockStart[b]);
+        // a storm can spring a leak in Biscuit (systems §1.6.4): at most once per storm, at a seeded moment 20-140 min in
+        public double LeakAt(int day, int b) => Block(day, b) == Wx.Storm ? StartOf(day, b) + 20 + U(Seed, day, 60 + b) * 120 : double.NaN;
         static (int, int) Prev(int day, int b) => b == 0 ? (day - 1, 3) : (day, b - 1);
 
         // The weather at a moment: (from, to, k). A new block blends in over 6-12 in-game minutes (seeded); one with a

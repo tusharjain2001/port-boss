@@ -113,6 +113,23 @@ namespace PortBoss.M1
             for (float t = 0; t < 15; t += Time.deltaTime) { s.Steer = t > 6 && t < 10 ? 0.6f : 0; Measure(); if (shots != null && Mathf.Abs(t - 8) < Time.deltaTime) yield return Shot("storm-2-driving"); yield return null; }
             Debug.Log($"[PB] storm: under way 15 s: max roll {roll:F1}°, pitch {pitch:F1}°, speed {s.Speed:F1} m/s");
             Check(roll <= 25 && pitch <= 20 && aboard, $"driving in the storm: roll {roll:F1}° <= 25, pitch {pitch:F1}° <= 20, still aboard");
+
+            // the leak (systems §1.6.4): it springs, the water rises, she slows and lists; patch at the hole, bail her dry
+            s.SpringLeak(); float w0 = s.Water; yield return new WaitForSeconds(4f);
+            Check(s.Leaking && s.Water > w0, $"a leak lets water in ({w0:F2} -> {s.Water:F2})");
+            s.Water = 0.6f; yield return new WaitForSeconds(6f);       // (skip the 90 s it takes to get this deep)
+            Check(s.Speed <= Skiff.MaxSpeed * 0.85f, $"shipping water she slows: {s.Speed:F2} m/s at full (max {Skiff.MaxSpeed}, x{s.SpeedMul:F2})");
+            s.Notch = 0; yield return Until(() => Mathf.Abs(s.Speed) < 0.3f, 10); me.LeaveHelm(); s.AnchorNow();
+            float lsum = 0; int ln = 0; for (float t = 0; t < 5; t += Time.deltaTime) { lsum += Mathf.DeltaAngle(0, s.transform.eulerAngles.z); ln++; yield return null; }
+            Check(lsum / ln > 1.5f, $"she lists with the water in her: mean roll {lsum / ln:F1}° (wants ~{s.List:F1})");
+            me.Teleport(s.Hole + Vector3.up * 0.1f, s.transform.eulerAngles.y + 180); yield return new WaitForSeconds(0.5f);
+            if (shots != null) { CameraRig.I.Pitch = 38; CameraRig.I.Yaw = s.transform.eulerAngles.y + 160; yield return new WaitForSeconds(0.3f); yield return Shot("leak-1-water"); }
+            Ctl.BotInteractHeld = true; yield return Until(() => !s.Leaking, Skiff.PatchTime + 4); Ctl.BotInteractHeld = false;
+            Check(!s.Leaking, $"holding E at the hole patches it (prompt '{me.Prompt}')");
+            me.Teleport(s.transform.TransformPoint(new Vector3(0, s.HoleLocal.y + 0.1f, 0.3f)), s.transform.eulerAngles.y); yield return new WaitForSeconds(0.5f);
+            float wb = s.Water; Ctl.BotInteractHeld = true; yield return Until(() => s.Water < 0.02f, 25); Ctl.BotInteractHeld = false;
+            Check(s.Water < 0.02f, $"bailing empties her ({wb:F2} -> {s.Water:F2})");
+            if (shots != null) yield return Shot("leak-2-dry");
             Debug.Log($"[PB] RESULT stormtest: {(dayFails == 0 ? "PASS" : "FAIL")}");
             Application.Quit();
         }
