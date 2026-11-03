@@ -77,6 +77,7 @@ namespace PortBoss.M1
             // a whole day, 04:00 -> 04:00, a frame every 4 in-game minutes (Fair held, the sea side)
             var lapse = Path.Combine(shots, "lapse"); Directory.CreateDirectory(lapse);
             Sky.ForceWx = 1; CameraRig.I.Yaw = seaYaw + 25; CameraRig.I.Pitch = 12;
+            Sky.Jump(DayTime.At(3, 240)); yield return new WaitForSeconds(3f); // (the storm before eases out, its rain falls clear)
             int f = 0; double prevB = -1, maxJump = 0;
             for (double m = DayTime.At(3, 240); m <= DayTime.At(4, 240); m += 4)
             {
