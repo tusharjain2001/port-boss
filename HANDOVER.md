@@ -1,14 +1,20 @@
 # Port Boss: HANDOVER (the one entry point)
 
-**For Tushar's Claude** (or any new Claude Code session that only has this repo). Written 1 Nov 2026 by Manan's agents
+**For Tushar's Claude** (or any new Claude Code session that only has this repo). Written 1 Nov 2026 (brought up to date 3 Nov) by Manan's agents
 (Kufu, Manan's boss Claude, and its workers). Manan said: *"his Claude should know as much as you do: all the next steps,
 all the rules."* So everything we know is here or in the files this page points to. Nothing lives outside the repo
 except the paid art pack, the Mixamo clips and old builds (§12).
 
-Read in this order: this file → `docs/plan/gdd/MANAN-CHANGES-1031.md` → `docs/plan/gdd/systems/systems.md` §5 (roadmap)
-→ the gdd section for whatever you build next. Manan's own words, dated: `docs/handover/MANAN-PROMPTS.md`.
+Read in this order: this file (start with §0) → `docs/plan/gdd/MANAN-CHANGES-1031.md` → `docs/plan/gdd/systems/systems.md`
+§5 (roadmap) → the gdd section for whatever you build next. Manan's own words, dated: `docs/handover/MANAN-PROMPTS.md`.
+
+> **Rule (Manan, 3 Nov 2026): "Tushar is on equal footing with Manan. Tushar's test approvals are final too; Tushar's
+> Claude does not need to wait for Manan to test."** Wherever this file says Manan tests, approves or judges a build, read
+> "Manan or Tushar": either one's verdict closes a milestone. (Spending, publishing and deleting still go to Manan: rules 2
+> and 7.)
 
 Contents:
+0. To Tushar's Claude (3 Nov): what changed, what to do next
 1. What the game is
 2. Where everything is, and which doc wins
 3. ALL RULES
@@ -23,13 +29,56 @@ Contents:
 12. What is NOT in the repo
 
 Glossary:
-- **Manan:** the owner, who decides.
-- **Tushar:** the developer taking over; the repo is his GitHub.
+- **Manan:** the owner.
+- **Tushar:** the developer taking over; the repo is his GitHub. On equal footing with Manan (3 Nov): his test approvals
+  are final too.
 - **Kufu:** Manan's boss Claude agent.
 - **`w-pb-*`, `pb-*`, `w-gdd-*`:** Kufu's worker agents.
 - **`t-xxxxxxxx`:** their task ids.
 - **"approval card":** Manan's yes/no button in his agent cockpit (Panoptes).
-- **★ milestone:** a build Manan tests himself.
+- **★ milestone:** a build Manan or Tushar tests by hand; either one's verdict closes it.
+
+---
+
+## 0. To Tushar's Claude (2026-11-03)
+
+**What Manan's side did since M1b** (all on `main` once Kufu pushes this merge; details in §4):
+- **M2 co-op (steps 1-6):** up to 4 players on Biscuit over Steam or LAN: the title menu, the crew list, fishing
+  together (the host rolls the fish), giving and tossing fish, proximity voice, drop-in and rejoin. Manan and you ran the
+  first two-PC test on the morning of 3 Nov.
+- **M2.1:** the fixes from that test and from two audits: chins up while fishing (a head aim after the clip), the rod
+  clear of the hat, the back rod broken down, joiners on their own pier spot, the fishing bar above the hotbar, a quieter
+  start, a bluer sky, a seabed that slopes away under the landing (1e97a77), and five co-op fixes (solo fish kept on
+  join, quick rejoin, anchor while a friend drives, join errors shown, "The crew is full"). Release build
+  `Desktop/Port Boss/builds/20261103-0701-M2.1` on Manan's PC.
+- **M3 "The day" (built, not yet hand-tested):** a clock (1 s = 1 in-game minute, Day 1 starts 07:00) with 6 lighting
+  states that blend; sleep in Walt's cot after 8 PM (everyone skips to 07:00), tired at 23:00, pass-out at 2 AM; weather
+  in 6 states with Dot's storm calls; fish rot over 48 h shown on the hotbar; storms bring leaks (patch, bail) and rogue
+  waves (hold C to brace). All of it works in co-op (the host owns the clock).
+- **Map B "Crescent Bay":** a Blender blockout of the final island in `art-src/world/` with **Manan's picks: the ridge at
+  220 m and the south horn stretched +400 m** (Voss 4.48 km away = 12.4 min in Biscuit at 6 m/s). Not in Unity yet.
+- **Headless test stills now use `-pb-fps 60`:** batch mode runs at ~1000 fps, and at that rate the standing-still deck
+  hold never lands, so the jump tuck bends every body over in the pictures. A test artefact, not a game bug.
+- Regression on the merged head (`f617f2d`, 3 Nov, Manan's PC, `Desktop/Port Boss/proof/M3/regression/`): knock,
+  toss, boat, swim, fish100, menutest, weathertest, daytest, sleeptest, co-op sleep and stormtest all PASS, 0
+  exceptions; cooptest plain and at 150 ms + 2% loss: 0 exceptions, every rider PASS, two host-side checks flagged and
+  explained (a rejoin measured in 3D for a rider who had swum 45 m off: the test now measures across the boat; one
+  deck-race toss landed in the sea); a co-op rerun was still owed when this was written (the PC ran out of memory).
+
+**Your next step:**
+1. Get the code: `git checkout main && git pull && git lfs pull`. Check `Assets/ThirdParty/Mixamo/` still holds your
+   Mixamo clips (gitignored, §5).
+2. Build a release (Git Bash, repo root; Unity closed): `bash tools/cc.sh` (seconds, must say "Build succeeded"), then
+   `bash tools/m1build.sh "$PWD/Builds/m1"` (no `-pbDev` = release; ~2 min warm, longer the first time; the log ends with
+   `build Succeeded ... errors=0`). The game is `Builds\m1\PortBoss.exe`, with `steam_appid.txt` (480) copied beside it.
+3. Quick headless check: `bash tools/m1test.sh Builds/m1/PortBoss.exe fish100 -pb-fishtest 100 -pb-timescale 8` and
+   `bash tools/menutest.sh Builds/m1/PortBoss.exe menu`: both PASS, 0 exceptions.
+4. Run it by hand: the title menu shows; pick **1 Play solo**; walk the pier, cast, catch a fish, take Biscuit out.
+5. Then Manan and Tushar run the two-PC Steam co-op test per **`docs/M2-HOW-TO-TEST.md`**: **start `PortBoss.exe`
+   before accepting the Steam invite** (with the game closed, app 480 opens Spacewar), and **don't fish solo before
+   joining**. The build now has M3's day too: night falls ~14 minutes in; sleep in the cot after 8 PM or you pass out at
+   2 AM (~19 minutes in). The test page says how.
+6. Tushar's verdict on M2 (and M3) is final (the rule at the top). Then continue §7.
 
 ---
 
@@ -198,7 +247,8 @@ If something is still unclear, it is a question for Manan (§9), not a guess.
   the worker. Plan: tag it `legacy-dockwork`, then remove what M1/M2 don't use (gdd systems §4.1). Ask Manan first.
 - **`tools/`:** build/test scripts (`tools/README.md`); M1 uses `m1build.sh` and `m1test.sh`.
 - **`docs/`:**
-  - `M1-HOW-TO-TEST.md` (current);
+  - `M2-HOW-TO-TEST.md` (current: the two-PC co-op test + checklist, and M3's day in the same build);
+  - `M1-HOW-TO-TEST.md`;
   - `ART-PLAN.md`, `PORT-STAGES.md`, `HOW-TO-PLAY.md`, `CODE-REVIEW.md` (old game, historical);
   - `bevel_check.py`, `wobble*` (old helpers).
 - **`LOG.md`:** one line per work step (`time | step | result`). Keep adding to it.
@@ -255,18 +305,18 @@ Where Manan said "Manan's PC", read "the PC you run on" (Tushar's): the point is
 ### Process
 9. **MUST: build ONE thing at a time, test it, then the next. Quality over quantity.** A milestone can be cut smaller,
    never rushed. [Manan 31 Oct]
-10. **MUST: Manan tests every significant build (every ★ milestone)** before the next one starts. The first build was
-    boat + fishing only. [Manan 31 Oct]
-11. **MUST: no building beyond what Manan has approved.** He reviews the plan step by step ("I couldn't read the whole
+10. **MUST: Manan or Tushar tests every significant build (every ★ milestone)** before the next one starts; either one's
+    approval is final. The first build was boat + fishing only. [Manan 31 Oct; Tushar on equal footing, Manan 3 Nov]
+11. **MUST: no building beyond what Manan (or Tushar) has approved.** He reviews the plan step by step ("I couldn't read the whole
     plan; we'll go step by step"). M1 was approved ("start the first build now"); the roadmap order below is the plan he
     said GO to. New features or scope changes go to him first. [Manan 31 Oct]
 12. **MUST: everyone works in the SAME repo** (this one). Work on a short-lived branch, get it reviewed, then merge to `main`.
     `main` always builds. Don't create separate project folders or repos. [Manan 28, 30, 31 Oct]
 13. **MUST: keep only the latest build on disk** (one folder). Deleting the older ones needs Manan's OK. [Manan 31 Oct]
 14. **Players only get release builds** (no Development console, no `-pbDev`). Every ★ build ships with a `HOW-TO-TEST.md`
-    holding the milestone's Manan checklist. [29 Oct; systems §5.1]
+    holding the milestone's test checklist. [29 Oct; systems §5.1]
 15. **Judge on LOOKS, not on "it works".**
-    - Compare with the approved look (Ponyo mockups and concept sheets) and reject anything cheap-looking before Manan sees it.
+    - Compare with the approved look (Ponyo mockups and concept sheets) and reject anything cheap-looking before Manan or Tushar sees it.
     - **Watch the capture VIDEO (motion) before calling any build ready, not just stills.** Make frame sheets every 0.25 s
       through walk, cast and drive.
     - Check every look or motion caveat yourself before delivery. M1 was handed over from 4 stills and its animations
@@ -639,8 +689,9 @@ Proven headless:
   (3) and come back (4); the book still balances, Rider1's fish booked to the new connection. All four PASS plain and at
   150 ms + 2% loss, 0 exceptions (step 4 now ~11,000 requests). Solo regression PASS.
 
-**M2.1 (branch `m2-fixes`, 3 Nov): fixes after Manan and Tushar's co-op test and the code + look audits**
-(`Desktop/Port Boss/audit/2026-11-03-*.md`; Kufu picked what to fix). Proof: `Desktop/Port Boss/proof/M2.1/`.
+**M2.1 (3 Nov, on `main` at `36b3263`): fixes after Manan and Tushar's co-op test and the code + look audits**
+(`Desktop/Port Boss/audit/2026-11-03-*.md`; Kufu picked what to fix). Proof: `Desktop/Port Boss/proof/M2.1/`. Release
+build on Manan's PC: `Desktop/Port Boss/builds/20261103-0701-M2.1` (from `1e97a77`).
 - Rod hold: `M1Anim` no longer keys the head down; `CharAnim.LookAt` aims the head after the clip (yaw ±50°, pitch ±25°,
   the eyes cover up to 6°; the face axis from each body's rest pose). `Fishing` sets the target per beat (3° under the
   horizon, the aim, the bobber, the fish held up; off in strike/fight/reel). `-pb-gazeshots <dir>` measures every body:
@@ -656,8 +707,63 @@ Proven headless:
   above the hotbar; quieter start + title; the sky ramp reaches #3A86E0 by ~9°; a seabed fill under the landing closes
   the gap that drew the dark oval. Left for after the test: the catch card, the planks, the drive camera/wake, and
   code-audit findings 8-12 (listed in LOG.md).
+- **The seabed (`1e97a77`):** the oval came back in the capture: it was where the modelled ~4 m shelf ends and the sea
+  turned bottomless at once, outside the land model. `World.Seabed` now lies flat at -4.3 m under the land and slopes to
+  -30 m over 80 m all round, so the deep comes on gradually.
 
-**The final map, map B "Crescent Bay": Blender blockout (branch `panoptes/w-pb-map-b`, 3 Nov), waiting for Manan's verdict on shape and look:**
+**The two audits of the M2 build (3 Nov, `Desktop/Port Boss/audit/` on Manan's PC: `2026-11-03-look-audit.md`,
+`2026-11-03-code-audit.md`): what's fixed, what's open.**
+- Fixed in M2.1: look items 1 (bowed heads), 3 (rod through the hat), 4 (spawn overlap + rod antennae), 5 (the bar over
+  the angler), 10 (start/title clutter); code P0s (solo fish wiped on join; the Spacewar invite: a doc fix, start the game
+  first) and P1s (silent join failures, the host's anchor while a client drives, early rejoin = stranger), voice bursts
+  over 1000 bytes.
+- **Open:**
+  - **the sky** (look 2): bluer since M2.1, but the top of the frame still measures ~25% off the spec's #3A86E0;
+  - **the oval** (look 7): no longer a hard dark-blue edge, but a soft mid-blue patch is still there by the pier;
+  - look 6 (the catch card hides the 3D hold-up), 8 (pale, paper-white planks), 9 (driving: the boat tiny on screen, a
+    cotton-wool wake);
+  - code 8-12 (a late host roll keeps the catch only locally; E twice on a deck fish shows "Hotbar full"; the waves jump
+    on join / host left; per-frame garbage in Hud/Coop/CoopVoice; cooptest gaps: no grep for LogError/[Netcode] errors,
+    no exit 1 on FAIL, the Steam path is never run).
+
+**M3 "The day" (branch `panoptes/w-pb-m3-day`, 3 Nov, merged with M2.1 + map B; built and tested headless, not yet
+played by hand).** gdd systems §1.4-1.6, §4.4, §5.2. Proof: `Desktop/Port Boss/proof/M3/` on Manan's PC (the six states
+sheet, a 24 h lapse film, sleep and storm shots, `regression/summary.txt`).
+- **The clock** (`Day.cs` pure C#, `Sky.cs`): in-game minutes since Day 1 00:00; a new game starts Day 1 07:00; 1 real s
+  = 1 in-game min. **6 lighting states** (Dawn 05:30, Day 07:30, Golden 17:30, Dusk 19:30, Night 21:00, Storm from the
+  weather), each a 30-min blend of sky, sun/moon, fog, sea colours, the toon shadow tint, stars, bloom and grade. Lamps
+  (the pier post, the shack window, Biscuit's stern lantern) light at dusk. **The HUD follows the light** (systems §2.7:
+  warmer at golden/dusk, -12% and cooler at night). No HUD clock (rule 25): F3 shows it for debugging.
+- **Co-op:** the host owns the clock, the world seed and any held weather (`CoopDay.cs`, "pb.day" every 2 s and at once
+  after a jump, like `Coop.SeaTime`); every machine rolls the same weather from the seed.
+- **Sleep** (`Sleep.cs`, systems §1.4): **hold E 1 s on Walt's cot** by the shack, 8 PM-5 AM; one sleeper skips everyone
+  to 07:00 after a 5 s heads-up (a crewmate's fish fight holds it up to 10 s; two sleepers = one skip). Tired toast at
+  23:00, a vignette and -10% walk at 01:30, **pass-out at 02:00** (on a boat you slump on deck, throttle off). Where you
+  wake: in bed / at the tiller / on a ladder if swimming / where you fell / on the boat / in a free bed within 30 m /
+  where you stood; a loose boat is anchored by its owner. The night card shows the day that ended and tomorrow's
+  forecast with Dot's confidence dots. While the card is up the toast stack is hidden.
+- **Weather** (systems §1.5): 6 states (Clear, Fair, Breezy, Fog, Rain, Storm), 4 blocks a day from a seeded Markov
+  table; storms only after Breezy/Rain, at most one per 4 days, none on Days 1-2; story weather on Days 4, 13, 20.
+  Forecast data for the phone (M4) at 95/85/75% for today's blocks, 70% tomorrow; Dot calls every storm >= 3 h ahead.
+  Rain, fog, storm seas (bigger Gerstner waves).
+- **Rot** (fishing §5.6): 12 h a stage (Fresh, Good, Stale, Old, Rotten at exactly 48 h); the hotbar shows a freshness
+  bar and the stage on the name pill.
+- **Leaks and footing** (systems §1.6.4-5): a storm can spring one leak in Biscuit (seeded): water rises inside, -30%
+  speed, a 5° list; hold E at the hole 10 s to patch, hold E elsewhere on deck to bail; she never sinks. **Hold C to
+  brace**; 3 seeded rogue waves a storm, warned 3 s ahead: unbraced you're knocked down, near a rail 1 in 4 goes over.
+- **Toasts:** a toast already up refreshes instead of stacking a copy; a toast that resolves an older one dismisses it
+  (leak → patched, storm call → the storm, anchor down ↔ up, moored ↔ cast off).
+- Not done (later): the phone that shows the forecast (M4); wet-deck skid and deck-tilt sliding; the rogue wave's white
+  crest and sliding deck items; a patch-kit item and the 6 s two-player patch (M5); Dot's tow itself (only offered);
+  "Not yet!" (open Q4); a second bed (only Walt's cot, so "the free bed" case is untested).
+- Tests: `tools/daycheck.sh` (dotnet, no Unity: the clock, bed hours, blends, rot, the weather over 10,000 days x 2
+  seeds); in game `-pb-weathertest`, `-pb-daytest <dir>`, `-pb-sleeptest solo`, `tools/sleeptest.sh` (host + rider, 5
+  rounds), `-pb-stormtest <dir>` (§6).
+
+**The final map, map B "Crescent Bay": Blender blockout (branch `panoptes/w-pb-map-b`, merged with M3, 3 Nov). Manan's
+picks (3 Nov): the ridge at 220 m and the south horn stretched +400 m; they are now the defaults (`b0d279e`): island
+2.06 x 2.32 km, 2.46 km², crest 229 m; Voss 4.48 km round the horn = 12.4 min in Biscuit at 6 m/s (8.3 in the Kestrel),
+the gdd's numbers. Not imported into Unity yet: `art-src/world/IMPORT-PLAN.md` is the plan.**
 - `art-src/world/`: `island_shape.py` (map-B's own control points from `make_maps.py`, a coastline distance field ->
   heights + seabed, the route measure), `build_island.py` (`blender -b -P art-src/world/build_island.py`, ~40 s: terrain,
   Old Saltmouth + the 7 shops at their pins, M1's real pier/shack + Biscuit at the town shore, lighthouse, wreck, the Cut +
@@ -681,7 +787,7 @@ Proven headless:
   held, not glued"; nibble vs bite by sound or pad alone.
 - The final filmed tour on the last M1 build was not re-run (the PC ran low on memory); its proof film is from one fix
   earlier.
-- Steam co-op across two real accounts has never been tested (old game; LAN co-op passed). It matters at M2.
+- Steam co-op across two real accounts: first tried by Manan and Tushar on 3 Nov (M2); the M2.1 + M3 build is next.
 - The old dock-work game code is still in `Assets/Scripts/` and still builds (`tools/ubuild.sh`). It needs the Toon Harbor
   pack for its look. M1 does not.
 - Mockup `03-phone`'s Map screen still shows map A; mockup `05` still shows a clock and 3 stops.
@@ -737,15 +843,23 @@ Differences now:
 | See-through walls test (shack, boat, open pier: shots) | `bash tools/m1test.sh Builds/m1/PortBoss.exe fade -pb-fadetest <dir>` |
 | Screenshot tour (cast/bobber/bite/minigame/catch/hotbar) | `bash tools/m1test.sh Builds/m1/PortBoss.exe shots -pb-shots <dir>` |
 | Co-op: host + N bot riders on this PC (LAN), boat-relative sync, tiller hand-off, swim + ladder + knock-down seen remotely, fishing + host rolls + ghost bars + a tangle, give/toss/deck race + 10,000 hotbar requests, voice (test voice: heard aboard, fainter at 20 m, silent at 45 m, a mic off), rider 1 quits and rejoins (hotbar, crew, place back) | `bash tools/cooptest.sh Builds/m1/PortBoss.exe coop3 3 [-pb-netsim 150 2] [-pb-coopshots <dir>]` (logs `Logs/pb/m1/coop3/host.txt`, `rider<i>.txt`) |
+| M3 rules without Unity (clock, bed hours, lighting blend, rot, weather Markov + forecast over 10,000 days x 2 seeds) | `bash tools/daycheck.sh [days]` (.NET 8 SDK; prints ALL PASS) |
+| M3 weather in game (the same check + the forecast lines) | `bash tools/m1test.sh Builds/m1/PortBoss.exe m3weather -pb-weathertest 10000 -pb-seed 7` |
+| M3 the 6 lighting states (both sides of the pier) + a 24 h lapse, brightness/lamp/HUD-tint checks | `bash tools/m1test.sh Builds/m1/PortBoss.exe m3day -pb-daytest <dir> -pb-fps 60 -pb-seed 7` (lapse frames in `<dir>/lapse`) |
+| M3 sleep solo (too early, the cot, rot through the night, tired, pass-out on the pier / swimming / driving) | `bash tools/m1test.sh Builds/m1/PortBoss.exe m3sleep -pb-sleeptest solo -pb-sleepshots <dir> -pb-fps 60 -pb-seed 7` |
+| M3 sleep in co-op (host + rider, 5 rounds: a fight holds the skip, ladder, tiller, deck, both pass out = one skip; the clocks agree) | `bash tools/sleeptest.sh Builds/m1/PortBoss.exe m3coopsleep -pb-fps 60` |
+| M3 storm (roll at anchor and driving, the leak, patch, bail, brace, rogue waves, overboard) | `bash tools/m1test.sh Builds/m1/PortBoss.exe m3storm -pb-stormtest <dir> -pb-fps 60 -pb-seed 7` |
+| Start anywhere in time / weather | any run takes `-pb-seed n`, `-pb-day n`, `-pb-hour h`, `-pb-weather clear\|fair\|breezy\|fog\|rain\|storm` |
 | Film frames for the capture video | `bash tools/m1test.sh Builds/m1/PortBoss.exe film -pb-film <dir> -pb-filmsecs 60`, then `ffmpeg -framerate 30 -i f_%05d.png -c:v libx264 -crf 20 -pix_fmt yuv420p capture.mp4` |
 
 - Logs go to `Logs/pb/m1/<name>/log.txt`, and every run prints its exception count: it must be 0.
 - Paths (Unity exe, project, logs) are in `tools/env.sh`; override them from the environment.
 - M1 composites its UI into batchmode screenshots (a two-pass black/white capture), so the HUD shows in `-pb-shots`; look at every PNG yourself.
-- In-game debug keys: F3 overlay (bite timer, window ms, stop errors), F5 rod tier, F6 bait, F7 every fish heavy (on/off), F8 fall over, F9 next crew body.
+- In-game debug keys: F3 overlay (bite timer, window ms, stop errors, the clock and weather), F5 rod tier, F6 bait, F7 every fish heavy (on/off), F8 fall over, F9 next crew body, F10 +1 hour (Shift +6, host only), F11 hold the next weather (host only).
+- **`-pb-fps 60` for every still or film** (batch mode otherwise runs ~1000 fps and the standing deck hold never lands, so the jump tuck bends bodies over in the pictures). Toasts run on real time, so a test that waits for a toast waits with `WaitForSecondsRealtime`.
 - The old game's scripts (`ubuild.sh`, `reg2.sh`, `regress.sh`, `release.sh`, `morning.sh`, `capture.sh`) are in
   `tools/README.md`.
-- **Release for Manan:**
+- **Release for Manan and Tushar:**
   1. Make a release build (no `-pbDev`) into `Builds/releases/PortBoss-M<n>-<yyyymmdd>/`, with `HOW-TO-TEST.md` = the
      milestone's checklist.
   2. Add 6+ screenshots and a 60–90 s capture.
@@ -756,7 +870,8 @@ Differences now:
 
 ## 7. Next steps, in order (after M1b)
 
-Start here once Kufu has filled in the M1B-RESULT block in §4 and Manan has played M1b.
+M1, the crew, M2 (steps 1-6 + M2.1) and M3 are built; §0 says what to do first. The two-PC test of M2 (with M3's day in
+the same build) is the open ★.
 
 **Step 1: close M1.** Manan plays M1b. Fix what he reports, re-test (headless + capture video), and send him the release.
 M1 is done when the systems §5.2 M1 checklist and his "15 minutes, do you want to keep going?" both pass.
@@ -797,9 +912,9 @@ M1 is done when the systems §5.2 M1 checklist and his "15 minutes, do you want 
    rejoin (the hotbar comes back).
    **(Done 3 Nov, see §4; Steam itself needs the two-account test, step 7.)**
 
-7. Two real Steam accounts on two PCs for 30 minutes, the 150 ms + 2% test, the release and Manan's checklist ★.
-   **(3 Nov: Tushar and Manan run this themselves: `docs/M2-HOW-TO-TEST.md` has the steps and the checklist. Steps 1-6
-   merged to `main` so Manan can play.)**
+7. Two real Steam accounts on two PCs for 30 minutes, the 150 ms + 2% test, the release and the checklist ★.
+   **(3 Nov: the first two-PC test gave M2.1 (on `main`). Next: the same test on the new build (M2.1 + M3), §0 step 5;
+   `docs/M2-HOW-TO-TEST.md` has the steps and the checklist.)**
 
 The plan as written:
 - Steam lobby (2–4) + LAN; boat-relative player sync; driver-owned boats;
@@ -816,11 +931,9 @@ The plan as written:
 - This is also the first real **two-account Steam test**.
 
 **Then, one at a time, each a ★ with its own tests and checklist in systems §5.2:**
-- **M3 The day:**
-  - full day/night, 6 lighting states;
-  - sleep (one sleeper skips to 07:00, every co-op edge case);
-  - weather (6 states, phone forecast, Dot calls storms);
-  - rot through the night; leaks + bail.
+- **M3 The day:** **built 3 Nov (see §4), waiting for the hand test** (systems §5.2 M3 checklist: watch a full day
+  from the pier; sleep alone; sleep while the other fishes at sea; stay up to 2 AM; ride out a storm, brace, patch the
+  leak; catch at dusk, sleep, check the fish is "Good"). The phone forecast screen itself is M4.
 - **M4 Phone + first income + save:**
   - the phone (Home, Messages, Contracts, Bank, Forecast, Map, Settings);
   - **Mari's mooring = first income**;
@@ -856,8 +969,8 @@ The plan as written:
 - UI checked against the mockups;
 - 60–90 s film + screenshots, **watched**;
 - release build + `HOW-TO-TEST.md`;
-- Manan's checklist handed over.
-Then STOP and wait for his verdict.
+- the test checklist handed over.
+Then STOP and wait for Manan's or Tushar's verdict (either is final).
 
 ---
 
@@ -876,7 +989,8 @@ Then STOP and wait for his verdict.
   your picks".
 - **Ask before spending, publishing or deleting** (rules 2, 7, 13). Everything else inside an approved milestone: decide,
   say the call in one line, keep going.
-- **He tests every ★ milestone himself**, then gives a list of changes (see 1 Nov). Apply them all, then re-test.
+- **He (or Tushar, on equal footing since 3 Nov) tests every ★ milestone**, then gives a list of changes (see 1 Nov).
+  Apply them all, then re-test.
 - **He downloads from Mixamo and Suno himself.**
   - Give him an exact list (name, card subtitle, settings, target folder), as `docs/plan/mixamo-list.md` does.
   - For Tushar's PC, Tushar does the Mixamo downloads.
@@ -969,6 +1083,13 @@ Smaller design gaps for the milestone that needs them (CHANGES.md §C, §E4):
   - Keep the old game's code: **don't delete anything for now**.
   - Co-op: **one crew member per player**, never two the same.
   - Voice: **open mic by default**; push-to-talk as a settings option later.
+- **3 Nov:**
+  - Manan and Tushar's first two-PC co-op test → M2.1 (chins up, rod clear of the hat, co-op fixes); two audits of the M2
+    build (look + code) in `Desktop/Port Boss/audit/`.
+  - **Map B: the ridge at 220 m and the south horn stretched +400 m** (Voss 12.4 min at 6 m/s).
+  - M3 "The day" built (clock, 6 lighting states, sleep, weather, rot, leaks, rogue waves).
+  - **"Tushar is on equal footing with Manan. Tushar's test approvals are final too; Tushar's Claude does not need to
+    wait for Manan to test."**
 
 ---
 
@@ -976,8 +1097,8 @@ Smaller design gaps for the milestone that needs them (CHANGES.md §C, §E4):
 
 1. Read this file fully, then `docs/plan/gdd/MANAN-CHANGES-1031.md`, `docs/plan/gdd/systems/systems.md` §0 + §5, and
    `docs/M1-HOW-TO-TEST.md`. Skim `docs/handover/MANAN-PROMPTS.md` (last two dates) to hear Manan's voice.
-2. `git status`, `git log --oneline -10`, `git lfs pull`. Check the facts against §4: that `main` has M1/M1b and what the
-   M1B-RESULT block says.
+2. `git status`, `git log --oneline -10`, `git lfs pull`. Check the facts against §0 and §4: that `main` has M2.1, M3 and
+   the Map B blockout.
 3. Check your setup (§5): Unity 6000.5.6f1 activated, batchmode first open done, `bash tools/cc.sh` builds. Ask Tushar
    for the Mixamo clips in `Assets/ThirdParty/Mixamo/` (and the pack only if needed).
 4. **Run the safety check once** to see it work: `git diff --cached --name-only | grep -ciE 'ThirdParty|Toon Harbor'` → 0.
@@ -1002,8 +1123,8 @@ Smaller design gaps for the milestone that needs them (CHANGES.md §C, §E4):
   - `preview-20261028-2356`;
   - 16 overnight builds `20261029-*` (incl. `-1054-MORNING`);
   - `20261030-1848-REFINE`, `20261030-2346-REFINE`;
-  - `20261031-2215-M1` (the latest delivered);
-  - (M1b: see §4).
+  - `20261031-2215-M1`; M1b `20261101-0521-M1b`; M2 `20261103-0248-M2`;
+  - `20261103-0701-M2.1` (the latest delivered; M3 has no release build yet: build it from `main`, §0).
   The rule is to keep only the newest; deleting the rest waits on Manan's OK.
 - **Proof** (screenshots, films, test logs) for every milestone: Manan's PC, `Desktop\Port Boss\proof\` (M1:
   `proof\M1\F4`, `F6`). The checklists are copied to `docs/plan/build/M1-F6-CHECKLISTS.md`.

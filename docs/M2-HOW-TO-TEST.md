@@ -21,6 +21,21 @@ From your co-op test this morning and two audits of the M2 build:
 - **Steam invite: start `PortBoss.exe` first, then accept** (see section 2). With the game closed, Steam starts
   "Spacewar" instead.
 
+## Also in this build: the day (M3, 3 Nov)
+Built from `main` after 3 Nov, the game has a clock, so a 30-minute session sees a whole evening:
+- **1 real second = 1 game minute.** You start at 7:00 AM. Golden light around 5:30 PM (~10 minutes in), dusk ~12
+  minutes in, **night at 9 PM (~14 minutes in)**: blue, with lamps on the pier, the shack and Biscuit's stern.
+- **Sleep:** after 8 PM, **hold E on Walt's cot** (beside the shack). Everyone gets a 5 s warning, then the night skips
+  to 7:00 AM for the whole crew (it waits up to 10 s for someone fighting a fish). A card shows the day that ended and
+  tomorrow's weather.
+- **Stay up and you get tired:** a note at 11 PM, slower walking at 1:30 AM, and **at 2 AM (~19 minutes in) you pass
+  out** where you are (on the boat, Biscuit anchors herself). No penalty.
+- **Weather** changes through the day (clear, fair, breezy, fog, rain); no storm on the first two days. Fish slowly go
+  off over 48 game hours: the hotbar shows a freshness bar.
+- **In a storm** (later days): Biscuit can spring a leak (hold E at the hole to patch it, hold E elsewhere on deck to
+  bail), and rogue waves come with a warning: **hold C to brace**, or you get knocked over.
+- To try it quickly (the host only): **F10** jumps an hour (Shift+F10: six hours), **F11** holds the next weather.
+
 M2 adds co-op: up to 4 of you on Biscuit, fishing together, handing fish around, talking by voice, over Steam or your
 home network. This page is for Tushar and Manan. Play together on two PCs for about 30 minutes, tick the boxes, and note
 anything that felt wrong.
@@ -103,6 +118,12 @@ Play about 30 minutes in one session, over Steam if you can.
 - [ ] Manan quits the game (Esc, Q) and starts it again, then rejoins. **His fish are still there**, and he's back where he was, as the same character.
 - [ ] Esc, L: you leave the crew and keep playing alone with your boat and fish.
 
+**The day (M3)**
+- [ ] Night falls on both screens at the same time, and the lamps come on.
+- [ ] One of you sleeps in the cot after 8 PM while the other is out fishing: both wake at 7:00 AM; where does the
+  fisher wake?
+- [ ] Stay up past 2 AM once: you pass out, and wake in the morning where you fell.
+
 **Lag**
 - [ ] Over the internet (Steam), does anything feel laggy? The fishing bar should feel exact, because it runs on your own PC.
 
@@ -114,6 +135,8 @@ Play about 30 minutes in one session, over Steam if you can.
 - Whether Steam worked: the invite, the join, the voice.
 
 ## 7. Not in M2 yet (by design)
+- The phone (with the forecast), money and saving: M4. The clock is only on the F3 debug overlay (no HUD clock, by
+  design).
 - A settings screen: voice is open mic for now; push-to-talk (hold V) and mic off come with settings later.
 - Saving the game between sessions: a rejoin works while the host keeps playing.
 - Shops, money, the phone, the "Double!" alert, the landing net, Bag mode, dropping a whole stack (Shift+Q).

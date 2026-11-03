@@ -51,10 +51,12 @@ B=$(grep -ho "rejoin before: .*" "$D"/rider1.txt | head -1); A=$(grep -ho "rejoi
 if [ -z "$B" ] || [ -z "$A" ]; then echo "== rejoin: not measured"; else
   echo "$B|$A" | awk -F'|' '{
     split($1, b, " "); split($2, a, " ");
-    d = sqrt((b[5]-a[5])^2 + (b[6]-a[6])^2 + (b[7]-a[7])^2);
+    # the place across the boat (x, z in boat space): its height is the deck or the sea at that moment, and for a rider who
+    # swam off (the slot-2 rider, whoever joins second) a pitching boat 45 m away moves the boat-space height by metres
+    d = sqrt((b[5]-a[5])^2 + (b[7]-a[7])^2); dh = a[6] - b[6];
     n = (b[3] == "ids=") ? 0 : split(substr(b[3], 5), x, ","); m = (a[3] == "ids=") ? 0 : split(substr(a[3], 5), y, ",");
     for (i = 1; i <= m; i++) has[y[i]] = 1; miss = 0; for (i = 1; i <= n; i++) if (!(x[i] in has)) miss++;
     solo = a[13] + 0; kept = a[15] + 0; ids = (miss == 0 && kept == solo);
-    printf "== rejoin: hotbar %s (%d fish, the same ids; %d of %d caught alone while away kept, in the hotbar or on the deck), crew %s -> %s, place back within %.1f cm: %s\n", (ids ? "back" : "DIFFERENT"), n, kept, solo, b[9], a[9], d * 100, (ids && b[9] == a[9] && d < 0.1 ? "PASS" : "FAIL")
+    printf "== rejoin: hotbar %s (%d fish, the same ids; %d of %d caught alone while away kept, in the hotbar or on the deck), crew %s -> %s, place back within %.1f cm across the boat (height %+.1f cm): %s\n", (ids ? "back" : "DIFFERENT"), n, kept, solo, b[9], a[9], d * 100, dh * 100, (ids && b[9] == a[9] && d < 0.1 ? "PASS" : "FAIL")
   }'
 fi
