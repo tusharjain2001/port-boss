@@ -86,9 +86,14 @@ namespace PortBoss.EditorTools
                 // body back onto the bench and puts the right hand on the tiller, the left on the thigh.
                 a.Helm = rig.Save("Fish_Helm", L, true, 10, t => Pz(hy: -HelmDrop, hz: -HelmBack, pitch: 10, headPitch: -6)
                     + Pz(hx: 0.012f * S(t, L), roll: -2.5f * S(t, L), pitch: 1.5f * S(t, L * 0.5f), yaw: 4f * S(t, L, 0.2f), headYaw: 12f * S(t, L, 0.1f)));
+                // Patching Biscuit's hole (M3.1): down on the deck at it, sat back on the heels, bent right over the plank,
+                // a nod into every hammer blow (the game swings the hammer arm by IK, Angler.RepairStroke strokes a loop).
+                float stroke = L / Mathf.Round(L / Angler.RepairStroke);
+                a.Repair = rig.Save("Fish_Repair", L, true, 20, t => Pz(hy: -0.62f, hz: -0.1f, pitch: 60, headPitch: 4)
+                    + Pz(hx: 0.01f * S(t, L), pitch: 3f * S(t, stroke, 0.25f), yaw: -6 + 2f * S(t, L, 0.2f), roll: 2f * S(t, stroke, 0.25f)));
             }
             finally { rig.Dispose(); }
-            Verify(worker, a.RodIdle); Verify(worker, a.Cast); Verify(worker, a.Helm);
+            Verify(worker, a.RodIdle); Verify(worker, a.Cast); Verify(worker, a.Helm); Verify(worker, a.Repair);
             AssetDatabase.SaveAssets();
             Debug.Log($"[M1Anim] clips made in {Dir}: idle base {idle.name} {L:F2} s");
         }

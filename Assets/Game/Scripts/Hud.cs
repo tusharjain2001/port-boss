@@ -606,7 +606,8 @@ namespace PortBoss.M1
         class Tag { public RectTransform R, Ghost, Zone, Ptr; public Text T; public Color C; public CanvasGroup G; public Image[] Pips; public Image Ring; }
         RectTransform mic; Image micRing, micDot; Text micT;
         // the crew list (systems §2.5): top right, one row a player: colour, speaking ring, name, crew member, what they're doing
-        RectTransform crewBox; readonly List<(ulong id, Image ring, Text status)> crewRows = new(); string crewKey;
+        RectTransform crewBox, inviteBtn; readonly List<(ulong id, Image ring, Text status)> crewRows = new(); string crewKey;
+        public bool InviteShown => inviteBtn != null && inviteBtn.gameObject.activeInHierarchy;   // (tests)
         public int CrewRows => crewRows.Count;                                  // (tests)
         public bool CrewRing(ulong id) => crewRows.Exists(r => r.id == id && r.ring.enabled);
         public string CrewNames;                                                // (tests) "Host, Rider1, …" as listed
@@ -681,7 +682,18 @@ namespace PortBoss.M1
                     crewRows.Add((e.Id, ring, st));
                 }
                 CrewNames = string.Join(", ", list.ConvertAll(e => e.Name));
+                // M3.1: the invite button under the crew (I, or click it in the pause menu), while there's room
+                inviteBtn = null;
+                if (list.Count < Coop.MaxCrew)
+                {
+                    inviteBtn = UiKit.Card(crewBox, "invite", 16, Ponyo.Sunflower, true, null, 2); inviteBtn.Place(new Vector2(1, 1), new Vector2(0, -list.Count * 50), new Vector2(210, 42), new Vector2(1, 1));
+                    var k = UiKit.Key(inviteBtn, "I", 28); k.Place(new Vector2(0, 0.5f), new Vector2(10, 0), k.sizeDelta, new Vector2(0, 0.5f));
+                    var it = UiKit.Txt(inviteBtn, "Invite a friend", UiKit.Bold, 18, Ponyo.Ink, TextAnchor.MiddleLeft); it.rectTransform.Stretch(); it.rectTransform.offsetMin = new Vector2(50, 0);
+                }
             }
+            var ms = UnityEngine.InputSystem.Mouse.current;
+            if (inviteBtn != null && ms != null && Cursor.lockState != CursorLockMode.Locked && ms.leftButton.wasPressedThisFrame && !Title.Up && Ctl.Ui == 0 && CameraRig.I != null
+                && RectTransformUtility.RectangleContainsScreenPoint(inviteBtn, ms.position.ReadValue(), CameraRig.I.UiCam)) { Game.ClosePause(); Coop.Invite(); }
             for (int i = 0; i < crewRows.Count && i < list.Count; i++)
             {
                 var (id, ring, st) = crewRows[i]; var e = list[i]; bool me = id == Coop.Me;

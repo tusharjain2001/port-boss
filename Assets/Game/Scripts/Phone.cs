@@ -83,7 +83,7 @@ namespace PortBoss.M1
         public bool CanOpen(out string why)
         {
             why = null; var me = Angler.I;
-            if (Title.Shown || Shop.Open || Pouch.Open || Game.Paused) { why = ""; return false; }
+            if (Title.Up || Shop.Open || Pouch.Open || Game.Paused) { why = ""; return false; }  // (Up: the title or the M3.1 invite list)
             if (me == null) return true;
             if (me.Swimming) { why = "Not while swimming. It's waterproof; you aren't."; return false; }
             if (me.Fish.State is Fishing.St.Bite or Fishing.St.Strike or Fishing.St.Minigame or Fishing.St.Heavy or Fishing.St.Reel or Fishing.St.Reveal) { why = ""; return false; }

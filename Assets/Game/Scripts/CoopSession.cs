@@ -38,6 +38,7 @@ namespace PortBoss.M1
                 SteamUser.SampleRate = VoiceOut.SteamRate;
                 // an invite accepted (overlay) or "Join game" in the friends list, while the game runs
                 SteamFriends.OnGameLobbyJoinRequested += (l, friend) => { Debug.Log($"[PB] coop: {new Friend(friend).Name} invited us"); _ = JoinLobby(l); };
+                SteamFriends.OnGameOverlayActivated += on => Log("invite: Steam's overlay " + (on ? "opened" : "closed"));
                 Debug.Log($"[PB] coop: Steam ok: {SteamClient.Name}");
                 // launched from an invite while the game wasn't running: +connect_lobby <id>. Only once Port Boss has its own
                 // Steam app ID: on test app 480 Steam starts Spacewar instead (code audit 3 Nov), so start the game first.
@@ -46,7 +47,14 @@ namespace PortBoss.M1
             }
             catch (Exception e) { Debug.Log("[PB] coop: Steam isn't running (" + e.Message + "): solo and LAN still work"); }
         }
-        public static void SteamTick() { if (SteamOk) SteamClient.RunCallbacks(); }
+        public static void SteamTick()
+        {
+            if (!SteamOk) return;
+            SteamClient.RunCallbacks();
+            // the overlay hooks the game a few seconds after Steam starts, or never (see Invite): say which, once
+            if (!overlaySaid && Time.realtimeSinceStartup > 8) { overlaySaid = true; Log($"invite: Steam overlay enabled: {SteamUtils.IsOverlayEnabled} (graphics {SystemInfo.graphicsDeviceType})"); }
+        }
+        static bool overlaySaid;
         // a crew that didn't happen: the title menu's line, the log and a left alert (the menu may be closed by now)
         static void Fail(string why) { Status = why; Log(why); Alerts.Push("Crew", why, Alerts.Kind.Warning); }
         public static string MyName
@@ -105,7 +113,80 @@ namespace PortBoss.M1
             return list;
         }
 
-        public static void Invite() { if (SteamOk && Lobby != null) SteamFriends.OpenGameInviteOverlay(Lobby.Value.Id); }
+        // ---------------------------------------------------------------- invites (M3.1, Manan's co-op test 3 Nov)
+        // I, any time in a crew (the host or a crewmate: any lobby member may invite), opens the in-game invite list
+        // (Title's Invite page): Steam friends online, each invited straight through the lobby (Lobby.InviteFriend, no
+        // overlay needed: it pops up in their Steam chat), Steam's own invite window when its overlay is on, and the crew
+        // code a friend can type in "Join a friend on Steam". Why: PortBoss.exe started outside Steam gets no overlay
+        // (Steam starts after Unity's graphics device), so OpenGameInviteOverlay alone did nothing (Manan's Player.log).
+        public static List<(string name, string sub, ulong id)> TestFriends; // -pb-invitetest: made-up friends
+        public static ulong TestLobby;                                          // -pb-invitetest: a made-up lobby id
+        static ulong LobbyId => Lobby?.Id.Value ?? TestLobby;
+        public static bool OverlayOn => SteamOk && SteamUtils.IsOverlayEnabled;
+        public static string Code => LobbyId != 0 ? CodeOf(LobbyId) : null;
+
+        // the crew code: a lobby id's low 32 bits in Crockford base 32 (every Steam lobby id has the same top 32 bits),
+        // "K7Q-4MXA"; an id with other top bits is written whole (13 characters)
+        const ulong LobbyHigh = 0x0186000000000000UL;
+        const string B32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+        public static string CodeOf(ulong id)
+        {
+            bool low = (id & 0xFFFFFFFF00000000UL) == LobbyHigh;
+            ulong v = low ? id & 0xFFFFFFFFUL : id; var s = "";
+            do { s = B32[(int)(v % 32)] + s; v /= 32; } while (v > 0);
+            s = s.PadLeft(low ? 7 : 13, '0');
+            return s.Substring(0, 3) + "-" + s.Substring(3);
+        }
+        public static ulong IdOf(string code)
+        {
+            ulong v = 0; int n = 0;
+            foreach (var ch in code.ToUpperInvariant())
+            {
+                char c = ch == 'O' ? '0' : ch == 'I' || ch == 'L' ? '1' : ch; // (misread letters, as Crockford says)
+                int d = B32.IndexOf(c); if (d < 0) continue;                    // (the dash, spaces)
+                v = v * 32 + (ulong)d; n++;
+            }
+            return n == 0 ? 0 : n <= 7 ? LobbyHigh | v : v;
+        }
+        public static void JoinCode(string code)
+        {
+            ulong id = IdOf(code); Log($"invite: joining by crew code {code} -> lobby {id}");
+            if (id == 0) { Fail("Type the crew code your friend sees in their pause menu."); return; }
+            _ = JoinLobby(new Lobby(id));
+        }
+
+        public static void Invite()
+        {
+            Log($"invite: I pressed (in a crew {On}, host {IsHost}, Steam {SteamOk}, lobby {LobbyId}, overlay enabled {(SteamOk ? SteamUtils.IsOverlayEnabled.ToString() : "n/a")})");
+            if (!On) { Alerts.Push("Crew", "You're playing solo. To invite friends, host a crew from the title menu.", Alerts.Kind.Info); return; }
+            if (Lobby is Lobby l && OverlayOn) { SteamFriends.OpenGameInviteOverlay(l.Id); Log($"invite: Steam's invite window asked for (lobby {l.Id.Value})"); }
+            else if (LobbyId != 0) Alerts.Push("Crew", $"Steam's invite window can't open here (its overlay isn't running in this game). Invite from the list, or give friends the crew code {Code}.", Alerts.Kind.Warning);
+            else Alerts.Push("Crew", $"This crew is on your home network, so no Steam invites: friends pick Join on this network and type {LanAddress}.", Alerts.Kind.Info);
+            Title.InviteList();
+        }
+        // what a friend on this network types: my address (the host), else the one I joined
+        public static string LanAddress => IsHost ? Title.LocalAddress() : I?.plan.Join ?? "";
+
+        // Steam friends to invite: online, not in the crew already; the ones in Port Boss first
+        public static List<(string name, string sub, ulong id)> FriendsToInvite()
+        {
+            if (TestFriends != null) return TestFriends;
+            var list = new List<(string name, string sub, ulong id)>();
+            if (!SteamOk || Lobby == null) return list;
+            var inCrew = new HashSet<ulong>(); foreach (var m in Lobby.Value.Members) inCrew.Add(m.Id.Value);
+            foreach (var f in SteamFriends.GetFriends())
+                if ((f.IsOnline || f.IsPlayingThisGame) && !inCrew.Contains(f.Id.Value)) list.Add((f.Name, f.IsPlayingThisGame ? "Playing now" : "Online", f.Id.Value));
+            list.Sort((a, b) => a.sub != b.sub ? (a.sub == "Online" ? 1 : -1) : string.Compare(a.name, b.name, StringComparison.OrdinalIgnoreCase));
+            Log($"invite: {list.Count} friend(s) online to invite");
+            return list;
+        }
+        public static void InviteFriend(string name, ulong id)
+        {
+            bool sent = Lobby is Lobby l && l.InviteFriend(id) || TestFriends != null;
+            Log($"invite: {name} ({id}) invited through the lobby: {(sent ? "sent" : "FAILED")}");
+            if (sent) Alerts.Push("Crew", $"Invite sent to {name}. It pops up in their Steam chat: with Port Boss open, they click Join.", Alerts.Kind.Info);
+            else Alerts.Push("Crew", $"Steam wouldn't send the invite to {name}. Give them the crew code {Code} instead.", Alerts.Kind.Warning);
+        }
 
         // Back to playing alone: the crew goes, my boat and hotbar stay mine.
         public static void Leave()

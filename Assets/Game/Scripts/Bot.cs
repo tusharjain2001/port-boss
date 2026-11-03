@@ -65,6 +65,12 @@ namespace PortBoss.M1
             else if (Arg("-pb-tosstest") != null) yield return TossTest();
             else if (Arg("-pb-menutest") != null) yield return MenuTest(Arg("-pb-menutest"));
             else if (M4Tests() is IEnumerator m4) yield return m4; // M4 (BotM4.cs)
+            else if (Arg("-pb-invitetest") != null) yield return InviteTest(Arg("-pb-invitetest"));
+            else if (Arg("-pb-rodtest") != null) yield return RodTest(Arg("-pb-rodtest"), Arg("-pb-rodshots") ?? "rodshots");
+            else if (Arg("-pb-crowdtest") != null) yield return CrowdTest(Arg("-pb-crowdtest"), Arg("-pb-crowdshots") ?? "crowdshots");
+            else if (Arg("-pb-shovetest") != null) yield return ShoveTest(Arg("-pb-shovetest"), Arg("-pb-shoveshots") ?? "shoveshots");
+            else if (Arg("-pb-rejointest") != null) yield return RejoinTest(Arg("-pb-rejointest"), Arg("-pb-rejoinshots") ?? "rejoinshots");
+            else if (Arg("-pb-leaktest") != null) yield return LeakTest(Arg("-pb-leaktest"), Arg("-pb-leakshots") ?? "leakshots");
             else if (DayTests() is IEnumerator m3) yield return m3; // M3 (BotDay.cs)
             else if (MapTests() is IEnumerator mt) yield return mt; // Map B (BotMap.cs)
         }
@@ -495,6 +501,8 @@ namespace PortBoss.M1
                     var ids = new List<ulong>(); foreach (var sl in me.Bar.S) foreach (var f in sl.Fish) ids.Add(f.Id); ids.Sort();
                     var l = s.transform.InverseTransformPoint(me.transform.position);
                     Debug.Log($"[PB] coop: rejoin before: ids={string.Join(",", ids)} at {l.x:F3} {l.y:F3} {l.z:F3} crew {M1Assets.I.CrewNames[Angler.Body]} slot 1");
+                    // (M3.1) it goes with the rod out, the bobber dangling: the others must not keep a stray bobber in mid-air
+                    me.Select(0); yield return new WaitForSeconds(1.2f); Debug.Log($"[PB] coop: rejoin: leaving with the rod out ({me.Fish.State})");
                     yield return new WaitForSeconds(0.5f); leaveNow = true; step6On = true; yield break;
                 }
                 // the others: rider 1 comes back as a new connection while its old one is still open (as a quit Steam hasn't
@@ -505,6 +513,9 @@ namespace PortBoss.M1
                 yield return new WaitForSeconds(2.5f);
                 var back = c.Roster.Find(e => e.Name == r1.Name);
                 Expect6($"Rider1 is back: {NameTags.I?.CrewNames}, as {(back != null ? M1Assets.I.CrewNames[back.Crew] : "?")} in slot {back?.Slot}", back != null && back.Id != r1.Id && back.Crew == r1.Crew && back.Slot == r1.Slot && NameTags.I.CrewRows == n + 1 && c.Roster.FindAll(e => e.Name == r1.Name).Count == 1);
+                int bobs = FindObjectsByType<BobberView>(FindObjectsInactive.Include, FindObjectsSortMode.None).Length, rods = FindObjectsByType<Fishing>(FindObjectsSortMode.None).Length;
+                int shown = FindObjectsByType<BobberView>(FindObjectsSortMode.None).Length;
+                Expect6($"no stray bobber left by Rider1's old self ({bobs} bobbers for {rods} anglers, {shown} in view)", bobs == rods);
                 if (host) Expect6($"the book still balances: {(c.Book.Check() == "" ? "yes" : c.Book.Check())}", c.Book.Check() == "");
                 if (host && back != null) Expect6($"Rider1's fish are booked to the new connection ({c.Book.Bar(back.Id).FishCount})", c.Book.Bar(back.Id).FishCount > 0 && !c.Book.Bars.ContainsKey(r1.Id));
                 if (host && back != null && cshots != null) yield return CoopShot("crew-list-after-rejoin", c.Mates.TryGetValue(back.Id, out var bm) ? bm.transform.position + Vector3.up * 1.2f : me.transform.position);
@@ -882,7 +893,7 @@ namespace PortBoss.M1
                     }
                 }
                 if (st == Fishing.St.Reveal && fish.Catch != null) grade = fish.Catch.Grade;
-                if (st == Fishing.St.Reveal && fish.StateT > 0.7f)
+                if (st == Fishing.St.Reveal && fish.StateT > Mathf.Max(0.7f, HoldReveal))
                 {
                     if (shots != null && fish.StateT < 1.0f) { yield return Shot("5-catch"); }
                     Ctl.BotInteract = true; yield return null; Ctl.BotInteract = false;
@@ -900,6 +911,7 @@ namespace PortBoss.M1
             }
         }
         public static double PressAt;
+        public static float HoldReveal; // (-pb-rodtest: let the catch be shown off and the rod stowed first)
 
         static float Gauss() { float u1 = 1f - Random.value, u2 = Random.value; return Mathf.Sqrt(-2f * Mathf.Log(u1)) * Mathf.Cos(2f * Mathf.PI * u2); }
 

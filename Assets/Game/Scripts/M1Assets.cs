@@ -31,7 +31,7 @@ namespace PortBoss.M1
             public AnimationClip Clip; public float From, To, Speed;
             public Vector3 Hips, Spine; public AnimationCurve MoveX, MoveZ;
         }
-        public AnimationClip RodIdle, Wait, Cast, Strike, Fight, Reel, HoldUp, Helm; // keyed fishing clips (M1Anim, Assets/Game/Anim)
+        public AnimationClip RodIdle, Wait, Cast, Strike, Fight, Reel, HoldUp, Helm, Repair; // keyed fishing clips (M1Anim, Assets/Game/Anim)
         public AudioClip Waves, Splash, Gull, Thud, Kaching, Click;
         public AudioClip[] Steps;
         public Texture2D WorkerPalette;

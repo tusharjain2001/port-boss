@@ -12,7 +12,7 @@ namespace PortBoss.M1
         public static bool PadLast;                       // the last device used (prompt glyphs follow it)
 
         // bot overrides (the -pb-* scenarios)
-        public static bool Bot; public static Vector2 BotMove; public static bool BotUse, BotUsePressed, BotStrike, BotInteract, BotInteractHeld, BotDropHeld, BotCancel, BotJump, BotSprint, BotJumpHeld = true, BotBrace; public static int BotSlot = -1;
+        public static bool Bot; public static Vector2 BotMove; public static bool BotShove, BotUse, BotUsePressed, BotStrike, BotInteract, BotInteractHeld, BotDropHeld, BotCancel, BotJump, BotSprint, BotJumpHeld = true, BotBrace; public static int BotSlot = -1;
 
         // M4: a screen has the mouse. 1: the phone (you still walk; no looking, casting or hotbar scroll); 2: a shop or
         // menu (no moving either). UiEsc: the frame a screen took Esc (so it doesn't open the pause menu too).
@@ -52,6 +52,7 @@ namespace PortBoss.M1
         public static bool Jump => Bot ? BotJump : Ui < 2 && KD(Key.Space) || (P != null && P.buttonSouth.wasPressedThisFrame);
         public static bool JumpHeld => Bot ? BotJumpHeld : K_(Key.Space) || (P != null && P.buttonSouth.isPressed); // let go early: a lower hop
         public static bool Interact => Bot ? BotInteract : Ui < 2 && KD(Key.E) || (P != null && P.buttonWest.wasPressedThisFrame);
+        public static bool Shove => Bot ? BotShove : Ui == 0 && (KD(Key.G) || (P != null && P.buttonNorth.wasPressedThisFrame && !Pouch.Ready)); // M3.1: a friendly shove (pad Y: only when the bait pouch (hold Y, M4) can't open)
         public static bool Brace => Bot ? BotBrace : K_(Key.C) || (P != null && P.rightStickButton.isPressed); // M3: hold to brace on deck
         public static bool InteractHeld => Bot ? BotInteractHeld : Ui < 2 && K_(Key.E) || (P != null && P.buttonWest.isPressed);
         public static bool PushToTalk => !Bot && K_(Key.V); // (when Settings.Voice is push-to-talk)

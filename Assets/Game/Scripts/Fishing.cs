@@ -20,6 +20,10 @@ namespace PortBoss.M1
             Freeze = 0.45f, RevealMin = 0.5f, RevealAuto = 6f, CancelHold = 0.3f, WalkAway = 2f, DragSpeed = 2f, DragT = 1.5f;
         // the cast's body beats (Fish_Cast clip, M1Anim): wind-up apex, end of the whip, end of the clip. Visual only.
         public const float CastApex = 0.38f, CastWhip = 0.52f, CastLen = 1.5f;
+        // the catch shown off (M3.1, Manan + Tushar: the rod used to jump onto the back the moment the fish came in): the rod
+        // stays in the right hand, the fish hangs from the left for ShowT; then the right hand reaches back and puts the rod
+        // on the back strap (StowLen) and comes to the fish too. All from StateT, so a crewmate's copy plays it the same.
+        public const float ShowT = 1.0f, StowLen = 0.55f, HandsFree = ShowT + StowLen * 0.85f, HandOver = 0.3f;
 
         // --- gear (debug keys F5 / F6; M1 has no shop) ---
         public int RodTier = 1;
@@ -80,6 +84,20 @@ namespace PortBoss.M1
             butt = Rest(); PlaceRod(0, true);
         }
 
+        // The bobber, the line, the fish in hand and the aim ring are objects of their own in the world, not under the
+        // angler: when an angler goes (a crewmate quits, leaves or rejoins), they go too. Before (M3.1, Manan's co-op test):
+        // a crewmate who left with the rod out left their bobber hanging in mid-air on every other screen.
+        static readonly bool oldBobber = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-pb-oldbobber") >= 0; // (the test: as before, to see it fail)
+        void OnDestroy()
+        {
+            if (oldBobber) return;
+            if (line != null) Destroy(line.gameObject);
+            if (bob != null) Destroy(bob.gameObject);
+            if (fishGo != null) Destroy(fishGo);
+            if (markerT != null) Destroy(markerT.gameObject);
+            if (rod != null) Destroy(rod.gameObject);
+        }
+
         void Go(St s) { State = s; StateT = 0; OnLog?.Invoke("state " + s); }
 
         public void SetRod(int tier, bool quiet = false)
@@ -92,12 +110,36 @@ namespace PortBoss.M1
 
         public void Stow() { if (State == St.Ready || State == St.Drawing) Go(St.Stowed); }
 
+        // knocked over by a crewmate's shove (systems §1.1.5, fishing §3.12): a line out waiting comes in (bait kept); a fish
+        // on the line gets away (bait lost); the rod then goes away like any knock. Holding a catch up: false (no knock).
+        public bool Knocked()
+        {
+            switch (State)
+            {
+                case St.Reveal: case St.Toss: return false;
+                case St.Strike: case St.Heavy: case St.Minigame: case St.Reel:
+                    if (State == St.Reel) { if (Coop.On && Catch != null && Catch.Id != 0) Coop.FreeFish(Catch); } // (its bait went when it was landed)
+                    else BaitCount[BaitI] = Mathf.Max(0, BaitCount[BaitI] - 1);
+                    LastOutcome = "knocked"; OnLog?.Invoke("knocked over: the fish got away");
+                    Alerts.Push("It got away", "Knocked over mid-fight: the fish is off, and the bait with it.", Alerts.Kind.Info);
+                    break;
+                case St.Flight: case St.Settle: case St.Waiting: case St.Bite: case St.Recover:
+                    LastOutcome = "reeled"; OnLog?.Invoke("knocked over: reeled in");
+                    if (State != St.Recover) Alerts.Push("Reeled in", "Knocked over: the line came in. The bait's still on.", Alerts.Kind.Info);
+                    break;
+            }
+            if (fishGo != null) Destroy(fishGo); fishGo = null; Catch = null; Snapped = false;
+            bob.Floating = false; bob.gameObject.SetActive(false); line.Live = false; reelSnd.volume = 0;
+            if (State != St.Stowed) Go(St.Ready);
+            return true;
+        }
+
         // ---------------------------------------------------------------------------------------------------------
         void Update()
         {
             float dt = Time.deltaTime; StateT += dt;
             if (me.Remote) { RemoteFish(dt); return; } // a crewmate: shown as they send it
-            bool rodSel = me.Bar.Sel.Rod && !me.Swimming && !me.AtHelm && !me.Down;
+            bool rodSel = me.Bar.Sel.Rod && !me.Swimming && !me.AtHelm && !me.Down && me.RepairT < 0 && me.ShoveT < 0; // (the hands are busy)
             DebugKeys();
 
             switch (State)
@@ -604,9 +646,20 @@ namespace PortBoss.M1
 
         Vector3 HoldPoint() => transform.TransformPoint(new Vector3(0, 1.32f, 0.45f) * me.Size);
 
+        // the left hand's hold while the rod is still in the right: by the gill, out to the left, nose up
+        Vector3 HangHand() => transform.TransformPoint(new Vector3(-0.26f, 1.22f, 0.36f) * me.Size);
         void RevealHold()
         {
             bool big = Catch.Cm > 140;
+            if (!big && StateT < HandsFree + HandOver)
+            {
+                var hang = Quaternion.LookRotation(Vector3.up, -transform.forward) * Quaternion.Euler(0, 0, Mathf.Sin(Time.time * 5) * 6f);
+                var hp = HangHand() - hang * Vector3.forward * (Catch.Cm / 200f * 0.75f);
+                float k = Mathf.SmoothStep(0, 1, (StateT - HandsFree) / HandOver);
+                var up = Quaternion.LookRotation(transform.right, Vector3.up) * Quaternion.Euler(-8f, 0, 0);
+                fishGo.transform.SetPositionAndRotation(Vector3.Lerp(hp, HoldPoint(), k), Quaternion.Slerp(hang, up, k));
+                return;
+            }
             fishGo.transform.position = big ? transform.TransformPoint(new Vector3(0, 0.25f, 1.0f + Catch.Cm / 400f)) : HoldPoint();
             fishGo.transform.rotation = Quaternion.LookRotation(transform.right, Vector3.up) * Quaternion.Euler(big ? 0 : -8f + Mathf.Sin(Time.time * 7) * 2f, 0, 0);
         }
@@ -618,7 +671,7 @@ namespace PortBoss.M1
             if (StateT >= RevealMin)
             {
                 bool keep = Ctl.Keep || Ctl.UsePressed || (!full && StateT >= RevealAuto);
-                bool let = Ctl.LetGo;
+                bool let = Ctl.LetGo || letQueued; if (let && StateT < HandsFree && fishGo != null && Catch.Cm <= 140) { letQueued = true; let = false; } else letQueued = false;
                 if (full && Ctl.Bot || Ctl.Bot && Bot.LetGo) { let = true; keep = false; }
                 if (keep && full) { DropOnDeck(); return; }
                 if (keep) { int slot = Coop.On && Catch.Id != 0 ? Coop.KeepCatch(Catch) : me.Bar.Add(Catch); Hud.I?.FlyIn(fishGo.transform.position, slot); Snd.Play2D(Synth.Thup, 0.7f); OnLog?.Invoke($"kept slot {slot + 1}"); EndReveal(); return; }
@@ -699,6 +752,7 @@ namespace PortBoss.M1
             OnLog?.Invoke("let go"); EndReveal();
         }
 
+        bool letQueued;
         void EndReveal()
         {
             if (fishGo != null) Destroy(fishGo);
@@ -759,7 +813,10 @@ namespace PortBoss.M1
                 case St.Reel:
                     tElev = 55 + Mathf.Sin(StateT * 6f) * 7; tYaw = Catch != null && fishGo != null ? Mathf.Clamp(AngleTo(fishGo.transform.position), -45, 45) : 0;
                     tension = Mathf.Lerp(0.4f, 0.8f, Mathf.Clamp01(Catch != null ? Catch.Kg / 15f : 0)); tButt = rest + Sz(new Vector3(0, 0.1f, 0)); break;
-                case St.Reveal: case St.Toss: onBack = true; break;
+                case St.Reveal:
+                    if (StateT < ShowT) { tElev = 78 + Mathf.Sin(Time.time * 2.3f) * 2; tYaw = 18; tButt = rest + Sz(new Vector3(0.05f, 0.1f, -0.02f)); tension = 0.04f; }
+                    else onBack = true; break;
+                case St.Toss: onBack = true; break;
                 case St.Recover: tElev = 70; tension = 0.1f; break;
             }
             if (rod.Root.parent != me.Model) rod.Root.SetParent(me.Model, false);
@@ -768,7 +825,8 @@ namespace PortBoss.M1
                 // from the hand to the back or back again: the rod travels there (0.3 s), no jump
                 swapT = snap ? 1 : 0; swapP = rod.Root.localPosition; swapR = rod.Root.localRotation; swapLen = rodLen; wasBack = onBack;
             }
-            swapT = Mathf.Min(1, swapT + dt / 0.3f);
+            bool showing = State == St.Reveal && Catch != null && Catch.Cm <= 140;
+            swapT = Mathf.Min(1, swapT + dt / (State == St.Reveal ? StowLen : 0.3f));
             float sw = Mathf.SmoothStep(0, 1, swapT);
             rodLen = Mathf.Lerp(swapLen, onBack ? BackLen : 1f, sw); rod.Root.localScale = new Vector3(1, 1, rodLen);
             if (onBack)
@@ -779,9 +837,11 @@ namespace PortBoss.M1
                 // It rides the chest bone, so it sits down with him at the tiller and leans when he leans.
                 var (bp, br) = BackStrap();
                 rod.Root.localRotation = Quaternion.Slerp(swapR, br, sw);
-                rod.Root.localPosition = Vector3.Lerp(swapP, bp, sw);
+                // the hand reaches up and back over the right shoulder with it (an arc, not a slide through the body)
+                rod.Root.localPosition = Vector3.Lerp(swapP, bp, sw) + new Vector3(0.04f, 0.28f, -0.06f) * (me.Size * Mathf.Sin(sw * Mathf.PI));
                 rod.Tension = 0;
-                if (swapT < 0.55f && State != St.Reveal && !me.Swimming) GripRod(); // the hands carry it over the shoulder, then let go
+                bool carry = State == St.Reveal ? showing && swapT < 0.85f : State != St.Toss && swapT < 0.55f && me.RepairT < 0 && me.ShoveT < 0; // (not when the hands go to a hammer or a shove)
+                if (carry && !me.Swimming) { GripRod(); if (showing) me.Anim.GripL = rod.Root.InverseTransformPoint(HangHand()); } // the hands carry it over the shoulder, then let go
                 else if (me.Anim.Grip == rod.Root) me.Anim.Grip = null;
                 elev = 35; elevV = 0; butt = rest; castClock = -1; return;
             }
@@ -805,6 +865,7 @@ namespace PortBoss.M1
             rod.Tension = Mathf.Max(tension, whip);
             rod.BendDir = whip > tension && tipV.sqrMagnitude > 0.5f ? -tipV.normalized : line.Live ? (line.B - rod.Tip.position).normalized : Vector3.down;
             GripRod();
+            if (showing && fishGo != null) { me.Anim.GripL = rod.Root.InverseTransformPoint(HangHand()); me.Anim.GripFingers = new Vector3(0, 0.6f, 1); }
             // reeling: the left hand turns the crank (2.5 turns a second), the right holds the grip over the reel
             bool cranking = State is St.Reel or St.Recover;
             if (cranking) { rod.Crank += 360f * 2.5f * dt; me.Anim.GripL = rod.Root.InverseTransformPoint(rod.Handle.position); }
@@ -827,6 +888,9 @@ namespace PortBoss.M1
         static readonly Vector3 OverShoulder = new(0.27f, 1.5f, 0.0f), Forward = new(0.16f, 1.24f, 0.46f);
         const float BackLen = 0.55f; float rodLen = 1, swapLen = 1; // on the back the rod is its two halves (shown 55% long)
         public Vector3 RodTip => rod.Tip.position; // (tests)
+        public bool RodOnBack => wasBack && swapT >= 1; public bool RodInHand => !wasBack; // (tests)
+        public float HandToGrip => me.Anim.HandR != null ? Vector3.Distance(me.Anim.HandR.position, rod.Root.TransformPoint(RodView.GripR)) : -1;
+        public float FishToHandL => me.Anim.HandL != null && fishGo != null ? Vector3.Distance(me.Anim.HandL.position, HangHand()) : -1;
         bool wasBack = true; float swapT = 1; Vector3 swapP; Quaternion swapR = Quaternion.identity; Vector3 lastTip;
         float castClock = -1; St bodySt = St.Stowed;
 
@@ -961,9 +1025,11 @@ namespace PortBoss.M1
             if (Bot.OldFacing) // the M1 rule, kept only so -pb-cast8 can show the before (camera yaw, then the last bobber spot)
                 me.FaceYaw = State == St.Charging ? CameraRig.I.Yaw : State is St.Flight or St.Settle or St.Waiting or St.Bite or St.Strike ? YawTo(bob.Pos) : me.FaceYaw;
             // hands on the fish for the hold-up
-            if (State == St.Reveal && fishGo != null && Catch.Cm <= 140)
+            if (State == St.Reveal && fishGo != null && Catch.Cm <= 140 && StateT >= HandsFree)
             {
-                me.Anim.Grip = fishGo.transform; me.Anim.GripL = new Vector3(0, -0.06f, -0.28f); me.Anim.GripR = new Vector3(0, -0.06f, 0.22f);
+                var f = fishGo.transform; float k = Mathf.SmoothStep(0, 1, (StateT - HandsFree) / HandOver);
+                var fromR = f.InverseTransformPoint(rod.Root.TransformPoint(RodView.GripR)); var fromL = f.InverseTransformPoint(HangHand());
+                me.Anim.Grip = f; me.Anim.GripL = Vector3.Lerp(fromL, new Vector3(0, -0.06f, -0.28f), k); me.Anim.GripR = Vector3.Lerp(fromR, new Vector3(0, -0.06f, 0.22f), k);
                 me.Anim.GripElbow = new Vector3(0, -0.8f, 0); me.Anim.GripFingers = new Vector3(0, 1, 0.3f);
             }
         }

@@ -47,6 +47,8 @@ namespace PortBoss.M1
             return r;
         }
 
+        bool cut;
+        public void Cut() => cut = true; // the next frame jumps straight to the target (a join, under the cover: JoinView)
         public static void Shake(float a) => shake = Mathf.Max(shake, a);
         public static void Dip(float m) { dipT = 0; dipA = m; } // a big landing: down and back up in 0.3 s
 
@@ -110,6 +112,7 @@ namespace PortBoss.M1
             float py = Mathf.SmoothDamp(pivot.y, want.y, ref pivotV.y, 0.3f, Mathf.Infinity, dt);
             pivotV.x = pv.x; pivotV.z = pv.y;
             pivot = new Vector3(flat.x, py, flat.y);
+            if (cut) { cut = false; pivot = want; pivotV = Vector3.zero; reach = 99; dist = tDist; distV = 0; }
             dipT += dt; var dip = Vector3.down * (dipA * Mathf.Sin(Mathf.PI * Mathf.Clamp01(dipT / 0.3f)));
             var rot = Quaternion.Euler(Pitch + pitchOff, Yaw, 0);
             var piv = pivot + dip;
