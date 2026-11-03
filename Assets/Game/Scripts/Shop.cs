@@ -204,7 +204,7 @@ namespace PortBoss.M1
                     int room = (Shelf.BaitMax - k.Bait[i]) / n, q = Mathf.Clamp(qty[i], 1, Mathf.Max(1, room));
                     string item = "bait:" + i; string why = c.CanBuy(Firm.MyKey, item, q);
                     var r = Row(y, 96, locked);
-                    var ic = UiKit.Img(r, Glyphs.Get("worm"), locked ? Ponyo.Hex("B5A99A") : BaitCol(i), "icon"); ic.rectTransform.Place(new Vector2(0, 0.5f), new Vector2(22, 0), new Vector2(52, 52), new Vector2(0, 0.5f));
+                    var ic = UiKit.Img(r, Glyphs.Get(BaitGlyph[i]), locked ? Ponyo.Hex("B5A99A") : BaitCol(i), "icon"); ic.rectTransform.Place(new Vector2(0, 0.5f), new Vector2(22, 0), new Vector2(52, 52), new Vector2(0, 0.5f));
                     T(r, b.Name, UiKit.Bold, 21, Ponyo.Ink, 92, 16, 260, 28);
                     T(r, i == 4 ? "1 tin for $40 · the old man's recipe" : $"{n} for {Money(Shelf.BaitPack[i])} · {Hooks(i)}", UiKit.Body, 14, Ponyo.InkSoft, 92, 46, 320, 20);
                     T(r, locked ? "Needs the tackle pouch (Tackle tab)" : $"In your bag: {k.Bait[i]}", UiKit.Body, 14, locked ? Ponyo.Poppy : Ponyo.Ink, 92, 68, 320, 20);
@@ -257,6 +257,7 @@ namespace PortBoss.M1
             }
             return y + 10;
         }
+        public static readonly string[] BaitGlyph = { "worm", "shrimp", "sardine", "squid", "mix" };   // FishDb.Baits order
         public static Color BaitCol(int i) => i switch { 0 => Ponyo.Hex("D9826A"), 1 => Ponyo.Hex("F29A85"), 2 => Ponyo.Hex("8FA6C0"), 3 => Ponyo.Hex("E7D6C6"), _ => Ponyo.Hex("C98A1A") };
         static string Hooks(int i) => i switch { 0 => "sprat, mullet, mackerel", 1 => "garfish, bream (Fibreglass rod)", 2 => "bigger fish further out", 3 => "squid lovers (Act 2)", _ => "" };
 

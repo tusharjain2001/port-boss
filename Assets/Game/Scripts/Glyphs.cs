@@ -17,6 +17,14 @@ namespace PortBoss.M1
         static float RBox(Vector2 p, Vector2 c, Vector2 h, float r) { var q = new Vector2(Mathf.Abs(p.x - c.x), Mathf.Abs(p.y - c.y)) - h + Vector2.one * r; return new Vector2(Mathf.Max(q.x, 0), Mathf.Max(q.y, 0)).magnitude + Mathf.Min(Mathf.Max(q.x, q.y), 0) - r; }
         static float Poly(Vector2 p, params Vector2[] v) { float d = 1e9f; for (int i = 0; i < v.Length - 1; i++) d = Mathf.Min(d, Seg(p, v[i], v[i + 1])); return d; }
         static Vector2 V(float x, float y) => new(x, y);
+        // an arc of radius r round c, from angle a0 to a1 (degrees, counter-clockwise)
+        static float Arc(Vector2 p, Vector2 c, float r, float a0, float a1)
+        {
+            var d = p - c; float a = Mathf.Repeat(Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg - a0, 360);
+            if (a <= Mathf.Repeat(a1 - a0, 360)) return Mathf.Abs(d.magnitude - r);
+            Vector2 E(float deg) => c + new Vector2(Mathf.Cos(deg * Mathf.Deg2Rad), Mathf.Sin(deg * Mathf.Deg2Rad)) * r;
+            return Mathf.Min((p - E(a0)).magnitude, (p - E(a1)).magnitude);
+        }
 
         // strokes: distance to a line (alpha where < w); fills: signed distance (alpha where < 0)
         public static Sprite Get(string name)
@@ -50,6 +58,15 @@ namespace PortBoss.M1
                 "check" => p => Poly(p, V(-0.5f, 0.02f), V(-0.14f, -0.36f), V(0.52f, 0.4f)) - w * 1.3f,
                 "plus" => p => Mathf.Min(Seg(p, V(-0.5f, 0), V(0.5f, 0)), Seg(p, V(0, -0.5f), V(0, 0.5f))) - w * 1.2f,
                 "minus" => p => Seg(p, V(-0.5f, 0), V(0.5f, 0)) - w * 1.2f,
+                // the baits (June's shelf, the pouch): a curled shrimp, a slim sardine, a squid, Walt's jar of mix
+                "shrimp" => p => Mathf.Min(Mathf.Min(Arc(p, V(-0.02f, 0.02f), 0.4f, 20, 250) - w * 1.6f, Disc(p, V(0.34f, 0.18f), 0.11f)),
+                    Mathf.Min(Mathf.Min(Seg(p, V(0.4f, 0.26f), V(0.72f, 0.6f)), Seg(p, V(0.44f, 0.2f), V(0.76f, 0.34f))) - w * 0.6f,
+                    Mathf.Min(Poly(p, V(-0.16f, -0.36f), V(0.16f, -0.18f), V(0.12f, -0.56f), V(-0.16f, -0.36f)) - w, Mathf.Min(Seg(p, V(-0.22f, 0.12f), V(-0.06f, 0.02f)), Seg(p, V(-0.22f, -0.1f), V(-0.04f, -0.06f))) - w * 0.7f))),
+                "sardine" => p => Mathf.Min(Poly(p, V(-0.72f, 0), V(-0.4f, 0.2f), V(0.1f, 0.2f), V(0.44f, 0), V(0.1f, -0.2f), V(-0.4f, -0.2f), V(-0.72f, 0)) - w,
+                    Mathf.Min(Poly(p, V(0.44f, 0), V(0.74f, 0.26f), V(0.74f, -0.26f), V(0.44f, 0)) - w, Disc(p, V(-0.46f, 0.04f), 0.06f))),
+                "squid" => p => Mathf.Min(Poly(p, V(0, 0.72f), V(-0.3f, 0.02f), V(0.3f, 0.02f), V(0, 0.72f)) - w, Mathf.Min(Poly(p, V(-0.2f, 0.02f), V(-0.3f, -0.3f), V(-0.2f, -0.62f)) - w,
+                    Mathf.Min(Poly(p, V(0, 0.02f), V(0.04f, -0.34f), V(-0.02f, -0.68f)) - w, Poly(p, V(0.2f, 0.02f), V(0.32f, -0.3f), V(0.22f, -0.62f)) - w))),
+                "mix" => p => Mathf.Min(Mathf.Abs(RBox(p, V(0, -0.14f), V(0.42f, 0.46f), 0.14f)) - w, Mathf.Min(Seg(p, V(-0.5f, 0.46f), V(0.5f, 0.46f)) - w * 1.4f, Disc(p, V(0, -0.14f), 0.14f))),
                 "worm" => p => Poly(p, V(-0.5f, -0.5f), V(-0.2f, -0.2f), V(-0.4f, 0.15f), V(-0.05f, 0.45f), V(0.3f, 0.2f), V(0.5f, 0.5f)) - w * 1.5f,
                 "rod" => p => Mathf.Min(Seg(p, V(-0.6f, -0.6f), V(0.55f, 0.62f)) - w, Mathf.Min(Ring(p, V(-0.25f, -0.38f), 0.14f) - w, Poly(p, V(0.55f, 0.62f), V(0.6f, -0.1f)) - w * 0.6f)),
                 "pouch" => p => Mathf.Min(Mathf.Abs(RBox(p, V(0, -0.1f), V(0.56f, 0.46f), 0.2f)) - w, Mathf.Min(Seg(p, V(-0.56f, 0.12f), V(0.56f, 0.12f)) - w, Disc(p, V(0, 0.12f), 0.1f))),

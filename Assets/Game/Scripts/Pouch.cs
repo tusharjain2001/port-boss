@@ -26,7 +26,7 @@ namespace PortBoss.M1
             {
                 float a = Mathf.PI / 2 - i * 2 * Mathf.PI / 5;
                 var p = UiKit.Card(root, "pocket " + i, 22, Ponyo.Paper, true); p.Place(new Vector2(0.5f, 0.5f), new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * R, new Vector2(132, 92));
-                var dot = UiKit.Img(p, UiKit.Circle, Shop.BaitCol(i), "dot"); dot.rectTransform.Place(new Vector2(0.5f, 1), new Vector2(0, -12), new Vector2(20, 20));
+                var dot = UiKit.Img(p, Glyphs.Get(Shop.BaitGlyph[i]), Shop.BaitCol(i), "glyph"); dot.rectTransform.Place(new Vector2(0.5f, 1), new Vector2(0, -8), new Vector2(30, 30));
                 name_[i] = UiKit.Txt(p, FishDb.Baits[i].Name, UiKit.Bold, 16, Ponyo.Ink, TextAnchor.MiddleCenter); name_[i].rectTransform.Place(new Vector2(0.5f, 0), new Vector2(0, 30), new Vector2(124, 22));
                 count[i] = UiKit.Txt(p, "", UiKit.Body, 14, Ponyo.InkSoft, TextAnchor.MiddleCenter); count[i].rectTransform.Place(new Vector2(0.5f, 0), new Vector2(0, 10), new Vector2(124, 20));
                 p.gameObject.AddComponent<CanvasGroup>(); pocket[i] = p;
