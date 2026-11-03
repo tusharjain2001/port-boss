@@ -653,10 +653,10 @@ namespace PortBoss.M1
         }
 
         // ---------------------------------------------------------------- the map: the island chart from map B
-        // World metres: our dock at the origin, +x east, +z north (map B's sheet: x = svg x - 2750, z = 2550 - svg y).
-        const float MapW = CW, MapH = 560, MapX0 = -2050, MapZ0 = 2420, MapScale = 3700f / CW;   // metres per pixel
+        // World metres: +x east, +z north, (0,0) = map B sheet point (2840, 2550), as Map/build_island (art-src/world/README.md): x = svg x - 2840, z = 2550 - svg y.
+        const float SvgX0 = 2840, MapW = CW, MapH = 560, MapX0 = -2140, MapZ0 = 2420, MapScale = 3700f / CW;   // metres per pixel
         static Vector2 ToMap(Vector3 w) => new((w.x - MapX0) / MapScale, (MapZ0 - w.z) / MapScale);
-        static Vector3 FromSvg(float x, float y) => new(x - 2750, 0, 2550 - y);
+        static Vector3 FromSvg(float x, float y) => new(x - SvgX0, 0, 2550 - y);
 
         // places on the chart: the map's anchors when map B is in, else map B's sheet positions
         static readonly (string id, string name, string kind, float sx, float sy)[] Places =
@@ -793,7 +793,7 @@ namespace PortBoss.M1
                 {
                     // pixel centre -> svg metres
                     float wx = MapX0 + (i + 0.5f) * MapScale, wz = MapZ0 - (j + 0.5f) * MapScale;
-                    var q = new Vector2(wx + 2750, 2550 - wz);
+                    var q = new Vector2(wx + SvgX0, 2550 - wz);
                     float d = SDist(q, island); foreach (var il in islets) d = Mathf.Min(d, SDist(q, il));
                     // the sea: wave hatching, darker away from land
                     float wave = Mathf.Sin((q.x * 0.03f) + Mathf.Sin(q.y * 0.012f) * 2.2f) * Mathf.Sin(q.y * 0.045f);
