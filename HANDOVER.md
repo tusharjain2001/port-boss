@@ -783,6 +783,13 @@ the gdd's numbers. Not imported into Unity yet: `art-src/world/IMPORT-PLAN.md` i
   drawn); look pass (8 landmark shops named in `town_labelled.png`, Mari's boat, waterfront rows, lighthouse/wreck/reef
   readable from the sea, shoreline variety); `art-src/world/IMPORT-PLAN.md` = how it goes into Unity (plan only).
 
+**Known open co-op test items (3 Nov, accepted as known; both are M2 checks, M3 doesn't touch them):**
+- **Voice loss rider to rider at 150 ms + 2% simulated loss** (two hops through the host, unreliable): 1 of 42
+  measurements on 3 Nov lost 11% against the 10% limit; the other 41 were 0-7%, about what chance gives at 2% a hop.
+- **A swimmer seen on another machine sits 21-31 cm off its float line at 150 ms + 2% loss** (limit 30 cm; M2.1
+  measured 28 cm; plain 20-26 cm). The worst sample is always ~5.9 s into the swim. Cause not found: the climb onto the
+  ladder was ruled out (skipping the last 0.5 s in the water changed nothing). cooptest logs when the worst came.
+
 **Known issues / not yet proven (from M1):**
 - **The worker model is a placeholder** (the old code-generated worker in a fisherman outfit). The real cast comes with the
   character kit (§7 step 2).
