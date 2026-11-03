@@ -103,9 +103,9 @@ namespace PortBoss.M1
             yield return Wait(() => Coop.I != null && Coop.I.Roster.Count >= 2, 30);
             yield return new WaitForSecondsRealtime(1.5f);
             Check($"the crew list shows both: {NameTags.I?.CrewNames}", NameTags.I != null && NameTags.I.CrewRows == 2);
-            if (what == "host") { float apart = 99; foreach (var m in Coop.I.Mates.Values) if (m != null) apart = Mathf.Min(apart, Vector3.Distance(m.transform.position, me.transform.position)); Check($"the joiner stands apart from me, not inside me: {apart:F2} m", apart >= 0.9f && apart < 5f); }
+            if (what == "host") { float apart = 99; foreach (var m in Coop.I.Mates.Values) if (m != null) apart = Mathf.Min(apart, Vector3.Distance(m.transform.position, me.transform.position)); Check($"the joiner stands apart from me, not inside me: {apart:F2} m (me {(Landing.I != null && Landing.I.Spawn != null ? Vector3.Distance(me.transform.position, Landing.I.Spawn.position) : -1):F2} m from the spawn; them at {string.Join(" / ", System.Linq.Enumerable.Select(Coop.I.Mates.Values, m => m == null ? "-" : $"{m.transform.position.x:F2} {m.transform.position.y:F2} {m.transform.position.z:F2}"))})", apart >= 0.9f && apart < 5f); }
             if (shots != null) yield return Shot("crew-list-" + what);
-            if (what == "join") { yield return new WaitForSecondsRealtime(2f); Debug.Log($"[PB] RESULT menu join: {(ok ? "PASS" : "FAIL")}"); Application.Quit(); yield break; }
+            if (what == "join") { if (Landing.I != null && Landing.I.Spawn != null) Debug.Log($"[PB] menu: me {Vector3.Distance(me.transform.position, Landing.I.Spawn.position):F2} m from the spawn at {me.transform.position.x:F2} {me.transform.position.y:F2} {me.transform.position.z:F2}"); yield return new WaitForSecondsRealtime(2f); Debug.Log($"[PB] RESULT menu join: {(ok ? "PASS" : "FAIL")}"); Application.Quit(); yield break; }
             yield return Wait(() => Coop.I != null && Coop.I.Roster.Count < 2, 30);
             Check("the joiner left and the crew list shrank to one", Coop.I != null && Coop.I.Roster.Count == 1);
             Debug.Log($"[PB] RESULT menu host: {(ok ? "PASS" : "FAIL")}");
