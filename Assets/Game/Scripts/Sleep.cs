@@ -43,7 +43,7 @@ namespace PortBoss.M1
         void CardCaps(string s, string right = null)
         {
             CT(UiKit.Caps(s), UiKit.Bold, 13, Ponyo.InkSoft, TextAnchor.MiddleLeft, 0, CardW, 20);
-            if (right != null) CT(right, UiKit.Body, 13, Ponyo.InkSoft, TextAnchor.MiddleRight, 0, CardW, 20);
+            if (right != null) CT(right, UiKit.Body, 14, Ponyo.InkSoft, TextAnchor.MiddleRight, 0, CardW, 20);
             cy += 26;
         }
         void CardRule() { var i = UiKit.Img(cardRows, null, Ponyo.Paper3, "rule"); i.rectTransform.Place(new Vector2(0, 1), new Vector2(0, -cy - 5), new Vector2(CardW, 2), new Vector2(0, 1)); cy += 12; }
@@ -269,9 +269,9 @@ namespace PortBoss.M1
             }
             if (saved) { cy += 10; CT("Saved ✓", UiKit.Body, 15, Ponyo.InkSoft, TextAnchor.MiddleCenter, 0, CardW, 22); cy += 22; }
             card.sizeDelta = new Vector2(660, CardTop + cy + 36);
-            card.gameObject.SetActive(true);
-            yield return new WaitForSeconds(Application.isBatchMode ? 0.6f : 4.5f);
-            card.gameObject.SetActive(false);
+            yield return CardFade(true);
+            yield return new WaitForSeconds(Application.isBatchMode ? 0.5f : 4f);
+            yield return CardFade(false);
             Hud.I?.Quiet(false);
             if (slumped) { me.Lie = 0; slumped = false; }
             if (lying) { me.Lie = 0; lying = false; me.Teleport(BedSide, Quaternion.LookRotation(Cot.position - BedSide).eulerAngles.y + 180); }
@@ -315,6 +315,21 @@ namespace PortBoss.M1
                 return "in the free bed";
             }
             return "where I stood";
+        }
+
+        // the night card fades and rises in (0.35 s), and fades out (0.3 s): never a hard cut
+        IEnumerator CardFade(bool show)
+        {
+            var g = card.GetComponent<CanvasGroup>() ?? card.gameObject.AddComponent<CanvasGroup>();
+            var home = card.anchoredPosition; card.gameObject.SetActive(true);
+            float s = show ? 0.35f : 0.3f;
+            for (float t = 0; t < s; t += Time.unscaledDeltaTime)
+            {
+                float k = Mathf.SmoothStep(0, 1, t / s), v = show ? k : 1 - k;
+                g.alpha = v; card.anchoredPosition = home + new Vector2(0, show ? -14 * (1 - k) : 0); yield return null;
+            }
+            g.alpha = show ? 1 : 0; card.anchoredPosition = home;
+            if (!show) { card.gameObject.SetActive(false); g.alpha = 1; }
         }
 
         IEnumerator Fade(float a, float b, float s)

@@ -34,7 +34,7 @@ namespace PortBoss.M1
         readonly List<(RectTransform r, Func<Vector3?> at)> dots = new();
         Text mapInfo;
 
-        public static readonly Color Case = Ponyo.Hex("E0603E"), CaseDk = Ponyo.Hex("A8402A"), SubInk = Ponyo.Hex("8C7468");
+        public static readonly Color Case = Ponyo.Hex("E0603E"), CaseDk = Ponyo.Hex("A8402A"), SubInk = Ponyo.Hex("76605A");
 
         public static void Create()
         {
@@ -58,7 +58,7 @@ namespace PortBoss.M1
             // status bar: time top-left, Gull Tel, signal, battery
             var st = UiKit.Rect("status", scr).Place(new Vector2(0, 1), new Vector2(0, 0), new Vector2(W - 2 * Inset, Bar), new Vector2(0, 1));
             statusTime = UiKit.Txt(st, "", UiKit.Bold, 17, Ponyo.Ink, TextAnchor.MiddleLeft); statusTime.rectTransform.Stretch(); statusTime.rectTransform.offsetMin = new Vector2(28, -4);
-            var carrier = UiKit.Txt(st, "Gull Tel", UiKit.Bold, 13, Ponyo.Ink, TextAnchor.MiddleRight); carrier.rectTransform.Stretch(); carrier.rectTransform.offsetMax = new Vector2(-64, -4);
+            var carrier = UiKit.Txt(st, "Gull Tel", UiKit.Bold, 14, Ponyo.Ink, TextAnchor.MiddleRight); carrier.rectTransform.Stretch(); carrier.rectTransform.offsetMax = new Vector2(-64, -4);
             for (int i = 0; i < 4; i++) UiKit.Img(st, null, Ponyo.Ink, "signal").rectTransform.Place(new Vector2(1, 0.5f), new Vector2(-132 + i * 5, -6 + i * 1.5f), new Vector2(3, 5 + i * 3), new Vector2(0, 0.5f));
             var bat = UiKit.Img(st, UiKit.RingThin, Ponyo.Ink, "battery"); bat.sprite = null; bat.rectTransform.Place(new Vector2(1, 0.5f), new Vector2(-30, -2), new Vector2(22, 11), new Vector2(1, 0.5f));
             var batIn = UiKit.Img(bat.transform, null, Ponyo.Paper, "in"); batIn.rectTransform.Stretch(1.6f);
@@ -305,7 +305,7 @@ namespace PortBoss.M1
                 var ln = lines[b]; bool now = b == Mathf.Min(bNow, 2) && DayTime.OfDay(m) >= 420;
                 var tile = Card(fc, 16 + b * (tw + 6), 38, tw, 104, now ? Ponyo.Night : Ponyo.Paper2, 14, false, now ? Ponyo.Night : Ponyo.Hex("E5D8C2"));
                 Color ink = now ? Ponyo.Paper : Ponyo.Ink;
-                Caps(tile, Weather.BlockName[b], 0, 10, tw, now ? Ponyo.Hex("C9D2F0") : SubInk, TextAnchor.UpperCenter, 11);
+                Caps(tile, Weather.BlockName[b], 0, 10, tw, now ? Ponyo.Hex("C9D2F0") : SubInk, TextAnchor.UpperCenter, 12);
                 Ico(tile, ln.Shown.ToString(), ink, tw / 2 - 18, 30, 36);
                 T(tile, ln.Shown.ToString(), UiKit.DisplayBold, 19, ink, 0, 70, tw, 26, TextAnchor.UpperCenter);
                 if (ln.Shown == Wx.Storm) UiKit.Edge(tile).color = Ponyo.Poppy;
@@ -328,8 +328,8 @@ namespace PortBoss.M1
                 t2 = need == 0 ? "Pratt pays 60%. Mari pays 100%." : c.Cash >= need ? $"${need} at June's · you can afford it" : $"${need} at June's · need {Money(need - c.Cash)} more";
                 go = () => Go(Scr.Bank);
             }
-            if (av != null) { Avatar(nx, av, 18, 15, 46); T(nx, t1, UiKit.Bold, 18, Ponyo.Ink, 76, 14, CW - 90, 24); T(nx, t2, UiKit.Body, 13, SubInk, 76, 40, CW - 90, 20); }
-            else { Ico(nx, "rod", Ponyo.Ink, 22, 20, 36); T(nx, t1, UiKit.Bold, 18, Ponyo.Ink, 76, 14, CW - 90, 24); T(nx, t2, UiKit.Body, 13, SubInk, 76, 40, CW - 90, 20); }
+            if (av != null) { Avatar(nx, av, 18, 15, 46); T(nx, t1, UiKit.Bold, 18, Ponyo.Ink, 76, 14, CW - 90, 24); T(nx, t2, UiKit.Body, 14, SubInk, 76, 40, CW - 90, 20); }
+            else { Ico(nx, "rod", Ponyo.Ink, 22, 20, 36); T(nx, t1, UiKit.Bold, 18, Ponyo.Ink, 76, 14, CW - 90, 24); T(nx, t2, UiKit.Body, 14, SubInk, 76, 40, CW - 90, 20); }
             Button(nx, "Next up", go);
             y += 88;
             // the bank strip with tomorrow's 07:00 money
@@ -337,7 +337,7 @@ namespace PortBoss.M1
             Caps(bk, "Company bank", 16, 12);
             T(bk, Money(c.Cash), UiKit.DisplayBold, 30, Ponyo.Ink, 14, 28, 200, 40);
             var due = Due(c);
-            T(bk, due.Count > 0 ? due[0].what + " at 7 AM" : "Nothing due at 7 AM", UiKit.Body, 13, SubInk, 150, 16, CW - 166, 18, TextAnchor.UpperRight);
+            T(bk, due.Count > 0 ? due[0].what + " at 7 AM" : "Nothing due at 7 AM", UiKit.Body, 14, SubInk, 150, 16, CW - 166, 18, TextAnchor.UpperRight);
             if (due.Count > 0) T(bk, Signed(due[0].amount), UiKit.Bold, 16, due[0].amount >= 0 ? Ponyo.Hex("3E9A4E") : Ponyo.Poppy, 150, 36, CW - 166, 22, TextAnchor.UpperRight);
             Button(bk, "Bank strip", () => Go(Scr.Bank));
             y += 86;
@@ -359,7 +359,7 @@ namespace PortBoss.M1
                 var ic = UiKit.Img(tile, Glyphs.Get(a.g), Ponyo.Paper, "glyph"); ic.rectTransform.Place(new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(38, 38));
                 if (a.locked) { ic.color = new Color(1, 1, 1, 0.55f); var lk = UiKit.Img(tile, Glyphs.Get("lock"), Ponyo.Paper, "lock"); lk.rectTransform.Place(new Vector2(1, 0), new Vector2(-6, 6), new Vector2(18, 18), new Vector2(1, 0)); }
                 Badge(tile, a.badge, new Vector2(-4, -4));
-                T(cell, a.name, UiKit.Body, 13, Ponyo.Ink, 0, 72, cw, 20, TextAnchor.UpperCenter);
+                T(cell, a.name, UiKit.Body, 14, Ponyo.Ink, 0, 72, cw, 20, TextAnchor.UpperCenter);
                 var s = a.s; Button(cell, a.name, () => Go(s));
             }
             return y + 200;
@@ -384,7 +384,7 @@ namespace PortBoss.M1
                 var row = Card(list, 0, y, CW, 78, un > 0 ? Ponyo.Hex("FFF4DC") : Ponyo.Paper);
                 Avatar(row, w, 14, 15, 48);
                 T(row, w, UiKit.Bold, 18, Ponyo.Ink, 74, 13, 180, 24);
-                Caps(row, When(last.At), 160, 16, CW - 176, SubInk, TextAnchor.UpperRight, 11);
+                Caps(row, When(last.At), 160, 16, CW - 176, SubInk, TextAnchor.UpperRight, 12);
                 var line = (last.Me ? "You: " : "") + last.Text; if (line.Length > 38) line = line.Substring(0, 37) + "…";
                 T(row, line, un > 0 ? UiKit.Bold : UiKit.Body, 14, un > 0 ? Ponyo.Ink : SubInk, 74, 42, CW - 110, 22);
                 Badge(row, un, new Vector2(-22, -54));
@@ -409,7 +409,7 @@ namespace PortBoss.M1
             var b = At(list, -6, 10, 40, 40, "back"); Ico(b, "back", Ponyo.Ink, 8, 8, 24); Button(b, "Back", () => Go(Scr.Messages));
             Avatar(list, Thread, 38, 4, 48);
             T(list, Thread, UiKit.Bold, 20, Ponyo.Ink, 96, 6, 240, 26);
-            T(list, Thread == Company.MariName ? "Mari's Tacos · boat" : Thread == "Notifications" ? "Everything that popped up, newest first" : "", UiKit.Body, 13, SubInk, 96, 32, 250, 20);
+            T(list, Thread == Company.MariName ? "Mari's Tacos · boat" : Thread == "Notifications" ? "Everything that popped up, newest first" : "", UiKit.Body, 14, SubInk, 96, 32, 250, 20);
             UiKit.Img(list, null, Ponyo.Hex("E5D8C2"), "rule").rectTransform.Place(new Vector2(0, 1), new Vector2(-Pad, -62), new Vector2(W, 2), new Vector2(0, 1));
             y = 76;
             if (Thread == "Notifications")
@@ -419,7 +419,7 @@ namespace PortBoss.M1
                     var a = Alerts.Queue[i];
                     var st = UiKit.Img(list, UiKit.Circle, Alerts.Col(a.K), "stamp"); st.rectTransform.Place(new Vector2(0, 1), new Vector2(0, -y - 2), new Vector2(26, 26), new Vector2(0, 1));
                     var g = UiKit.Txt(st.transform, Alerts.Glyph(a.K), UiKit.Black, 13, a.K == Alerts.Kind.Info ? Ponyo.Ink : Ponyo.Paper, TextAnchor.MiddleCenter); g.rectTransform.Stretch();
-                    Caps(list, a.Sender, 36, y, CW - 36, SubInk, TextAnchor.UpperLeft, 11);
+                    Caps(list, a.Sender, 36, y, CW - 36, SubInk, TextAnchor.UpperLeft, 12);
                     var t = T(list, a.Text, UiKit.Body, 15, Ponyo.Ink, 36, y + 16, CW - 36, 20); float th = Mathf.Max(20, t.preferredHeight); t.rectTransform.sizeDelta = new Vector2(CW - 36, th);
                     y += 26 + th;
                 }
@@ -430,7 +430,7 @@ namespace PortBoss.M1
             for (int i = 0; i < msgs.Count; i++)
             {
                 var msg = msgs[i];
-                if (msg.At - lastAt > 90) { Caps(list, When(msg.At), 0, y, CW, SubInk, TextAnchor.UpperCenter, 11); y += 26; }
+                if (msg.At - lastAt > 90) { Caps(list, When(msg.At), 0, y, CW, SubInk, TextAnchor.UpperCenter, 12); y += 26; }
                 lastAt = msg.At;
                 float bw = 262;
                 var bub = UiKit.Card(list, "bubble", 16, msg.Me ? Ponyo.Hex("D3F1EC") : Ponyo.Hex("F8EEDC"), false, msg.Me ? Ponyo.Hex("A6DCD3") : Ponyo.Hex("E5D3B5"));
@@ -499,10 +499,10 @@ namespace PortBoss.M1
             var card = Card(list, 0, y, CW, 262, Ponyo.Paper, 18, true);
             Avatar(card, Company.MariName, 16, 16, 44);
             T(card, "Mari's mooring", UiKit.DisplayBold, 21, Ponyo.Ink, 72, 14, 220, 28);
-            T(card, "Mari Duarte · Mari's Tacos", UiKit.Body, 13, SubInk, 72, 42, 240, 20);
+            T(card, "Mari Duarte · Mari's Tacos", UiKit.Body, 14, SubInk, 72, 42, 240, 20);
             string status = c.Mari switch { DealSt.Offered => "Waiting for you", DealSt.Active => c.MariHere(m) ? "Active · tied up at B1" : "Active · on her way", DealSt.Declined => "Declined", _ => "She found another spot" };
             var chip = UiKit.Card(card, "status", 12, c.Mari == DealSt.Active ? Ponyo.Hex("DDF1E0") : c.Mari == DealSt.Offered ? Ponyo.Hex("FFF0CC") : Ponyo.Paper2, false); chip.Place(new Vector2(1, 1), new Vector2(-14, -16), new Vector2(110, 24), new Vector2(1, 1));
-            var ct = UiKit.Txt(chip, UiKit.Caps(c.Mari == DealSt.Active ? "Active" : c.Mari == DealSt.Offered ? "Offered" : c.Mari == DealSt.Declined ? "Declined" : "Closed"), UiKit.Bold, 11, Ponyo.Ink, TextAnchor.MiddleCenter); ct.rectTransform.Stretch();
+            var ct = UiKit.Txt(chip, UiKit.Caps(c.Mari == DealSt.Active ? "Active" : c.Mari == DealSt.Offered ? "Offered" : c.Mari == DealSt.Declined ? "Declined" : "Closed"), UiKit.Bold, 12, Ponyo.Ink, TextAnchor.MiddleCenter); ct.rectTransform.Stretch();
             float ry = 78; int paid = c.Ledger.FindAll(e => e.Tx.StartsWith("rent:mari")).Count;
             foreach (var (k, v) in new[] { ("Pays", $"${c.MariPrice} a day at 7 AM"), ("Berth", "B1 · old pier"), ("Status", status), ("Paid so far", paid > 0 ? $"{paid} × ${c.MariPrice} = {Money(paid * c.MariPrice)}" : "Nothing yet"), ("Perk", "Buys 10 fish a day at 100%") })
             { T(card, k, UiKit.Body, 14, SubInk, 16, ry, 120, 20); T(card, v, UiKit.Body, 14, Ponyo.Ink, 110, ry, CW - 126, 20, TextAnchor.UpperRight); ry += 25; }
@@ -543,8 +543,8 @@ namespace PortBoss.M1
             for (int i = c.Ledger.Count - 1; i >= 0 && i >= c.Ledger.Count - 40; i--)
             {
                 var e = c.Ledger[i];
-                Fit(T(list, e.What, UiKit.Bold, 15, Ponyo.Ink, 2, y, CW - 100, 22), 11);   // one line: a long one shrinks a little
-                T(list, $"{e.Who} · {When(e.At)}", UiKit.Body, 12, SubInk, 2, y + 21, CW - 100, 18);
+                Fit(T(list, e.What, UiKit.Bold, 15, Ponyo.Ink, 2, y, CW - 100, 22), 13);   // one line: a long one shrinks a little
+                T(list, $"{e.Who} · {When(e.At)}", UiKit.Body, 14, SubInk, 2, y + 21, CW - 100, 18);
                 T(list, Signed(e.Amount), UiKit.Bold, 16, e.Amount >= 0 ? Ponyo.Hex("3E9A4E") : Ponyo.Poppy, CW - 110, y + 6, 108, 22, TextAnchor.UpperRight);
                 UiKit.Img(list, null, Ponyo.Hex("EADFCC"), "rule").rectTransform.Place(new Vector2(0, 1), new Vector2(0, -y - 46), new Vector2(CW, 1.5f), new Vector2(0, 1));
                 y += 52;
@@ -563,7 +563,7 @@ namespace PortBoss.M1
                 Ico(sc, "Storm", Ponyo.Poppy, 14, 14, 36);
                 var sl = lines.Find(l => l.Shown == Wx.Storm);
                 T(sc, $"Storm {(sl.Day == DayTime.Day(m) ? "today" : "tomorrow")}, {Weather.BlockName[sl.Block].ToLower()}", UiKit.Bold, 16, Ponyo.Poppy, 62, 12, CW - 76, 22);
-                T(sc, "Get Biscuit tied up before it hits.", UiKit.Body, 13, Ponyo.Ink, 62, 34, CW - 76, 20);
+                T(sc, "Get Biscuit tied up before it hits.", UiKit.Body, 14, Ponyo.Ink, 62, 34, CW - 76, 20);
                 y += 76;
             }
             var dotLine = T(list, "“" + Sky.Word(Sky.W.Block(DayTime.Day(m), Mathf.Min(Weather.BlockAt(m).b, 2))) + "”", UiKit.Display, 17, Ponyo.Ink, 2, y, CW - 4, 48);
@@ -580,13 +580,13 @@ namespace PortBoss.M1
                     Ico(card, l.Shown.ToString(), ink, 14, ry + 8, 40);
                     T(card, Weather.BlockName[l.Block], UiKit.Bold, 17, Ponyo.Ink, 66, ry + 8, 150, 22);
                     T(card, l.Shown.ToString(), UiKit.Body, 14, ink, 66, ry + 30, 150, 20);
-                    T(card, "how sure", UiKit.Body, 12, SubInk, CW - 120, ry + 12, 64, 18);
+                    T(card, "how sure", UiKit.Body, 14, SubInk, CW - 120, ry + 12, 64, 18);
                     Dots(card, l.Dots, CW - 70, ry + 16, Ponyo.SeaC);
                     if (i < ls.Count - 1) UiKit.Img(card, null, Ponyo.Hex("EADFCC"), "rule").rectTransform.Place(new Vector2(0, 1), new Vector2(14, -ry - 60), new Vector2(CW - 28, 1.5f), new Vector2(0, 1));
                 }
                 y += ls.Count * 62 + 20;
             }
-            T(list, "Four dots: Dot's sure of it. One: she's guessing.", UiKit.Body, 13, SubInk, 2, y, CW, 20);
+            T(list, "Four dots: Dot's sure of it. One: she's guessing.", UiKit.Body, 14, SubInk, 2, y, CW, 20);
             return y + 26;
         }
 
@@ -603,7 +603,7 @@ namespace PortBoss.M1
                 if (got && Hud.Icons.TryGetValue(s.Id, out var tex)) { var ri = UiKit.Rect("icon", row).Place(new Vector2(0, 0.5f), new Vector2(10, 0), new Vector2(72, 36), new Vector2(0, 0.5f)).gameObject.AddComponent<RawImage>(); ri.texture = tex; ri.raycastTarget = false; }
                 else Ico(row, "fish", Ponyo.Hex("CDBFA8"), 26, 12, 36);
                 T(row, got ? s.Name : "???", UiKit.Bold, 16, got ? Ponyo.Ink : SubInk, 92, 10, 200, 22);
-                T(row, got ? $"Best {best:0} cm · {s.Class}" : $"{s.Class} · rod tier {s.RodTier}", UiKit.Body, 12, SubInk, 92, 32, 220, 18);
+                T(row, got ? $"Best {best:0} cm · {s.Class}" : $"{s.Class} · rod tier {s.RodTier}", UiKit.Body, 14, SubInk, 92, 32, 220, 18);
                 if (got) T(row, $"${s.Price:0}", UiKit.Bold, 14, Ponyo.Hex("C98A1A"), CW - 80, 20, 66, 20, TextAnchor.UpperRight);
                 y += 66;
             }
@@ -643,7 +643,7 @@ namespace PortBoss.M1
             });
             Row("Phone clock", H24 ? "24-hour" : "12-hour", null, () => { H24 = !H24; try { PlayerPrefs.SetInt("m4.h24", H24 ? 1 : 0); } catch { } });
             y += 6;
-            T(list, "Bar timing nudges the fishing bar if your screen or pad lags. Esc pauses; F3 shows the debug overlay.", UiKit.Body, 13, SubInk, 2, y, CW - 4, 60);
+            T(list, "Bar timing nudges the fishing bar if your screen or pad lags. Esc pauses; F3 shows the debug overlay.", UiKit.Body, 14, SubInk, 2, y, CW - 4, 60);
             return y + 60;
         }
         static void SetF(string k, ref float v, float d, float lo, float hi)
@@ -674,7 +674,7 @@ namespace PortBoss.M1
             foreach (var f in new[] { "All", "Fish", "Shops", "Crew" })
             {
                 float w = f.Length * 9 + 34; var ff = f;
-                Pill(list, f, x, y + 4, w, 32, mapFilter == f ? Ponyo.Night : Ponyo.Paper, mapFilter == f ? Ponyo.Paper : Ponyo.Ink, () => mapFilter = ff, UiKit.Bold, 13);
+                Pill(list, f, x, y + 4, w, 32, mapFilter == f ? Ponyo.Night : Ponyo.Paper, mapFilter == f ? Ponyo.Paper : Ponyo.Ink, () => mapFilter = ff, UiKit.Bold, 14);
                 x += w + 6;
             }
             y += 46;
@@ -721,7 +721,7 @@ namespace PortBoss.M1
             Label("Crescent Isle", 3380, 2950, 16, land, false, true); Label("Voss Harbour", 3950, 3030, 10, Ponyo.Hex("B03A2E"));
             Label("Gullrock", 2250, 2420, 10, ink); Label("Lantern Key", 1100, 2420, 10, ink); Label("Sorrel Isle", 4100, 1050, 10, ink);
             Label("Mango Cay", 4300, 4120, 10, ink); Label("Breaker Point", 2800, 4000, 10, ink);
-            Label("Wreck of the Margaret", 1000, 1600, 9, ink);
+            Label("Wreck of the Margaret", 1000, 1600, 10, ink);
             // live dots: crewmates, Mari's boat, Biscuit, me (on top)
             if (mapFilter is "All" or "Crew")
             {
@@ -734,7 +734,7 @@ namespace PortBoss.M1
             // what's here
             var info = Card(list, 0, y, CW, 104);
             mapInfo = T(info, "", UiKit.DisplayBold, 19, Ponyo.Ink, 16, 12, CW - 32, 26);
-            var sub = T(info, "", UiKit.Body, 13, SubInk, 16, 40, CW - 32, 20); sub.name = "sub";
+            var sub = T(info, "", UiKit.Body, 14, SubInk, 16, 40, CW - 32, 20); sub.name = "sub";
             float lx = 16;
             foreach (var (lab, col) in Legend())
             {

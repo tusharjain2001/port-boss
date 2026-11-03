@@ -72,6 +72,15 @@ namespace PortBoss.M1
             Assert.AreEqual(json, Company.Read((Dictionary<string, object>)Json.Parse(json)).ToJson());
         }
 
+        [Test]
+        public void MoneyToastsMerge()
+        {
+            Assert.AreEqual("+$116 · 13 fish · Pratt", Alerts.Merge("+$87 · 9 fish · Pratt", "+$29 · 4 fish · Pratt"));
+            Assert.AreEqual("−$36 · Shrimp ×30", Alerts.Merge("−$12 · Shrimp ×10", "−$24 · Shrimp ×20"));
+            Assert.AreEqual("−$17 · Shrimp ×10, Worms ×10", Alerts.Merge("−$12 · Shrimp ×10", "−$5 · Worms ×10"));
+            Assert.AreEqual("+$182 · 9 fish · Pratt, 10 fish · Mari", Alerts.Merge("+$29 · 9 fish · Pratt", "+$153 · 10 fish · Mari"));
+        }
+
         // batch: -executeMethod PortBoss.M1.M4Tests.RunAll (without the Test Runner)
         public static void RunAll()
         {
@@ -85,6 +94,7 @@ namespace PortBoss.M1
             Do("SaveV1MigratesToV2", t.SaveV1MigratesToV2);
             Do("SaveRefusesANewerSchema", t.SaveRefusesANewerSchema);
             Do("GzipAndCrcRoundTrip", t.GzipAndCrcRoundTrip);
+            Do("MoneyToastsMerge", t.MoneyToastsMerge);
             UnityEngine.Debug.Log($"[PB] RESULT m4test: {(fails == 0 ? "PASS" : fails + " FAIL")}");
             UnityEditor.EditorApplication.Exit(fails == 0 ? 0 : 1);
         }

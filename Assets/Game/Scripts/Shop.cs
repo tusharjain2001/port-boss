@@ -133,12 +133,13 @@ namespace PortBoss.M1
             }
         }
         void NextTab(int d) { if (stall.K != Firm.Kind.June) return; string[] t = { "Bait", "Tackle", "Rods" }; Tab(t[(Array.IndexOf(t, tab) + d + 3) % 3]); }
-        void Scroll(float d) { scroll = Mathf.Clamp(scroll + d, 0, Mathf.Max(0, contentH - (H - 184))); list.anchoredPosition = new Vector2(Pad, scroll); }
+        float View => root.sizeDelta.y - 184;   // the list's visible height
+        void Scroll(float d) { scroll = Mathf.Clamp(scroll + d, 0, Mathf.Max(0, contentH - View)); list.anchoredPosition = new Vector2(Pad, scroll); }
         void Reveal(int i)
         {
             if (i < 0 || i >= btns.Count) return; var r = btns[i].r;
             float top = -list.InverseTransformPoint(r.TransformPoint(new Vector3(0, r.rect.yMax))).y, bot = -list.InverseTransformPoint(r.TransformPoint(new Vector3(0, r.rect.yMin))).y;
-            if (top < scroll) Scroll(top - scroll - 8); else if (bot > scroll + H - 184) Scroll(bot - scroll - (H - 184) + 8);
+            if (top < scroll) Scroll(top - scroll - 8); else if (bot > scroll + View) Scroll(bot - scroll - View + 8);
         }
         bool Hit(RectTransform r, Vector2 sp) => r != null && RectTransformUtility.RectangleContainsScreenPoint(r, sp, cam);
         static Vector2 Centre(RectTransform r) { var c = r.TransformPoint(r.rect.center); return new Vector2(c.x, c.y); }
@@ -180,7 +181,9 @@ namespace PortBoss.M1
             foreach (Transform t in list) Destroy(t.gameObject);
             btns.Clear();
             float h = stall.K == Firm.Kind.June ? June() : Sell();
-            contentH = h; list.sizeDelta = new Vector2(W - 2 * Pad, h); Scroll(0);
+            contentH = h; list.sizeDelta = new Vector2(W - 2 * Pad, h);
+            root.sizeDelta = new Vector2(W, Mathf.Clamp(184 + h + 6, 380, H));   // the card fits what's in it (an empty stall is a small card)
+            Scroll(0);
             if (focus >= btns.Count) focus = btns.Count - 1;
             Mark();
         }
@@ -292,7 +295,7 @@ namespace PortBoss.M1
                     int lo = p.Min(), hi = p.Max(); string each = lo == hi ? $"${lo} each" : $"${lo}–${hi} each";
                     T(r, each + (ok.Count < s.Fish.Count ? $" · {ok.Count} of {s.Fish.Count}" : ""), UiKit.Body, 14, Ponyo.Ink, 140, 70, 340, 20);
                     if (b == Buyer.Pratt && sp.Class == FishClass.Everyday && c.Mari == DealSt.Active)
-                    { int mp = Market.Price(f0.Value, f0.Fresh, Buyer.Mari, c.SoldToday(Buyer.Mari, sp.Id)); T(r, $"Mari pays ${mp}", UiKit.Body, 13, Ponyo.Hex("A89A88"), RW - 330, 64, 150, 20, TextAnchor.UpperRight); }
+                    { int mp = Market.Price(f0.Value, f0.Fresh, Buyer.Mari, c.SoldToday(Buyer.Mari, sp.Id)); T(r, $"Mari pays ${mp}", UiKit.Body, 14, Ponyo.InkSoft, RW - 330, 64, 150, 20, TextAnchor.UpperRight); }
                     var sel = ok; int sum2 = sum;
                     Pill(r, $"Sell {Money(sum)}", RW - 168, 26, 152, 44, Ponyo.Sunflower, Ponyo.Ink, () => Firm.I.Sell(b, sel), true).name = $"btn Sell {sp.Id}";
                 }
@@ -303,7 +306,16 @@ namespace PortBoss.M1
                 }
                 y += 106;
             }
-            if (!any) { T(list, "Nothing to sell. Go catch something.", UiKit.Display, 22, Ponyo.InkSoft, 0, y + 40, RW, 40, TextAnchor.UpperCenter); y += 100; }
+            if (!any)
+            {
+                // the empty state: a small fish in a ring, what's wrong, what to do next
+                var ring = UiKit.Img(list, UiKit.Circle, Ponyo.Paper2, "empty"); ring.rectTransform.Place(new Vector2(0, 1), new Vector2(RW / 2, -(y + 10)), new Vector2(64, 64), new Vector2(0.5f, 1));
+                UiKit.Img(ring.transform, UiKit.RingSprite, Ponyo.Hex("E2D3BB"), "edge").rectTransform.Stretch(-1);
+                var g = UiKit.Img(ring.transform, Glyphs.Get("fish"), Ponyo.InkSoft, "fish"); g.rectTransform.Place(new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(38, 38));
+                T(list, "No fish on you", UiKit.DisplayBold, 24, Ponyo.Ink, 0, y + 86, RW, 32, TextAnchor.UpperCenter);
+                T(list, b == Buyer.Pratt ? "Catch some off the pier or out on Biscuit, then bring them here." : "Mari wants sprat, mullet or mackerel. Catch some and come back.", UiKit.Body, 17, Ponyo.InkSoft, 0, y + 122, RW, 24, TextAnchor.UpperCenter);
+                y += 160;
+            }
             else if (all.Count > 1)
             {
                 var sa = all;

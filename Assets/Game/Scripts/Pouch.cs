@@ -96,7 +96,7 @@ namespace PortBoss.M1
                 var fill = UiKit.Fill(pocket[i]); fill.color = on ? Ponyo.Hex("FFF1C9") : Ponyo.Paper;
                 UiKit.Edge(pocket[i]).color = on ? Ponyo.Sunflower : Ponyo.Line;
                 pocket[i].localScale = Vector3.one * (on ? 1.08f : 1);
-                pocket[i].GetComponent<CanvasGroup>().alpha = use && k.Bait[i] > 0 ? 1 : 0.55f;
+                bool has = use && k.Bait[i] > 0; pocket[i].GetComponent<CanvasGroup>().alpha = has ? 1 : 0.86f; name_[i].color = has ? Ponyo.Ink : Ponyo.InkSoft;   // locked/empty: quieter, still readable
             }
             midName.text = FishDb.Baits[sel].Name;
             midSub.text = !Usable(sel) ? "June's tackle pouch, $250" : k.Bait[sel] == 0 ? "None left.\nJune sells it." : sel == F.BaitI ? "On the hook" : "Let go to bait up";
