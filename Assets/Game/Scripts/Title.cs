@@ -15,7 +15,7 @@ namespace PortBoss.M1
         public static Title I;
         public static bool Shown => I != null && I.root.gameObject.activeSelf;
         public static event Action Closed;                      // (Game holds its welcome tips until play starts)
-        enum Page { Main, Friends, Address, Waiting }
+        enum Page { Main, Friends, Address, Waiting, Worlds }
         class Row { public string Label, Sub; public Action Go; public bool On = true; public RectTransform R; public Image Fill; }
 
         RectTransform root, card, list; Text status, foot;
@@ -67,7 +67,11 @@ namespace PortBoss.M1
             switch (p)
             {
                 case Page.Main:
-                    rows.Add(new Row { Label = "Play solo", Sub = "Just you and Biscuit", Go = () => Close() });
+                    // M4: Continue the last world, or a new one; hosting a crew hosts the world you're in (Continue first)
+                    var worlds = Save.Worlds(); var last = worlds.Count > 0 ? worlds[0] : null;
+                    if (last != null) rows.Add(new Row { Label = "Continue", Sub = $"{last.Name} · Day {last.Day} · ${last.Cash:N0} · saved {Save.Ago(last.Saved)}", Go = () => { if (Save.Load(last.Id)) Close(); } });
+                    rows.Add(new Row { Label = last != null ? "New game" : "Play solo", Sub = "Walt's dock, Biscuit, $40 and a bag of worms", Go = () => { Save.NewWorld(); Close(); } });
+                    if (worlds.Count > 1) rows.Add(new Row { Label = "Your worlds", Sub = $"{worlds.Count} saved, crew copies too", Go = () => Show(Page.Worlds) });
                     rows.Add(new Row { Label = "Host a crew on Steam", Sub = steam ? "Then invite friends from the pause menu (Esc, I)" : "Steam isn't running", On = steam, Go = () => { Coop.HostSteam(); Wait("Making a crew on Steam…"); } });
                     rows.Add(new Row { Label = "Join a friend on Steam", Sub = steam ? "Friends hosting right now, or accept their invite" : "Steam isn't running", On = steam, Go = () => Show(Page.Friends) });
                     rows.Add(new Row { Label = "Host on this network", Sub = $"Friends on the same network join {LocalAddress()}", Go = () => { Coop.HostLan(); Wait("Hosting on this network…"); } });
@@ -82,6 +86,11 @@ namespace PortBoss.M1
                 case Page.Address:
                     rows.Add(new Row { Label = "Address: " + address, Sub = "Type it (a port after a colon if not 7777); Backspace deletes", Go = JoinAddress });
                     rows.Add(new Row { Label = "Join", Sub = "", Go = JoinAddress });
+                    rows.Add(new Row { Label = "Back", Sub = "", Go = () => Show(Page.Main) });
+                    break;
+                case Page.Worlds:
+                    var ws = Save.Worlds(); if (ws.Count > 6) ws.RemoveRange(6, ws.Count - 6);
+                    foreach (var w in ws) { var id = w.Id; rows.Add(new Row { Label = w.Name, Sub = $"Day {w.Day} · ${w.Cash:N0} · saved {Save.Ago(w.Saved)}{(w.Copy ? " · a crew copy" : "")}", Go = () => { if (Save.Load(id)) Close(); } }); }
                     rows.Add(new Row { Label = "Back", Sub = "", Go = () => Show(Page.Main) });
                     break;
                 case Page.Waiting:
@@ -103,7 +112,7 @@ namespace PortBoss.M1
         void Draw()
         {
             foreach (Transform c in list) Destroy(c.gameObject);
-            card.sizeDelta = new Vector2(720, Mathf.Max(380, 160 + rows.Count * 72 + 96)); // the card fits its rows (no dead strip under them)
+            card.sizeDelta = new Vector2(720, Mathf.Max(380, 160 + Mathf.Min(rows.Count, 8) * 72 + 96)); // the card fits its rows (no dead strip under them)
             for (int i = 0; i < rows.Count; i++)
             {
                 var r = rows[i];
@@ -135,6 +144,7 @@ namespace PortBoss.M1
         }
         // (tests) as if typed
         public void Type(string s) { address = ""; foreach (var c in s) OnChar(c); }
+        public void Choose(string label) => Choose(rows.FindIndex(r => r.Label == label));
         public void Choose(int i) { if (i >= 0 && i < rows.Count && rows[i].On) { sel = i; Mark(); rows[i].Go(); } }
         public void GoTo(string p) => Show(p == "address" ? Page.Address : p == "friends" ? Page.Friends : Page.Main);
 

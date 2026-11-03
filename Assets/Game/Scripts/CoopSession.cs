@@ -59,7 +59,8 @@ namespace PortBoss.M1
             }
         }
         // who I am across a rejoin: my Steam account, else (LAN, tests) my name
-        static string MyKey(string name) => SteamOk ? "steam:" + SteamClient.SteamId.Value : "name:" + name;
+        public static string MyKey(string name) => SteamOk ? "steam:" + SteamClient.SteamId.Value : "name:" + name;
+        public static string LocalKey => MyKey(MyName);   // M4: my kit and my things in a save are kept under this
 
         // ---------------------------------------------------------------- starting (the title menu, the pause menu)
         static Coop Make(string name)
@@ -111,6 +112,7 @@ namespace PortBoss.M1
         {
             var c = I; if (c == null) return;
             Log("left the crew");
+            if (IsHost) Save.Write("host left");                // the crew's world, as they leave it
             foreach (var a in c.Mates.Values) if (a != null) Destroy(a.gameObject);
             c.Mates.Clear(); c.Roster.Clear();
             if (Skiff.I != null && Skiff.I.Remote) Skiff.I.TakeOver();

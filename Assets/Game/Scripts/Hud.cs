@@ -11,13 +11,15 @@ namespace PortBoss.M1
         public enum Kind { Message, Money, Info, Weather, Warning, Crew, Story }
         // Topic: what a toast is about; Ends: the topics it resolves ('|'-separated). A toast that ends a topic dismisses the
         // older toasts on it ("Hole patched" ends "She's sprung a leak!"), so two toasts never contradict each other.
-        public struct A { public string Sender, Text, Topic, Ends; public Kind K; public float Born; }
+        public struct A { public string Sender, Text, Topic, Ends, Hint; public Kind K; public float Born; public int N; }   // N: how many merged into it
         public static readonly List<A> Queue = new();
         public static System.Action<A> OnPush;
-        public static void Push(string sender, string text, Kind k = Kind.Info, string topic = null, string ends = null)
+        // hint (M4): one action on the toast, after a "Tab" key cap ("Open phone")
+        public static void Push(string sender, string text, Kind k = Kind.Info, string topic = null, string ends = null, string hint = null)
         {
-            var a = new A { Sender = sender, Text = text, K = k, Topic = topic, Ends = ends, Born = Time.unscaledTime };
-            Queue.Add(a); Debug.Log($"[PB] alert {k}: {sender}: {text}");
+            var a = new A { Sender = sender, Text = text, K = k, Topic = topic, Ends = ends, Hint = hint, Born = Time.unscaledTime };
+            Queue.Add(a); if (Queue.Count > 100) Queue.RemoveAt(0); // (the phone's Notifications: the 100 newest)
+            Debug.Log($"[PB] alert {k}: {sender}: {text}");
             OnPush?.Invoke(a);
         }
         public static Color Col(Kind k) => k switch
@@ -25,6 +27,27 @@ namespace PortBoss.M1
             Kind.Message => Ponyo.SeaC, Kind.Money => Ponyo.Sunflower, Kind.Weather => Ponyo.SeaDeep, Kind.Warning => Ponyo.Poppy,
             Kind.Crew => Ponyo.Leaf, Kind.Story => Ponyo.Night, _ => Ponyo.Paper3,
         };
+        // two money toasts in a row become one: "+$87 · 9 fish · Pratt" + "+$29 · 4 fish · Pratt" = "+$116 · 13 fish · Pratt";
+        // "−$12 · Shrimp ×10" + "−$5 · Worms ×10" = "−$17 · Shrimp ×10, Worms ×10"; longer than one line: "−$168 · 5 buys"
+        // (n = how many it now holds; the Ledger keeps every line)
+        public static string Merge(string a, string b, int n = 2)
+        {
+            static (int amt, string rest) Split(string t)
+            {
+                var m = System.Text.RegularExpressions.Regex.Match(t, @"^([+−-])\$(\d+) · (.*)$");
+                return m.Success ? ((m.Groups[1].Value == "+" ? 1 : -1) * int.Parse(m.Groups[2].Value), m.Groups[3].Value) : (0, null);
+            }
+            var (x, xr) = Split(a); var (y, yr) = Split(b);
+            if (xr == null || yr == null) return b;
+            var num = new System.Text.RegularExpressions.Regex(@"\d+");
+            var mx = num.Match(xr); var my = num.Match(yr);
+            int sum = x + y; string many = $"{n} {(sum >= 0 ? "sales" : "buys")}";
+            string rest = System.Text.RegularExpressions.Regex.IsMatch(xr, @"^\d+ (sales|buys)$") ? many
+                : mx.Success && my.Success && num.Replace(xr, "#", 1) == num.Replace(yr, "#", 1) ? num.Replace(xr, (int.Parse(mx.Value) + int.Parse(my.Value)).ToString(), 1)
+                : xr + ", " + yr;
+            if (rest.Length > 24) rest = many;   // (about one line of the toast)
+            return $"{(sum >= 0 ? "+" : "−")}${Mathf.Abs(sum)} · {rest}";
+        }
         public static string Glyph(Kind k) => k switch { Kind.Message => "…", Kind.Money => "$", Kind.Warning => "!", Kind.Crew => "★", Kind.Story => "W", Kind.Weather => "~", _ => "i" };
     }
 
@@ -41,7 +64,7 @@ namespace PortBoss.M1
         readonly Image[] slotGrade = new Image[8]; readonly Image[] slotFresh = new Image[8]; readonly float[] slotPulse = new float[8];
         RectTransform namePill, hotbarStrip; Text nameT, nameSub; float nameShow;
         RectTransform prompts; float promptsKey; string lastPrompt;
-        Text baitTag; RectTransform baitChip;
+        Text baitTag, baitKey; RectTransform baitChip; Image baitDot;
         // alerts
         readonly List<(RectTransform r, Alerts.A a, float h, Image life)> cards = new();
         readonly List<Alerts.A> held = new();
@@ -99,8 +122,9 @@ namespace PortBoss.M1
             }
             baitChip = UiKit.Card(root, "baitChip", 16, Ponyo.Paper, true);
             baitChip.Place(new Vector2(0.5f, 0), new Vector2(total / 2 + 16, 34), new Vector2(170, 38), new Vector2(0, 0));
-            var worm = UiKit.Img(baitChip, UiKit.Circle, Ponyo.Peach, "worm"); worm.rectTransform.Place(new Vector2(0, 0.5f), new Vector2(12, 0), new Vector2(16, 16), new Vector2(0, 0.5f));
+            var worm = baitDot = UiKit.Img(baitChip, UiKit.Circle, Ponyo.Peach, "worm"); worm.rectTransform.Place(new Vector2(0, 0.5f), new Vector2(12, 0), new Vector2(16, 16), new Vector2(0, 0.5f));
             baitTag = UiKit.Txt(baitChip, "", UiKit.Bold, 17, Ponyo.Ink, TextAnchor.MiddleLeft); baitTag.rectTransform.Stretch(); baitTag.rectTransform.offsetMin = new Vector2(36, 0);
+            var bk = UiKit.Key(baitChip, "R", 24); bk.Place(new Vector2(1, 0.5f), new Vector2(-10, 0), bk.sizeDelta, new Vector2(1, 0.5f)); baitKey = bk.GetComponentInChildren<Text>(); // hold: the pouch radial
 
             // item name pill (above the hotbar, 2 s after a switch)
             namePill = UiKit.Card(root, "itemName", 24, Ponyo.Paper, true);
@@ -300,23 +324,41 @@ namespace PortBoss.M1
             // the same toast already up: refresh its timer instead of stacking a copy (kept in place, no slide-in again)
             int same = cards.FindIndex(c => Same(c.a, a));
             if (same >= 0) { var c0 = cards[same]; c0.a.Born = Time.unscaledTime - 0.22f; cards[same] = c0; return; }
+            // a sale or buy while the last one is still up: one toast with the sum ("+$116 · 13 fish · Pratt")
+            int join = a.Sender is "Sold" or "Bought" ? cards.FindIndex(c => c.a.Sender == a.Sender && Time.unscaledTime - c.a.Born < Life(c.a)) : -1;
+            if (join >= 0)
+            {
+                var c0 = cards[join]; c0.a.N = Mathf.Max(1, c0.a.N) + 1; c0.a.Text = Alerts.Merge(c0.a.Text, a.Text, c0.a.N); c0.a.Born = Time.unscaledTime - 0.22f;
+                var body = c0.r.Find("body")?.GetComponent<Text>(); if (body != null) body.text = c0.a.Text;
+                c0.h = 62 + Mathf.Max(1, Mathf.CeilToInt(c0.a.Text.Length / 36f)) * 28; c0.r.sizeDelta = new Vector2(c0.r.sizeDelta.x, c0.h);
+                cards[join] = c0; return;
+            }
             var c = UiKit.Card(root, "alert", 20, Ponyo.Paper, true);
             int lines = Mathf.Max(1, Mathf.CeilToInt(a.Text.Length / 36f));
-            float h = 62 + lines * 28;
+            float h = 62 + lines * 28 + (a.Hint != null ? 34 : 0);
             c.Place(new Vector2(0, 1), new Vector2(-480, -40), new Vector2(452, h), new Vector2(0, 1));
             var st = UiKit.Img(c, UiKit.Circle, Alerts.Col(a.K), "stamp"); st.rectTransform.Place(new Vector2(0, 1), new Vector2(18, -18), new Vector2(40, 40), new Vector2(0, 1));
             UiKit.Img(st.transform, UiKit.RingSprite, Ponyo.Line, "edge").rectTransform.Stretch(-1);
             var gl = UiKit.Txt(st.transform, Alerts.Glyph(a.K), UiKit.Black, 20, a.K == Alerts.Kind.Info ? Ponyo.Ink : Ponyo.Paper, TextAnchor.MiddleCenter); gl.rectTransform.Stretch();
             var s = UiKit.Txt(c, UiKit.Caps(a.Sender), UiKit.Bold, 14, Ponyo.InkSoft, TextAnchor.UpperLeft); s.rectTransform.Stretch(); s.rectTransform.offsetMin = new Vector2(72, 0); s.rectTransform.offsetMax = new Vector2(-16, -16);
-            var t = UiKit.Txt(c, a.Text, UiKit.Body, 20, Ponyo.Ink, TextAnchor.UpperLeft); t.rectTransform.Stretch(); t.rectTransform.offsetMin = new Vector2(72, 18); t.rectTransform.offsetMax = new Vector2(-18, -38);
+            var t = UiKit.Txt(c, a.Text, UiKit.Body, 20, Ponyo.Ink, TextAnchor.UpperLeft); t.name = "body"; t.rectTransform.Stretch(); t.rectTransform.offsetMin = new Vector2(72, 18); t.rectTransform.offsetMax = new Vector2(-18, -38);
             var life = UiKit.Img(c, null, Alerts.Col(a.K == Alerts.Kind.Info ? Alerts.Kind.Crew : a.K), "life"); life.rectTransform.anchorMin = new Vector2(0, 0); life.rectTransform.anchorMax = new Vector2(1, 0); life.rectTransform.pivot = new Vector2(0, 0);
             life.rectTransform.offsetMin = new Vector2(16, 6); life.rectTransform.offsetMax = new Vector2(-16, 10);
+            if (a.Hint != null)
+            {
+                var row = UiKit.Rect("hint", c).Place(new Vector2(0, 0), new Vector2(72, 18), new Vector2(360, 28), new Vector2(0, 0));
+                var key = UiKit.Key(row, "Tab", 26); key.Place(new Vector2(0, 0.5f), Vector2.zero, key.sizeDelta, new Vector2(0, 0.5f));
+                var ht = UiKit.Txt(row, a.Hint, UiKit.Bold, 16, Ponyo.InkSoft, TextAnchor.MiddleLeft); ht.rectTransform.Stretch(); ht.rectTransform.offsetMin = new Vector2(key.sizeDelta.x + 10, 0);
+                t.rectTransform.offsetMin = new Vector2(72, 52);
+            }
             var aa = a; aa.Born = Time.unscaledTime;
             cards.Insert(0, (c, aa, h, life));
             Snd.Play2D(a.K == Alerts.Kind.Warning ? Synth.Bloop : M1Assets.I.Click, a.K == Alerts.Kind.Warning ? 0.25f : 0.2f, a.K == Alerts.Kind.Warning ? 0.7f : 1.1f);
         }
 
-        static float Life(Alerts.A a) => a.K == Alerts.Kind.Warning ? 8f : Mathf.Min(9f, 5f + 0.04f * a.Text.Length);
+        // ~4-5 s (a warning or a text with an action a little longer); every message stays in the phone's Notifications
+        static float Life(Alerts.A a) => a.K == Alerts.Kind.Warning ? 7f : a.Hint != null ? 6.5f : Mathf.Clamp(3.8f + 0.02f * a.Text.Length, 4f, 5.5f);
+        const int MaxToasts = 3;
 
         // ------------------------------------------------------------------------------------------------ per frame
         void LateUpdate()
@@ -365,7 +407,7 @@ namespace PortBoss.M1
             namePill.sizeDelta = new Vector2(Mathf.Max(460, nameT.preferredWidth + nameSub.preferredWidth + 70), 50);
             baitTag.text = sl.Rod && !me.AtHelm ? (fish.BaitCount[fish.BaitI] > 0 ? BaitText() : "<color=#E2553F>No bait: sprats only</color>") : "";
             baitChip.gameObject.SetActive(baitTag.text != "");
-            baitChip.sizeDelta = new Vector2(baitTag.preferredWidth + 52, 38);
+            baitKey.text = Ctl.PadLast ? "Y" : "R"; baitDot.color = Shop.BaitCol(fish.BaitI); baitChip.sizeDelta = new Vector2(baitTag.preferredWidth + 84, 38);
         }
 
         static readonly Color[] FreshCol = { Ponyo.Leaf, Ponyo.Hex("B5C95A"), Ponyo.Sunflower, Ponyo.Peach, Ponyo.Hex("8A6A4E") };
@@ -521,13 +563,13 @@ namespace PortBoss.M1
                 float age = Time.unscaledTime - a.Born, L = Life(a);
                 float inT = Mathf.Clamp01(age / 0.22f), outT = Mathf.Clamp01((age - L) / 0.16f);
                 float x = 40 - 480 * (1 - Util.EaseOutBack(inT)) - 8 * outT;
-                bool visible = i < 4;
+                bool visible = i < MaxToasts;
+                if (!visible && outT <= 0) { a.Born = Time.unscaledTime - L; cards[i] = (r, a, h, life); outT = 0; }   // a 4th pushes the oldest out (it fades)
                 var cg = r.GetComponent<CanvasGroup>() ?? r.gameObject.AddComponent<CanvasGroup>();
-                cg.alpha = (1 - outT) * (visible ? 1 : 0) * (i == 3 ? 0.7f : 1) * quietA;
-                r.localScale = Vector3.one * (i == 3 ? 0.97f : 1);
+                cg.alpha = (1 - outT) * quietA;
                 var cur = r.anchoredPosition; r.anchoredPosition = new Vector2(x, Mathf.Lerp(cur.y, y, 1 - Mathf.Exp(-dt / 0.06f)));
                 life.rectTransform.anchorMax = new Vector2(Mathf.Clamp01(1 - age / L), 0);
-                if (visible) y -= h + 14;
+                y -= h + 14;
                 if (outT >= 1) { Destroy(r.gameObject); cards.RemoveAt(i); i--; }
             }
         }

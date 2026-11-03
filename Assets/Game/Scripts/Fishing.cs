@@ -24,8 +24,9 @@ namespace PortBoss.M1
         // --- gear (debug keys F5 / F6; M1 has no shop) ---
         public int RodTier = 1;
         public Rod Rod => FishDb.Rods[RodTier - 1];
-        public int BaitI;
-        public readonly int[] BaitCount = { 99, 99, 99, 99, 99 };
+        public Kit Kit = new();                       // M4: my rod tier and bait pouch (Firm binds the company's record of mine)
+        public int BaitI { get => Kit.BaitI; set => Kit.BaitI = value; }
+        public int[] BaitCount => Kit.Bait;
         public string BaitId => BaitCount[BaitI] > 0 ? FishDb.Baits[BaitI].Id : "None";
 
         // --- live state the HUD reads ---
@@ -81,12 +82,12 @@ namespace PortBoss.M1
 
         void Go(St s) { State = s; StateT = 0; OnLog?.Invoke("state " + s); }
 
-        public void SetRod(int tier)
+        public void SetRod(int tier, bool quiet = false)
         {
-            RodTier = Mathf.Clamp(tier, 1, 5);
+            RodTier = Mathf.Clamp(tier, 1, 5); Kit.Rod = RodTier;
             Destroy(rod.gameObject); rod = RodView.Make(Game.ToonMat, RodTier); line.A = rod.Tip;
             if (Hud.RodIcon != null) Destroy(Hud.RodIcon); Hud.RodIcon = UiKit.RodIcon(RodTier); // the icon wears the rod's colour
-            Alerts.Push("Debug", $"Rod: {Rod.Name} (bites {Rod.BiteLo:0}–{Rod.BiteHi:0} s, green ×{Rod.GreenMul:0.00}, line {Rod.LineKg:0} kg)", Alerts.Kind.Info);
+            if (!quiet) Alerts.Push("Debug", $"Rod: {Rod.Name} (bites {Rod.BiteLo:0}–{Rod.BiteHi:0} s, green ×{Rod.GreenMul:0.00}, line {Rod.LineKg:0} kg)", Alerts.Kind.Info);
         }
 
         public void Stow() { if (State == St.Ready || State == St.Drawing) Go(St.Stowed); }
@@ -536,7 +537,9 @@ namespace PortBoss.M1
             if (u >= 1)
             {
                 Landed(true);
-                IsNew = seen.Add(Catch.Species.Id);
+                IsNew = seen.Add(Catch.Species.Id) && !Kit.Best.ContainsKey(Catch.Species.Id);   // the saved journal counts too
+                if (!Kit.Best.TryGetValue(Catch.Species.Id, out var cm0) || Catch.Cm > cm0) Kit.Best[Catch.Species.Id] = Catch.Cm;
+                if (Firm.I != null) Firm.I.Dirty = true;
                 IsBest = !IsNew && (!best.TryGetValue(Catch.Species.Id, out var b) || Catch.Kg >= b);
                 if (!best.TryGetValue(Catch.Species.Id, out var b2) || Catch.Kg > b2) best[Catch.Species.Id] = Catch.Kg;
                 TargetSlot = me.Bar.Target(Catch);
