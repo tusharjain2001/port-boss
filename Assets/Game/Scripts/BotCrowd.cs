@@ -14,7 +14,7 @@ namespace PortBoss.M1
         IEnumerator CrowdTest(string role, string dir)
         {
             shots = dir; Directory.CreateDirectory(dir); Ctl.Bot = true; bool host = role == "host";
-            yield return Until(() => Coop.On && Coop.I.Roster.Count >= 2, 40);
+            yield return Until(() => Coop.On && Coop.I.Roster.Count >= 2 && (Coop.IsHost || JoinView.Lifted && JoinView.Cover <= 0), 40); // (a joiner: its join cover gone: under -pb-fps the game clock races the real-time fade)
             if (!Coop.On || Coop.I.Roster.Count < 2) { Debug.Log("[PB] RESULT crowdtest: FAIL (never connected)"); Application.Quit(); yield break; }
             float t0 = Time.time + 3f; var s = Skiff.I; var c = Coop.I;
             Angler Mate() { foreach (var m in c.Mates.Values) if (m != null) return m; return null; }
@@ -51,7 +51,7 @@ namespace PortBoss.M1
                 me.Teleport(iWalk ? walkFrom : standAt, Yaw(iWalk ? wd : -wd)); CameraRig.I.Yaw = Yaw(wd);
                 yield return new WaitForSeconds(1.5f);
                 Vector3 Here() => boat ? s.transform.InverseTransformPoint(me.transform.position) : me.transform.position;
-                float lastMoved = 0; var start = Here(); float minD = 9, path = 0, endPath = 0; Vector3 endFrom = Vector3.zero, prevStep = Vector3.zero; bool endSet = false; float endBack = 0; bool shot = false, offBoat = false; var last = me.transform.position; float walkT = 0;
+                float lastMoved = 0; var start = Here(); float minD = 9, path = 0, endPath = 0; Vector3 endFrom = Vector3.zero, prevStep = Vector3.zero; bool endSet = false; float endBack = 0; bool shot = false, offBoat = false; var lastHere = Here(); float walkT = 0;
                 if (iWalk) { Ctl.BotMove = new Vector2(0, 1); }
                 while (Time.time < r0 + 6.2f)
                 {
@@ -62,7 +62,7 @@ namespace PortBoss.M1
                         // keep walking at the goal, as a player holding W would (re-aimed: the boat turns on her mooring)
                         if (boat) { wd = Flat(Deck(1.5f, round == 3 ? 0.3f : -0.5f) - Deck(-0.45f, round == 3 ? 0.3f : -0.5f)).normalized; }
                         CameraRig.I.Yaw = Yaw(wd); walkT += Time.deltaTime;
-                        var step = boat ? Flat(me.transform.position - last) - Flat(s.transform.position - lastBoat) : Flat(me.transform.position - last);
+                        var step = Flat(Here() - lastHere); // (on the boat in her own frame: her sway and turn on the mooring aren't my steps)
                         if (walkT > 3f) { if (!endSet) { endSet = true; endFrom = Here(); } endPath += step.magnitude; if (prevStep.sqrMagnitude > 1e-8f) endBack += Mathf.Max(0, -Vector3.Dot(step, prevStep.normalized)); }
                         if (step.sqrMagnitude > 1e-8f) prevStep = step;
                         path += step.magnitude;
@@ -70,7 +70,7 @@ namespace PortBoss.M1
                     if (boat && (!me.OnBoat || me.Swimming)) offBoat = true;
                     if (!iWalk && m != null) { var mv = Flat(Here() - start).magnitude; if (mv > 0.005f && mv > lastMoved + 0.005f) { lastMoved = mv; Debug.Log($"[PB] crowd: round {round}: standing, moved {mv:F3} m; crewmate {Vector3.Distance(Flat(me.transform.position), Flat(m.transform.position)):F2} m off, I'm {(me.OnBoat ? "aboard" : "ashore")}, grounded {me.Cc.isGrounded}"); } }
                     if (!shot && m != null && minD < 0.75f && walkT > 1.2f || !shot && !iWalk && Time.time > r0 + 4.5f) { shot = true; yield return Bump($"r{round}-{(iWalk ? "walking-into" : "walked-into")}", m); }
-                    last = me.transform.position; lastBoat = s.transform.position;
+                    lastHere = Here();
                     yield return null;
                 }
                 Ctl.BotMove = Vector2.zero;
@@ -93,7 +93,6 @@ namespace PortBoss.M1
             yield return new WaitForSeconds(host ? 3f : 1f);
             Application.Quit();
         }
-        Vector3 lastBoat;
 
         // the two of them from the side, at the moment they meet
         IEnumerator Bump(string what, Angler m)

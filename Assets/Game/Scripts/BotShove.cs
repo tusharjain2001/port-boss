@@ -13,7 +13,7 @@ namespace PortBoss.M1
         IEnumerator ShoveTest(string role, string dir)
         {
             shots = dir; Directory.CreateDirectory(dir); Ctl.Bot = true; bool host = role == "host";
-            yield return Until(() => Coop.On && Coop.I.Roster.Count >= 2, 40);
+            yield return Until(() => Coop.On && Coop.I.Roster.Count >= 2 && (Coop.IsHost || JoinView.Lifted && JoinView.Cover <= 0), 40); // (a joiner: its join cover gone: under -pb-fps the game clock races the real-time fade)
             if (!Coop.On || Coop.I.Roster.Count < 2) { Debug.Log("[PB] RESULT shovetest: FAIL (never connected)"); Application.Quit(); yield break; }
             float t0 = Time.time + 3f; var s = Skiff.I; var c = Coop.I;
             Angler Mate() { foreach (var m in c.Mates.Values) if (m != null) return m; return null; }
@@ -31,7 +31,7 @@ namespace PortBoss.M1
                 Vector3 riderAt, hostAt;
                 if (round == 1) { riderAt = S + D * 0.8f; hostAt = S - D * 0.2f; }
                 else if (round < 4) { riderAt = Deck(0.05f, 0.6f); hostAt = Deck(0.05f, -0.5f); }
-                else { riderAt = Deck(0.42f, 0.2f); hostAt = Deck(-0.45f, 0.2f); }
+                else { riderAt = Deck(-0.42f, 0.2f); hostAt = Deck(0.45f, 0.2f); } // (the sea-side rail: moored, her +x side lies against the jetty, and a shove there lands them on its planks)
                 var face = riderAt - hostAt; face.y = 0;
                 if (host) { me.Teleport(hostAt, Yaw(face)); CameraRig.I.Yaw = Yaw(face); }
                 else

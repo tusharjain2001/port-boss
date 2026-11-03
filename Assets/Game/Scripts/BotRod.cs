@@ -13,7 +13,7 @@ namespace PortBoss.M1
         IEnumerator RodTest(string role, string dir)
         {
             shots = dir; Directory.CreateDirectory(dir); Ctl.Bot = true; bool host = role == "host";
-            yield return Until(() => Coop.On && Coop.I.Roster.Count >= 2, 40);
+            yield return Until(() => Coop.On && Coop.I.Roster.Count >= 2 && (Coop.IsHost || JoinView.Lifted && JoinView.Cover <= 0), 40); // (a joiner: its join cover gone: under -pb-fps the game clock races the real-time fade)
             if (!Coop.On || Coop.I.Roster.Count < 2) { Debug.Log("[PB] RESULT rodtest: FAIL (never connected)"); Application.Quit(); yield break; }
             yield return new WaitForSeconds(2f);
             var s = Skiff.I; var c = Coop.I;
@@ -28,7 +28,7 @@ namespace PortBoss.M1
                 HoldReveal = 6f; // (long: a picture stalls a batch-mode copy ~1 s, and the watcher must still catch the two-hand hold)
                 me.Select(0); yield return new WaitForSeconds(0.8f);
                 StartCoroutine(Beats("mine", me));
-                for (int tries = 0; tries < 6; tries++)
+                for (int tries = 0; tries < 14; tries++)
                 {
                     CameraRig.I.Yaw = yaw; yield return CastOnce(0.7f);
                     for (float w = 0; fish.State != Fishing.St.Waiting && w < 5; w += Time.deltaTime) yield return null;
@@ -52,10 +52,12 @@ namespace PortBoss.M1
 
         bool beatsDone;
         // one catch, seen on this machine (mine or a crewmate's copy): measured through the reveal, a picture per beat
+        const float MinShowCm = 20;
         IEnumerator Beats(string whose, Angler a)
         {
             var f = a.Fish;
-            while (f.State != Fishing.St.Reveal) yield return null;
+            // a fish big enough to see in the picture (a sprat, 8 cm, vanishes inside the mitt), the same catch on both machines
+            while (!(f.State == Fishing.St.Reveal && f.Catch != null && f.Catch.Cm >= MinShowCm)) yield return null;
             bool big = f.Catch != null && f.Catch.Cm > 140;
             float showGrip = 0, showHang = 0, holdGrip = 0; int nShow = 0, nHold = 0; bool showInHand = true, stowedOnBack = false; bool p1 = false, p2 = false, p3 = false;
             float nextLog = 0, real0 = Time.time; int fr0 = Time.frameCount;
