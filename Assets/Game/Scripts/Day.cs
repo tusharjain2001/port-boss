@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Collections.Generic;
 
 namespace PortBoss.M1
@@ -128,6 +129,12 @@ namespace PortBoss.M1
                 if (storm) { leaks++; if (Weather.BlockAt(at) != (d, k)) f.Add($"leak inside its storm D{d}/{k}"); if (at != new Weather(99).LeakAt(d, k)) f.Add($"leak seeded D{d}/{k}"); }
             }
             if (leaks == 0) f.Add("no storm leaks in 400 days");
+            for (int d = 1; d <= 400; d++) for (int k = 0; k < 4; k++)       // rogue waves: storms only, inside, >= 20 min apart
+            {
+                var r = a.Rogues(d, k);
+                if ((a.Block(d, k) == Wx.Storm) != (r.Length == 3)) f.Add($"rogues only in a storm D{d}/{k}");
+                for (int i = 0; i < r.Length; i++) { if (Weather.BlockAt(r[i]) != (d, k)) f.Add($"rogue inside its storm D{d}/{k}"); if (i > 0 && r[i] - r[i - 1] < 20) f.Add($"rogues apart D{d}/{k}"); }
+            }
             return f;
         }
     }
@@ -225,6 +232,9 @@ namespace PortBoss.M1
         public static double StartOf(int day, int b) => DayTime.At(day, BlockStart[b]);
         // a storm can spring a leak in Biscuit (systems §1.6.4): at most once per storm, at a seeded moment 20-140 min in
         public double LeakAt(int day, int b) => Block(day, b) == Wx.Storm ? StartOf(day, b) + 20 + U(Seed, day, 60 + b) * 120 : double.NaN;
+        // rogue waves (systems §1.6.5): Storm only, three a storm, seeded, one in each 80-min stretch of its first 4 h
+        public double[] Rogues(int day, int b) => Block(day, b) != Wx.Storm ? System.Array.Empty<double>()
+            : new[] { 0, 1, 2 }.Select(i => StartOf(day, b) + 15 + 80 * i + U(Seed, day, 70 + b * 3 + i) * 60).ToArray();
         static (int, int) Prev(int day, int b) => b == 0 ? (day - 1, 3) : (day, b - 1);
 
         // The weather at a moment: (from, to, k). A new block blends in over 6-12 in-game minutes (seeded); one with a

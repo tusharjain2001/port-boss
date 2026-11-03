@@ -75,6 +75,50 @@ namespace PortBoss.M1
                 if (h.transform.IsChildOf(transform) && h.distance < best) { best = h.distance; HoleLocal.y = transform.InverseTransformPoint(h.point).y; }
         }
 
+        // ---- rogue waves (systems §1.6.5): Storm only, seeded (Weather.Rogues), so every machine knows when from the clock
+        // alone. 3 s ahead: a rising roar and a warning. The hit: the boat lurches (the real copy), and each machine's own
+        // player, unless braced (hold C), is knocked down; near a rail, one in four goes over the side.
+        // ponytail: no white crest on the sea yet, and loose deck items don't slide; add with the storm art pass.
+        public const float RogueWarn = 3;
+        double rogueWarned = double.NaN, rogueHit = double.NaN, forcedRogue = double.NaN;
+        public static System.Action<bool, bool> OnRogue;          // (knocked, overboard): for the tests
+        public static bool TestOver;                               // the tests: near a rail always goes over
+
+        public void RogueNow() { forcedRogue = Sky.Minutes + RogueWarn; }   // the tests: one in 3 s
+
+        void RogueTick()
+        {
+            if (Sky.W == null || Moored) return;
+            var (d, b) = Weather.BlockAt(Sky.Minutes);
+            foreach (var at in Sky.W.Rogues(d, b)) Rogue(at);
+            if (!double.IsNaN(forcedRogue)) Rogue(forcedRogue);
+        }
+
+        void Rogue(double at)
+        {
+            double lead = at - Sky.Minutes;                          // in-game minutes = real seconds
+            if (lead <= RogueWarn && lead > 0 && rogueWarned != at)
+            {
+                rogueWarned = at;
+                var me = Angler.I;
+                if (me != null && me.OnBoat) Alerts.Push("Biscuit", "Rogue wave! Hold C to brace!", Alerts.Kind.Warning);
+                Snd.Play(Synth.Roar, transform.position + transform.right * 6, 1f);
+            }
+            if (lead > 0 || lead < -1 || rogueHit == at) return;
+            rogueHit = at; if (at == forcedRogue) forcedRogue = double.NaN;
+            if (!Remote) vr += 38f;                                  // the lurch (riders see it through the pose)
+            Snd.Play(M1Assets.I.Splash, transform.position + transform.right * 1.5f, 1f, 0.7f); CameraRig.Shake(0.5f);
+            var p = Angler.I;
+            if (p == null || !p.OnBoat || p.Swimming || p.Down) return;
+            if (p.Braced) { Debug.Log("[PB] rogue: braced, safe"); OnRogue?.Invoke(false, false); return; }
+            bool rail = false; foreach (var r in Rails) if (r != null && Vector3.Distance(Flat(p.transform.position), Flat(r.position)) < 1.0f) rail = true;
+            bool over = rail && (TestOver || Weather.U(Sky.Seed, (int)at, 900 + (int)Coop.Me) < 0.25);
+            var side = -transform.right;                               // the wave hits from starboard: you go to port
+            p.Knock(over ? side * 4.5f + Vector3.up * 3.5f : side * 1.6f + Vector3.up * 1f);
+            Debug.Log($"[PB] rogue: knocked down{(over ? ", over the side" : "")} (near a rail: {rail})");
+            OnRogue?.Invoke(true, over);
+        }
+
         // every copy: the water inside, a flat sheet of sea that rises up to 22 cm over the deck
         void WaterVisual()
         {

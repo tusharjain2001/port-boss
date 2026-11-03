@@ -325,7 +325,7 @@ namespace PortBoss.M1
             float run = Mathf.Lerp(4.2f, 5.8f, Mathf.SmoothStep(0, 1, SprintW)) * (1 - 0.08f * load);
             float max = Swimming ? (Ctl.Sprint ? 2.2f : 1.4f) : Ctl.Walk ? 1.4f : OnBoat ? 2.6f : run;
             if (Fish.Holding && !Swimming) max = Mathf.Min(max, OnBoat ? 2.2f : 3.6f); // careful with a rod out
-            var target = wish * max * Sleep.WalkMul; // (M3: -10% from 01:30, tired)
+            var target = wish * max * Sleep.WalkMul * (Braced ? 0.4f : 1); // (M3: -10% from 01:30, tired; braced: a slow shuffle)
             bool grounded = Cc.isGrounded;
             // A hard reverse at speed (> 120°, over 60% of a run): a 0.15 s skid, feet planted, leaning back, then the turn.
             if (skidT <= 0 && grounded && !Swimming && Vel.magnitude > 0.6f * 4.2f && wish.sqrMagnitude > 0.25f && Vector3.Angle(wish, Vel) > 120f)
@@ -685,6 +685,7 @@ namespace PortBoss.M1
 
         // ---- knocked over (ragdoll-lite, replan/feel §4): F8, or thrown off the tiller by a crash ----
         public bool Down => downT >= 0 || getUpT >= 0;
+        public bool Braced => !Remote && OnBoat && !helm && !Swimming && !Down && Ctl.Brace;   // M3 footing: a rogue wave can't take you
         public bool Limp => downT >= 0;
         M1Assets.GetUpClip up; int upI; bool upBack; // the get-up playing (one of M1Assets.GetUps, at random), and on her back?
         Ragdoll rag; float downT = -1, getUpT = -1; bool jumped, fallIn; AnimationClip overClip; float overT, overW;
@@ -799,7 +800,7 @@ namespace PortBoss.M1
             float lk = helm || Swimming ? 0 : Fish.Holding ? 0.4f : 1;
             float tp = skidT > 0 ? -15f : Mathf.Clamp(la.z * 0.6f, -12f, 12f) * lk, tr = Mathf.Clamp(la.x * 0.4f, -10f, 10f) * lk;
             Spring(ref leanP, ref leanPV, tp, 70f, 0.6f, dt); Spring(ref leanR, ref leanRV, tr, 70f, 0.6f, dt);
-            Spring(ref sq, ref sqV, crouchT >= 0 ? -0.08f : 0, 300f, 0.45f, dt); sq = Mathf.Clamp(sq, -0.12f, 0.1f);
+            Spring(ref sq, ref sqV, crouchT >= 0 ? -0.08f : Braced ? -0.11f : 0, 300f, 0.45f, dt); sq = Mathf.Clamp(sq, -0.12f, 0.1f);
             Model.localRotation = Quaternion.Euler(Mathf.Clamp(leanP, -15f, 12f), 0, -Mathf.Clamp(leanR, -10f, 10f));
             Model.localScale = new Vector3(1 - sq * 0.5f, 1 + sq, 1 - sq * 0.5f);
             if (Lie > 0) { Model.localRotation = Quaternion.Euler(-86f * Lie, 0, 0); Model.localPosition += new Vector3(0, LieH * Lie, 0); } // M3: lying on a bed (Sleep.cs)

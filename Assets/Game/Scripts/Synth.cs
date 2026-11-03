@@ -83,6 +83,7 @@ namespace PortBoss.M1
         // tangled lines (fishing §4.2): a sproing, the pitch wobbling and settling
         public static AudioClip Boing => C("boing", () => Make("boing", 0.7f, t => 0.5f * Mathf.Sin(2 * Mathf.PI * 240 * t + 7f * Mathf.Sin(2 * Mathf.PI * 16 * t) * Mathf.Exp(-t * 5)) * Env(t, 0.003f, 0.22f)));
         public static AudioClip Snap => C("snap", () => { var lp = LP(3000); return Make("snap", 0.7f, t => (0.8f * lp(t) * Env(t, 0.001f, 0.02f) + 0.4f * Sin(95, t) * Env(t, 0.002f, 0.25f) * Sin(7, t))); });
+        public static AudioClip Roar => C("roar", () => { var lp = LP(500); return Make("roar", 3.2f, t => 1.1f * lp(t) * Mathf.Pow(Mathf.Clamp01(t / 3f), 2) * (t > 3f ? (3.2f - t) / 0.2f : 1)); }); // a rogue wave coming
         public static AudioClip Splash => C("splash", () => { var lp = LP(2800); return Make("splashS", 0.8f, t => 0.7f * lp(t) * Env(t, 0.01f, 0.2f)); });
     }
 

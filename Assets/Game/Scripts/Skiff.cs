@@ -144,6 +144,7 @@ namespace PortBoss.M1
         void Update()
         {
             float dt = Time.deltaTime;
+            RogueTick();
             if (Remote) { FollowNet(dt); Physics.SyncTransforms(); Visuals(dt); return; }
             // rudder: follows the stick, recentres in ~0.6 s
             Rudder = Mathf.Abs(Steer) > 0.05f ? Mathf.MoveTowards(Rudder, Steer * 35f, 120f * dt) : Mathf.MoveTowards(Rudder, 0, 60f * dt);

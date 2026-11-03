@@ -130,6 +130,22 @@ namespace PortBoss.M1
             float wb = s.Water; Ctl.BotInteractHeld = true; yield return Until(() => s.Water < 0.02f, 25); Ctl.BotInteractHeld = false;
             Check(s.Water < 0.02f, $"bailing empties her ({wb:F2} -> {s.Water:F2})");
             if (shots != null) yield return Shot("leak-2-dry");
+
+            // rogue waves (systems §1.6.5): braced = safe; unbraced = knocked down; at a rail, over the side
+            bool kn = false, ov = false; Skiff.OnRogue = (k, o) => { kn = k; ov = o; };
+            Vector3 Deck(float x, float z) => s.transform.TransformPoint(new Vector3(x, s.HoleLocal.y + 0.1f, z));
+            me.Teleport(Deck(0, 0.3f), s.transform.eulerAngles.y); yield return new WaitForSeconds(0.5f);
+            Ctl.BotBrace = true; s.RogueNow(); yield return new WaitForSeconds(Skiff.RogueWarn + 1.5f); Ctl.BotBrace = false;
+            Check(!kn && !me.Down && me.OnBoat, "braced (hold C), the rogue wave can't take you");
+            s.RogueNow(); yield return new WaitForSeconds(1.5f);
+            if (shots != null) { CameraRig.I.Pitch = 16; CameraRig.I.Yaw = s.transform.eulerAngles.y + 120; yield return Shot("rogue-1-warning"); }
+            yield return Until(() => kn, 4);
+            if (shots != null) { yield return new WaitForSeconds(0.3f); yield return Shot("rogue-2-knocked"); }
+            Check(kn && me.Down, $"unbraced, the rogue wave knocks you down (over: {ov})");
+            yield return Until(() => !me.Down, 8); kn = ov = false;
+            me.Teleport(Deck(-0.6f, 0), s.transform.eulerAngles.y); yield return new WaitForSeconds(0.5f);
+            Skiff.TestOver = true; s.RogueNow(); yield return Until(() => kn, Skiff.RogueWarn + 2); yield return Until(() => me.Swimming, 5); Skiff.TestOver = false;
+            Check(ov && me.Swimming, $"at the rail, unbraced, it can throw you over the side (over {ov}, swimming {me.Swimming})");
             Debug.Log($"[PB] RESULT stormtest: {(dayFails == 0 ? "PASS" : "FAIL")}");
             Application.Quit();
         }
