@@ -71,6 +71,7 @@ namespace PortBoss.M1
 
         // ---------------------------------------------------------------- what a world is (the live game -> JSON)
         static double R2(float v) => Math.Round(v, 2);
+        static double Yaw(float y) { var r = Math.Round(y, 2) % 360; return r < 0 ? r + 360 : r; }   // 359.999 reads back as 0, not 360
         public static string Capture(bool forHash = false)
         {
             var w = new Json.W(); w.Obj();
@@ -87,7 +88,7 @@ namespace PortBoss.M1
             foreach (var (key, name, bar, body) in people)
             {
                 w.K(key).Obj().K("name").V(name);
-                if (body != null) { var p = body.transform.position; w.K("x").V(R2(p.x)).K("y").V(R2(p.y)).K("z").V(R2(p.z)).K("yaw").V(R2(body.transform.eulerAngles.y)).K("boat").V(body.OnBoat); }
+                if (body != null) { var p = body.transform.position; w.K("x").V(R2(p.x)).K("y").V(R2(p.y)).K("z").V(R2(p.z)).K("yaw").V(Yaw(body.transform.eulerAngles.y)).K("boat").V(body.OnBoat); }
                 w.K("bar").Arr();
                 if (bar != null) for (int i = 0; i < Hotbar.Slots; i++) foreach (var f in bar.S[i].Fish) WriteFish(w, f, i);
                 w.End().K("sel").V(bar != null ? bar.Selected : 0).End();
@@ -96,8 +97,10 @@ namespace PortBoss.M1
             var s = Skiff.I;
             if (s != null)
             {
-                var p = s.transform.position;
-                w.K("boat").Obj().K("x").V(R2(p.x)).K("z").V(R2(p.z)).K("yaw").V(R2(s.transform.eulerAngles.y)).K("moored").V(s.Moored).K("anchored").V(s.Anchored)
+                var p = s.transform.position; w.K("boat").Obj();
+                // moored: she's at her berth (the scene's), so where she bobbed on her lines isn't saved
+                if (!s.Moored) w.K("x").V(R2(p.x)).K("z").V(R2(p.z)).K("yaw").V(Yaw(s.transform.eulerAngles.y));
+                w.K("moored").V(s.Moored).K("anchored").V(s.Anchored)
                     .K("water").V(R2(s.Water)).K("leaking").V(s.Leaking).End();
             }
             w.K("deck").Arr();
@@ -292,7 +295,7 @@ namespace PortBoss.M1
         {
             var s = Skiff.I;
             if (onBoat && s != null && !s.Inside(at, 0.5f)) at = s.transform.TransformPoint(new Vector3(0, 0.6f, 0));
-            me.Teleport(at + Vector3.up * 0.02f, yaw);
+            me.Teleport(at, yaw);   // exactly where they stood (the saved spot was a resting one), so the hash matches
         }
 
         // ---------------------------------------------------------------- the moments it saves
