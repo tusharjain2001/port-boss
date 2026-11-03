@@ -250,7 +250,7 @@ namespace PortBoss.M1
                 if (Coop.On && by.Count > 1) foreach (var x in by) CardRow("    " + x.who, $"+${x.amount:N0}", Ponyo.InkSoft, UiKit.Body, 18, 28);
                 if (outS > 0) CardRow("Spent", $"−${outS:N0}", Ponyo.Ink);
                 var rent = co.Ledger.Find(e => e.Tx == $"rent:mari:{DayTime.Day(to - DayTime.Wake)}");
-                if (rent != null) CardRow("Mari's rent this morning", $"+${rent.Amount}", Money);
+                if (rent != null) CardRow("Mari's rent at 7 AM", $"+${rent.Amount}", Money);
                 CardRule();
                 CardRow("Company bank", $"${co.Cash:N0}", Ponyo.Ink, UiKit.DisplayBold, 26, 40);
                 int turning = 0; if (me != null) foreach (var s in me.Bar.S) foreach (var f in s.Fish) if (f.Fresh >= 2) turning++;

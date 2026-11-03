@@ -682,9 +682,25 @@ namespace PortBoss.M1
             var mask = UiKit.Rect("mask", frame); mask.Stretch(2); mask.gameObject.AddComponent<RectMask2D>();
             mapImg = UiKit.Rect("chart", mask).Place(new Vector2(0, 1), Vector2.zero, new Vector2(MapW, MapH), new Vector2(0, 1)).gameObject.AddComponent<RawImage>();
             mapImg.texture = Chart(); mapImg.raycastTarget = false;
-            // labels (map B's names), most important first: each one inside the frame, nudged up or down off the ones
-            // already placed (the harbour names sit close together at this scale)
+            // pins (the labels below step off them)
             var placed = new List<Rect>();
+            foreach (var pl in Places)
+            {
+                if (mapFilter == "Crew") continue;
+                if (mapFilter == "Fish" && pl.kind != "fish") continue;
+                if (mapFilter == "Shops" && pl.kind != "shop") continue;
+                var a = Firm.Anchor(pl.id); var w = a != null ? a.position : FromSvg(pl.sx, pl.sy);
+                if (pl.id == "tackle" || pl.id == "pratts") { var st = Firm.I.Stalls.Find(s => s.Id == pl.id); if (st != null && st.Real) w = st.At.position; }
+                Color col = pl.kind == "fish" ? Ponyo.SeaDeep : pl.kind == "shop" ? Ponyo.Hex("E39A4C") : Ponyo.Paper;
+                bool shut = pl.id == "tackle" && !Firm.I.Stalls[0].IsOpen(Sky.Minutes) || pl.id == "pratts" && !Market.IsOpen(Buyer.Pratt, Sky.Minutes);
+                if (shut) col = Ponyo.Hex("B5A99A");
+                var pin = UiKit.Img(mapImg.rectTransform, pl.kind == "fish" ? UiKit.RingSprite : UiKit.Circle, col, "pin " + pl.id); var mp = ToMap(w);
+                pin.rectTransform.Place(new Vector2(0, 1), new Vector2(mp.x, -mp.y), pl.kind == "fish" ? new Vector2(16, 16) : new Vector2(11, 11), new Vector2(0.5f, 0.5f));
+                float ps = pl.kind == "fish" ? 16 : 11; placed.Add(new Rect(mp.x - ps / 2, mp.y - ps / 2, ps, ps));
+                if (pl.kind != "fish") UiKit.Img(pin.transform, UiKit.RingSprite, Ponyo.Paper, "ring").rectTransform.Stretch(-2);
+            }
+            // labels (map B's names), most important first: each one inside the frame, nudged up or down off the ones
+            // already placed and off the pins (the harbour names sit close together at this scale); drawn over the pins
             void Label(string s, float sx, float sy, int size, Color c, bool bold = true, bool italic = false)
             {
                 var p = ToMap(FromSvg(sx, sy));
@@ -706,21 +722,6 @@ namespace PortBoss.M1
             Label("Gullrock", 2250, 2420, 10, ink); Label("Lantern Key", 1100, 2420, 10, ink); Label("Sorrel Isle", 4100, 1050, 10, ink);
             Label("Mango Cay", 4300, 4120, 10, ink); Label("Breaker Point", 2800, 4000, 10, ink);
             Label("Wreck of the Margaret", 1000, 1600, 9, ink);
-            // pins
-            foreach (var pl in Places)
-            {
-                if (mapFilter == "Crew") continue;
-                if (mapFilter == "Fish" && pl.kind != "fish") continue;
-                if (mapFilter == "Shops" && pl.kind != "shop") continue;
-                var a = Firm.Anchor(pl.id); var w = a != null ? a.position : FromSvg(pl.sx, pl.sy);
-                if (pl.id == "tackle" || pl.id == "pratts") { var st = Firm.I.Stalls.Find(s => s.Id == pl.id); if (st != null && st.Real) w = st.At.position; }
-                Color col = pl.kind == "fish" ? Ponyo.SeaDeep : pl.kind == "shop" ? Ponyo.Hex("E39A4C") : Ponyo.Paper;
-                bool shut = pl.id == "tackle" && !Firm.I.Stalls[0].IsOpen(Sky.Minutes) || pl.id == "pratts" && !Market.IsOpen(Buyer.Pratt, Sky.Minutes);
-                if (shut) col = Ponyo.Hex("B5A99A");
-                var pin = UiKit.Img(mapImg.rectTransform, pl.kind == "fish" ? UiKit.RingSprite : UiKit.Circle, col, "pin " + pl.id); var mp = ToMap(w);
-                pin.rectTransform.Place(new Vector2(0, 1), new Vector2(mp.x, -mp.y), pl.kind == "fish" ? new Vector2(16, 16) : new Vector2(11, 11), new Vector2(0.5f, 0.5f));
-                if (pl.kind != "fish") UiKit.Img(pin.transform, UiKit.RingSprite, Ponyo.Paper, "ring").rectTransform.Stretch(-2);
-            }
             // live dots: crewmates, Mari's boat, Biscuit, me (on top)
             if (mapFilter is "All" or "Crew")
             {

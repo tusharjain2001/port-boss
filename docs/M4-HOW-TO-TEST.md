@@ -62,7 +62,7 @@ Pull the M4 branch (or `main` once Kufu merges it) and run `bash tools/m1build.s
     - Decline and she comes back with $45, then $50; after the third no she gives up.
   - Within the in-game hour her taco boat ties up at the pier end.
   - Sleep (after 8 PM, hold E on Walt's cot).
-    - The night card shows the day's sales, the company bank, and "Mari's rent this morning +$40".
+    - The night card shows the day's sales, the company bank, and "Mari's rent at 7 AM +$40".
     - In the morning a **"Rent's in, landlord. +$40"** note appears on the LEFT, and the bank shows +$40.
 - [ ] **Sell to Mari (100%).** From 9 AM to 10 PM press E at her boat.
   - She pays the full price for Everyday fish (sprat, mullet, mackerel), 10 fish a day.
