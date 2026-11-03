@@ -13,6 +13,7 @@ namespace PortBoss.M1
     {
         public static Transform Root;
         public static bool On => Root != null;
+        public static readonly List<Renderer> Windows = new(); public static Material Glow;   // the town's lit windows (Sky turns them on with the lamps)
 
         [System.Serializable] public class Anchor { public string id, name; public float[] pos, fwd; public bool ground; }
         [System.Serializable] class Spot { public float[] pos; public float yaw; }
@@ -40,6 +41,10 @@ namespace PortBoss.M1
                 if (N != null && E != null) Debug.Log($"[PB] map axes: socket_north at {N.position} (want 0,0,500), socket_east at {E.position} (want 500,0,0)");
             }
             Util.Toon(Root.gameObject, toon);
+            // the panes that light up at dusk (a cell's "_Windows" mesh): one shared glow, no shadows, no collider
+            Windows.Clear(); Glow = Util.Soft(new Color(1f, 0.74f, 0.42f, 0f), Texture2D.whiteTexture);
+            foreach (var r in Root.GetComponentsInChildren<MeshRenderer>())
+                if (r.name.EndsWith("_Windows")) { r.sharedMaterial = Glow; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.enabled = false; Windows.Add(r); }
             Debug.Log($"[PB] map: Crescent Bay, {a.Cells.Length} cells, LOD0 {tris} tris");
         }
 

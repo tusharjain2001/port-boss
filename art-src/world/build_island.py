@@ -32,7 +32,11 @@ PAL = dict(dark='#805C52', ink='#3F2C27', paper='#FFFBF2', cream2='#F8EFDD', cre
            iron='#5E5A66', rust='#A2583A', rock='#9A93A6', rock2='#7C7690', sand='#EAD7A8', grass='#8CC46A',
            grass2='#6FAF5A', tree3='#4F8F55', heath='#B5C978', conc='#9AA3A8', conc2='#B9BEC2', vred='#C0392B',
            cloud='#FFFBF2', orange='#F2994A', path='#E3CFA6', sand2='#D9BF8C', dune='#C6CF86', shingle='#BBB0A6',
-           cliff='#B9A391')
+           cliff='#B9A391',
+           # the finished town (4 Nov): window glass, stone plinths/steps/kerbs, cobbles, soft wall pastels, shutters
+           glass='#3D6E9E', glass2='#5A8DB8', stone='#CDBFA9', stone2='#B3A48E', cob='#D9C7A2', cob2='#CBB690', cob3='#E4D5B4',
+           wmint='#CFEBDB', wsky='#CCE1F2', wbutter='#F8E5AE', wrose='#F5CFC3', wlav='#DDD6EE', sage='#86B59A', navy='#2D4F7C',
+           flower='#E8577A', flower2='#F4B63F', hedge='#5E9E58')
 NAMES = list(PAL); CI = {n: i for i, n in enumerate(NAMES)}
 def srgb(h): h = h.lstrip('#'); return tuple(int(h[i:i + 2], 16) / 255 for i in (0, 2, 4))
 def lin(h): return tuple(c ** 2.2 for c in srgb(h)) + (1,)
@@ -282,7 +286,7 @@ def terrain_mesh(name, GX, GY, coll, floor=-6.0, keep_z=-1.0, skirt=0.0):
     ci = np.full(len(tris), CI['grass'])
     ci[nn > 0.35] = CI['grass2']; ci[nn2 > 0.9] = CI['leaf']
     ci[(cz > 122 + 10 * nn) & (nn2 > -0.2)] = CI['heath']
-    ci[(ki == 1) & (nz > 0.9) & (nn < -0.25)] = CI['path']                                 # lanes and yards, not a dirt field
+    ci[(ki == 1) & (nz > 0.9) & (nn < -0.25)] = CI['grass2']                               # town gardens (the streets are their own mesh)
     ci[(be > 0.45) & (cz > 3.0) & (cz < 6.5) & (nz > 0.8) & (nn > -0.3)] = CI['dune']        # dune grass behind the sand
     ci[(be > 0.45) & (cz < 3.4) & (nz > 0.85)] = CI['sand']
     ci[(be > 0.45) & (cz < 0.5) & (nz > 0.85)] = CI['sand2']                                 # wet sand at the waterline
@@ -382,17 +386,57 @@ def hip(w, d, h):
     return bm
 
 
+WIN = None                             # the panes that light up at night (one MB, exported per cell as "_Windows")
+
+
+def window(mb, m, ox, oy, nx, ny, z, front, lit, shut):
+    """A window on the wall whose outward normal is (nx, ny), its centre (ox, oy) on the wall plane: a white frame plate,
+    the glass proud of it, a sill; at the front a cross bar, maybe a flower box; maybe shutters; maybe a lit pane."""
+    yaw = math.atan2(nx, -ny)                                   # local -Y (out of the window) -> (nx, ny)
+    def at(off, dx=0.0, dz=0.0): return m @ M((ox + nx * off - ny * dx, oy + ny * off + nx * dx, z + dz), (0, 0, yaw))
+    mb.add(box(1.3, 0.1, 1.45), 'paper', at(0.0))
+    mb.add(box(1.0, 0.12, 1.15), 'glass', at(0.02))
+    mb.add(box(1.5, 0.3, 0.12), 'paper', at(0.1, 0, -0.78))
+    if front:
+        mb.add(box(0.08, 0.06, 1.15), 'paper', at(0.1)); mb.add(box(1.0, 0.06, 0.08), 'paper', at(0.1))
+    if shut: 
+        for sx in (-0.95, 0.95): mb.add(box(0.55, 0.08, 1.25), shut, at(0.03, sx))
+    if front and lit is not None and lit.random() < 0.3:          # a flower box
+        mb.add(box(1.2, 0.3, 0.25), 'midwood', at(0.22, 0, -0.62))
+        mb.add(blob(1, (0.55, 0.16, 0.18), int(ox * 13 + z * 7) % 97, 0.25, 2.0), lit.choice(('flower', 'flower2', 'poppy', 'paper')), at(0.22, 0, -0.42))
+    if lit is not None and lit.random() < 0.5 and WIN is not None:   # lit after dusk (Map.cs: Sky's lamp weight)
+        WIN.add(box(0.96, 0.13, 1.1), 'paper', at(0.025))
+
+
+HOUSES = []                            # (x, y, yaw, w, d, z0) of every house built (the gardens go round them)
+
+
 def house(mb, x, y, yaw, w, d, storeys, wall, roof, z0, hipped=False, chimney=False):
-    ht = 2.9 * storeys
-    m = M((x, y, 0), (0, 0, yaw))
+    ht = 2.9 * storeys; HOUSES.append((x, y, yaw, w, d, z0))
+    m = M((x, y, 0), (0, 0, yaw)); rk = random.Random(int(x * 7.3 + y * 13.1))   # (its own dice: the layout's stay as they were)
     mb.add(box(w, d, ht + 4), wall, m @ M((0, 0, z0 + ht / 2 - 2)))                 # walls (sunk 4 m into the slope)
+    mb.add(box(w + 0.14, d + 0.14, 0.9), 'stone', m @ M((0, 0, z0 + 0.0)))            # a stone plinth
+    mb.add(box(w + 0.12, d + 0.12, 0.22), 'paper' if wall not in ('paper', 'cream2') else 'stone', m @ M((0, 0, z0 + ht - 0.11)))   # the eaves band
     rh = 0.42 * d
     mb.add((hip(w + 0.8, d + 0.9, rh) if hipped else gable(w + 0.8, d + 0.9, rh)), roof, m @ M((0, 0, z0 + ht)))
-    if chimney: mb.add(box(0.8, 0.8, 2.4), 'rust', m @ M((w * 0.28, d * 0.18, z0 + ht + rh * 0.6)))
-    mb.add(box(1.1, 0.25, 2.1), 'ink', m @ M((0, -d / 2 - 0.05, z0 + 1.05)))           # door
+    if chimney: 
+        mb.add(box(0.8, 0.8, 2.4), 'rust', m @ M((w * 0.28, d * 0.18, z0 + ht + rh * 0.6)))
+        mb.add(box(1.0, 1.0, 0.2), 'stone2', m @ M((w * 0.28, d * 0.18, z0 + ht + rh * 0.6 + 1.25)))
+    shut = rk.choice((None, None, 'teal', 'sage', 'blue', 'navy', 'red', 'sun')) if wall not in ('teal', 'sky', 'blue') else None
+    door = shut or rk.choice(('navy', 'red', 'teal', 'midwood', 'sage'))
+    mb.add(box(1.45, 0.1, 2.45), 'paper', m @ M((0, -d / 2, z0 + 1.2)))               # the door: frame, door, step
+    mb.add(box(1.1, 0.16, 2.1), door, m @ M((0, -d / 2 - 0.02, z0 + 1.05)))
+    mb.add(box(1.9, 0.9, 0.3), 'stone2', m @ M((0, -d / 2 - 0.45, z0 + 0.1)))
+    ncol = max(2, int(w / 2.4)); xs = np.linspace(-w / 2 + w / (2 * ncol), w / 2 - w / (2 * ncol), ncol) if ncol > 1 else [0.0]
+    nside = max(1, int(d / 3.2)); ys = np.linspace(-d / 2 + d / (2 * nside), d / 2 - d / (2 * nside), nside) if nside > 1 else [0.0]
     for k in range(storeys):
-        for fx in (-0.3, 0.3):
-            mb.add(box(1.0, 0.2, 1.15), 'sky', m @ M((w * fx, -d / 2 - 0.04, z0 + 1.6 + 2.9 * k)))
+        z = z0 + 1.6 + 2.9 * k
+        for fx in xs:
+            if k == 0 and abs(fx) < 1.1: continue                                      # (the door)
+            window(mb, m, fx, -d / 2, 0, -1, z, True, rk, shut)
+            window(mb, m, fx, d / 2, 0, 1, z, False, rk, None)
+        for fy in ys:
+            for sx in (-1, 1): window(mb, m, sx * w / 2, fy, sx, 0, z, False, rk, None)
     return z0 + ht + rh                                                                 # the ridge height
 
 
@@ -518,7 +562,160 @@ SHOP_SPOTS = []                        # (n, name, x, y, ground z, yaw) of each 
 LIGHTHOUSE = []                        # (x, y, ground z)
 
 
+STREETS = []                           # (polyline [(x, y)], width): the quay and the lanes (houses keep off them)
+TERRACES = (9, 17, 26, 36)             # the heights of the streets along the hill (houses line them)
+TERR = []
+
+
+def street_d(x, y):
+    best = 1e9
+    for P, wd in STREETS:
+        A = np.array(P); a, b = A[:-1], A[1:]; ab = b - a; L2 = (ab ** 2).sum(1) + 1e-9
+        t = np.clip(((np.array([x, y]) - a) * ab).sum(1) / L2, 0, 1); q = a + ab * t[:, None]
+        best = min(best, float(np.hypot(*(q - (x, y)).T).min()) - wd / 2)
+    return best
+
+
+def resample(P, step=2.0):
+    P = np.asarray(P, float); seg = np.hypot(*np.diff(P, axis=0).T); s_ = np.concatenate([[0], np.cumsum(seg)])
+    if s_[-1] < step: return P
+    t = np.linspace(0, s_[-1], int(s_[-1] / step) + 1)
+    return np.stack([np.interp(t, s_, P[:, 0]), np.interp(t, s_, P[:, 1])], -1)
+
+
+def ribbon(mb, P, wd, rs):
+    """A cobbled street draped on the ground: 2 rows of setts in 3 tones, a stone kerb each side with a lip down to the
+    grass (no gap shows on a cross slope). It is part of the town mesh, so it collides (you walk on it)."""
+    P = resample(P, 2.0); n = len(P)
+    if n < 2: return
+    T = np.gradient(P, axis=0); T /= np.hypot(*T.T)[:, None] + 1e-9; N_ = np.stack([-T[:, 1], T[:, 0]], -1)
+    def Z(x, y): return max(H(x, y), H(x + 1, y), H(x - 1, y), H(x, y + 1), H(x, y - 1)) + 0.1
+    bm = bmesh.new(); cols = []; rows = []
+    offs = (-wd / 2 - 0.4, -wd / 2, 0.0, wd / 2, wd / 2 + 0.4)
+    for k in range(n):
+        r = []
+        for o in offs:
+            x, y = P[k] + N_[k] * o; r.append(bm.verts.new((x, y, Z(x, y) + (0.08 if abs(o) > wd / 2 - 0.01 else 0.0))))
+        for o in (offs[0], offs[-1]):                                       # the lip down to the grass
+            x, y = P[k] + N_[k] * o; r.append(bm.verts.new((x, y, H(x, y) - 0.4)))
+        rows.append(r)
+    for k in range(n - 1):
+        a, b = rows[k], rows[k + 1]
+        for c in range(4):
+            bm.faces.new((a[c], b[c], b[c + 1], a[c + 1])); cols.append('stone' if c in (0, 3) else rs.choice(('cob', 'cob2', 'cob3', 'cob')))
+        bm.faces.new((a[5], b[5], b[0], a[0])); cols.append('stone2')
+        bm.faces.new((a[4], b[4], b[6], a[6])); cols.append('stone2')
+    it = iter(cols); mb.add(bm, lambda c_, n_: next(it))
+
+
+def bollard(mb, x, y, z):
+    mb.add(cyl(0.2, 0.75, 8), 'iron', M((x, y, z + 0.37))); mb.add(cyl(0.27, 0.12, 8), 'iron', M((x, y, z + 0.78)))
+
+
+def bench(mb, x, y, z, yaw):
+    m = M((x, y, z), (0, 0, yaw))
+    for k in range(3): mb.add(box(1.8, 0.14, 0.06), 'wood', m @ M((0, -0.2 + k * 0.18, 0.48)))
+    mb.add(box(1.8, 0.06, 0.4), 'wood', m @ M((0, 0.25, 0.78)))
+    for sx in (-0.75, 0.75): mb.add(box(0.08, 0.5, 0.48), 'iron', m @ M((sx, 0, 0.24)))
+
+
+def crates(mb, x, y, z, yaw, rk):
+    m = M((x, y, z), (0, 0, yaw))
+    for k in range(rk.randint(2, 4)):
+        c = rk.choice(('wood', 'weath', 'midwood')); s_ = rk.uniform(0.6, 0.9)
+        mb.add(box(s_, s_, s_), c, m @ M((k * 0.95 - 1, rk.uniform(-0.2, 0.2), s_ / 2), (0, 0, rk.uniform(-0.3, 0.3))))
+    if rk.random() < 0.6: mb.add(box(0.7, 0.7, 0.7), 'weath', m @ M((-0.5, 0, 1.0), (0, 0, 0.4)))
+    for k in range(rk.randint(1, 3)):                                                   # barrels
+        mb.add(cyl(0.34, 0.95, 10), rk.choice(('midwood', 'rust', 'teal')), m @ M((1.6 + k * 0.75, 0.6, 0.48)))
+
+
+def quay_lamp(mb, x, y, z):
+    mb.add(cyl(0.09, 3.8, 6), 'navy', M((x, y, z + 1.9))); mb.add(cyl(0.18, 0.4, 8), 'navy', M((x, y, z + 0.2)))
+    mb.add(cyl(0.3, 0.12, 8), 'navy', M((x, y, z + 4.35))); mb.add(cyl(0.22, 0.45, 8, 0.28), 'sun', M((x, y, z + 4.05)))
+    if WIN is not None: WIN.add(cyl(0.25, 0.5, 8, 0.31), 'paper', M((x, y, z + 4.05)))     # glows at night
+
+
+def build_streets(mb, shore, px, py, tx, ty, rr):
+    """The quay along the town's waterline and a lane from every shop door to it (or to a lane already built)."""
+    q = []
+    for p, (nx, ny) in shore:
+        if math.hypot((p[0] - tx) * 0.85, p[1] - ty) > 300: q.append(None); continue
+        x, y = p[0] + nx * 5.5, p[1] + ny * 5.5
+        ok = H(x, y) > 0.5 and KIND(x, y) == 1 and math.hypot(x - px - 12, y - py - 3) > 24
+        q.append((x, y) if ok else None)
+    runs, cur = [], []
+    for v in q + [None]:
+        if v is not None and (not cur or math.dist(cur[-1], v) < 8): cur.append(v); continue
+        if len(cur) > 6: runs.append(cur)
+        cur = [v] if v is not None else []
+    for r in runs:
+        A = np.array(r); A = np.stack([np.convolve(np.pad(A[:, i], 4, mode='edge'), np.ones(9) / 9, 'valid') for i in (0, 1)], -1)
+        STREETS.append((list(map(tuple, resample(A, 2.0))), 5.0))
+    log('quay runs', len(runs), [len(r) for r in runs])
+    lm = [(x, y) for _, _, x, y, _, _ in SHOP_SPOTS]
+    for hL in TERRACES:                                                                   # streets along the hill's contours
+        q = []
+        for p, (nx, ny) in shore:
+            v = None
+            if math.hypot((p[0] - tx) * 0.85, p[1] - ty) < 330:
+                for s_ in np.arange(6, 200, 1.5):
+                    x, y = p[0] + nx * s_, p[1] + ny * s_
+                    if H(x, y) >= hL:
+                        if (KIND(x, y) == 1 and slope(x, y) < 0.5 and math.hypot((x - tx) * 0.85, y - ty) < 340
+                                and math.hypot(x - px - 12, y - py - 3) > 34 and all(math.dist((x, y), c) > 17 for c in lm)): v = (x, y)
+                        break
+            q.append(v)
+        runs, cur = [], []
+        for v in q + [None]:
+            if v is not None and (not cur or math.dist(cur[-1], v) < 16):
+                if math.dist(cur[-1], v) > 0.8 if cur else True: cur.append(v)
+                continue
+            if len(cur) > 12: runs.append(cur)
+            cur = [v] if v is not None else []
+        for r in runs:
+            A = np.array(r); A = np.stack([np.convolve(np.pad(A[:, i], 6, mode='edge'), np.ones(13) / 13, 'valid') for i in (0, 1)], -1)
+            A = resample(A, 2.0)
+            keep = [tuple(a) for a in A if street_d(*a) > 8]
+            if len(keep) > 10 and math.dist(keep[0], keep[-1]) > 30: STREETS.append((keep, 4.0)); TERR.append(keep)
+        log('terrace', hL, 'runs', [len(r) for r in runs], 'q', sum(v is not None for v in q), 'kept', [len(P) for P in TERR])
+    def nearest(x, y):
+        best, at = 1e9, None
+        for P, _ in STREETS:
+            for pt in P:
+                d = math.dist(pt, (x, y))
+                if d < best: best, at = d, pt
+        return at, best
+    doors = []
+    for n, name, x, y, z, yaw in SHOP_SPOTS:
+        dd = {2: 11.0, 3: 5.6, 5: 6.8}.get(n, 5.2) + 2.0
+        doors.append((x + math.sin(yaw) * dd, y - math.cos(yaw) * dd))
+    doors.append((px + 12 + 8, py + 3))                                                   # Walt's yard
+    for d in sorted(doors, key=lambda d: nearest(*d)[1]):
+        at, dist = nearest(*d)
+        if at is None or dist < 3 or dist > 260: continue
+        STREETS.append(([d, at], 3.6))
+    for P, wd in STREETS: ribbon(mb, P, wd, rr)
+    # the quay's furniture: bollards on the water side, lamps, benches looking out, crates by the shops
+    k = 0
+    for P, wd in STREETS:
+        if wd < 5: continue
+        R_ = resample(P, 2.0); T = np.gradient(R_, axis=0)
+        for i in range(2, len(R_) - 2):
+            t = T[i] / (np.hypot(*T[i]) + 1e-9); nx, ny = -t[1], t[0]
+            if SDF(*(R_[i] + (nx, ny))) > SDF(*R_[i]): nx, ny = -nx, -ny                 # (n points to the water)
+            x, y = R_[i] + np.array((nx, ny)) * (wd / 2 + 0.9); k += 1
+            if H(x, y) < 0.2: continue
+            if k % 5 == 0: bollard(mb, x, y, H(x, y))
+            if k % 9 == 2: quay_lamp(mb, x, y, H(x, y))
+            if k % 17 == 7: bench(mb, x, y, H(x, y), math.atan2(nx, -ny) + math.pi)
+            if k % 23 == 11:
+                cx, cy = R_[i] - np.array((nx, ny)) * (wd / 2 + 1.6); crates(mb, cx, cy, H(cx, cy), math.atan2(t[1], t[0]), rr)
+    for d in doors[:-1]:
+        crates(mb, d[0] + 3.5, d[1] + 1.5, H(d[0] + 3.5, d[1] + 1.5), 0.3, rr)
+
+
 def build_town(coll):
+    global WIN; WIN = MB()
     mb = MB(); px, py = S.PIER_ROOT; placed = []; rr = random.Random(17)
     for n, (name, fn) in LANDMARKS.items():
         mx, my = S.SHOPS[n][1] if n in S.SHOPS else PIN8
@@ -534,7 +731,13 @@ def build_town(coll):
         P = np.array(S.Wl(curve))
         for a, b in zip(P, np.roll(P, -1, 0)):
             for t in np.arange(0, 1, 1.5 / max(np.linalg.norm(b - a), 1.5)): shore.append(a + (b - a) * t)
-    walls = ['paper', 'sun', 'peach', 'teal', 'cream2', 'sky', 'paper', 'poppy']; roofs = ['red', 'poppy', 'rust', 'blue', 'red', 'teal']
+    sh = []                                                                              # the real shore, with its normals
+    for p in shore:
+        if abs(SDF(p[0], p[1])) > 4: continue
+        gx = SDF(p[0] + 3, p[1]) - SDF(p[0] - 3, p[1]); gy = SDF(p[0], p[1] + 3) - SDF(p[0], p[1] - 3); g = math.hypot(gx, gy) or 1
+        sh.append((p, (gx / g, gy / g)))
+    build_streets(mb, sh, px, py, tx, ty, random.Random(23))
+    walls = ['paper', 'wbutter', 'peach', 'wmint', 'cream2', 'wsky', 'wrose', 'paper', 'sun', 'wlav']; roofs = ['red', 'poppy', 'rust', 'blue', 'red', 'teal']
     rows = []; k = 0
     for p in shore:
         if math.hypot((p[0] - tx) * 0.85, p[1] - ty) > 330 or abs(SDF(p[0], p[1])) > 4: continue      # the real waterline only
@@ -542,14 +745,11 @@ def build_town(coll):
         nx, ny = gx / g, gy / g; qx, qy = p[0] + nx * 15, p[1] + ny * 15
         if KIND(qx, qy) != 1 or not (9 < SDF(qx, qy) < 24) or not (1.2 < H(qx, qy) < 14): continue
         if math.hypot(qx - px - 12, qy - py - 3) < 36 or any(math.hypot(qx - a, qy - b) < 14 for a, b, _ in placed): continue
-        if any(math.hypot(qx - a, qy - b) < 5.6 for a, b in rows): continue
+        if any(math.hypot(qx - a, qy - b) < 5.6 for a, b in rows) or street_d(qx, qy) < 4.5: continue
         rows.append((qx, qy)); k += 1
         yaw = math.atan2(-ny, -nx) + math.pi / 2
         house(mb, qx, qy, yaw, rr.uniform(4.8, 5.6), 7, rr.choice((2, 2, 3)), walls[k % len(walls)], roofs[(k * 5) % len(roofs)],
               H(qx, qy) - 0.2, hipped=False, chimney=rr.random() < 0.4)
-        if k % 4 == 0:                                                                   # a lamp on the quay
-            lx, ly = p[0] + nx * 7, p[1] + ny * 7; g0 = H(lx, ly)
-            if g0 > 0.5: mb.add(cyl(0.1, 4.2, 6), 'ink', M((lx, ly, g0 + 2.1))); mb.add(blob(1, (0.35,) * 3, 90 + k, 0.0), 'sun', M((lx, ly, g0 + 4.3)))
         if k % 3 == 0:                                                                   # a dinghy off the quay
             dx, dy = p[0] - nx * rr.uniform(12, 28), p[1] - ny * rr.uniform(12, 28)
             if H(dx, dy) < -1:
@@ -557,6 +757,30 @@ def build_town(coll):
                        M((dx, dy, 0.1), (0, 0, rr.uniform(0, 6.3))))
     placed += [(a, b, 6) for a, b in rows]
     log('waterfront rows', len(rows))
+    # houses lining both sides of each terrace street, fronts to the street (uphill side most, downhill side some)
+    th = []
+    for P in TERR:
+        R_ = resample(P, 1.0); T = np.gradient(R_, axis=0); acc = rr.uniform(0, 6)
+        for i in range(len(R_)):
+            acc += 1.0
+            if acc < 8.2: continue
+            t = T[i] / (np.hypot(*T[i]) + 1e-9); nx, ny = -t[1], t[0]
+            if H(*(R_[i] + (nx * 3, ny * 3))) < H(*R_[i]): nx, ny = -nx, -ny             # (n points uphill)
+            for side in ((1, -1) if rr.random() < 0.55 else (1,)):
+                w, d = rr.uniform(5.2, 7.2), rr.uniform(6, 7.4)
+                x, y = R_[i] + np.array((nx, ny)) * side * (2.0 + 0.6 + d / 2)
+                fx, fy = -nx * side, -ny * side                                            # its front faces the street
+                yaw = math.atan2(fx, -fy)
+                cz = [H(x + a * math.cos(yaw) - b * math.sin(yaw), y + a * math.sin(yaw) + b * math.cos(yaw)) for a in (-w / 2, w / 2) for b in (-d / 2, d / 2)]
+                if max(cz) - min(cz) > 4.5 or min(cz) < 1.2 or SDF(x, y) < 9: continue
+                if any(math.hypot(x - a, y - b) < c + 5 for a, b, c in placed) or any(math.hypot(x - a, y - b) < 7.0 for a, b in th): continue
+                if street_d(x, y) < 3.4: continue
+                fz = H(x + fx * (d / 2 + 0.6), y + fy * (d / 2 + 0.6))                        # (the door's floor at the street's level)
+                house(mb, x, y, yaw, w, d, rr.choice((2, 2, 3, 1)), rr.choice(walls), rr.choice(roofs), min(min(cz), fz),
+                      hipped=rr.random() < 0.2, chimney=rr.random() < 0.5)
+                th.append((x, y)); acc = 0
+    placed += [(a, b, 6) for a, b in th]
+    log('terrace houses', len(th))
     # houses up the hillside: each faces downhill toward the bay; some hipped roofs and chimneys break the rhythm
     def t(x, y, r_):
         r = math.hypot((x - tx) * 0.85, y - ty)
@@ -564,10 +788,10 @@ def build_town(coll):
         z = H(x, y)
         if not (1.2 < z < 48) or SDF(x, y) < 9 or slope(x, y) > 0.42 or KIND(x, y) in (2, 3): return None
         if math.hypot(x - px - 12, y - py - 3) < 34: return None                         # Walt's Landing yard
-        if any(math.hypot(x - a, y - b) < c + 7 for a, b, c in placed): return None
+        if any(math.hypot(x - a, y - b) < c + 7 for a, b, c in placed) or street_d(x, y) < 6.5: return None
         return 7.0
-    hs = scatter(130, (tx - 420, tx + 420, ty - 380, ty + 380), t, 12.0, 13, 120000)
-    walls = ['paper', 'cream2', 'cream2', 'peach', 'paper', 'cream3', 'sun', 'teal']; roofs = ['red', 'poppy', 'red', 'rust', 'poppy', 'blue', 'teal']
+    hs = scatter(60, (tx - 420, tx + 420, ty - 380, ty + 380), t, 12.0, 13, 120000)
+    walls = ['paper', 'cream2', 'wbutter', 'peach', 'paper', 'wrose', 'wmint', 'wsky', 'cream2', 'wlav']; roofs = ['red', 'poppy', 'red', 'rust', 'poppy', 'blue', 'teal']
     for k, (x, y, _) in enumerate(hs):
         gx = H(x + 3, y) - H(x - 3, y); gy = H(x, y + 3) - H(x, y - 3)
         yaw = math.atan2(gy, gx) - math.pi / 2 if math.hypot(gx, gy) > 0.05 else D(-90)
@@ -577,6 +801,32 @@ def build_town(coll):
         house(mb, x, y, yaw, w, d, R.choice((1, 2, 2, 3)) if k < 70 else R.choice((1, 2)), R.choice(walls), R.choice(roofs), z,
               hipped=rr.random() < 0.3, chimney=rr.random() < 0.5)
     log('houses', len(hs))
+    gm = MB(); rg = random.Random(31); nt = 0
+    def clear(x, y, r):
+        if street_d(x, y) < r + 0.6 or H(x, y) < 1.2 or SDF(x, y) < 6: return False
+        return all(math.hypot(x - hx, y - hy) > max(hw, hd) / 2 + r + 0.8 for hx, hy, _, hw, hd, _ in HOUSES if abs(x - hx) < 20 and abs(y - hy) < 20) and \
+               all(math.hypot(x - a, y - b) > c for a, b, c in placed[:len(LANDMARKS)])
+    def tree(x, y):
+        s_ = rg.uniform(1.6, 2.6); g = H(x, y); h = rg.uniform(2.6, 3.4)
+        gm.add(cyl(0.16, h, 6, 0.11), 'midwood', M((x, y, g + h / 2 - 0.3)))
+        gm.add(blob(1, (s_, s_ * rg.uniform(0.85, 1), s_ * rg.uniform(0.8, 1)), 300 + int(x * 3 + y) % 500, 0.14, 0.8), rg.choice(('leaf', 'grass2', 'tree3', 'leaf')), M((x, y, g + h + s_ * 0.5)))
+        if rg.random() < 0.25:                                                            # a blossom tree
+            gm.add(blob(1, (s_ * 0.7,) * 3, 800 + int(x) % 300, 0.18, 1.0), rg.choice(('wrose', 'flower', 'paper')), M((x + 0.6, y, g + h + s_ * 0.9)))
+    for hx, hy, yaw, hw, hd, z0 in HOUSES:
+        c, s_ = math.cos(yaw), math.sin(yaw)
+        def L(a, b): return (hx + a * c - b * s_, hy + a * s_ + b * c)
+        if rg.random() < 0.55:                                                            # a hedge along the back garden
+            bx, by = L(0, hd / 2 + 2.2)
+            if clear(bx, by, hw / 2 - 0.5):
+                gm.add(box(hw + 0.6, 0.8, 1.0), 'hedge', M((bx, by, H(bx, by) + 0.3), (0, 0, yaw)))
+        for a, b in ((hw / 2 + 2.8, hd / 2 + 1.5), (-hw / 2 - 2.8, -0.5), (hw / 2 + 2.4, -hd / 2 + 1.0)):
+            if rg.random() < 0.4:
+                x, y = L(a, b)
+                if clear(x, y, 1.2): tree(x, y); nt += 1
+    for x, y, _ in scatter(140, (tx - 330, tx + 330, ty - 320, ty + 320), lambda x, y, r_: 2.0 if KIND(x, y) == 1 and math.hypot((x - tx) * 0.85, y - ty) < 330 and clear(x, y, 2.0) else None, 9.0, 41, 40000):
+        tree(x, y); nt += 1
+    finish(gm, 'TownGardens', coll, 60); log('garden trees', nt)
+    finish(WIN, 'TownWindows', coll, 30, shadow=False); WIN = None
     return finish(mb, 'OldSaltmouth', coll, 30)
 
 
@@ -829,9 +1079,8 @@ def fbx(path, obs):
 
 def export_unity(coll, land):
     os.makedirs(WORLD, exist_ok=True)
-    for f in os.listdir(WORLD):
-        if f.startswith('PB_Island_c'): os.remove(os.path.join(WORLD, f))      # (stale cells, and their .meta)
-    split = {t: split_cells(bpy.data.objects[n], t) for n, t in (('Rocks', 'Rocks'), ('Trees', 'Trees'), ('OldSaltmouth', 'Town'))}
+    old_cells = {f for f in os.listdir(WORLD) if f.startswith('PB_Island_c') and f.endswith('.fbx')}
+    split = {t: split_cells(bpy.data.objects[n], t) for n, t in (('Rocks', 'Rocks'), ('Trees', 'Trees'), ('OldSaltmouth', 'Town'), ('TownWindows', 'Windows'), ('TownGardens', 'Garden'))}
     tx, ty = S.W(2965, 2560); cells = []
     for i in range(-6, 5):                                                       # the sheet: X -2840..2160, Y -2450..2550
         for j in range(-5, 5):
@@ -852,6 +1101,9 @@ def export_unity(coll, land):
             fn = 'PB_Island_c%d_%d.fbx' % (i, j); fbx(os.path.join(WORLD, fn), obs)
             cells.append(dict(file=fn, i=i, j=j, tris={o.name: ntris(o) for o in obs}))
             log('cell', i, j, {o.name: ntris(o) for o in obs})
+    for f in old_cells - {c['file'] for c in cells}:                              # stale cells (keep the live ones' .meta: their GUIDs)
+        for g in (f, f + '.meta'):
+            if os.path.exists(os.path.join(WORLD, g)): os.remove(os.path.join(WORLD, g))
     props = [bpy.data.objects[n] for n in ('DotsLighthouse', 'WreckOfTheMargaret', 'VossCauseway', 'VossHarbour_blocks', 'Expansion_markers', 'MarisTacoBoat')]
     for nm, p in (('socket_north', (0, 500, 0)), ('socket_east', (500, 0, 0))):  # the axis check (IMPORT-PLAN §1)
         e = bpy.data.objects.new(nm, None); e.location = p; coll.objects.link(e); props.append(e)

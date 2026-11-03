@@ -11,7 +11,7 @@ namespace PortBoss.M1
     //   -pb-maptour            the seabed sheet and the axes, then Biscuit round the island (16 legs, ~12 km, checked
     //                          against the seabed for >= 3 m of water) and back to her berth, then a walk from the office
     //                          round the 7 town shops and out to the pier ladder: no falls through, no stuck spots
-    //   -pb-mapshots <dir>     the map from the sea and from town at dawn, day, dusk and night, and the fps/draw calls at
+    //   -pb-mapshots <dir>     the map from the sea and from town in the 6 lighting states, and the fps/draw calls (day, night, storm) at
     //                          5 spots (fps.txt); -pb-mapfilm <dir>: a 60 s flight round the island and down onto the town
     public partial class Bot
     {
@@ -236,15 +236,16 @@ namespace PortBoss.M1
         {
             Ctl.Bot = true; Sleep.Off = true; yield return new WaitForSeconds(0.5f);
             Time.captureFramerate = 60; HudShown(false);   // (the look: no HUD cards over it)
-            var hours = new (string n, double h)[] { ("1-dawn", 6.5), ("2-day", 12), ("3-dusk", 20.25), ("4-night", 23.5) };
-            foreach (var hr in hours)
+            foreach (var hr in States)
             {
-                Sky.ForceWx = 1; Sky.Jump(DayTime.At(2, hr.h * 60));
+                Sky.ForceWx = hr.wx; Sky.Jump(DayTime.At(2, hr.h * 60));
                 foreach (var v in Views) { FlyCam(v.at, v.look); yield return new WaitForSeconds(0.6f); yield return Shot(hr.n + "-" + v.n); }
                 Debug.Log($"[PB] mapshots: {hr.n}: state {Sky.I.State}, brightness {LastBright:F0}");
             }
             HudShown(true);
-            yield return MapPerf();
+            var lines = new List<string>();
+            foreach (var hr in States) if (hr.n is "2-day" or "5-night" or "6-storm") yield return MapPerf(hr, lines);
+            File.WriteAllLines(Path.Combine(shots, "fps.txt"), lines);
             CameraRig.I.enabled = true;
             Debug.Log($"[PB] RESULT mapshots: {(mapFails == 0 ? "PASS" : "FAIL")}");
             Application.Quit();
@@ -252,17 +253,21 @@ namespace PortBoss.M1
 
         // fps and draw calls at 5 spots (day, fair). Batch mode has no window, so each frame renders the game camera into a
         // 1920x1080 target and waits for the GPU (no CPU/GPU overlap: slower than the real game, never kinder).
-        IEnumerator MapPerf()
+        // the 6 lighting states (as -pb-daytest): hour, weather
+        static readonly (string n, double h, int wx)[] States = { ("1-dawn", 6.5, 1), ("2-day", 12, 1), ("3-golden", 18.5, 1), ("4-dusk", 20.25, 1), ("5-night", 23.5, 1), ("6-storm", 14, 5) };
+
+        IEnumerator MapPerf((string n, double h, int wx) st, List<string> lines)
         {
-            Sky.ForceWx = 1; Sky.Jump(DayTime.At(2, 12 * 60)); Time.captureFramerate = 0;
+            Sky.ForceWx = st.wx; Sky.Jump(DayTime.At(2, st.h * 60)); Time.captureFramerate = 0;
             var spots = new (string n, Vector3 at, Vector3 look)[] {
                 ("landing (player height)", Landing.I.Spawn.position + new Vector3(0, 1.7f, 0), new(-300, 0, 0)),
                 ("town street", Places.Get("pub").position + new Vector3(0, 1.7f, 0), Places.Get("hartleys").position),
                 ("bay looking at town", new(-350, 3, -60), new(120, 15, 0)),
                 ("open sea, whole island", new(-500, 40, 2200), new(150, 40, 300)),
                 ("aerial over the hills", new(-200, 260, -900), new(300, 60, 300)) };
-            var lines = new List<string> { $"Port Boss map-import perf, {System.DateTime.Now:yyyy-MM-dd HH:mm}, {SystemInfo.graphicsDeviceName}, quality {QualitySettings.names[QualitySettings.GetQualityLevel()]}, 1920x1080, shadows {QualitySettings.shadowDistance} m",
-                "each frame = the scene camera rendered to a 1920x1080 target + a wait for the GPU (serial, pessimistic); draw items = visible renderers x materials incl. shadow casters, before SRP batching; tris incl. the shadow pass" };
+            if (lines.Count == 0) lines.AddRange(new[] { $"Port Boss map perf, {System.DateTime.Now:yyyy-MM-dd HH:mm}, {SystemInfo.graphicsDeviceName}, quality {QualitySettings.names[QualitySettings.GetQualityLevel()]}, 1920x1080, shadows {QualitySettings.shadowDistance} m",
+                "each frame = the scene camera rendered to a 1920x1080 target + a wait for the GPU (serial, pessimistic); draw items = visible renderers x materials incl. shadow casters, before SRP batching; tris incl. the shadow pass" });
+            lines.Add($"-- {st.n} ({Sky.I.State})");
             var rt = new RenderTexture(1920, 1080, 24, RenderTextureFormat.ARGB32); var c = CameraRig.I.Cam; var keep = c.targetTexture;
             using var tri = ProfilerRecorder.StartNew(ProfilerCategory.Render, "Triangles Count");
             bool allOk = true;
@@ -287,11 +292,10 @@ namespace PortBoss.M1
                 double avg = sum / n; bool ok = 1000 / avg >= 60;
                 allOk &= ok;
                 var l = $"{sp.n,-26} {1000 / avg,6:F0} fps (avg {avg:F2} ms, worst {worst:F2} ms)  draw items {items,5} ({rends} renderers)  tris {tsum / n / 1000,5}k";
-                lines.Add(l); Debug.Log("[PB] mapperf: " + l);
+                lines.Add(l); Debug.Log($"[PB] mapperf: {st.n}: " + l);
             }
             rt.Release();
-            MapCheck(allOk, "60 fps or better at all 5 spots");
-            File.WriteAllLines(Path.Combine(shots, "fps.txt"), lines);
+            MapCheck(allOk, $"{st.n}: 60 fps or better at all 5 spots");
         }
 
         // -pb-mapfilm <dir>: 60 s at 30 fps (1280x720 jpg frames; tools: ffmpeg -framerate 30 -i f_%05d.jpg): in from the
