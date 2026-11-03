@@ -59,8 +59,13 @@ namespace PortBoss.M1
             MyLevel = Mathf.MoveTowards(MyLevel, Talking ? MyLevel : 0, Time.unscaledDeltaTime * 2);
         }
 
+        // Over ~1.27 KB NGO won't send one unsplit message (it throws: code audit 3 Nov). Only a burst after a long hitch gets
+        // that big, and a Steam voice blob can't be cut up and decoded in pieces, so it's dropped (a moment of silence).
+        const int VoiceMax = 1000; public static int VoiceDropped;
+        public void TestBurst() => SendVoice(1, new byte[1500], 0.5f); // (cooptest: a burst too big for one message)
         void SendVoice(byte codec, byte[] data, float level)
         {
+            if (data.Length > VoiceMax) { if (VoiceDropped++ == 0) Debug.Log($"[PB] coop: voice burst of {data.Length} bytes dropped (over {VoiceMax})"); return; }
             lastSent = Time.time; MyLevel = Mathf.Max(MyLevel * 0.8f, level);
             voiceSeq++; VoiceSent++; VoiceBytes += data.Length;
             var seq = voiceSeq;

@@ -15,9 +15,11 @@ anything that felt wrong.
 ## 2. Getting into one crew over Steam (the main test)
 1. **Tushar:** run `PortBoss.exe`. The title menu shows. Pick **2 Host a crew on Steam**.
 2. **Tushar:** press **Esc**, then **I**. Steam's invite window opens. Invite Manan. Press Esc to close the menu.
-3. **Manan:** accept the invite in Steam. If the game isn't running yet, Steam starts it and joins you.
+3. **Manan:** start `PortBoss.exe` first and wait on the title menu, **then** accept the invite in Steam. Don't accept it
+   with the game closed: on Steam's test app (480) Steam would start "Spacewar", not Port Boss. (That works only once Port
+   Boss has its own Steam app ID.)
    - Other ways in: run `PortBoss.exe` and pick **3 Join a friend on Steam**, then choose "Tushar's crew"; or right-click
-     Tushar in your Steam friends list and pick **Join game**.
+     Tushar in your Steam friends list and pick **Join game** (also with the game already running).
 4. You should both appear on Walt's pier. Each of you sees the other's name over their head and both names in the
    **crew list** (top right).
 

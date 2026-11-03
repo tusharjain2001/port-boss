@@ -14,14 +14,15 @@ PORT=$((7800 + RANDOM % 100))
 hidden "$EXE" -batchmode -pb-host -pb-port $PORT -pb-name Host -pb-cooptest host -pb-coopn $N -pb-quit 320 -pb-voicetest "$@" -logFile "$(cygpath -m "$D/host.txt")" &
 sleep 4
 for i in $(seq 1 $N); do
-  V=""; [ $i = 3 ] && V="-pb-voice off" # (rider 3's mic is off: nothing of it must be heard)
+  V=""; [ $i = 3 ] && V="-pb-voice off -pb-solofish 1" # (rider 3's mic is off: nothing of it must be heard; it joins holding a fish caught alone)
   hidden "$EXE" -batchmode -pb-join 127.0.0.1:$PORT -pb-name Rider$i -pb-cooptest rider -pb-coopn $N -pb-quit 320 -pb-voicetest $V "$@" -logFile "$(cygpath -m "$D/rider$i.txt")" &
   [ $i = 1 ] && R1=$!
   sleep 1
 done
-# step 6: when rider 1 has quit, a new copy of it (the same name) joins again
-wait $R1
-hidden "$EXE" -batchmode -pb-join 127.0.0.1:$PORT -pb-name Rider1 -pb-cooptest rejoin -pb-coopn $N -pb-quit 120 -pb-voicetest "$@" -logFile "$(cygpath -m "$D/rider1-rejoin.txt")" &
+# step 6: rider 1 logs its hotbar and stays connected; a new copy of it (the same name) joins at once, as a player back
+# before the old connection timed out (code audit E): the host must retire the old one
+until grep -q "rejoin before" "$D/rider1.txt" 2>/dev/null || ! kill -0 $R1 2>/dev/null; do sleep 1; done
+hidden "$EXE" -batchmode -pb-join 127.0.0.1:$PORT -pb-name Rider1 -pb-cooptest rejoin -pb-coopn $N -pb-solofish 2 -pb-quit 120 -pb-voicetest "$@" -logFile "$(cygpath -m "$D/rider1-rejoin.txt")" &
 wait
 for f in "$D"/host.txt "$D"/rider*.txt; do
   echo "== $(basename "$f" .txt): exceptions $(grep -c Exception "$f")"
@@ -50,8 +51,10 @@ B=$(grep -ho "rejoin before: .*" "$D"/rider1.txt | head -1); A=$(grep -ho "rejoi
 if [ -z "$B" ] || [ -z "$A" ]; then echo "== rejoin: not measured"; else
   echo "$B|$A" | awk -F'|' '{
     split($1, b, " "); split($2, a, " ");
-    ids = (b[3] == a[3]); d = sqrt((b[5]-a[5])^2 + (b[6]-a[6])^2 + (b[7]-a[7])^2);
-    n = split(substr(b[3], 5), x, ",");
-    printf "== rejoin: hotbar %s (%d fish, the same ids), crew %s -> %s, place back within %.1f cm: %s\n", (ids ? "back" : "DIFFERENT"), (b[3] == "ids=" ? 0 : n), b[9], a[9], d * 100, (ids && b[9] == a[9] && d < 0.1 ? "PASS" : "FAIL")
+    d = sqrt((b[5]-a[5])^2 + (b[6]-a[6])^2 + (b[7]-a[7])^2);
+    n = (b[3] == "ids=") ? 0 : split(substr(b[3], 5), x, ","); m = (a[3] == "ids=") ? 0 : split(substr(a[3], 5), y, ",");
+    for (i = 1; i <= m; i++) has[y[i]] = 1; miss = 0; for (i = 1; i <= n; i++) if (!(x[i] in has)) miss++;
+    solo = a[13] + 0; kept = a[15] + 0; ids = (miss == 0 && kept == solo);
+    printf "== rejoin: hotbar %s (%d fish, the same ids; %d of %d caught alone while away kept, in the hotbar or on the deck), crew %s -> %s, place back within %.1f cm: %s\n", (ids ? "back" : "DIFFERENT"), n, kept, solo, b[9], a[9], d * 100, (ids && b[9] == a[9] && d < 0.1 ? "PASS" : "FAIL")
   }'
 fi

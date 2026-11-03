@@ -21,6 +21,12 @@ namespace PortBoss.M1
 
         IEnumerator Start()
         {
+            // -pb-solofish n: n fish caught "solo" (Id 0) in the hotbar before joining a crew (code audit P0: joining must keep them)
+            if (Arg("-pb-solofish") != null && Angler.I != null)
+            {
+                int k = (int)ArgF("-pb-solofish", 1); for (int i = 0; i < k; i++) Angler.I.Bar.Add(new Fish { Species = FishDb.All[1], Grade = 0, Cm = 77.7f + i, Kg = 0.1f }); // (77.7 cm, 78.7 ...: found again by length)
+                Debug.Log($"[PB] solo fish: {k} in my hotbar before joining (frame {Time.frameCount}, joined {Coop.Joined})");
+            }
             var ts = Arg("-pb-timescale"); if (ts != null) Time.timeScale = ArgF("-pb-timescale", 1);
             var q = Arg("-pb-quit"); if (q != null) StartCoroutine(QuitAfter(ArgF("-pb-quit", 60)));
             if (Arg("-pb-fps") != null) Time.captureFramerate = (int)ArgF("-pb-fps", 60); // -pb-fps n: game time steps 1/n s a frame, like a real PC (batch mode otherwise runs ~1000 fps)
@@ -147,6 +153,14 @@ namespace PortBoss.M1
             var crews = new HashSet<int>(); foreach (var e in c.Roster) crews.Add(e.Crew);
             Debug.Log($"[PB] coop: roster {c.Roster.Count}: {string.Join(", ", c.Roster.ConvertAll(e => $"{e.Name}={M1Assets.I.CrewNames[e.Crew]}/slot{e.Slot}"))}; me {M1Assets.I.CrewNames[Angler.Body]}");
             if (c.Roster.Count < n + 1 || crews.Count != c.Roster.Count) { fails++; Debug.Log("[PB] coop: FAIL roster incomplete or a crew member twice"); }
+            if (!host && Arg("-pb-solofish") != null)
+            {
+                // a newcomer who caught fish alone first: they're still in the hotbar, now booked by the host (Id != 0)
+                for (float w = 0; me.Bar.FishCount > 0 && FirstFish().Id == 0 && w < 10; w += Time.unscaledDeltaTime) yield return null;
+                int k = (int)ArgF("-pb-solofish", 1); bool kept = me.Bar.FishCount >= k && FirstFish() != null && FirstFish().Id != 0;
+                Debug.Log($"[PB] coop: joined holding {k} solo fish: {me.Bar.FishCount} in my hotbar, booked as id {FirstFish()?.Id}: {(kept ? "kept" : "FAIL")}");
+                if (!kept) fails++;
+            }
             int idx = c.Roster.FindIndex(e => e.Id == Coop.Me), myIdx = idx; bool shotToss = false;
             var crew = new List<Coop.Entry>(c.Roster); ulong meId = Coop.Me; // (the host leaving clears the roster and my id before the riders report)
             if (!host)
@@ -391,6 +405,8 @@ namespace PortBoss.M1
             IEnumerator Step5()
             {
                 float t5 = Time.time; AudioListener.volume = 0; // (nothing is played aloud on this PC)
+                int dropped = Coop.VoiceDropped; c.TestBurst(); // code audit F: a 1500-byte voice burst never throws, it's dropped
+                Expect5($"a 1500-byte voice burst dropped ({Coop.VoiceDropped - dropped})", Coop.VoiceDropped == dropped + 1);
                 IEnumerator Until(float t) { while (Time.time < t5 + t) yield return null; }
                 // (by name: cooptest.sh starts "Rider3" with its mic off, whatever slot it joins in; the one who swims off and
                 // talks from 20 m and 45 m is the slot-2 rider unless that's the mic-off one)
@@ -473,15 +489,14 @@ namespace PortBoss.M1
                     Debug.Log($"[PB] coop: rejoin before: ids={string.Join(",", ids)} at {l.x:F3} {l.y:F3} {l.z:F3} crew {M1Assets.I.CrewNames[Angler.Body]} slot 1");
                     yield return new WaitForSeconds(0.5f); leaveNow = true; step6On = true; yield break;
                 }
-                // the others: rider 1 goes (the list shrinks), comes back (as a new connection), the list is whole again
+                // the others: rider 1 comes back as a new connection while its old one is still open (as a quit Steam hasn't
+                // noticed yet: code audit E). The host retires the old entry at once: one Rider1, its own colour and crew
+                // member, never a stranger; the list is whole throughout
                 Expect6($"the crew list shows all {n + 1}: {NameTags.I?.CrewNames}", NameTags.I != null && NameTags.I.CrewRows == n + 1);
-                for (float w = 0; c.Roster.Count > n && w < 20; w += Time.deltaTime) yield return null;
-                yield return new WaitForSeconds(0.3f); // (the HUD redraws the list after the roster changes)
-                Expect6($"Rider1 left: the list shows {NameTags.I?.CrewRows}", c.Roster.Count == n && NameTags.I.CrewRows == n);
-                for (float w = 0; c.Roster.Count < n + 1 && w < 60; w += Time.deltaTime) yield return null;
+                for (float w = 0; !c.Roster.Exists(e => e.Name == r1.Name && e.Id != r1.Id) && w < 90; w += Time.deltaTime) yield return null;
                 yield return new WaitForSeconds(2.5f);
                 var back = c.Roster.Find(e => e.Name == r1.Name);
-                Expect6($"Rider1 is back: {NameTags.I?.CrewNames}, as {(back != null ? M1Assets.I.CrewNames[back.Crew] : "?")} in slot {back?.Slot}", back != null && back.Id != r1.Id && back.Crew == r1.Crew && back.Slot == r1.Slot && NameTags.I.CrewRows == n + 1);
+                Expect6($"Rider1 is back: {NameTags.I?.CrewNames}, as {(back != null ? M1Assets.I.CrewNames[back.Crew] : "?")} in slot {back?.Slot}", back != null && back.Id != r1.Id && back.Crew == r1.Crew && back.Slot == r1.Slot && NameTags.I.CrewRows == n + 1 && c.Roster.FindAll(e => e.Name == r1.Name).Count == 1);
                 if (host) Expect6($"the book still balances: {(c.Book.Check() == "" ? "yes" : c.Book.Check())}", c.Book.Check() == "");
                 if (host && back != null) Expect6($"Rider1's fish are booked to the new connection ({c.Book.Bar(back.Id).FishCount})", c.Book.Bar(back.Id).FishCount > 0 && !c.Book.Bars.ContainsKey(r1.Id));
                 if (host && back != null && cshots != null) yield return CoopShot("crew-list-after-rejoin", c.Mates.TryGetValue(back.Id, out var bm) ? bm.transform.position + Vector3.up * 1.2f : me.transform.position);
@@ -572,8 +587,15 @@ namespace PortBoss.M1
                 // the tiller to rider 1, then back
                 var r1 = c.Roster.Find(e => e.Slot == 1); ulong owner = 0; float ownT = -1; var at = s.transform.position;
                 var myLo = Vector3.one * 99; var myHi = -myLo;
+                bool askedAnchor = false; float stillFor = 0; var lastAt = s.transform.position;
                 for (float w = 0; w < 25; w += Time.deltaTime)
                 {
+                    // code audit D: once rider 1 has stopped the boat (still at the tiller), I ask for the anchor: the ask
+                    // goes to the driver, the boat's owner, who drops it
+                    var mv = s.transform.position - lastAt; mv.y = 0; lastAt = s.transform.position; // (it heaves on the waves even stopped)
+                    stillFor = Time.deltaTime > 0 && mv.magnitude / Time.deltaTime < 0.3f ? stillFor + Time.deltaTime : 0;
+                    if (!askedAnchor && ownT >= 0 && r1 != null && c.BoatOwner == r1.Id && Vector3.Distance(at, s.transform.position) > 3 && stillFor > 0.3f)
+                    { askedAnchor = true; Coop.Request(Coop.Ask.Anchor); Debug.Log($"[PB] coop: I asked for the anchor while {r1.Name} has the tiller"); }
                     if (c.BoatOwner != Coop.Me && ownT < 0) { owner = c.BoatOwner; ownT = w; }
                     if (ownT >= 0 && c.BoatOwner == Coop.Me && w > ownT + 3) break;
                     if (ownT >= 0 && me.OnBoat) { var l = s.transform.InverseTransformPoint(me.transform.position); myLo = Vector3.Min(myLo, l); myHi = Vector3.Max(myHi, l); Own(); }
@@ -681,6 +703,10 @@ namespace PortBoss.M1
                     for (float t = 0; t < 6; t += Time.deltaTime) { Ctl.BotSteer = 0.5f; if (Mathf.Abs(t - 4f) < Time.deltaTime) yield return CoopShot("i-drive"); yield return null; }
                     Ctl.BotSteer = 0; Ctl.BotThrottle = -1; yield return null; Ctl.BotThrottle = 0; yield return null; Ctl.BotThrottle = -1; yield return null; Ctl.BotThrottle = 0;
                     for (float w = 0; Mathf.Abs(s.Speed) > 0.05f && w < 8; w += Time.deltaTime) yield return null;
+                    // code audit D: the host asks for the anchor while I hold the tiller; it must come down on my boat
+                    for (float w = 0; !s.Anchored && w < 4; w += Time.deltaTime) yield return null;
+                    Debug.Log($"[PB] coop: the host dropped the anchor while I had the tiller: {(s.Anchored ? "ok" : "FAIL")}");
+                    if (!s.Anchored) fails++; else s.ToggleAnchor(); // (up again for the steps after)
                     me.LeaveHelm(); me.Teleport(s.transform.TransformPoint(keep), s.transform.eulerAngles.y + 90);
                     sawMove = false; idx = -1;
                 }
@@ -693,11 +719,23 @@ namespace PortBoss.M1
             if (myCasts > 0) { Debug.Log($"[PB] coop: step 3: I cast {myCasts} times, the host rolled {byHost} of the fish"); if (byHost != myCasts) fails++; }
             Debug.Log($"[PB] coop: step 4: {(step4On ? step4 : "NEVER STARTED")}"); fails += step4On ? step4Fails : 1;
             Debug.Log($"[PB] coop: step 5: {(step5On ? step5 : "NEVER FINISHED")}"); fails += step5On ? step5Fails : 1;
+            if (leaveNow)
+            {
+                // code audit E: I stay connected (a quit Steam hasn't noticed yet) while a new copy of me joins; the host must
+                // take the new one as me and close this old connection
+                bool retired = false; for (float w = 0; w < 60; w += Time.unscaledDeltaTime) { if (!Coop.On) { retired = true; break; } yield return null; }
+                Debug.Log($"[PB] coop: step 6: the host closed my old connection when the new copy of me came back: {(retired ? "ok" : "FAIL")}"); if (!retired) fails++;
+            }
             Debug.Log($"[PB] coop: step 6: {(step6On ? (leaveNow ? "I left (a new copy of me comes back)" : step6) : "NEVER FINISHED")}"); fails += step6On ? step6Fails : 1;
             if (lo.Count < n) { fails++; Debug.Log($"[PB] coop: FAIL watched only {lo.Count} crewmates under way"); }
             Debug.Log($"[PB] RESULT coop rider: {(fails == 0 ? "PASS" : fails + " FAIL")}");
             Application.Quit();
         }
+
+        Fish FirstFish() { foreach (var sl in me.Bar.S) if (sl.Fish.Count > 0) return sl.Fish[0]; return null; }
+        // the -pb-solofish fish (77.7 cm, 78.7 ...) in my hotbar, booked, or lying on the deck (no room)
+        static bool Solo(Fish f) => f.Cm > 77f && f.Cm < 90f && Mathf.Abs(f.Cm - Mathf.Round(f.Cm - 0.7f) - 0.7f) < 0.01f;
+        int SoloKept() { int k = 0; foreach (var sl in me.Bar.S) foreach (var f in sl.Fish) if (Solo(f) && f.Id != 0) k++; foreach (var p in FishPickup.All) if (p != null && Solo(p.F)) k++; return k; }
 
         // M2 step 6: rider 1 back (a new copy, the same name): its hotbar, crew member and place as it left them
         IEnumerator Rejoin(int n)
@@ -708,7 +746,7 @@ namespace PortBoss.M1
             yield return new WaitForSeconds(2f);
             var s = Skiff.I; var ids = new List<ulong>(); foreach (var sl in me.Bar.S) foreach (var f in sl.Fish) ids.Add(f.Id); ids.Sort();
             var l = s.transform.InverseTransformPoint(me.transform.position); var e = c?.Find(Coop.Me);
-            Debug.Log($"[PB] coop: rejoin after: ids={string.Join(",", ids)} at {l.x:F3} {l.y:F3} {l.z:F3} crew {M1Assets.I.CrewNames[Angler.Body]} slot {e?.Slot}");
+            Debug.Log($"[PB] coop: rejoin after: ids={string.Join(",", ids)} at {l.x:F3} {l.y:F3} {l.z:F3} crew {M1Assets.I.CrewNames[Angler.Body]} slot {e?.Slot} solo {(int)ArgF("-pb-solofish", 0)} kept {SoloKept()}");
             if (!Coop.Placed) { fails++; Debug.Log("[PB] coop: FAIL the host never put me back"); }
             if (NameTags.I == null || NameTags.I.CrewRows != n + 1) { fails++; Debug.Log($"[PB] coop: FAIL the crew list shows {NameTags.I?.CrewRows} of {n + 1}"); }
             else Debug.Log($"[PB] coop: rejoin: the crew list shows {NameTags.I.CrewNames}");

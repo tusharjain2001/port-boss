@@ -620,7 +620,8 @@ Proven headless:
   isn't shown in the tests' batch mode, and `-pb-host` / `-pb-join` still skip it.
 - **Steam** (`CoopSession.cs`): Steam starts once (`Coop.SteamUp`: the lobby, invites and the mic share it). Hosting on
   Steam makes a **friends-only lobby** (key `portboss` = `pb-m2`); friends join by the overlay invite (Esc, **I**), the
-  friends list's "Join game", `+connect_lobby` when the game was closed, or the menu's list; then NGO runs over Steam's
+  friends list's "Join game" (with the game already running: on test app 480 an invite accepted with the game closed
+  starts Spacewar, so `+connect_lobby` only works once we have our own app ID), or the menu's list; then NGO runs over Steam's
   relay with the old game's `PortBoss.Net.FacepunchTransport` (kept, Manan 2 Nov). The same Steam account twice on one
   PC falls back to LAN 127.0.0.1 (Steam can't connect to itself).
 - **Up to 4**: a fifth is turned away ("The crew is full"). **Pause menu in co-op:** I invite friends (Steam), L leave the

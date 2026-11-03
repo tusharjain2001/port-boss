@@ -100,7 +100,10 @@ namespace PortBoss.M1
             if (nm.IsServer) { if (id != nm.LocalClientId) Log($"client {id} connected"); return; }
             if (id != nm.LocalClientId || helloSent) return;
             helloSent = true; Log($"connected as client {id}");
-            Send("pb.hello", w => { w.WriteValueSafe((byte)Angler.Body); w.WriteValueSafe(myName); w.WriteValueSafe(MyKey(myName)); }, NetworkDelivery.ReliableSequenced);
+            // with the fish I hold (code audit 3 Nov, P0: the host's empty copy used to wipe a hotbar filled playing solo)
+            var mine = new List<Fish>(); if (Angler.I != null) foreach (var sl in Angler.I.Bar.S) mine.AddRange(sl.Fish);
+            Send("pb.hello", w => { w.WriteValueSafe((byte)Angler.Body); w.WriteValueSafe(myName); w.WriteValueSafe(MyKey(myName)); w.WriteValueSafe((byte)mine.Count); foreach (var f in mine) WriteFish(ref w, f); }, NetworkDelivery.ReliableSequenced);
+            Log($"hello with {mine.Count} fish of my own");
         }
 
         void Disconnected(ulong id)
@@ -116,8 +119,15 @@ namespace PortBoss.M1
                 Broadcast(); Apply();
                 return;
             }
-            // never got in (wrong address, nobody hosting, the crew full): the title menu says so
-            if (!helloSent) { Log("couldn't connect" + (string.IsNullOrEmpty(nm.DisconnectReason) ? "" : ": " + nm.DisconnectReason)); Status = string.IsNullOrEmpty(nm.DisconnectReason) ? "Couldn't connect." : nm.DisconnectReason; nm.Shutdown(); Destroy(gameObject); I = null; return; }
+            // never got in (wrong address, nobody hosting), or turned away with a reason (the crew full): the title menu and
+            // a left alert say so (the menu may be closed already: a Steam join closes it before the relay connects)
+            if (!helloSent || !string.IsNullOrEmpty(nm.DisconnectReason))
+            {
+                Log("couldn't connect" + (string.IsNullOrEmpty(nm.DisconnectReason) ? "" : ": " + nm.DisconnectReason));
+                Fail(string.IsNullOrEmpty(nm.DisconnectReason) ? "Couldn't connect." : nm.DisconnectReason);
+                Lobby?.Leave(); Lobby = null;
+                nm.Shutdown(); Destroy(gameObject); I = null; return;
+            }
             // the host is gone: back to playing alone, on our own copy of the boat
             Log("the host left");
             Alerts.Push("Crew", "The host left. You're on your own now.", Alerts.Kind.Warning);
@@ -133,11 +143,22 @@ namespace PortBoss.M1
         {
             r.ReadValueSafe(out byte wish); r.ReadValueSafe(out string name); string key = null;
             if (r.TryBeginRead(1)) r.ReadValueSafe(out key);
+            var held = new List<Fish>(); if (r.TryBeginRead(1)) { r.ReadValueSafe(out byte nf); for (int i = 0; i < nf; i++) held.Add(ReadFish(ref r)); }
             Deliver(() =>
             {
                 if (!nm.IsServer || Find(from) != null) return;
+                // back before their old connection timed out (Steam takes ~10 s to notice a quit): that old entry is them, so
+                // retire it first and they get their own things back. The host's own account again (one PC): a stranger.
+                var old = key != null ? Roster.Find(x => x.Key == key) : null;
+                if (old != null && old.Id == nm.LocalClientId) key = null;
+                else if (old != null)
+                {
+                    Log($"{old.Name} is back before their old connection closed: retiring it");
+                    KeepAway(old); Roster.Remove(old);
+                    if (BoatOwner == old.Id) { BoatOwner = nm.LocalClientId; if (Skiff.I != null) { Skiff.I.AtHelm = false; Skiff.I.TakeOver(); } }
+                    nm.DisconnectClient(old.Id);
+                }
                 if (Roster.Count >= MaxCrew) { Log($"{name} can't join: the crew is full ({MaxCrew})"); nm.DisconnectClient(from, "The crew is full."); return; }
-                if (key != null && Roster.Exists(x => x.Key == key)) key = null; // (the same account twice at once: a stranger)
                 var back = Back(key, from);
                 byte slot = back != null && !Roster.Exists(x => x.Slot == back.Slot) ? back.Slot : (byte)0;
                 if (back == null || slot != back.Slot) { slot = 0; while (Roster.Exists(x => x.Slot == slot)) slot++; }
@@ -148,13 +169,28 @@ namespace PortBoss.M1
                 if (back != null) SendPlace(from, back);
                 // the boat as it is now, so the joiner doesn't wait for the next pose to see it
                 if (Skiff.I != null && BoatOwner == nm.LocalClientId) SendBoat(Skiff.I.NetPose(Now));
-                // their hotbar (the book's) and the fish lying about
+                // their hotbar (the book's) and the fish lying about. What they brought goes into the book first: all of it
+                // for a newcomer; for a returning player only what they caught on their own while away (Id 0), the rest is
+                // the book's already. ponytail: a fish they let go while away still comes back (the book never heard);
+                // fixing that needs trusting the client's whole hotbar, or a save.
+                int took = 0; var spill = new List<ulong>(); // (no room in their hotbar: on the deck at their feet, never lost)
+                foreach (var f in held) if (back == null || f.Id == 0)
+                {
+                    var m = Book.Make(from, f.Species, f.Grade, f.Cm, f.Kg, f.CaughtAt);
+                    if (Book.Keep(from, m.Id)) took++; else if (Book.Drop(from, m.Id)) spill.Add(m.Id);
+                }
+                if (held.Count > 0) Log($"{e.Name} brought {held.Count} fish: {took} booked{(spill.Count > 0 ? $", {spill.Count} on the deck (no room)" : "")}");
                 Book.Bar(from); SendBar(from);
                 foreach (var kv in Deck) if (kv.Value != null)
                 {
                     var f = kv.Value.F; var s = Skiff.I; bool boat = s != null && kv.Value.transform.IsChildOf(s.transform);
                     var local = boat ? s.transform.InverseTransformPoint(kv.Value.transform.position) : kv.Value.transform.position;
                     SendTo(from, "pb.deck", w => { w.WriteValueSafe(true); WriteFish(ref w, f); w.WriteValueSafe(boat); w.WriteValueSafe(local); }, NetworkDelivery.ReliableSequenced);
+                }
+                if (spill.Count > 0)
+                {
+                    var s0 = Skiff.I; var at = back != null && back.Boat && s0 != null ? s0.transform.TransformPoint(back.At) : back != null ? back.At : Angler.I.transform.position;
+                    for (int i = 0; i < spill.Count; i++) DeckAdd(spill[i], Ground(at + Vector3.up * 0.5f + Quaternion.Euler(0, i * 70, 0) * Vector3.forward * 0.35f, out var g) ? g : at);
                 }
             }, true);
         }
@@ -236,7 +272,14 @@ namespace PortBoss.M1
             else I.Send("pb.ask", w => w.WriteValueSafe((byte)what), NetworkDelivery.ReliableSequenced);
         }
 
-        void OnAsk(ulong from, FastBufferReader r) { r.ReadValueSafe(out byte b); Deliver(() => Handle(from, (Ask)b), true); }
+        void OnAsk(ulong from, FastBufferReader r) { r.ReadValueSafe(out byte b); Deliver(() => { if (nm.IsServer) Handle(from, (Ask)b); else Owned((Ask)b); }, true); }
+
+        // a client driving the boat: the host forwards a crewmate's anchor, scoop or patch to the real copy, here
+        static void Owned(Ask what)
+        {
+            var s = Skiff.I; if (s == null || s.Remote) return;
+            if (what == Ask.Anchor) s.ToggleAnchor(); // (ported from pb-m3-day 35849e5, which adds Scoop and Patch here)
+        }
 
         void Handle(ulong from, Ask what)
         {
