@@ -120,7 +120,7 @@ namespace PortBoss.M1
             WalkMul = heavy ? 0.9f : 1;
             float va = heavy ? Mathf.Clamp01((float)(DayTime.OfDay(m) - DayTime.HeavyAt) / 20f) * 0.55f : 0;
             if (vignette != null) { vignette.color = new Color(0.07f, 0.09f, 0.2f, Mathf.MoveTowards(vignette.color.a, va, Time.deltaTime * 0.5f)); vignette.enabled = vignette.color.a > 0.005f; }
-            if (DayTime.PassOut(m) && passDay != day && !Skipping && !lying)
+            if (DayTime.PassOut(m) && passDay != day && !Frozen && !lying) // (a crewmate's heads-up doesn't keep you up: you still drop, and it stays one skip)
             {
                 passDay = day; passedOut = true;
                 Log($"passed out at {DayTime.Clock(m)}{(me.Swimming ? " (swimming)" : me.AtHelm ? " (at the tiller)" : "")}");
