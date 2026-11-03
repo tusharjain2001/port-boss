@@ -62,6 +62,7 @@ namespace PortBoss.M1
             else if (Arg("-pb-tosstest") != null) yield return TossTest();
             else if (Arg("-pb-menutest") != null) yield return MenuTest(Arg("-pb-menutest"));
             else if (DayTests() is IEnumerator m3) yield return m3; // M3 (BotDay.cs)
+            else if (MapTests() is IEnumerator mt) yield return mt; // Map B (BotMap.cs)
         }
 
         // -pb-menutest host|join [-pb-menuaddr <address>] [-pb-menushots <dir>] (tools/menutest.sh, M2 step 6): plays the

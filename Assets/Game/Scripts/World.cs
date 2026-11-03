@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace PortBoss.M1
 {
-    // Walt's Landing: grandpa's pier, his shack and the bit of shore (Blender: art-src/m1/build_boat_landing.py).
+    // Walt's Landing: grandpa's pier and his shack (Blender: art-src/m1/build_boat_landing.py), on map B's town shore.
     public class Landing : MonoBehaviour
     {
         public static Landing I;
@@ -13,34 +13,16 @@ namespace PortBoss.M1
         {
             if (prefab == null) return Placeholder(toon);
             var g = Instantiate(prefab); g.name = "WaltsLanding";
+            // on map B the island is the ground: M1's own islet (its land, ground collider and rock boxes) goes, and the
+            // landing stands at its map spot on the town shore
+            foreach (var t in Util.FindAll(g.transform, n => n == "Land" || n == "Ground_col" || (n.StartsWith("Rock") && n.EndsWith("_colBox")))) DestroyImmediate(t.gameObject);
+            Map.PlaceLanding(g.transform);
             Util.Colliders(g); Util.Toon(g, toon);
-            // A sea floor under the landing that slopes away into the deep (look audit 3 Nov: where the modelled seabed ends,
-            // ~4 m down, the sea turned bottomless at once, and the water drew that step as a hard dark oval by the pier end).
-            // Flat just under the land's lowest point (-4 m) beneath the model, then down to -30 m over 80 m all round.
-            var lb = new Bounds(g.transform.position, Vector3.zero); foreach (var r in g.GetComponentsInChildren<MeshRenderer>()) lb.Encapsulate(r.bounds);
-            var bed = new GameObject("SeabedFill"); bed.AddComponent<MeshFilter>().sharedMesh = Seabed(lb, -4.3f, -30f, 80f);
-            var br = bed.AddComponent<MeshRenderer>(); var bm = new Material(toon); bm.SetColor("_BaseColor", Ponyo.Hex("7C7690")); br.sharedMaterial = bm; br.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            bed.transform.SetParent(g.transform, true);
             var l = g.AddComponent<Landing>(); I = l;
             l.Moor = Util.Find(g.transform, "socket_moor"); l.Spawn = Util.Find(g.transform, "socket_spawn");
             l.LadderTop = Util.Find(g.transform, "socket_pier_ladder_top"); l.LadderBottom = Util.Find(g.transform, "socket_pier_ladder_bottom");
             foreach (var r in g.GetComponentsInChildren<MeshRenderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
             return l;
-        }
-
-        // world-space: the land's footprint flat at `top`, a skirt out `wide` m on every side sloping down to `deep`
-        static Mesh Seabed(Bounds b, float top, float deep, float wide)
-        {
-            Vector3 C(float x, float z, float y) => new(x, y, z);
-            float x0 = b.min.x, x1 = b.max.x, z0 = b.min.z, z1 = b.max.z;
-            var v = new[] { C(x0, z0, top), C(x0, z1, top), C(x1, z1, top), C(x1, z0, top),
-                            C(x0 - wide, z0 - wide, deep), C(x0 - wide, z1 + wide, deep), C(x1 + wide, z1 + wide, deep), C(x1 + wide, z0 - wide, deep) };
-            var t = new List<int> { 0, 1, 2, 0, 2, 3 };
-            for (int k = 0; k < 4; k++) { int a = k, b2 = (k + 1) % 4, c = 4 + (k + 1) % 4, d = 4 + k; t.AddRange(new[] { a, d, c, a, c, b2 }); }
-            for (int i = 0; i < t.Count; i += 3) // every face up (seen from above)
-                if (Vector3.Cross(v[t[i + 1]] - v[t[i]], v[t[i + 2]] - v[t[i]]).y < 0) (t[i + 1], t[i + 2]) = (t[i + 2], t[i + 1]);
-            var m = new Mesh { name = "seabed", vertices = v, triangles = t.ToArray() }; m.RecalculateNormals(); m.RecalculateBounds();
-            return m;
         }
 
         // A plain plank pier when the Blender landing isn't in the build (so the boat and fishing can still be tested).

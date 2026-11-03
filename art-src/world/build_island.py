@@ -236,22 +236,42 @@ def terrain(name, x0, x1, y0, y1, step, coll, seed):
     xs = np.arange(x0, x1 + step / 2, step); ys = np.arange(y0, y1 + step / 2, step)
     GX, GY = np.meshgrid(xs, ys); rng = np.random.RandomState(seed); j = step * 0.3
     GX = GX + rng.uniform(-j, j, GX.shape); GY = GY + rng.uniform(-j, j, GY.shape)   # break the grid: hand-made, not CG-regular
+    return terrain_mesh(name, GX, GY, coll)
+
+
+def terrain_mesh(name, GX, GY, coll, floor=-6.0, keep_z=-1.0, skirt=0.0):
+    """The terrain on a (jittered) grid: tris that reach above keep_z, the floor clamped, palette colour per face.
+    skirt > 0: a curtain that far down along the grid's 4 edges (both windings), hiding cracks between cells at different LODs."""
     Z = samp(F['h'], GX, GY)
-    Z = np.maximum(Z, -6.0)
+    Z = np.maximum(Z, floor)
     ny, nx = GX.shape; idx = np.arange(nx * ny).reshape(ny, nx)
     a, b, c, d = idx[:-1, :-1], idx[:-1, 1:], idx[1:, 1:], idx[1:, :-1]
-    zf = Z.ravel()
-    keep = np.maximum.reduce([zf[a], zf[b], zf[c], zf[d]]) > -1.0     # only what meets the waterline
+    zf = Z.ravel(); XS, YS = GX.ravel(), GY.ravel()
+    keep = np.maximum.reduce([zf[a], zf[b], zf[c], zf[d]]) > keep_z     # only what meets the waterline (or the shallows)
     alt = ((np.add.outer(np.arange(ny - 1), np.arange(nx - 1))) % 2 == 0)
     t1 = np.where(alt[..., None], np.stack([a, b, c], -1), np.stack([a, b, d], -1))
     t2 = np.where(alt[..., None], np.stack([a, c, d], -1), np.stack([b, c, d], -1))
     tris = np.concatenate([t1[keep], t2[keep]])
+    if not len(tris): return None
+    if skirt > 0:
+        on = np.zeros(nx * ny, bool); on[tris.ravel()] = True; ev, et = [], []
+        for side in (idx[0, :], idx[:, -1], idx[-1, ::-1], idx[::-1, 0]):
+            for p, q in zip(side[:-1], side[1:]):
+                if on[p] and on[q]:              # one winding on the grid's own edge verts, the other on copies (validate() merges twins)
+                    k = nx * ny + len(ev); ev += [(p, skirt), (q, skirt), (p, 0), (q, 0), (p, skirt), (q, skirt)]
+                    et += [(p, q, k + 1), (p, k + 1, k), (k + 2, k + 5, k + 3), (k + 2, k + 4, k + 5)]
+        if ev:
+            src = np.array([e[0] for e in ev]); dz = np.array([e[1] for e in ev])
+            XS = np.concatenate([XS, XS[src]]); YS = np.concatenate([YS, YS[src]]); zf = np.concatenate([zf, zf[src] - dz])
+            tris = np.concatenate([tris, np.array(et)])
     used, inv = np.unique(tris, return_inverse=True); tris = inv.reshape(-1, 3)
-    V = np.stack([GX.ravel()[used], GY.ravel()[used], zf[used]], -1)
+    V = np.stack([XS[used], YS[used], zf[used]], -1)
     me = bpy.data.meshes.new(name); me.vertices.add(len(V)); me.vertices.foreach_set('co', V.astype(np.float32).ravel())
     me.loops.add(len(tris) * 3); me.loops.foreach_set('vertex_index', tris.astype(np.int32).ravel())
     me.polygons.add(len(tris)); me.polygons.foreach_set('loop_start', np.arange(0, len(tris) * 3, 3, dtype=np.int32))
     me.update(); me.validate()
+    if len(me.polygons) != len(tris):        # validate() dropped degenerate faces: colour what is left
+        vi = np.zeros(len(me.loops), np.int32); me.loops.foreach_get('vertex_index', vi); tris = vi.reshape(-1, 3)
     # per-face palette colour from the centroid: height, slope, sand/rock, town, Voss, the Cut
     P = V[tris]; cen = P.mean(1); nrm = np.cross(P[:, 1] - P[:, 0], P[:, 2] - P[:, 0])
     nz = np.abs(nrm[:, 2]) / (np.linalg.norm(nrm, axis=1) + 1e-9)
@@ -494,6 +514,8 @@ LANDMARKS = {1: ("Hook, Line & Sinker", lm_tackle), 2: ("Doyle Boatworks", lm_bo
              7: ("Post office + Nell's", lm_post), 8: ("Hartley's Outfitters", lm_outfitters)}
 PIN8 = (3045, 2505)                    # Hartley's: no pin on map B; on the high street between the pub and the market
 LABELS = []                            # (name, world point) for the labelled overhead
+SHOP_SPOTS = []                        # (n, name, x, y, ground z, yaw) of each landmark as built (the game's anchors)
+LIGHTHOUSE = []                        # (x, y, ground z)
 
 
 def build_town(coll):
@@ -502,7 +524,8 @@ def build_town(coll):
         mx, my = S.SHOPS[n][1] if n in S.SHOPS else PIN8
         x, y = inland(mx - (45 if n == 6 else 0), my, 10)          # Swell Surf: 45 m west, off the Cut's bank
         z = min(H(x + a, y + b) for a in (-6, 6) for b in (-5, 5))
-        top = fn(mb, x, y, z, D(-90 + rr.uniform(-5, 5)))
+        yaw = D(-90 + rr.uniform(-5, 5)); top = fn(mb, x, y, z, yaw)
+        SHOP_SPOTS.append((n, name, x, y, z, yaw))
         placed.append((x, y, 13)); LABELS.append((name, (x, y, top))); log('landmark', n, name, 'at (%.0f, %.0f) z %.1f' % (x, y, z))
     LABELS.append(("Walt's Landing (our dock)", (px - 16, py, 4)))
     # the waterfront: terrace rows of narrow, bright houses along the town shore, lamps, dinghies at their moorings
@@ -572,7 +595,7 @@ def build_maris(coll, land):
 
 def build_lighthouse(coll):
     """Dot's lighthouse: 26 m of red and white bands on the north horn's knoll, so it reads from the bay mouth."""
-    mb = MB(); x, y = inland(*S.PLACES['lighthouse'], 16); g = H(x, y)
+    mb = MB(); x, y = inland(*S.PLACES['lighthouse'], 16); g = H(x, y); LIGHTHOUSE.append((x, y, g))
     mb.add(blob(1, (9, 8, 3), 41, 0.15), 'rock2', M((x, y, g - 1.0)))
     for k in range(6):
         h0 = g + 4.0 * k; r0, r1 = 4.0 - 0.2 * k, 4.0 - 0.2 * (k + 1)
@@ -766,14 +789,116 @@ def shoot(cam, name, loc, target, lens=35, res=(1920, 1080), ortho=None, haze=(2
 def W3(mx, my, z): x, y = S.W(mx, my); return (x, y, z)
 
 
+# ---------------------------------------------------------------- export to Unity (IMPORT-PLAN.md): -- export
+# Assets/Game/Art/World/: PB_Island_c<i>_<j>.fbx per 512 m cell (Terrain_LOD0/1/2 re-sampled from the heightfield with
+# skirts, + that cell's share of Rocks / Trees / Town), PB_World_Props.fbx (lighthouse, wreck, causeway, Voss, P1-P3
+# buoys, Mari's boat, the axis check sockets), PB_World.json (the Landing's spot, the named anchors, tris per cell) and
+# PB_Seabed.png (the seabed). Every mesh is in world coordinates; the FBX axes are M1's, so Unity gives the root a 180°
+# yaw (Blender (x, y, z) -> Unity (x, z, y), north = +Z). The game builds the LODGroups and colliders from the names.
+EXPORT = 'export' in ARGV
+WORLD = os.path.join(ART, 'World'); CELL = 512.0
+
+
+def U(p): return [round(float(p[0]), 3), round(float(p[2]), 3), round(float(p[1]), 3)]     # Blender world -> Unity world
+def UF(dx, dy): l = math.hypot(dx, dy) or 1; return [round(dx / l, 4), round(dy / l, 4)]   # a heading -> Unity (x, z)
+def ntris(o): return sum(len(p.vertices) - 2 for p in o.data.polygons) if o.type == 'MESH' else 0
+
+
+def split_cells(ob, tag):
+    """One object -> one per 512 m cell, by face centre (a house on a cell edge ends up in two objects: invisible)."""
+    me = ob.data; cen = np.zeros(len(me.polygons) * 3, np.float32); me.polygons.foreach_get('center', cen)
+    keys = np.floor(cen.reshape(-1, 3)[:, :2] / CELL).astype(int); out = {}
+    for key in sorted({tuple(k) for k in keys}):
+        bm = bmesh.new(); bm.from_mesh(me); bm.faces.ensure_lookup_table()
+        off = np.nonzero(~((keys[:, 0] == key[0]) & (keys[:, 1] == key[1])))[0]
+        bmesh.ops.delete(bm, geom=[bm.faces[i] for i in off], context='FACES')
+        nm = bpy.data.meshes.new('c%d_%d_%s' % (key[0], key[1], tag)); bm.to_mesh(nm); bm.free()
+        for m in me.materials: nm.materials.append(m)
+        o = bpy.data.objects.new(nm.name, nm); bpy.context.scene.collection.objects.link(o); out[key] = o
+    return out
+
+
+def fbx(path, obs):
+    bpy.ops.object.select_all(action='DESELECT')
+    for o in obs: o.select_set(True)
+    bpy.context.view_layer.objects.active = obs[0]
+    bpy.ops.export_scene.fbx(filepath=path, use_selection=True, object_types={'MESH', 'EMPTY'}, axis_forward='-Z', axis_up='Y',
+                             apply_scale_options='FBX_SCALE_ALL', bake_space_transform=True, apply_unit_scale=True,
+                             mesh_smooth_type='FACE', use_mesh_modifiers=True, add_leaf_bones=False, colors_type='SRGB')
+
+
+def export_unity(coll, land):
+    os.makedirs(WORLD, exist_ok=True)
+    for f in os.listdir(WORLD):
+        if f.startswith('PB_Island_c'): os.remove(os.path.join(WORLD, f))      # (stale cells, and their .meta)
+    split = {t: split_cells(bpy.data.objects[n], t) for n, t in (('Rocks', 'Rocks'), ('Trees', 'Trees'), ('OldSaltmouth', 'Town'))}
+    tx, ty = S.W(2965, 2560); cells = []
+    for i in range(-6, 5):                                                       # the sheet: X -2840..2160, Y -2450..2550
+        for j in range(-5, 5):
+            x0, y0 = i * CELL, j * CELL
+            near = math.hypot(max(x0 - tx, 0, tx - x0 - CELL), max(y0 - ty, 0, ty - y0 - CELL)) < 420   # town + landing: finer
+            obs = []
+            for L, n in enumerate((128 if near else 86, 43, 21)):                # LOD0 4 m (town) / 6 m, LOD1 12 m, LOD2 24 m
+                step = CELL / n; GX, GY = np.meshgrid(x0 + np.arange(n + 1) * step, y0 + np.arange(n + 1) * step)
+                rng = np.random.RandomState(7919 * (i + 50) + 104729 * (j + 50) + L); jit = step * 0.3
+                JX, JY = rng.uniform(-jit, jit, GX.shape), rng.uniform(-jit, jit, GX.shape)
+                for J_ in (JX, JY): J_[[0, -1], :] = 0; J_[:, [0, -1]] = 0          # edges stay on the grid: seams match
+                # the floor only where the water is shallow enough to show it (DepthDist 6: past ~7 m the sea is opaque)
+                ob = terrain_mesh('c%d_%d_Terrain_LOD%d' % (i, j, L), GX + JX, GY + JY, coll, floor=-10.0, keep_z=-9.0, skirt=2.0)
+                if ob is None: break
+                obs.append(ob)
+            obs += [s[(i, j)] for s in split.values() if (i, j) in s]
+            if not obs: continue
+            fn = 'PB_Island_c%d_%d.fbx' % (i, j); fbx(os.path.join(WORLD, fn), obs)
+            cells.append(dict(file=fn, i=i, j=j, tris={o.name: ntris(o) for o in obs}))
+            log('cell', i, j, {o.name: ntris(o) for o in obs})
+    props = [bpy.data.objects[n] for n in ('DotsLighthouse', 'WreckOfTheMargaret', 'VossCauseway', 'VossHarbour_blocks', 'Expansion_markers', 'MarisTacoBoat')]
+    for nm, p in (('socket_north', (0, 500, 0)), ('socket_east', (500, 0, 0))):  # the axis check (IMPORT-PLAN §1)
+        e = bpy.data.objects.new(nm, None); e.location = p; coll.objects.link(e); props.append(e)
+    fbx(os.path.join(WORLD, 'PB_World_Props.fbx'), props)
+    # the named anchors (M4 places people and counters on them): on the ground in front of each door, fwd = out of the door
+    A = []
+    def anchor(id_, name, p, f, ground=True): A.append(dict(id=id_, name=name, pos=U(p), fwd=UF(*f), ground=ground))
+    ids = {1: 'tackle', 2: 'doyle', 3: 'plank', 4: 'pub', 5: 'pratts', 6: 'surf', 7: 'post', 8: 'hartleys'}
+    door = {1: 4.6, 2: 11.0, 3: 5.6, 4: 5.6, 5: 6.8, 6: 3.6, 7: 5.2, 8: 5.2}     # half the building's depth + 1 m
+    for n, name, x, y, z, yaw in SHOP_SPOTS:
+        fx, fy = math.sin(yaw), -math.cos(yaw)                                   # the front is local -Y
+        ax, ay = x + fx * door[n], y + fy * door[n]; anchor(ids[n], name, (ax, ay, H(ax, ay)), (fx, fy))
+    Lm = land.matrix_world; R3 = Lm.to_3x3()
+    def lp(x, y, z=0.0): return tuple(Lm @ Vector((x, y, z)))
+    def ld(x, y): d = R3 @ Vector((x, y, 0)); return (d.x, d.y)
+    anchor('office', "Walt's shack (the office)", lp(-5.38, 11.2), ld(0, -1))
+    anchor('mari_mooring', "Mari's mooring (the pier beside her boat)", lp(-1.1, -14.5, 1.3), ld(-1, 0))
+    anchor('mari_boat', "Mari's taco boat", lp(-3.3, -14.5, 0.0), ld(0, -1), ground=False)
+    lx, ly, lg = LIGHTHOUSE[0]; anchor('lighthouse', "Dot's lighthouse (harbour master)", (lx + 8, ly - 10, lg), (0, -1))
+    cx, cy = S.W(2641, 3452); anchor('cut', "Walt's Cut (the Voss Causeway)", (cx, cy, 2.0), (1, 0))
+    for id_, key in (('bay_shallows', 'Bay Shallows'), ('gullrock', 'Gullrock'), ('lantern_key', 'Lantern Key'), ('wreck', 'Wreck of the Margaret'),
+                     ('breaker_point', 'Breaker Point surf'), ('sorrel', 'Sorrel Isle'), ('mango_cay', 'Mango Cay'), ('voss', 'Voss Harbour (round the south horn)')):
+        x, y = S.W(*S.TARGETS[key][0]); anchor(id_, key, (x, y, 0.0), (1, 0), ground=False)
+    for k, (x0, y0, w, h) in S.EXPANSION.items():
+        x, y = S.W(x0 + w / 2, y0 + h / 2); anchor(k.lower(), 'Expansion site ' + k, (x, y, 0.0), (1, 0), ground=False)
+    px, py = S.PIER_ROOT
+    j = dict(cell=CELL, landing=dict(pos=U((px - 10, py, 0)), yaw=-90.0),      # Blender -90° about Z = Unity yaw -90°
+             seabed=dict(x0=S.XW, z0=S.YN - S.SIZE, size=S.SIZE, hmin=-160.0, hmax=240.0, px=S.N),
+             anchors=A, cells=cells, props={o.name: ntris(o) for o in props})
+    import json; json.dump(j, open(os.path.join(WORLD, 'PB_World.json'), 'w'), indent=1)
+    shutil.copy2(os.path.join(SEABED, 'seabed_2048.png'), os.path.join(WORLD, 'PB_Seabed.png'))
+    tot = sum(sum(c['tris'].values()) for c in cells)
+    log('EXPORTED', len(cells), 'cells,', tot, 'tris in all LODs;', len(A), 'anchors ->', WORLD)
+
+
 def main():
     bpy.ops.wm.read_factory_settings(use_empty=True)
     coll = bpy.data.collections.new('CrescentBay'); bpy.context.scene.collection.children.link(coll)
-    terrain('Island', -1150 - S.HORN, 1700, -1300, 1300, 6.0, coll, 1)
-    for k, (mx, my, rx, ry) in S.ISLETS.items():
-        x, y = S.W(mx, my); terrain('Islet_' + k, x - rx - 120, x + rx + 120, y - ry - 120, y + ry + 120, 4.0, coll, 2)
+    if not EXPORT:
+        terrain('Island', -1150 - S.HORN, 1700, -1300, 1300, 6.0, coll, 1)
+        for k, (mx, my, rx, ry) in S.ISLETS.items():
+            x, y = S.W(mx, my); terrain('Islet_' + k, x - rx - 120, x + rx + 120, y - ry - 120, y + ry + 120, 4.0, coll, 2)
     rocks = build_rocks(coll); build_trees(coll); build_town(coll); build_lighthouse(coll); build_wreck(coll); build_cut(coll)
-    build_voss(coll); build_expansion(coll); build_foam(coll, rocks)
+    build_voss(coll); build_expansion(coll)
+    if EXPORT:                      # (no foam stand-ins or clouds: the game's water shader and sky do those)
+        land, boat, moor = place_landing(); build_maris(coll, land); export_unity(coll, land); return
+    build_foam(coll, rocks)
     LABELS.append(("Gullrock reef", S.W(2250, 2550) + (14,)))
     clouds = build_clouds(coll)
     land, boat, moor = place_landing(); build_maris(coll, land)

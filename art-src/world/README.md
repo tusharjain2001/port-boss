@@ -1,7 +1,7 @@
 # Crescent Bay (map B): the island blockout
 
 The final map, built from code at true scale (1 unit = 1 m). This is a blockout to judge the shape and look before any Unity
-work. Nothing here is imported into Unity yet.
+work. **In the game since 3 Nov:** `build_island.py -- export` writes `Assets/Game/Art/World/` (IMPORT-PLAN.md §9).
 
 | File | What |
 |---|---|

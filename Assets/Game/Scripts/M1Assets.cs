@@ -14,6 +14,7 @@ namespace PortBoss.M1
         public GameObject[] Crew; public string[] CrewNames; // every kit body built so far (art-src/kit), Pip first: F9 / -pb-body
         public Vector2[] CrewBelly;                          // each body's belly: how far it sticks out in front, half its width (m)
         public string[] FishIds; public GameObject[] Fish;
+        public GameObject[] Cells; public GameObject WorldProps; public TextAsset WorldJson; public Texture2D Seabed; // map B (Art/World, Map.cs)
         public TextAsset FishCsv;
         public AnimationClip Idle, Walk, Run, Sprint, Jump, Land, SwimIdle, Swim, Climb, Drive;
         public AnimationClip JumpUp, Throw, GetUpBack, GetUpFront, FallIn; // the feel pass's Mixamo clips (Jumping Up, Frisbee Throw, Getting Up, Standing Up, Falling Into Pool)

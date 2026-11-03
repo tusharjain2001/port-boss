@@ -1,4 +1,4 @@
-# Crescent Bay into Unity: the import plan (plan only, nothing built)
+# Crescent Bay into Unity: the import plan (steps 1-5 built 3 Nov: §9)
 
 How the Blender blockout (`art-src/world/`) becomes the game world later. It follows the gdd: systems §4.2 (streaming),
 §4.3 (water and seabed), §4.7 / §4.8.4 (budgets) and §4.8.6 ("Blender is the level editor"), and world §8.5. Nothing here
@@ -142,3 +142,30 @@ has the numbers).
   the defaults now. Record: `proof/map-b/ridge-140-vs-220.png`, `proof/map-b/voss-distance-variant.png`.
 - Where Hartley's stands (map B has no pin for it), and whether Mari's boat shows from Day 1 or only from Day 3, as the
   story says.
+
+## 9. What was built (3 Nov, branch `panoptes/w-pb-map-import`; Manan tests it with M4)
+
+Steps 1-5 above in one branch (Manan's call: the whole map in at once, judged together with M4). The art is still the
+blockout: no new art pass.
+
+- **Export:** `blender -b --factory-startup -P art-src/world/build_island.py -- export norender` (~35 s) writes
+  `Assets/Game/Art/World/`: 40 cell FBX `PB_Island_c{i}_{j}.fbx` (512 m cells over the 5 x 5 km sheet; the terrain
+  re-sampled per cell at LOD0 86 x 86 (128 in town), LOD1 43, LOD2 21, edges un-jittered + a 2 m skirt so neighbours
+  and LODs meet without cracks; terrain kept only where it reaches above -9 m: deeper, the water hides it), plus that
+  cell's rocks, trees and town; `PB_World_Props.fbx` (lighthouse, wreck, causeway, Voss blocks + buoy line, P1-P3 buoys,
+  Mari's boat, axis sockets); `PB_World.json` (the landing's spot, the seabed rect, 24 named anchors); `PB_Seabed.png`.
+- **Unity:** `M1Build` loads them into `M1Assets` (the seabed as R16, readable, no mips); `Map.cs` builds the world at
+  start: every cell (a LODGroup 0.55 / 0.22 / never culled; colliders on terrain LOD0, rocks and town, none on trees),
+  the props (mesh colliders), `Places` (`Places.Get("pratts")` etc.: an `anchor_<id>` on the ground in front of each
+  door, +Z out of it) and `Seabed` (`Seabed.Height/Depth(x, z)` on the CPU; `_PBSeabed*` globals for `PB_Water`, whose
+  depth colour now reads the texture; screen depth only for contact foam). Walt's Landing drops its `Land` islet and
+  stands at the pier root. `Game.cs`'s code-made horizon islands and seabed bowl are gone.
+- **Streaming: not built.** All 40 cells load at start (LOD0 ~462k tris for the whole map, ~0.76-1.13 M drawn incl.
+  shadows, 148-195 fps serial on the RTX 2060): additive cell scenes when the map outgrows that.
+- **Heightfield change:** Walt's yard (1.25 m) now reaches 3 m past the shoreline (`island_shape.py`), or the shack's
+  door step sank under the sea once the terrain's 4 m cells smeared the step.
+- **Anchors** (ids for M4): tackle, doyle, plank, pub, pratts, surf, post, hartleys, office, mari_mooring, mari_boat,
+  lighthouse, cut; sea spots bay_shallows, gullrock, lantern_key, wreck, breaker_point, sorrel, mango_cay, voss, p1-p3.
+- **Tests:** `-pb-maptour` (the seabed at 7 spots vs the PNG, the axes, Biscuit round the island by 20 legs outside the
+  Voss buoy line and moored back, then an A* walk office -> 7 shops -> pier ladder), `-pb-mapshots <dir>` (5 views x
+  dawn/day/dusk/night + `fps.txt`), `-pb-mapfilm <dir>` (60 s flight), `-pb-mapview <dir> -pb-views "n:x,y,z>lx,ly,lz;..."`.

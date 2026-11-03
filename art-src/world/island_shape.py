@@ -226,6 +226,9 @@ def heightfield(n=N, cut_open=False, sdf_n=1024):
     rr = np.hypot(X - (XW + SIZE / 2), Y - (YN - SIZE / 2))                          # a round deep rim toward the sheet
     depth = np.maximum(depth, 150 * sstep(2100, 2600, rr) * sstep(60, 250, s))       # edge: the texture clamps to ocean
     h = np.where(sdf > 0, land, -depth)
+    # Walt's yard reaches 3 m past the shoreline (dry ground at the shack's door and the pier's root, as in M1), then
+    # slopes down to the berth's 2.6 m by 7 m out (the terrain's 4 m cells would otherwise smear the 1.25 m step under water)
+    h = h + (1.25 - h) * yard * sstep(-7, -3, sdf) * (sdf <= 0)
     bw = 1 - sstep(10, 34, db)
     h = np.maximum(h, -depth + (3.5 + depth) * bw)
     kind[(db < 22) & (h > -1)] = 4

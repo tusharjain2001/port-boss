@@ -64,6 +64,8 @@ Shader "PortBoss/M1/Water"
             CBUFFER_END
             float4 _PBSeaCam; // the camera the CPU wave sampler uses (Sea.cs sets it each frame)
             float4x4 _PBHullW2L; float4 _PBHull; // Biscuit's world->local and hull half size (x, z) + gunwale y (Skiff sets them)
+            // map B's seabed (Seabed.cs): height = r * _PBSeabedH.y + _PBSeabedH.x over the rect (x0, z0, 1/size, 1/size)
+            TEXTURE2D(_PBSeabed); SAMPLER(sampler_PBSeabed); float4 _PBSeabedRect, _PBSeabedH;
 
             struct A { float4 pos : POSITION; };
             struct V { float4 cs : SV_POSITION; float3 ws : TEXCOORD0; float3 n : TEXCOORD1; float4 sp : TEXCOORD2; float h : TEXCOORD3; float fog : TEXCOORD4; };
@@ -131,7 +133,15 @@ Shader "PortBoss/M1/Water"
                 float3 scenePos = _WorldSpaceCameraPos + (i.ws - _WorldSpaceCameraPos) * (sceneEye / max(surf, 1e-3));
                 float vdepth = raw <= 0.0001 || raw >= 0.9999 ? 1000 : max(i.ws.y - scenePos.y, 0);
 
-                float absorb = Band(saturate(1 - exp(-vdepth / _DepthDist)));
+                // the colour follows the seabed texture's depth (smooth, the same wherever the land meshes end: no dark
+                // ovals where a modelled floor stops); the depth buffer still rings piles, hulls, rocks and the shore
+                float tdepth = vdepth;
+                if (_PBSeabedH.y > 0)
+                {
+                    float2 suv = (i.ws.xz - _PBSeabedRect.xy) * _PBSeabedRect.zw;
+                    tdepth = max(-(SAMPLE_TEXTURE2D(_PBSeabed, sampler_PBSeabed, suv).r * _PBSeabedH.y + _PBSeabedH.x), 0);
+                }
+                float absorb = Band(saturate(1 - exp(-tdepth / _DepthDist)));
                 float3 body = lerp(_Shallow.rgb, _Deep.rgb, absorb);
                 float3 col = lerp(scene * _Shallow.rgb, body, saturate(absorb + _MinOpacity));
 
@@ -157,7 +167,7 @@ Shader "PortBoss/M1/Water"
 
                 // contact foam: a crisp, broken white band where the hull, pilings and shore meet the water
                 float fn = LDNoise(i.ws.xz * _FoamScale + _LDTime * 0.2) * 0.6 + LDNoise(i.ws.xz * _FoamScale * 2.3) * 0.4;
-                float contact = 1 - saturate(vdepth / _FoamDist);
+                float contact = 1 - saturate(min(vdepth, tdepth + 0.15) / _FoamDist);
                 float foam = smoothstep(fn - _FoamSharp, fn + _FoamSharp, contact * 1.1);
                 // crest foam only where a wave is steeper than the threshold (none on a calm Clear sea)
                 float steep = 1 - i.n.y;
