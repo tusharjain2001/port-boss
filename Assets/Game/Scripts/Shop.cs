@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -267,7 +268,7 @@ namespace PortBoss.M1
             var c = Firm.C; var me = Angler.I; Buyer b = stall.K == Firm.Kind.Pratt ? Buyer.Pratt : Buyer.Mari; float RW = W - 2 * Pad; double m = Sky.Minutes;
             float y = 4;
             string head = b == Buyer.Pratt ? "Pratt pays 60% of a fish's worth. Less for the same fish again today." : $"Mari pays 100% for everyday fish · {Market.MariDaily - c.MariToday} more today";
-            T(list, head, UiKit.Body, 16, Ponyo.InkSoft, 2, y, RW, 24); y += 34;
+            T(list, head, UiKit.Body, 16, Ponyo.InkSoft, 2, y, RW - 320, 44); y += 58;     // (Sell all sits on the right of this line)
             var all = new List<Fish>(); int total = 0; int left = b == Buyer.Mari ? Market.MariDaily - c.MariToday : int.MaxValue;
             bool any = false;
             for (int si = 0; si < me.Bar.S.Length; si++)
@@ -288,7 +289,7 @@ namespace PortBoss.M1
                 if (p != null)
                 {
                     int sum = 0; foreach (var x in p) sum += x; total += sum; all.AddRange(ok); left -= ok.Count;
-                    string each = p.Length == 1 || Array.TrueForAll(p, x => x == p[0]) ? $"${p[0]} each" : $"${p[^1]}–${p[0]} each";
+                    int lo = p.Min(), hi = p.Max(); string each = lo == hi ? $"${lo} each" : $"${lo}–${hi} each";
                     T(r, each + (ok.Count < s.Fish.Count ? $" · {ok.Count} of {s.Fish.Count}" : ""), UiKit.Body, 14, Ponyo.Ink, 140, 70, 340, 20);
                     if (b == Buyer.Pratt && sp.Class == FishClass.Everyday && c.Mari == DealSt.Active)
                     { int mp = Market.Price(f0.Value, f0.Fresh, Buyer.Mari, c.SoldToday(Buyer.Mari, sp.Id)); T(r, $"Mari pays ${mp}", UiKit.Body, 13, Ponyo.Hex("A89A88"), RW - 330, 64, 150, 20, TextAnchor.UpperRight); }
@@ -306,8 +307,7 @@ namespace PortBoss.M1
             else if (all.Count > 1)
             {
                 var sa = all;
-                Pill(list, $"Sell all {all.Count} · {Money(total)}", RW - 300, y + 6, 300, 50, Ponyo.Sunflower, Ponyo.Ink, () => Firm.I.Sell(b, sa), true, 19).name = "btn Sell all";
-                y += 70;
+                Pill(list, $"Sell all {all.Count} · {Money(total)}", RW - 300, 4, 300, 44, Ponyo.Sunflower, Ponyo.Ink, () => Firm.I.Sell(b, sa), true, 18).name = "btn Sell all";   // at the top: never scrolled away
             }
             return y;
         }
