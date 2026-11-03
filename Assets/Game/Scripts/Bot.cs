@@ -219,7 +219,7 @@ namespace PortBoss.M1
                 if (m != null) { if (e == swimmer) hadSw = true; if (e == knocked) hadKn = true; }
                 return m;
             }
-            bool sawSwim = false, sawAboard = false, sawDown = false, sawUp = false; float floatOff = 0, floatOffAt = 0, rawOff = 0, swimT = 0, downT = 0; var offs = new List<Vector2>(); bool wasSwim = false; Vector3 rest = default;
+            bool sawSwim = false, sawAboard = false, sawDown = false, sawUp = false; float floatOff = 0, floatOffAt = 0, swimT = 0, downT = 0; Vector3 rest = default;
             bool shotSwim = false, shotDown = false; (string what, Vector3 at)? shotNow = null; // a picture to take this frame
             void Seen()
             {
@@ -227,17 +227,12 @@ namespace PortBoss.M1
                 if (sw != null && sw.Swimming)
                 {
                     sawSwim = true; swimT += Time.deltaTime;
-                    // off the float line on my own sea, once settled (past the drop in and the dunk; and, once they're out, not the last 0.5 s: the climb onto the ladder lifts
-                    // them off the float line while still swimming, their own move, not the sync: measured at 5.9 s of a 5.5 s swim)
-                    if (swimT > 1f) { float off = Mathf.Abs(sw.transform.position.y - (Sea.Height(sw.transform.position) - Angler.SwimDepth)); offs.Add(new Vector2(swimT, off)); rawOff = Mathf.Max(rawOff, off); }
-                    wasSwim = true;
+                    // off the float line on my own sea, once settled (past the drop in and the dunk); when the worst came is logged
+                    // (3 Nov: always ~5.9 s in, at 150 ms 21-31 cm, M2.1 28 cm: near the 30 cm limit; cause not found yet)
+                    if (swimT > 1f) { float off = Mathf.Abs(sw.transform.position.y - (Sea.Height(sw.transform.position) - Angler.SwimDepth)); if (off > floatOff) { floatOff = off; floatOffAt = swimT; } }
                     if (swimT > 1.5f && !shotSwim) { shotSwim = true; shotNow = ("crewmate-swims", sw.transform.position + Vector3.up * 0.5f); }
                 }
-                else
-                {
-                    if (wasSwim) { wasSwim = false; float end = swimT; offs.RemoveAll(v => v.x > end - 0.5f); }
-                    if (sw != null && sawSwim && sw.OnBoat) sawAboard = true;
-                }
+                else if (sw != null && sawSwim && sw.OnBoat) sawAboard = true;
                 var kn = Mate(knocked);
                 if (kn != null && kn.Limp)
                 {
@@ -254,9 +249,8 @@ namespace PortBoss.M1
                 {
                     // (her own body lags the waves ~10 cm, the clocks agree to within a trip, her pose is 0.1-0.2 s old: ~25 cm at
                     // 150 ms; on another sea she'd be off by up to the waves' 0.5 m)
-                    foreach (var v in offs) if (v.y > floatOff) { floatOff = v.y; floatOffAt = v.x; }
                     bool ok = sawSwim && sawAboard && floatOff < 0.3f; if (!ok) f++;
-                    sb.Append($"{swimmer.Name} swam {(sawSwim ? "yes" : "NO")} (at most {floatOff * 100:F0} cm off the float line on my sea, {floatOffAt:F1} s into a {swimT:F1} s swim; {rawOff * 100:F0} cm with the climb out), back aboard {(sawAboard ? "yes" : "NO")}; ");
+                    sb.Append($"{swimmer.Name} swam {(sawSwim ? "yes" : "NO")} (at most {floatOff * 100:F0} cm off the float line on my sea, {floatOffAt:F1} s into a {swimT:F1} s swim), back aboard {(sawAboard ? "yes" : "NO")}; ");
                 }
                 if (hadKn)
                 {

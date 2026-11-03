@@ -59,11 +59,12 @@ Glossary:
   220 m and the south horn stretched +400 m** (Voss 4.48 km away = 12.4 min in Biscuit at 6 m/s). Not in Unity yet.
 - **Headless test stills now use `-pb-fps 60`:** batch mode runs at ~1000 fps, and at that rate the standing-still deck
   hold never lands, so the jump tuck bends every body over in the pictures. A test artefact, not a game bug.
-- Regression on the merged head (`f617f2d`, 3 Nov, Manan's PC, `Desktop/Port Boss/proof/M3/regression/`): knock,
-  toss, boat, swim, fish100, menutest, weathertest, daytest, sleeptest, co-op sleep and stormtest all PASS, 0
-  exceptions; cooptest plain and at 150 ms + 2% loss: 0 exceptions, every rider PASS, two host-side checks flagged and
-  explained (a rejoin measured in 3D for a rider who had swum 45 m off: the test now measures across the boat; one
-  deck-race toss landed in the sea); a co-op rerun was still owed when this was written (the PC ran out of memory).
+- Regression on the merged head (3 Nov, Manan's PC, `Desktop/Port Boss/proof/M3/regression/summary.txt` +
+  `summary-run1.txt`): build errors=0; knock, toss, boat, swim, fish100, menutest, weathertest, daytest, sleeptest,
+  co-op sleep and stormtest PASS, 0 exceptions; cooptest plain PASS; cooptest at 150 ms + 2% loss: 0 exceptions, the
+  host PASS in all 9 runs since the toss-landing fix. **Two M2 checks sit at their limit under simulated loss** (not M3; known, open): the voice
+  loss between two riders (two hops; 0-7% in 41 of 42 measurements, once 11% vs the 10% limit) and a swimmer's distance
+  from the float line on another machine (21-31 cm vs the 30 cm limit, always ~5.9 s into the swim; M2.1 measured 28).
 
 **Your next step:**
 1. Get the code: `git checkout main && git pull && git lfs pull`. Check `Assets/ThirdParty/Mixamo/` still holds your
@@ -751,6 +752,10 @@ sheet, a 24 h lapse film, sleep and storm shots, `regression/summary.txt`).
 - **Leaks and footing** (systems §1.6.4-5): a storm can spring one leak in Biscuit (seeded): water rises inside, -30%
   speed, a 5° list; hold E at the hole 10 s to patch, hold E elsewhere on deck to bail; she never sinks. **Hold C to
   brace**; 3 seeded rogue waves a storm, warned 3 s ahead: unbraced you're knocked down, near a rail 1 in 4 goes over.
+- **Fixed on the way (co-op, any milestone):** a fish tossed into Biscuit could "swim away": her low inner floor sits
+  near the waterline, and the landing check (`Coop.Ground`) refused any spot below the sea outside (the sea is cut out
+  inside her hull), so on a wave crest it counted as sea. cooptest now measures a rejoined rider's place across the boat (a
+  rider who swam 45 m off read metres off in height on a pitching boat).
 - **Toasts:** a toast already up refreshes instead of stacking a copy; a toast that resolves an older one dismisses it
   (leak → patched, storm call → the storm, anchor down ↔ up, moored ↔ cast off).
 - Not done (later): the phone that shows the forecast (M4); wet-deck skid and deck-tilt sliding; the rogue wave's white
