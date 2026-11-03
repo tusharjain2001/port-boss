@@ -36,7 +36,7 @@ hidden "$EXE" -batchmode -pb-seed 7 -pb-firstday none -pb-grades game -pb-quit 4
 sum "firstday (the game's own grade odds)" "$D/firstday-game.txt"
 
 if [ -z "$SKIP_FILM" ]; then
-  F=$D/film; hidden "$EXE" -batchmode -pb-seed 7 -pb-firstday none -pb-hold 1.6 -pb-film "$(W "$F")" -pb-filmw 1280 -pb-filmh 720 -pb-filmsecs 240 -pb-quit 900 -logFile "$(W "$D/film.txt")"
+  F=$D/film; hidden "$EXE" -batchmode -pb-seed 7 -pb-firstday none -pb-hold 1.6 -pb-film "$(W "$F")" -pb-filmw 1280 -pb-filmh 720 -pb-filmsecs 300 -pb-quit 900 -logFile "$(W "$D/film.txt")"
   sum film "$D/film.txt"
   ffmpeg -loglevel error -y -framerate 30 -i "$F/f_%05d.jpg" -c:v libx264 -pix_fmt yuv420p -crf 22 "$PROOF/firstday.mp4" && echo "== film: $PROOF/firstday.mp4"
 fi

@@ -28,9 +28,46 @@ namespace PortBoss.M1
 
         int m4Fails;
         void M4(bool ok, string what) { Debug.Log($"[PB] m4: {(ok ? "ok" : "FAIL")} {what}"); if (!ok) m4Fails++; }
-        float hold;
+        float hold; bool walk;                 // walk: the filmed run walks between the counters and fishes trip 1 for real
         IEnumerator Hold(float k = 1) { if (hold > 0) yield return new WaitForSeconds(hold * k); else { yield return null; yield return null; } }
         IEnumerator M4Shot(string n) { if (shots == null) yield break; for (float t = 0; t < 0.4f; t += Time.unscaledDeltaTime) yield return null; yield return Shot(n); }   // the phone and the toasts slide in 0.25 s
+
+        // the filmed run: walk there (the camera turns with you); a wall, the water or no progress for a second: give up
+        // (the caller teleports the rest of the way)
+        IEnumerator WalkTo(Vector3 at)
+        {
+            var cam = CameraRig.I; cam.Pitch = 12; var last = me.transform.position; float still = 0;
+            for (float t = 0; t < 14; t += Time.deltaTime)
+            {
+                var d = at - me.transform.position; d.y = 0;
+                if (d.magnitude < 0.4f || me.Swimming || me.OnBoat) break;
+                cam.Yaw = Mathf.MoveTowardsAngle(cam.Yaw, Quaternion.LookRotation(d).eulerAngles.y, 220 * Time.deltaTime);
+                Ctl.BotMove = new Vector2(0, d.magnitude < 1.5f ? 0.45f : 1);
+                yield return null;
+                still = (me.transform.position - last).magnitude < 0.5f * Time.deltaTime ? still + Time.deltaTime : 0; last = me.transform.position;
+                if (still > 1) { Debug.Log($"[PB] m4: walk stuck {d.magnitude:F1} m short of the counter"); break; }
+            }
+            Ctl.BotMove = Vector2.zero; yield return null;
+        }
+
+        // the filmed run, trip 1: out on Biscuit, two real casts off the rail, then back at her berth
+        IEnumerator RealTrip(System.Action<int> got)
+        {
+            int before = me.Bar.FishCount; var s = Skiff.I;
+            yield return SailOut(false); me.Select(0); yield return new WaitForSeconds(0.8f);
+            for (int i = 0; i < 2; i++)
+            {
+                yield return CastOnce(0.7f + 0.1f * i);
+                for (float w = 0; fish.State != Fishing.St.Waiting && w < 5; w += Time.deltaTime) yield return null;
+                if (fish.State != Fishing.St.Waiting) continue;
+                string row = null; yield return PlayFish(x => row = x); Debug.Log("[PB] m4: film catch " + row);
+                for (float w = 0; fish.State != Fishing.St.Ready && w < 6; w += Time.deltaTime) yield return null;
+            }
+            yield return Hold(); me.Select(1); yield return new WaitForSeconds(0.5f);
+            var m = s.MoorAt; s.transform.SetPositionAndRotation(new Vector3(m.position.x, s.transform.position.y, m.position.z), m.rotation); s.TakeOver(); s.Moor();
+            me.Teleport(Landing.I.Spawn.position + Vector3.up * 0.05f, Landing.I.Spawn.eulerAngles.y); yield return new WaitForSeconds(0.5f);
+            got(me.Bar.FishCount - before);
+        }
 
         // walk up to a counter (teleport) and open it
         IEnumerator AtCounter(Firm.Kind k)
@@ -40,7 +77,8 @@ namespace PortBoss.M1
             // on the pier deck facing her boat (stand on it, facing her)
             var f = s.At.forward; f.y = 0; f.Normalize();
             var at = k == Firm.Kind.Mari ? s.At.position : s.Front + f * 0.4f; float yaw = Quaternion.LookRotation(k == Firm.Kind.Mari ? f : -f).eulerAngles.y;
-            me.Teleport(at + Vector3.up * 0.02f, yaw);
+            if (walk) yield return WalkTo(at);
+            me.Teleport(at + Vector3.up * 0.02f, yaw);                 // (walked: the last few cm and the facing)
             CameraRig.I.Yaw = yaw + 20; CameraRig.I.Pitch = 14;
             yield return null; yield return null;
             Shop.Show(s); yield return null; yield return null;
@@ -105,7 +143,7 @@ namespace PortBoss.M1
         // ---------------------------------------------------------------- the first three days (economy §2.3, practised)
         IEnumerator FirstDay(string dir)
         {
-            Ctl.Bot = true; Sleep.Off = true; hold = ArgF("-pb-hold", 0);
+            Ctl.Bot = true; Sleep.Off = true; hold = ArgF("-pb-hold", 0); walk = Arg("-pb-film") != null;
             if (!string.IsNullOrEmpty(dir) && dir != "-" && dir != "none") { shots = dir; Directory.CreateDirectory(dir); }
             yield return new WaitForSeconds(0.5f);
             var c = Firm.C; var r = new System.Random((int)ArgF("-pb-botseed", 4));   // the catches (-pb-botseed: another three days)
@@ -134,7 +172,8 @@ namespace PortBoss.M1
             Phone.I.Show(); yield return M4Shot("phone-home-day1"); yield return Hold(); Phone.I.Hide();
             Row("start", 40);
             // trip 1, the Shallows 10:00-14:00: 9 fish
-            Jump(1, 10); Catch(r, 9, Sky.Minutes, DayTime.At(1, 14 * 60), p); Jump(1, 15);
+            Jump(1, 10); int real = 0; if (walk) yield return RealTrip(n => real = n);
+            Catch(r, 9 - real, Sky.Minutes, DayTime.At(1, 14 * 60), p); Jump(1, 15);
             yield return SellAll(Firm.Kind.Pratt, "pratt-day1"); Row("first sale at Pratt's (60%)", 126);
             // 16:00: worms x3 at June's, the engine at Doyle's
             Jump(1, 16); yield return AtCounter(Firm.Kind.June); yield return M4Shot("june-bait"); Shop.I.Tab("Rods"); yield return M4Shot("june-rods"); Shop.I.Tab("Tackle"); yield return M4Shot("june-tackle"); Shop.I.Tab("Bait"); Shop.I.Hide(); yield return null;
