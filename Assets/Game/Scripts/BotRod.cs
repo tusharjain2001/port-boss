@@ -81,17 +81,22 @@ namespace PortBoss.M1
             beatsDone = true;
         }
 
-        // a 3/4 front picture of an angler, from 2.4 m off, at chest height
+        // a picture of the fish in an angler's hands: square to the fish's length (a fish held across the chest seen
+        // end-on hides behind the mitts), from the angler's front, 2.2 m off and a little above, with a clear line to the
+        // fish itself (a crate between us hid the hanging fish while the chest was in view)
         IEnumerator Look(string what, Angler a)
         {
             yield return new WaitForEndOfFrame();
-            var ct = CameraRig.I.Cam.transform; var keep = (ct.position, ct.rotation);
-            var look = a.transform.position + Vector3.up * 1.15f; var from = look;
-            foreach (float turn in new[] { -35f, 35f, -60f, 60f, -10f, -85f, 85f })   // the first with a clear view (a crate hid the hands; from his right, the mast stood behind him like a rod)
+            var ct = CameraRig.I.Cam.transform; var keep = (ct.position, ct.rotation); var fg0 = a.Fish.FishGo;
+            var look = fg0 != null ? fg0.transform.position : a.transform.position + Vector3.up * 1.15f; var from = look;
+            var axis = fg0 != null ? Flat(fg0.transform.forward) : Vector3.zero;
+            var face = axis.sqrMagnitude > 0.1f ? Vector3.Cross(Vector3.up, axis.normalized) : Flat(a.transform.forward).normalized;
+            if (Vector3.Dot(face, a.transform.forward) < 0) face = -face;
+            foreach (float turn in new[] { 0f, 20f, -20f, 40f, -40f, 60f, -60f })   // the first with a clear view
             {
-                from = look + Quaternion.Euler(0, a.transform.eulerAngles.y + turn, 0) * new Vector3(0, 0.45f, 2.4f); bool clear = true;
-                foreach (var h in Physics.RaycastAll(from, look - from, Vector3.Distance(from, look) - 0.3f, ~0, QueryTriggerInteraction.Ignore))
-                    if (h.collider.GetComponentInParent<Angler>() == null) { clear = false; break; }
+                from = look + Quaternion.Euler(0, turn, 0) * face * 2.2f + Vector3.up * 0.55f; bool clear = true;
+                foreach (var h in Physics.RaycastAll(from, look - from, Vector3.Distance(from, look) - 0.2f, ~0, QueryTriggerInteraction.Ignore))
+                    if (h.collider.GetComponentInParent<Angler>() == null && (fg0 == null || !h.collider.transform.IsChildOf(fg0.transform))) { clear = false; break; }
                 if (clear && !Physics.CheckSphere(from, 0.2f, ~0, QueryTriggerInteraction.Ignore)) break;
             }
             ct.position = from; ct.rotation = Quaternion.LookRotation(look - from);
