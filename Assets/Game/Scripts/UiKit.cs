@@ -10,6 +10,10 @@ namespace PortBoss.M1
     {
         public static Font Display, DisplayBold, Body, Bold, Black;
         static Sprite fill, edge, blur, circle, ringS, star, diamond, dotS, ringThin;
+        // The UI follows the light (systems §2.7): every HUD image and text shares this material; Sky sets its tint
+        // (warmer at golden/dusk, dimmer and cooler at night) so a night HUD doesn't glare. UI/Default multiplies by _Color.
+        public static Material Lit => lit ??= new Material(Shader.Find("UI/Default")) { name = "PB_UiLit" };
+        static Material lit;
         public const float BaseR = 28f;
 
         public static void Init(M1Assets a)
@@ -111,7 +115,7 @@ namespace PortBoss.M1
 
         public static Image Img(Transform parent, Sprite s, Color c, string name = "img")
         {
-            var r = Rect(name, parent); var i = r.gameObject.AddComponent<Image>(); i.sprite = s; i.color = c; i.raycastTarget = false;
+            var r = Rect(name, parent); var i = r.gameObject.AddComponent<Image>(); i.sprite = s; i.color = c; i.raycastTarget = false; i.material = Lit;
             if (s != null && s.border != Vector4.zero) i.type = Image.Type.Sliced;
             return i;
         }
@@ -137,7 +141,7 @@ namespace PortBoss.M1
         public static Text Txt(Transform parent, string s, Font f, int size, Color c, TextAnchor a = TextAnchor.MiddleLeft, string name = "txt")
         {
             var r = Rect(name, parent); var t = r.gameObject.AddComponent<Text>();
-            t.font = f; t.fontSize = size; t.color = c; t.alignment = a; t.text = s; t.raycastTarget = false;
+            t.font = f; t.fontSize = size; t.color = c; t.alignment = a; t.text = s; t.raycastTarget = false; t.material = Lit;
             t.horizontalOverflow = HorizontalWrapMode.Wrap; t.verticalOverflow = VerticalWrapMode.Overflow; t.supportRichText = true;
             t.lineSpacing = 1.05f;
             return t;

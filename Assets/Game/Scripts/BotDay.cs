@@ -56,7 +56,7 @@ namespace PortBoss.M1
             float seaYaw = Quaternion.LookRotation(Flat(Skiff.I.transform.position - spawn.position)).eulerAngles.y;
             me.Teleport(spawn.position + Vector3.up * 0.05f, seaYaw);
             var cases = new (string n, double h, int wx)[] { ("1-dawn", 6.5, 1), ("2-day", 12, 1), ("3-golden", 18.5, 1), ("4-dusk", 20.25, 1), ("5-night", 23.5, 1), ("6-storm", 14, 5) };
-            var bright = new Dictionary<string, double>(); var lamp = new Dictionary<string, float>();
+            var bright = new Dictionary<string, double>(); var lamp = new Dictionary<string, float>(); var ui = new Dictionary<string, Color>();
             foreach (var c in cases)
             {
                 Sky.ForceWx = c.wx; Sky.Jump(DayTime.At(2, c.h * 60));
@@ -65,10 +65,11 @@ namespace PortBoss.M1
                     CameraRig.I.Yaw = side == 0 ? seaYaw + 25 : seaYaw + 200; CameraRig.I.Pitch = side == 0 ? 12 : 16;
                     yield return new WaitForSeconds(0.8f);
                     yield return Shot(c.n + (side == 0 ? "-sea" : "-shore"));
-                    if (side == 0) { bright[c.n] = LastBright; lamp[c.n] = Sky.I.LampW; }
+                    if (side == 0) { bright[c.n] = LastBright; lamp[c.n] = Sky.I.LampW; ui[c.n] = UiKit.Lit.color; }
                 }
                 Debug.Log($"[PB] daytest: {c.n}: state {Sky.I.State}, lamps {Sky.I.LampW:F2}, sun {Ponyo.Sun.intensity:F2} ({(Ponyo.Sun.enabled ? "on" : "off")}), brightness {bright[c.n]:F0} · {Sky.DebugLine()}");
             }
+            Check(ui["2-day"] == Color.white && ui["5-night"].grayscale < 0.92f && ui["5-night"].b > ui["5-night"].r && ui["4-dusk"].b < ui["4-dusk"].r, $"the HUD follows the light (day {ui["2-day"]}, dusk {ui["4-dusk"]}, night {ui["5-night"]})");
             Check(bright["5-night"] > 30, $"night is never black (brightness {bright["5-night"]:F0} > 30)");
             Check(bright["2-day"] > bright["5-night"] * 2, "day is far brighter than night");
             Check(bright["4-dusk"] < bright["3-golden"] && bright["5-night"] < bright["4-dusk"], "golden > dusk > night");

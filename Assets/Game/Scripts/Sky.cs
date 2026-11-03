@@ -141,6 +141,8 @@ namespace PortBoss.M1
         // ---- the look
         public (Wx from, Wx to, float k) WeatherNow => ForceWx >= 0 ? ((Wx)ForceWx, (Wx)ForceWx, 1f) : W.At(Minutes);
 
+        static readonly Color[] UiTint = { Color.white, Color.white, new Color(1f, .975f, .93f), new Color(1f, .965f, .9f), new Color(.85f, .88f, .96f), new Color(.9f, .93f, .97f) };
+
         void Apply(float dt)
         {
             var (a, b, k) = DayTime.TimeState(Minutes);
@@ -154,6 +156,8 @@ namespace PortBoss.M1
             Wx_ = snap ? target : WxLook.Lerp(Wx_, target, 1 - Mathf.Exp(-dt * 1.2f));
             var x = Wx_;
             StormW = x.Storm;
+            // the HUD's paper (systems §2.7): Golden +4% warm, Dusk +6% warm, Night -12% and cooler, Storm cooler and duller
+            UiKit.Lit.color = Color.Lerp(Color.Lerp(UiTint[(int)a], UiTint[(int)b], k), UiTint[(int)LightState.Storm], x.Storm);
 
             // storm: slate over whatever the hour is, darker at night
             if (x.Storm > 0.001f)
