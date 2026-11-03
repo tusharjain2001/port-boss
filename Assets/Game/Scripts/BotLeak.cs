@@ -14,7 +14,7 @@ namespace PortBoss.M1
         IEnumerator LeakTest(string role, string dir)
         {
             shots = dir; Directory.CreateDirectory(dir); Ctl.Bot = true; bool host = role == "host";
-            yield return Until(() => Coop.On && Coop.I.Roster.Count >= 2, 40);
+            yield return Until(() => Coop.On && Coop.I.Roster.Count >= 2 && (Coop.IsHost || JoinView.Lifted && JoinView.Cover <= 0), 40); // (a joiner: its join cover gone: under -pb-fps the game clock races the real-time fade)
             if (!Coop.On || Coop.I.Roster.Count < 2) { Debug.Log("[PB] RESULT leaktest: FAIL (never connected)"); Application.Quit(); yield break; }
             yield return new WaitForSeconds(2f);
             var s = Skiff.I; var c = Coop.I;

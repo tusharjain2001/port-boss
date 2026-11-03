@@ -17,8 +17,9 @@
   - the patcher kneels and hammers a plank on, with a knock on every blow. Your friend sees all of it.
 - **Catching a fish:** you hold it up with the rod still in your right hand for a second. Then you reach back, put the
   rod on your back, and hold the fish in both hands.
-- **You can't walk through each other any more:** on the pier, the jetty and the boat. Walking into a friend just
-  stops you, so nobody gets pushed off the boat by walking.
+- **You can't walk through each other any more:** on the pier, the jetty and the boat. Walking into a friend stops you,
+  or slides you round them if you're a little off line. Someone standing still is never pushed, so nobody goes off
+  the boat from being walked into.
 - **Shove a friend: G** (within 1.5 m, in front of you). They fall over for a second. At the rail, they can go over
   the side. You can shove once every 3 s.
   - A friend whose line is out waiting gets it reeled in; the bait stays on.
@@ -144,7 +145,8 @@ Play about 30 minutes in one session, over Steam if you can.
 **Falling about**
 - [ ] Jump overboard while the other drives away. The swimmer floats on the waves on both screens, then climbs back up the ladder (E).
 - [ ] F8 (fall over): the other sees you go limp and get up again.
-- [ ] Walk into each other on the pier and on the boat: you stop, no shaking, nobody gets pushed in.
+- [ ] Walk into each other on the pier and on the boat: you stop or slide round, no shaking, and the one standing
+  still doesn't move (nobody gets pushed in).
 - [ ] **G** next to your friend: they go over and get up. At the rail they can go in the water. Shove them while
   their line is out (it reels in) and while they fight a fish (it gets away).
 

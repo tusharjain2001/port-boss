@@ -43,7 +43,7 @@ namespace PortBoss.M1
             fish.OnLog += s => Debug.Log("[PB] fish " + s);
             var icons = Arg("-pb-icons"); // the painted rod icon, as a file (proof)
             if (icons != null) { Directory.CreateDirectory(icons); for (int t = 1; t <= 5; t++) File.WriteAllBytes(Path.Combine(icons, $"rod-icon-tier{t}.png"), UiKit.RodIcon(t).EncodeToPNG()); }
-                        var film = Arg("-pb-film"); if (film != null) StartCoroutine(Film(film, ArgF("-pb-filmsecs", 60), (int)ArgF("-pb-filmw", 1920), (int)ArgF("-pb-filmh", 1080)));
+                        var film = Arg("-pb-film"); if (film != null) StartCoroutine(Film(film, ArgF("-pb-filmsecs", 60), (int)ArgF("-pb-filmw", 1920), (int)ArgF("-pb-filmh", 1080))); // (-pb-filmw 1280 -pb-filmh 720: jpg, quicker per frame)
             if (Arg("-pb-fishtest") != null) yield return FishTest((int)ArgF("-pb-fishtest", 50), Arg("-pb-csv"));
             else if (Arg("-pb-shots") != null) { shots = Arg("-pb-shots"); Directory.CreateDirectory(shots); yield return ShotTour(); }
             else if (Arg("-pb-boattest") != null) yield return BoatTest();
@@ -1268,7 +1268,7 @@ namespace PortBoss.M1
 
         IEnumerator Film(string dir, float secs, int w = 1920, int h = 1080)
         {
-            Directory.CreateDirectory(dir); Time.captureFramerate = 30; int i = 0; Debug.Log($"[PB] film start {Time.time:F3}");
+            Directory.CreateDirectory(dir); int fps0 = Time.captureFramerate; Time.captureFramerate = 30; int i = 0; Debug.Log($"[PB] film start {Time.time:F3}");
             float end = Time.time + secs;
             while (Time.time < end)
             {
@@ -1284,7 +1284,7 @@ namespace PortBoss.M1
                 Save(Path.Combine(dir, $"f_{i++:00000}{(w < 1920 ? ".jpg" : ".png")}"), w, h);
                 ct.SetPositionAndRotation(keep.position, keep.rotation);
             }
-            Time.captureFramerate = 0; Debug.Log($"[PB] film {i} frames");
+            Time.captureFramerate = fps0; Debug.Log($"[PB] film {i} frames");
         }
 
         // ------------------------------------------------------------------ the boat

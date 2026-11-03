@@ -430,8 +430,9 @@ namespace PortBoss.M1
                 if (into > gap) step += n * (into - gap);                               // up to their side, then along it
                 if (r < Apart + 0.02f) { float v = -Vector3.Dot(Vel, n); if (v > 0) Vel += n * v; }
                 // out of an overlap: only if I'm the one pressing to move, or it's deep (a teleport, a spawn). A few cm from their
-                // pose running ahead of where they stopped mustn't nudge someone standing still (crowd test: 5 cm).
-                if (r < Apart && (pressing || r < Apart - 0.1f)) step += n * Mathf.Min(Apart - r, 0.8f * dt);
+                // pose running ahead of where they stopped mustn't nudge someone standing still (crowd test: 5-11 cm, the
+                // walker's pose overshot to 0.49 m on the stander's screen while it stopped at 0.60 on its own).
+                if (r < Apart && (pressing || r < Apart - 0.25f)) step += n * Mathf.Min(Apart - r, 0.8f * dt);
             }
             return step;
         }
