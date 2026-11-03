@@ -193,7 +193,8 @@ namespace PortBoss.M1
         {
             public float T; public byte Flags; public Vector3 P, Vel; public float Yaw, AirT, Vy, SprintW;
             // State 0 up, 1 knocked over (Hips + Rot: where the ragdoll's parts lie), 2 getting up (Up: which get-up, +128 on
-            // her back; UpT: how far into it), 3 tossing a fish (Up: its species; UpT: how far into the throw). Hop: her
+            // her back; UpT: how far into it), 3 tossing a fish (Up: its species; UpT: how far into the throw), 4 patching
+            // the hole (UpT: s into it), 5 shoving a crewmate (UpT: s into it). Hop: her
             // Teleport count (a ladder, the end of a get-up: jumps, never blends).
             public byte State, Hop, Up; public float UpT; public Vector3 Hips; public Quaternion[] Rot;
             public Fishing.Net F; // their fishing (M2 step 3)
@@ -235,6 +236,8 @@ namespace PortBoss.M1
             }
             else if (getUpT >= 0) { p.State = 2; p.Up = (byte)(upI | (upBack ? 128 : 0)); p.UpT = getUpT; }
             else if (ThrowT >= 0) { p.State = 3; p.Up = (byte)Mathf.Max(0, throwSp); p.UpT = ThrowT; }
+            else if (RepairT >= 0) { p.State = 4; p.UpT = RepairT; }
+            else if (ShoveT >= 0) { p.State = 5; p.UpT = ShoveT; }
             if (Fish != null) p.F = Fish.NetState();
             return p;
         }
@@ -251,6 +254,7 @@ namespace PortBoss.M1
             // boarding, leaving, the tiller, into or out of the sea, a jump to a new place, going down or getting up: no
             // blend between two places
             if (a.OnBoat != b.OnBoat || a.Helm != b.Helm || a.Swim != b.Swim || a.Hop != b.Hop || a.State != b.State) a = b;
+            if (b.State != 4) RepairT = -1;
             if (Fish != null) { Fish.NetA = a.F; Fish.NetB = b.F; Fish.NetK = k; } // their fishing plays from the same moment
             Vector3 p = Vector3.Lerp(a.P, b.P, k); float yaw = Mathf.LerpAngle(a.Yaw, b.Yaw, k);
             OnBoat = b.OnBoat && s != null;
@@ -270,6 +274,9 @@ namespace PortBoss.M1
             }
             shown = 0;
             if (b.State == 3) { ThrowT = a.State == 3 ? Mathf.Lerp(a.UpT, b.UpT, k) : b.UpT; throwSp = b.Up; } else ThrowT = -1;
+            RepairT = b.State == 4 ? (a.State == 4 ? Mathf.Lerp(a.UpT, b.UpT, k) : b.UpT) : -1;
+            float shoveWas = ShoveT; ShoveT = b.State == 5 ? (a.State == 5 ? Mathf.Lerp(a.UpT, b.UpT, k) : b.UpT) : -1;
+            if (shoveWas < 0 && ShoveT >= 0) Snd.Play(Synth.Whoosh, transform.position, 0.4f, 1.5f);
             Vel = Vector3.Lerp(a.Vel, b.Vel, k); SprintW = b.SprintW; airT = b.AirT; vy = b.Vy;
             Swimming = b.Swim; helm = b.Helm; netGrounded = b.Grounded; jumped = b.Jumped; fallIn = b.FallIn;
             crouchT = b.Crouch ? Mathf.Max(0, crouchT) + dt : -1; skidT = b.Skid ? 0.1f : 0;
@@ -341,7 +348,7 @@ namespace PortBoss.M1
 
             // walking
             var cam = CameraRig.I;
-            var input = Busy || Sleep.Frozen ? Vector2.zero : Ctl.Move;
+            var input = Busy || Sleep.Frozen || RepairT >= 0 || ShoveT >= 0 ? Vector2.zero : Ctl.Move;
             var fwd = cam != null ? Quaternion.Euler(0, cam.Yaw, 0) : transform.rotation;
             var wish = fwd * new Vector3(input.x, 0, input.y);
             float load = Load;
@@ -380,8 +387,8 @@ namespace PortBoss.M1
                 crouchT = -1; rising = false;
             }
             float g = Swimming ? 0 : Jump(dt, grounded, load);
-            var shove = Shove();
-            Cc.Move((Vel + shove + Vector3.up * (vy - 0.5f * g * dt)) * dt); // the exact arc at any frame rate
+            var step = Crowd(Vel * dt, dt); var shove = step / dt - Vel;
+            Cc.Move(step + Vector3.up * (vy - 0.5f * g * dt) * dt); // the exact arc at any frame rate
             vy -= g * dt;
             Land();
             // Stood still aboard: the controller creeps on a rolling, moving deck (sideways down the roll, and up to 15 cm up
@@ -396,25 +403,34 @@ namespace PortBoss.M1
                 Cc.enabled = false; transform.position = s.transform.TransformPoint(localOnBoat); Cc.enabled = true;
             }
 
+            bool wasRepair = RepairT >= 0; RepairT = -1;
             Interact();
+            if (RepairT >= 0) { if (!wasRepair) { Fish.Stow(); kneelAt = KneelSpot(); } KneelAtHole(dt); }
+            Shoving(dt);
             Track();
             Animate(dt);
         }
 
-        // Co-op: crewmates have no collider of their own here (their bodies go where their poses say), so walking into one
-        // eases you apart instead of through them: up to 1.5 m/s away inside 0.6 m.
-        Vector3 Shove()
+        // Co-op (M3.1, Manan + Tushar's test: "we walk through each other"): crewmates are solid. Their bodies go where their
+        // poses say (no collider here), and each machine moves only its own player, so: my step into a crewmate stops at
+        // their capsule (two radii apart) and slides round it, my speed into them goes too; I never move them, so walking
+        // can't shove anyone off the boat. Overlapping anyway (a late pose, a teleport): out at 0.8 m/s, no jolt.
+        public const float Apart = 0.6f;
+        Vector3 Crowd(Vector3 step, float dt)
         {
-            var c = Coop.I; if (c == null) return Vector3.zero;
-            var push = Vector3.zero;
+            var c = Coop.I; if (c == null) return step;
             foreach (var m in c.Mates.Values)
             {
-                if (m == null || m.AtHelm) continue;
+                if (m == null || m.AtHelm || m.Down || helm) continue;
                 var d = transform.position - m.transform.position; float dy = Mathf.Abs(d.y); d.y = 0; float r = d.magnitude;
-                if (r > 0.6f || dy > 1.2f) continue;
-                push += (r > 1e-3f ? d / r : transform.right) * (1.5f * (1 - r / 0.6f));
+                if (dy > 1.6f || r > Apart + step.magnitude + 0.05f) continue;
+                var n = r > 1e-3f ? d / r : -transform.forward;
+                float into = -Vector3.Dot(step, n), gap = Mathf.Max(0, r - Apart);
+                if (into > gap) step += n * (into - gap);                               // up to their side, then along it
+                if (r < Apart + 0.02f) { float v = -Vector3.Dot(Vel, n); if (v > 0) Vel += n * v; }
+                if (r < Apart) step += n * Mathf.Min(Apart - r, 0.8f * dt);
             }
-            return Vector3.ClampMagnitude(push, 1.5f);
+            return step;
         }
 
         // Put the player somewhere (tests, ladders): also re-anchors them in the boat's space so the deck carry doesn't undo it.
@@ -656,6 +672,141 @@ namespace PortBoss.M1
             if (ThrowT > len + 0.2f) ThrowT = -1;
         }
 
+        void OnDestroy() { if (aimT != null) Destroy(aimT.gameObject); if (throwView != null) Destroy(throwView); if (repairGrip != null) Destroy(repairGrip.gameObject); if (shoveGrip != null) Destroy(shoveGrip.gameObject); } // (in the world, not under me)
+
+        // ---- a friendly shove (M3.1, Manan + Tushar's test): G with a crewmate within 1.5 m in front (where you look or
+        //      face): both hands out, a lean into it, and they go over (the knock-down, on their machine: the host passes it
+        //      on); near the rail the push is a fling that can tip them in. 3 s between shoves (a miss: just the swing). ----
+        public const float ShoveReach = 1.5f, ShoveCool = 3f, ShoveHit = 0.14f, ShoveLen = 0.55f;
+        public float ShoveT = -1;                         // s into the shove (its pose)
+        public static int ShovesSent;                     // (tests)
+        float shoveReady; ulong shoveTo; Angler shoveAt; bool shoveSent; Transform shoveGrip;
+
+        void Shoving(float dt)
+        {
+            if (ShoveT >= 0)
+            {
+                ShoveT += dt;
+                if (!shoveSent && ShoveT >= ShoveHit) { shoveSent = true; if (shoveAt != null && !shoveAt.Down) { Coop.Shove(shoveTo, ShovePush(shoveAt)); ShovesSent++; } }
+                if (ShoveT >= ShoveLen) ShoveT = -1;
+                return;
+            }
+            if (!Ctl.Shove || Time.time < shoveReady || !Coop.On || Busy || Down || Swimming || helm || RepairT >= 0 || Fish.Locked || Sleep.Frozen) return;
+            var look = CameraRig.I != null ? Quaternion.Euler(0, CameraRig.I.Yaw, 0) * Vector3.forward : transform.forward;
+            shoveAt = null; float bd = ShoveReach;
+            foreach (var kv in Coop.I.Mates)
+            {
+                var m = kv.Value; if (m == null || m.Down) continue;
+                var d = m.transform.position - transform.position; if (Mathf.Abs(d.y) > 1f) continue; d.y = 0; float r = d.magnitude;
+                if (r > bd || r < 1e-3f || Vector3.Angle(d, look) > 55 && Vector3.Angle(d, transform.forward) > 55) continue;
+                shoveAt = m; shoveTo = kv.Key; bd = r;
+            }
+            ShoveT = 0; shoveSent = false; shoveReady = Time.time + (shoveAt != null ? ShoveCool : ShoveLen + 0.1f);
+            if (shoveAt != null) { var d = shoveAt.transform.position - transform.position; transform.rotation = Quaternion.Euler(0, Mathf.Atan2(d.x, d.z) * Mathf.Rad2Deg, 0); }
+            Snd.Play(Synth.Whoosh, transform.position, 0.4f, 1.5f);
+        }
+
+        // how hard: a stagger-and-fall; aboard, at the rail and pushed outward, a fling (up and over the gunwale)
+        public static bool NearRail(Angler m, Vector3 dir)
+        {
+            var s = Skiff.I; if (s == null || !m.OnBoat) return false;
+            var l = s.transform.InverseTransformPoint(m.transform.position); var ld = s.transform.InverseTransformDirection(dir);
+            return Mathf.Abs(l.x) > 0.3f && Mathf.Sign(l.x) == Mathf.Sign(ld.x) && Mathf.Abs(ld.x) > 0.5f;
+        }
+        Vector3 ShovePush(Angler m)
+        {
+            var d = m.transform.position - transform.position; d.y = 0; d = d.sqrMagnitude > 1e-4f ? d.normalized : transform.forward;
+            return NearRail(m, d) ? d * 3.4f + Vector3.up * 2.6f : d * 2.6f + Vector3.up * 1.2f;
+        }
+
+        // shoved over by a crewmate (their message, via the host)
+        public void Shoved(Vector3 push, string by)
+        {
+            if (rag == null || Down || Swimming || !Fish.Knocked()) { Debug.Log($"[PB] shove: {by} shoved me: kept my feet ({(Down ? "down already" : Swimming ? "swimming" : "holding a catch")})"); return; }
+            Debug.Log($"[PB] shove: {by} shoved me over ({push.magnitude:F1} m/s)");
+            Knock(push);
+            Alerts.Push(by, "Shoved you over!", Alerts.Kind.Info);
+        }
+
+        // the pose (mine or a crewmate's, from ShoveT): both palms out at the chest, thrust on ShoveHit, a lean into it
+        void ShovePose()
+        {
+            if (ShoveT < 0 || Down || Swimming || helm)
+            {
+                if (shoveGrip != null && Anim.Grip == shoveGrip) { Anim.Grip = null; Anim.GripLean = 0; }
+                return;
+            }
+            if (shoveGrip == null) shoveGrip = new GameObject("shoveGrip").transform;
+            float u = ShoveT < ShoveHit ? Mathf.SmoothStep(0, 1, ShoveT / ShoveHit) : 1 - Mathf.SmoothStep(0, 1, (ShoveT - ShoveHit - 0.1f) / (ShoveLen - ShoveHit - 0.1f));
+            shoveGrip.SetPositionAndRotation(transform.TransformPoint(new Vector3(0, 1.22f * Size, 0)), transform.rotation);
+            Anim.Grip = shoveGrip; Anim.GripLean = 14f * u;
+            Anim.GripL = new Vector3(-0.17f, 0.03f, 0.2f + 0.34f * u); Anim.GripR = new Vector3(0.17f, 0.03f, 0.2f + 0.34f * u);
+            Anim.GripElbow = new Vector3(0, -0.6f, -0.4f); Anim.GripFingers = new Vector3(0, 1, 0.3f);
+        }
+
+        // ---- patching the hole (M3.1, Manan + Tushar's test: "add a repair animation"): down at the hole, the plank under
+        //      the left hand, the hammer in the right (Hammer, LeakFx), a knock with every blow; a crewmate's from their pose ----
+        public const float RepairStroke = 0.5f;           // s a hammer blow (Fish_Repair's nod loops with it)
+        public float RepairT = -1;                        // s into patching (Skiff.LeakPrompt sets it while E is held at the hole)
+        public float RepairLift { get; private set; }     // the hammer: 0 on the plank, 1 at the top of the swing
+        Transform repairGrip; bool repairLook; float lastStrokePh = 1; Hammer hammer; Vector3 kneelAt;
+        public const float KneelOff = 0.38f;              // from the hole: the hands reach the plank from a deep crouch
+
+        // where to kneel (boat space): 0.38 m from the hole on the open floor, not up on a thwart (M3.1: the first try knelt
+        // on the bench beside it, hammering the air); of the floor spots round it, the one nearest where I stand
+        Vector3 KneelSpot()
+        {
+            var s = Skiff.I; var h = s.HoleLocal; var me = s.transform.InverseTransformPoint(transform.position);
+            Vector3 best = h + (me - h).normalized * KneelOff; float bd = float.MaxValue;
+            for (int i = 0; i < 12; i++)
+            {
+                float a = i * 30 * Mathf.Deg2Rad; var c = h + new Vector3(Mathf.Sin(a), 0, Mathf.Cos(a)) * KneelOff;
+                float floor = float.NegativeInfinity;
+                foreach (var hit in Physics.RaycastAll(s.transform.TransformPoint(c + Vector3.up * 1.2f), -s.transform.up, 2f, ~0, QueryTriggerInteraction.Ignore))
+                    if (hit.transform.IsChildOf(s.transform) && hit.collider.GetComponentInParent<Angler>() == null) floor = Mathf.Max(floor, s.transform.InverseTransformPoint(hit.point).y);
+                if (Mathf.Abs(floor - h.y) > 0.06f) continue; // a thwart, the gunwale, or off the boat
+                float d = (c - me).sqrMagnitude; if (d < bd) { bd = d; best = c; }
+            }
+            return best;
+        }
+
+        // ease to the kneeling spot, facing the hole
+        void KneelAtHole(float dt)
+        {
+            var s = Skiff.I; if (s == null) return;
+            var d = s.Hole - transform.position; d.y = 0;
+            if (d.sqrMagnitude > 0.0025f) transform.rotation = Quaternion.Euler(0, Mathf.MoveTowardsAngle(transform.eulerAngles.y, Mathf.Atan2(d.x, d.z) * Mathf.Rad2Deg, 360f * dt), 0);
+            var mv = s.transform.TransformPoint(kneelAt) - transform.position; mv.y = 0;
+            if (mv.sqrMagnitude > 1e-4f) Cc.Move(mv * Mathf.Min(1, dt * 6));
+        }
+
+        void Repairing()
+        {
+            var a = M1Assets.I; var s = Skiff.I;
+            bool on = RepairT >= 0 && s != null && !helm && !Swimming && a.Repair != null;
+            if (!on)
+            {
+                if (a.Repair != null && Anim.Act == a.Repair) Anim.Act = null;
+                if (repairLook) { repairLook = false; Anim.LookAt = new Vector3(float.NaN, 0, 0); }
+                if (repairGrip != null && Anim.Grip == repairGrip) Anim.Grip = null;
+                RepairLift = 0; lastStrokePh = 1; return;
+            }
+            if (repairGrip == null) repairGrip = new GameObject("repairGrip").transform;
+            if (hammer == null) { hammer = gameObject.AddComponent<Hammer>(); hammer.A = this; }
+            repairGrip.SetPositionAndRotation(s.Hole, Quaternion.Euler(0, transform.eulerAngles.y, 0));
+            float L = a.Repair.length, stroke = L / Mathf.Max(1, Mathf.Round(L / RepairStroke));
+            Anim.Act = a.Repair; Anim.ActTime = RepairT % L;
+            float ph = RepairT % stroke / stroke;  // 0: the blow lands; up slowly, down fast
+            RepairLift = ph < 0.7f ? Mathf.SmoothStep(0, 1, ph / 0.7f) : 1 - (ph - 0.7f) * (ph - 0.7f) / 0.09f;
+            if (ph < lastStrokePh && RepairT > 0.1f) { Snd.Play(M1Assets.I.Thud, s.Hole, 0.5f, Random.Range(1.6f, 1.85f)); Fx.Dust(s.Hole + Vector3.up * 0.04f, 3, 0.45f); }
+            lastStrokePh = ph;
+            Anim.Grip = repairGrip; Anim.GripLean = 0;
+            Anim.GripL = new Vector3(-0.13f, 0.05f, 0.02f);                                           // flat on the plank
+            Anim.GripR = new Vector3(0.10f, 0.22f + 0.2f * RepairLift, -0.15f - 0.05f * RepairLift);   // the hammer hand (its head on the plank)
+            Anim.GripElbow = new Vector3(0, -0.4f, -0.6f); Anim.GripFingers = new Vector3(0, -0.7f, 1);
+            Anim.LookAt = s.Hole; repairLook = true;
+        }
+
         // the fish in the throwing hand until it goes (mine, or a crewmate's from their pose)
         void HoldThrown()
         {
@@ -722,7 +873,7 @@ namespace PortBoss.M1
         {
             if (rag == null || Down || Swimming || Fish.Locked) return; // (never with a line out)
             if (helm) { LeaveHelm(); if (Skiff.I != null) Skiff.I.Notch = 0; }
-            Fish.Stow();
+            Fish.Stow(); RepairT = -1;
             Anim.Over = null; Anim.OverW = overW = 0; Anim.Flail = false; Anim.Grip = null; Anim.Act = null;
             Model.localPosition = Vector3.zero; Model.localRotation = Quaternion.identity; Model.localScale = Vector3.one;
             leanP = leanR = leanPV = leanRV = sq = sqV = 0; crouchT = -1; jumped = fallIn = false;
@@ -861,6 +1012,8 @@ namespace PortBoss.M1
                 Anim.GripElbow = new Vector3(0.62f, -0.8f, -0.35f); Anim.GripFingers = new Vector3(0, -0.3f, 1); // left elbow tucked in to his side
             }
             else if (!Fish.Holding || Swimming) Anim.Grip = null;
+            Repairing();
+            ShovePose();
             // Mixamo clips the game drives over everything: the jump (its crouch fitted into our 0.08 s, its push and tuck
             // over the first 0.25 s of the rise, then held) and stepping off the pier into the sea (Falling Into Pool: the
             // topple and the drop). Their own rise is taken back out of the body: the controller does the rising.

@@ -1,5 +1,31 @@
 # Port Boss M2: co-op on the boat (how to test)
 
+## What changed in M3.1 (3 Nov night, from your two-PC test of 20261103-d9565e0)
+- **Inviting works without Steam's overlay.** Press **I** any time you're in a crew; you don't need Esc first (Esc,
+  then I also works). An invite list opens over the game:
+  - **Invite <friend>** for each Steam friend online. This sends the invite straight to their Steam chat, so it works
+    even when Steam's overlay doesn't. On Manan's PC the overlay never started inside the game, so the old I did nothing.
+  - **Copy the crew code** (like `2Q7-0K3M`). The code is also shown in the pause menu (Esc).
+  - **Steam's invite window**, if the overlay is running.
+  - A note on the left says why, when the overlay can't open.
+  - The friend joins from the invite in their Steam chat, or picks **Join a friend on Steam**, then **Type a crew
+    code**.
+- **No more stray float hanging in the air** when a crewmate quits or rejoins with their rod out.
+- **Patching the leak:**
+  - the hole spurts water, with a red ring round it;
+  - a pin with an arrow shows where it is, even off screen, and fills up as you patch;
+  - the patcher kneels and hammers a plank on, with a knock on every blow. Your friend sees all of it.
+- **Catching a fish:** you hold it up with the rod still in your right hand for a second. Then you reach back, put the
+  rod on your back, and hold the fish in both hands.
+- **You can't walk through each other any more:** on the pier, the jetty and the boat. Walking into a friend just
+  stops you, so nobody gets pushed off the boat by walking.
+- **Shove a friend: G** (within 1.5 m, in front of you). They fall over for a second. At the rail, they can go over
+  the side. You can shove once every 3 s.
+  - A friend whose line is out waiting gets it reeled in; the bait stays on.
+  - A friend fighting a fish loses it, and the bait too.
+- **Rejoining:** the view stays covered ("Joining the crew…") until you're yourself and back where you were. Before,
+  the camera showed the host first, then switched.
+
 ## What changed since M2 (this is build M2.1, 3 Nov)
 From your co-op test this morning and two audits of the M2 build:
 - **Holding the rod, everyone keeps their chin up** and looks at the horizon, then at the bobber, then at the fish they
@@ -50,12 +76,14 @@ anything that felt wrong.
 
 ## 2. Getting into one crew over Steam (the main test)
 1. **Tushar:** run `PortBoss.exe`. The title menu shows. Pick **2 Host a crew on Steam**.
-2. **Tushar:** press **Esc**, then **I**. Steam's invite window opens. Invite Manan. Press Esc to close the menu.
+2. **Tushar:** in the game press **I** (any time; Esc then I works too). The invite list opens: pick **Invite Manan**.
+   No list, or Manan isn't in it? Pick **Copy the crew code** and send it to Manan (the code is also in the pause menu).
 3. **Manan:** start `PortBoss.exe` first and wait on the title menu, **then** accept the invite in Steam. Don't accept it
    with the game closed: on Steam's test app (480) Steam would start "Spacewar", not Port Boss. (That works only once Port
    Boss has its own Steam app ID.)
-   - Other ways in: run `PortBoss.exe` and pick **3 Join a friend on Steam**, then choose "Tushar's crew"; or right-click
-     Tushar in your Steam friends list and pick **Join game** (also with the game already running).
+   - Other ways in: run `PortBoss.exe` and pick **3 Join a friend on Steam**, then choose "Tushar's crew", or **Type a
+     crew code** and type Tushar's code; or right-click Tushar in your Steam friends list and pick **Join game** (also
+     with the game already running).
 4. You should both appear on Walt's pier. Each of you sees the other's name over their head and both names in the
    **crew list** (top right).
 
@@ -76,7 +104,9 @@ checklist works the same way.
 | Give the whole stack | **Shift** + hold **E** |
 | Toss a fish (a ring shows where it lands; hold longer to throw further) | hold **Q**, let go |
 | Drop one fish at your feet (over the side, it swims away) | tap **Q** |
-| Invite friends (Steam host) | **Esc**, then **I** |
+| Invite friends (any time in a crew; Esc first isn't needed) | **I** |
+| Shove a crewmate (in front of you, within 1.5 m; once every 3 s) | **G** |
+| Patch the leak (in a storm, at the hole) | hold **E** |
 | Leave the crew and play on alone | **Esc**, then **L** |
 | Switch to the next free crew member | **F9** |
 | Fall over (to test the ragdoll) | **F8** |
@@ -88,7 +118,8 @@ you. If it says "Mic (no Steam)", Steam isn't running on that PC.
 Play about 30 minutes in one session, over Steam if you can.
 
 **Joining**
-- [ ] Tushar hosts on Steam and invites Manan; Manan gets in from the invite.
+- [ ] Tushar hosts on Steam and presses **I**: the invite list opens. **Invite Manan** from it; Manan gets in from the
+  invite. (Also try the crew code: Join a friend on Steam, then Type a crew code.)
 - [ ] You're two different crew members, each with your own colour on the armband, the back patch, the name tag and the crew list.
 
 **On the boat**
@@ -113,9 +144,19 @@ Play about 30 minutes in one session, over Steam if you can.
 **Falling about**
 - [ ] Jump overboard while the other drives away. The swimmer floats on the waves on both screens, then climbs back up the ladder (E).
 - [ ] F8 (fall over): the other sees you go limp and get up again.
+- [ ] Walk into each other on the pier and on the boat: you stop, no shaking, nobody gets pushed in.
+- [ ] **G** next to your friend: they go over and get up. At the rail they can go in the water. Shove them while
+  their line is out (it reels in) and while they fight a fish (it gets away).
+
+**Catching and patching (M3.1)**
+- [ ] Catch a fish: the rod stays in your hand for a second, then goes on your back with a reach over the shoulder.
+  Your friend sees the same.
+- [ ] A leak in a storm (the host presses F11 until "Weather held: Storm", then waits on the boat): the spurting hole, the red ring and the pin are easy to find. Hold E at the
+  hole: you kneel and hammer, the pin fills up, and a plank is nailed on. Your friend sees it all.
 
 **Leaving and coming back**
 - [ ] Manan quits the game (Esc, Q) and starts it again, then rejoins. **His fish are still there**, and he's back where he was, as the same character.
+  The view stays covered until then: the camera never shows Tushar first.
 - [ ] Esc, L: you leave the crew and keep playing alone with your boat and fish.
 
 **The day (M3)**

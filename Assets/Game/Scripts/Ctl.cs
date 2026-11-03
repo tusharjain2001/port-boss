@@ -12,7 +12,7 @@ namespace PortBoss.M1
         public static bool PadLast;                       // the last device used (prompt glyphs follow it)
 
         // bot overrides (the -pb-* scenarios)
-        public static bool Bot; public static Vector2 BotMove; public static bool BotUse, BotUsePressed, BotStrike, BotInteract, BotInteractHeld, BotDropHeld, BotCancel, BotJump, BotSprint, BotJumpHeld = true, BotBrace; public static int BotSlot = -1;
+        public static bool Bot; public static Vector2 BotMove; public static bool BotShove, BotUse, BotUsePressed, BotStrike, BotInteract, BotInteractHeld, BotDropHeld, BotCancel, BotJump, BotSprint, BotJumpHeld = true, BotBrace; public static int BotSlot = -1;
 
         static bool K_(Key k) => K != null && K[k].isPressed;
         static bool KD(Key k) => K != null && K[k].wasPressedThisFrame;
@@ -48,6 +48,7 @@ namespace PortBoss.M1
         public static bool Jump => Bot ? BotJump : KD(Key.Space) || (P != null && P.buttonSouth.wasPressedThisFrame);
         public static bool JumpHeld => Bot ? BotJumpHeld : K_(Key.Space) || (P != null && P.buttonSouth.isPressed); // let go early: a lower hop
         public static bool Interact => Bot ? BotInteract : KD(Key.E) || (P != null && P.buttonWest.wasPressedThisFrame);
+        public static bool Shove => Bot ? BotShove : KD(Key.G) || (P != null && P.buttonNorth.wasPressedThisFrame); // M3.1: a friendly shove
         public static bool Brace => Bot ? BotBrace : K_(Key.C) || (P != null && P.rightStickButton.isPressed); // M3: hold to brace on deck
         public static bool InteractHeld => Bot ? BotInteractHeld : K_(Key.E) || (P != null && P.buttonWest.isPressed);
         public static bool PushToTalk => !Bot && K_(Key.V); // (when Settings.Voice is push-to-talk)

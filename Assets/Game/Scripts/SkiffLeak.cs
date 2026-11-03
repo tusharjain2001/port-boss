@@ -18,7 +18,7 @@ namespace PortBoss.M1
         public float SpeedMul => Water >= 0.999f ? 0.3f : 1 - 0.3f * Water;
         public float List => 5f * Water;
 
-        double leakDone = double.NaN; bool towSaid; float holdT; Transform waterQ; bool deckFound;
+        double leakDone = double.NaN; bool towSaid, patchSent; float holdT; Transform waterQ; bool deckFound;
 
         public Vector3 Hole => transform.TransformPoint(HoleLocal);
 
@@ -39,30 +39,32 @@ namespace PortBoss.M1
         public void SpringLeak()
         {
             if (Leaking) return;
-            Leaking = true; FindDeck();
+            Leaking = true; FindDeck(); LeakFx.Ensure(this);
             Alerts.Push("Biscuit", "She's sprung a leak! Patch the hole, or bail.", Alerts.Kind.Warning, "leak");
             Snd.Play(M1Assets.I.Thud, Hole, 0.9f); CameraRig.Shake(0.2f);
             Debug.Log($"[PB] leak: sprang at {DayTime.Clock(Sky.Minutes)}");
         }
 
         public void ScoopOut() { Water = Mathf.Max(0, Water - Scoop); }
-        public void Patch() { if (!Leaking) return; Leaking = false; Alerts.Push("Biscuit", "Hole patched. Now bail her dry.", Alerts.Kind.Info, ends: "leak"); Debug.Log("[PB] leak: patched"); }
+        public void Patch() { if (!Leaking) return; Leaking = false; Alerts.Push("Biscuit", "Hole patched. Now bail her dry.", Alerts.Kind.Info, ends: "leak"); Snd.Play(M1Assets.I.Thud, Hole, 0.7f, 1.3f); Debug.Log("[PB] leak: patched"); }
 
         // the hold-E prompt for the walker on deck (Angler.Interact); null = nothing to do here
         public string LeakPrompt(Angler me)
         {
+            if (!Leaking) patchSent = false;
             if (!me.OnBoat || me.AtHelm || (!Leaking && Water < 0.02f)) { holdT = 0; return null; }
             bool atHole = Leaking && Vector3.Distance(me.transform.position, Hole) < 1.1f;
             float need = atHole ? PatchTime : ScoopEvery;
-            if (!Ctl.InteractHeld) { holdT = 0; return atHole ? "Hold to patch the leak" : "Hold to bail"; }
-            holdT += Time.deltaTime;
+            if (!Ctl.InteractHeld) { holdT = 0; patchSent = false; return atHole ? "Hold to patch the leak" : "Hold to bail"; }
+            holdT = Mathf.Min(holdT + Time.deltaTime, need);
+            if (atHole) me.RepairT = holdT;                       // M3.1: down at the hole with the hammer (everyone sees it)
             if (holdT >= need)
             {
-                holdT = 0;
-                if (atHole) { if (Remote) Coop.Request(Coop.Ask.Patch); else Patch(); }
-                else { if (Remote) Coop.Request(Coop.Ask.Scoop); else ScoopOut(); Snd.Play(M1Assets.I.Splash, transform.position, 0.25f); }
+                // patched: once (a crewmate's ask goes to the boat's owner; the kneel holds till her answer comes back)
+                if (atHole) { if (!patchSent) { patchSent = true; if (Remote) Coop.Request(Coop.Ask.Patch); else Patch(); } }
+                else { holdT = 0; if (Remote) Coop.Request(Coop.Ask.Scoop); else ScoopOut(); Snd.Play(M1Assets.I.Splash, transform.position, 0.25f); }
             }
-            return atHole ? $"Patching… {Mathf.CeilToInt(PatchTime - holdT)}" : "Bailing…";
+            return atHole ? (patchSent ? "Patched!" : $"Patching… {Mathf.CeilToInt(PatchTime - holdT)}") : "Bailing…";
         }
 
         // the hole sits on the deck: find the deck under it once (the boat's own collider)

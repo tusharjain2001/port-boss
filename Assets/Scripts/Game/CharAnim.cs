@@ -59,6 +59,7 @@ namespace PortBoss
         public float OverTime, OverW;
         public float LandFrom;        // where the landing clip starts (M1: where its feet touch down)
         public Transform HandR => armRH;
+        public Transform HandL => armLH;
 
         void LateUpdate() { if (armLU != null && armRU != null && animator.enabled) PostPose(); } // (a ragdoll has the body)
 

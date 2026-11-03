@@ -174,14 +174,17 @@ namespace PortBoss.M1
         {
             var hud = Hud.I.transform;
             pause = UiKit.Card(hud, "pause", 26, Ponyo.Paper, true);
-            pause.Place(new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(560, 300));
+            pause.Place(new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(560, 360));
             var t = UiKit.Txt(pause, "Paused", UiKit.Display, 49, Ponyo.Ink, TextAnchor.UpperCenter); t.rectTransform.Stretch(30);
             pauseT = UiKit.Txt(pause, PauseText(), UiKit.Body, 22, Ponyo.Ink, TextAnchor.MiddleCenter); pauseT.rectTransform.Stretch(30); pauseT.rectTransform.offsetMax = new Vector2(-30, -60);
             pause.gameObject.SetActive(false);
         }
 
-        // co-op adds: invite friends (a Steam crew I host), leave the crew
-        static string PauseText() => "Esc  resume\nQ  quit to desktop" + (Coop.On && Coop.IsHost && Coop.Lobby != null ? "\nI  invite friends (Steam)" : "") + (Coop.On ? "\nL  leave the crew (play on alone)" : "") + "\n\nF3 debug overlay · F5 rod tier · F6 bait";
+        // co-op adds: invite friends (anyone in a crew, M3.1), the crew code, leave the crew
+        static string PauseText() => "Esc  resume\nQ  quit to desktop" + (Coop.On ? "\nI  invite friends" + (Coop.Code != null ? $"  ·  crew code <b>{Coop.Code}</b>" : $"  ·  they join {Coop.LanAddress}") + "\nL  leave the crew (play on alone)" : "") + "\n\nF3 debug overlay · F5 rod tier · F6 bait";
+        public static void ClosePause() { var g = FindAnyObjectByType<Game>(); if (g != null && Paused) g.SetPaused(false); }
+        public void ShowPause(bool on) => SetPaused(on); public string PauseLine => pauseT.text; // (tests)
+        void SetPaused(bool on) { Paused = on; Time.timeScale = Paused && !Coop.On ? 0 : 1; pause.gameObject.SetActive(Paused); pauseT.text = PauseText(); Cursor.lockState = Paused ? CursorLockMode.None : CursorLockMode.Locked; Cursor.visible = Paused; }
 
         void OnApplicationQuit()
         {
@@ -192,12 +195,13 @@ namespace PortBoss.M1
         void Update()
         {
             Coop.SteamTick(); // (lobby callbacks, invites, the mic)
-            if (Title.Shown) return;
+            if (Title.Up || Title.ClosedFrame == Time.frameCount) return; // (the title, or the invite list: Esc is theirs)
             // (co-op never stops the world: the menu opens, the boat and the crew carry on)
-            if (Ctl.Escape && !Ctl.Bot) { Paused = !Paused; Time.timeScale = Paused && !Coop.On ? 0 : 1; pause.gameObject.SetActive(Paused); pauseT.text = PauseText(); Cursor.lockState = Paused ? CursorLockMode.None : CursorLockMode.Locked; Cursor.visible = Paused; }
+            if (Ctl.Escape && !Ctl.Bot) SetPaused(!Paused);
             if (Paused && Ctl.Key_(UnityEngine.InputSystem.Key.Q)) Application.Quit();
-            if (Paused && Ctl.Key_(UnityEngine.InputSystem.Key.I)) Coop.Invite();
-            if (Paused && Coop.On && Ctl.Key_(UnityEngine.InputSystem.Key.L)) { Coop.Leave(); Paused = false; Time.timeScale = 1; pause.gameObject.SetActive(false); Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false; Alerts.Push("Crew", "You left the crew. Biscuit's all yours.", Alerts.Kind.Info); }
+            // I: the invite list, from the pause menu or straight from the game (M3.1: Manan's Esc, I did nothing)
+            if (Ctl.Key_(UnityEngine.InputSystem.Key.I) && !Ctl.Bot) { if (Paused) SetPaused(false); Coop.Invite(); }
+            if (Paused && Coop.On && Ctl.Key_(UnityEngine.InputSystem.Key.L)) { Coop.Leave(); SetPaused(false); Alerts.Push("Crew", "You left the crew. Biscuit's all yours.", Alerts.Kind.Info); }
             if (!Paused && !Application.isBatchMode && Cursor.lockState != CursorLockMode.Locked && UnityEngine.InputSystem.Mouse.current != null && UnityEngine.InputSystem.Mouse.current.leftButton.wasPressedThisFrame) Cursor.lockState = CursorLockMode.Locked;
             // gulls now and then
             gullT -= Time.deltaTime;
