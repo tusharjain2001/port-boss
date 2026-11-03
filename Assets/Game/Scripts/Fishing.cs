@@ -837,7 +837,7 @@ namespace PortBoss.M1
                 // the hand reaches up and back over the right shoulder with it (an arc, not a slide through the body)
                 rod.Root.localPosition = Vector3.Lerp(swapP, bp, sw) + new Vector3(0.04f, 0.28f, -0.06f) * (me.Size * Mathf.Sin(sw * Mathf.PI));
                 rod.Tension = 0;
-                bool carry = State == St.Reveal ? showing && swapT < 0.85f : State != St.Toss && swapT < 0.55f;
+                bool carry = State == St.Reveal ? showing && swapT < 0.85f : State != St.Toss && swapT < 0.55f && me.RepairT < 0 && me.ShoveT < 0; // (not when the hands go to a hammer or a shove)
                 if (carry && !me.Swimming) { GripRod(); if (showing) me.Anim.GripL = rod.Root.InverseTransformPoint(HangHand()); } // the hands carry it over the shoulder, then let go
                 else if (me.Anim.Grip == rod.Root) me.Anim.Grip = null;
                 elev = 35; elevV = 0; butt = rest; castClock = -1; return;
