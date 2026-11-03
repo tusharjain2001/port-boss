@@ -749,25 +749,37 @@ namespace PortBoss.M1
         public const float RepairStroke = 0.5f;           // s a hammer blow (Fish_Repair's nod loops with it)
         public float RepairT = -1;                        // s into patching (Skiff.LeakPrompt sets it while E is held at the hole)
         public float RepairLift { get; private set; }     // the hammer: 0 on the plank, 1 at the top of the swing
-        Transform repairGrip; bool repairLook; float lastStrokePh = 1; Hammer hammer; Vector3 kneelAt;
+        Transform repairGrip; bool repairLook; float lastStrokePh = 1; Hammer hammer; Vector3 kneelAt; public Vector3 KneelAt => kneelAt; // (tests)
         public const float KneelOff = 0.38f;              // from the hole: the hands reach the plank from a deep crouch
 
-        // where to kneel (boat space): 0.38 m from the hole on the open floor, not up on a thwart (M3.1: the first try knelt
-        // on the bench beside it, hammering the air); of the floor spots round it, the one nearest where I stand
+        // where to kneel (boat space): about 0.38 m from the hole on the open floor. M3.1: the first try knelt on the bench
+        // beside it, hammering the air; the second checked only the spot's centre, so the 0.3 m capsule round it caught the
+        // thwart and the controller stepped up onto it (the leak test: feet 0.35-0.5 m over the hole, the patch dropping).
+        // So a spot counts only if the floor under it is the hole's, the whole capsule fits there clear of the boat's
+        // benches and sides, and it's clear of crewmates; of those, the one nearest where I stand.
         Vector3 KneelSpot()
         {
             var s = Skiff.I; var h = s.HoleLocal; var me = s.transform.InverseTransformPoint(transform.position);
             Vector3 best = h + (me - h).normalized * KneelOff; float bd = float.MaxValue;
-            for (int i = 0; i < 12; i++)
-            {
-                float a = i * 30 * Mathf.Deg2Rad; var c = h + new Vector3(Mathf.Sin(a), 0, Mathf.Cos(a)) * KneelOff;
-                float floor = float.NegativeInfinity;
-                foreach (var hit in Physics.RaycastAll(s.transform.TransformPoint(c + Vector3.up * 1.2f), -s.transform.up, 2f, ~0, QueryTriggerInteraction.Ignore))
-                    if (hit.transform.IsChildOf(s.transform) && hit.collider.GetComponentInParent<Angler>() == null) floor = Mathf.Max(floor, s.transform.InverseTransformPoint(hit.point).y);
-                if (Mathf.Abs(floor - h.y) > 0.06f) continue; // a thwart, the gunwale, or off the boat
-                float d = (c - me).sqrMagnitude; if (d < bd) { bd = d; best = c; }
-            }
+            foreach (float off in new[] { KneelOff, KneelOff - 0.06f, KneelOff + 0.07f })
+                for (int i = 0; i < 12; i++)
+                {
+                    float a = i * 30 * Mathf.Deg2Rad; var c = h + new Vector3(Mathf.Sin(a), 0, Mathf.Cos(a)) * off;
+                    float floor = float.NegativeInfinity;
+                    foreach (var hit in Physics.RaycastAll(s.transform.TransformPoint(c + Vector3.up * 1.2f), -s.transform.up, 2f, ~0, QueryTriggerInteraction.Ignore))
+                        if (Ours(hit.collider)) floor = Mathf.Max(floor, s.transform.InverseTransformPoint(hit.point).y);
+                    if (Mathf.Abs(floor - h.y) > 0.06f) continue; // a thwart, the gunwale, or off the boat
+                    float bad = 0;
+                    var w = s.transform.TransformPoint(c); var up = s.transform.up; float r = Cc.radius - 0.02f;
+                    foreach (var col in Physics.OverlapCapsule(w + up * (r + 0.1f), w + up * (Cc.height - r), r, ~0, QueryTriggerInteraction.Ignore))
+                        if (Ours(col)) { bad += 100; break; }       // a bench or the side in the way: the controller would climb it
+                    if (Coop.I != null) foreach (var m in Coop.I.Mates.Values)
+                            if (m != null && !m.Down && Vector3.ProjectOnPlane(m.transform.position - w, up).magnitude < Apart) bad += 10;
+                    float d = (c - me).sqrMagnitude + bad + Mathf.Abs(off - KneelOff);
+                    if (d < bd) { bd = d; best = c; }
+                }
             return best;
+            bool Ours(Collider col) => col.transform.IsChildOf(s.transform) && col.GetComponentInParent<Angler>() == null;
         }
 
         // ease to the kneeling spot, facing the hole
@@ -777,7 +789,7 @@ namespace PortBoss.M1
             var d = s.Hole - transform.position; d.y = 0;
             if (d.sqrMagnitude > 0.0025f) transform.rotation = Quaternion.Euler(0, Mathf.MoveTowardsAngle(transform.eulerAngles.y, Mathf.Atan2(d.x, d.z) * Mathf.Rad2Deg, 360f * dt), 0);
             var mv = s.transform.TransformPoint(kneelAt) - transform.position; mv.y = 0;
-            if (mv.sqrMagnitude > 1e-4f) Cc.Move(mv * Mathf.Min(1, dt * 6));
+            if (mv.sqrMagnitude > 1e-4f) Cc.Move(Crowd(mv * Mathf.Min(1, dt * 6), dt)); // (round a crewmate, never into them)
         }
 
         void Repairing()

@@ -27,6 +27,7 @@ namespace PortBoss.M1
             var g = new GameObject("leakSpout"); g.transform.SetParent(transform, false); g.transform.localPosition = s.HoleLocal;
             spout = g.AddComponent<ParticleSystem>();
             var m = spout.main; m.loop = true; m.simulationSpace = ParticleSystemSimulationSpace.Local; m.maxParticles = 200;
+            m.cullingMode = ParticleSystemCullingMode.AlwaysSimulate; // (else it sits empty off screen and starts dry when you turn round)
             m.startLifetime = new ParticleSystem.MinMaxCurve(0.35f, 0.6f); m.startSpeed = new ParticleSystem.MinMaxCurve(1.6f, 2.8f);
             m.startSize = new ParticleSystem.MinMaxCurve(0.05f, 0.1f); m.gravityModifier = 1.1f; m.startColor = new Color(0.85f, 0.97f, 1f, 0.95f);
             var e = spout.emission; e.rateOverTime = 0;
@@ -139,21 +140,21 @@ namespace PortBoss.M1
             PinShown = show; ArrowShown = false;
             if (!show) return;
             pin.SetAsLastSibling();
-            var hud = (RectTransform)Hud.I.transform; var ui = CameraRig.I.UiCam;
-            var sp = cam.WorldToScreenPoint(s.Hole + Vector3.up * 0.55f);
-            float w = Screen.width, h = Screen.height, margin = 70 * w / 1920f;
-            bool behind = sp.z < 0; if (behind) { sp.x = w - sp.x; sp.y = h - sp.y; }
-            bool off = behind || sp.x < margin || sp.x > w - margin || sp.y < margin || sp.y > h - margin;
-            Vector2 at = sp, dir = Vector2.zero;
+            // in the HUD's own units, from the viewport (as the name tags do: right at any screen or picture size)
+            var hud = (RectTransform)Hud.I.transform; var size = hud.rect.size;
+            var vp = cam.WorldToViewportPoint(s.Hole + Vector3.up * 0.55f);
+            bool behind = vp.z < 0; if (behind) { vp.x = 1 - vp.x; vp.y = 1 - vp.y; }
+            Vector2 at = new(vp.x * size.x, vp.y * size.y); float margin = 70;
+            bool off = behind || at.x < margin || at.x > size.x - margin || at.y < margin || at.y > size.y - margin;
+            Vector2 dir = Vector2.zero;
             if (off)
             {
-                var ctr = new Vector2(w / 2, h / 2); dir = (at - ctr); if (behind && dir.sqrMagnitude < 1) dir = Vector2.down; dir.Normalize();
+                var ctr = size / 2; dir = at - ctr; if (behind && dir.sqrMagnitude < 1) dir = Vector2.down; dir.Normalize();
                 // along the line from the centre to where it is, to the edge of the inset screen
-                float kx = dir.x != 0 ? (w / 2 - margin) / Mathf.Abs(dir.x) : float.MaxValue, ky = dir.y != 0 ? (h / 2 - margin) / Mathf.Abs(dir.y) : float.MaxValue;
+                float kx = dir.x != 0 ? (size.x / 2 - margin) / Mathf.Abs(dir.x) : float.MaxValue, ky = dir.y != 0 ? (size.y / 2 - margin) / Mathf.Abs(dir.y) : float.MaxValue;
                 at = ctr + dir * Mathf.Min(kx, ky);
             }
-            RectTransformUtility.ScreenPointToLocalPointInRectangle(hud, at, ui, out var lp);
-            pin.anchoredPosition = lp;
+            pin.anchorMin = pin.anchorMax = new Vector2(at.x / size.x, at.y / size.y); pin.anchoredPosition = Vector2.zero;
             arrow.gameObject.SetActive(off); ArrowShown = off;
             if (off) { arrow.anchoredPosition = dir * 50; arrow.localEulerAngles = new Vector3(0, 0, Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg - 90); }
             prog.fillAmount = Progress; prog.enabled = Progress > 0;

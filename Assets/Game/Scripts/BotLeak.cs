@@ -31,7 +31,20 @@ namespace PortBoss.M1
                 ct.SetPositionAndRotation(keep.position, keep.rotation);
             }
             // a side view of an angler at work: from their right, a little ahead, looking down at their hands
-            IEnumerator Side(string what, Angler a) => Pic(what, a.transform.position + Vector3.up * 0.45f + a.transform.forward * 0.25f, a.transform.position + a.transform.right * 1.7f + a.transform.forward * 0.7f + Vector3.up * 1.15f);
+            IEnumerator Side(string what, Angler a)
+            {
+                var look = a.transform.position + Vector3.up * 0.45f + a.transform.forward * 0.25f; var from = look;
+                foreach (float turn in new[] { 70f, -70f, 30f, -30f, 110f, -110f, 0f })   // the first with a clear view of the hands
+                {
+                    var dir = Quaternion.Euler(0, turn, 0) * a.transform.forward;
+                    from = look + dir * 1.8f + Vector3.up * 0.8f;
+                    bool clear = true;
+                    foreach (var h in Physics.RaycastAll(from, look - from, Vector3.Distance(from, look) - 0.15f, ~0, QueryTriggerInteraction.Ignore))
+                        if (h.collider.GetComponentInParent<Angler>() == null) { clear = false; break; }
+                    if (clear && !Physics.CheckSphere(from, 0.15f, ~0, QueryTriggerInteraction.Ignore)) break;
+                }
+                yield return Pic(what, look, from);
+            }
             IEnumerator HoleView(string what) => Pic(what, s.Hole, s.Hole + s.transform.rotation * new Vector3(-1.6f, 1.6f, -1.9f));
             bool Marker() { var r = s.transform.Find("leakRing"); var p = s.transform.Find("leakSpout")?.GetComponent<ParticleSystem>(); Debug.Log($"[PB] leak: marker: pin {LeakFx.PinShown}, ring {(r != null && r.gameObject.activeSelf)}, spout {(p != null ? p.particleCount : -1)} drops"); return LeakFx.PinShown && r != null && r.gameObject.activeSelf && p != null && p.particleCount > 0; }
             // watch a crewmate patch: their pose says so for most of the 10 s, with the hammer up and down
@@ -58,7 +71,14 @@ namespace PortBoss.M1
                 while (s.Leaking && Time.time - t0 < Skiff.PatchTime + 8)
                 {
                     if (me.RepairT >= 0) { seen += Time.deltaTime; if (me.Prompt != null) prompt = me.Prompt; }
-                    if (!shot && seen > 3f) { shot = true; yield return Side("patching-myself", me); yield return HoleView("patching-myself-pin"); }
+                    if (!shot && seen > 3f)
+                    {
+                        shot = true; string under = "";
+                        foreach (var hit in Physics.RaycastAll(me.transform.position + Vector3.up * 0.6f, Vector3.down, 1.5f, ~0, QueryTriggerInteraction.Ignore))
+                            under += $" [{hit.collider.name} <{hit.collider.transform.root.name}> {hit.collider.GetType().Name} at {hit.point.y - s.Hole.y:+0.00;-0.00}]";
+                        Debug.Log($"[PB] leak: under my feet ({me.transform.position.y - s.Hole.y:+0.00;-0.00} over the hole, kneel spot {me.KneelAt} of hole {s.HoleLocal}, mate at {(Mate() != null ? s.transform.InverseTransformPoint(Mate().transform.position) : Vector3.zero)}):{under}");
+                        yield return Side("patching-myself", me); yield return HoleView("patching-myself-pin");
+                    }
                     yield return null;
                 }
                 Ctl.BotInteractHeld = false;
@@ -78,11 +98,17 @@ namespace PortBoss.M1
                 yield return HoleView($"r{round}-leak-marker");
                 if (round == 1)
                 {
-                    // look away from it: the pin goes to the screen's edge with an arrow
-                    var keep = CameraRig.I.Yaw; CameraRig.I.Yaw = Mathf.Atan2(me.transform.position.x - s.Hole.x, me.transform.position.z - s.Hole.z) * Mathf.Rad2Deg;
-                    yield return new WaitForSeconds(0.6f);
+                    // look away from it (the camera at my head, turned 110° off the hole): the pin goes to the screen's
+                    // edge with an arrow. (Turning the chase camera isn't enough: the hole is ~1 m from me, so it stays in
+                    // the bottom of the picture.)
+                    yield return new WaitForEndOfFrame();
+                    var ct = CameraRig.I.Cam.transform; var keep = (ct.position, ct.rotation);
+                    var eye = me.transform.position + Vector3.up * 1.6f; var toHole = Flat(s.Hole - eye).normalized;
+                    ct.SetPositionAndRotation(eye, Quaternion.LookRotation(Quaternion.Euler(0, 110, 0) * toHole + Vector3.down * 0.15f));
+                    LeakFx.PlaceNow(); Canvas.ForceUpdateCanvases();
                     Check(LeakFx.PinShown && LeakFx.ArrowShown, "looking away, the pin sits at the edge with an arrow to the hole");
-                    yield return Shot("leak-offscreen-arrow"); CameraRig.I.Yaw = keep;
+                    Save(Path.Combine(dir, $"{role}-{shotN++:00}-leak-offscreen-arrow.png"));
+                    ct.SetPositionAndRotation(keep.position, keep.rotation);
                 }
                 if (iPatch) yield return Patch(host ? "Host" : "Rider");
                 else yield return Watch(host ? "Rider" : "Host");
