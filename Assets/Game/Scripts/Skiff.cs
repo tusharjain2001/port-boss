@@ -208,7 +208,7 @@ namespace PortBoss.M1
                 if (AnchorT >= 1.5f)
                 {
                     AnchorT = -1; Anchored = !Anchored; anchorAt = pos;
-                    Alerts.Push("Biscuit", Anchored ? "Anchor down. She'll hold here." : "Anchor up.", Alerts.Kind.Info);
+                    Alerts.Push("Biscuit", Anchored ? "Anchor down. She'll hold here." : "Anchor up.", Alerts.Kind.Info, "anchor", "anchor");
                     Snd.Play(M1Assets.I.Splash, AnchorPt != null ? AnchorPt.position : transform.position, Anchored ? 0.7f : 0.3f);
                 }
             }
@@ -296,11 +296,11 @@ namespace PortBoss.M1
         {
             if (!Moored) return;
             Moored = false; moorBlend = 0;
-            Alerts.Push("Biscuit", "Cast off. W / S for the throttle, A / D to steer.", Alerts.Kind.Info);
+            Alerts.Push("Biscuit", "Cast off. W / S for the throttle, A / D to steer.", Alerts.Kind.Info, "berth", "berth");
         }
 
         public bool CanMoor => !Moored && MoorAt != null && Vector3.Distance(Flat(pos), Flat(MoorAt.position)) < 6f && Mathf.Abs(Speed) < 2f;
-        public void Moor() { Moored = true; Anchored = false; moorBlend = 0; Notch = 0; Speed = 0; Alerts.Push("Biscuit", "Moored at Walt's Landing.", Alerts.Kind.Info); }
+        public void Moor() { Moored = true; Anchored = false; moorBlend = 0; Notch = 0; Speed = 0; Alerts.Push("Biscuit", "Moored at Walt's Landing.", Alerts.Kind.Info, "berth", "berth|anchor"); }
         static Vector3 Flat(Vector3 v) => new Vector3(v.x, 0, v.z);
 
         // M3: a boat left loose for the night anchors itself where it is (systems §1.4.2)

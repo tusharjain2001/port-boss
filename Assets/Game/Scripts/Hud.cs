@@ -9,12 +9,14 @@ namespace PortBoss.M1
     public static class Alerts
     {
         public enum Kind { Message, Money, Info, Weather, Warning, Crew, Story }
-        public struct A { public string Sender, Text; public Kind K; public float Born; }
+        // Topic: what a toast is about; Ends: the topics it resolves ('|'-separated). A toast that ends a topic dismisses the
+        // older toasts on it ("Hole patched" ends "She's sprung a leak!"), so two toasts never contradict each other.
+        public struct A { public string Sender, Text, Topic, Ends; public Kind K; public float Born; }
         public static readonly List<A> Queue = new();
         public static System.Action<A> OnPush;
-        public static void Push(string sender, string text, Kind k = Kind.Info)
+        public static void Push(string sender, string text, Kind k = Kind.Info, string topic = null, string ends = null)
         {
-            var a = new A { Sender = sender, Text = text, K = k, Born = Time.unscaledTime };
+            var a = new A { Sender = sender, Text = text, K = k, Topic = topic, Ends = ends, Born = Time.unscaledTime };
             Queue.Add(a); Debug.Log($"[PB] alert {k}: {sender}: {text}");
             OnPush?.Invoke(a);
         }
@@ -260,11 +262,23 @@ namespace PortBoss.M1
         void OnAlert(Alerts.A a)
         {
             bool fighting = fish != null && fish.State is Fishing.St.Minigame or Fishing.St.Heavy or Fishing.St.Reel or Fishing.St.Reveal;
+            if (a.Ends != null) Resolve(a.Ends);
             if (quiet || fighting && a.K != Alerts.Kind.Warning && a.Sender != "NEW species") { if (!held.Exists(x => Same(x, a))) held.Add(a); return; }
             Show(a);
         }
 
         static bool Same(Alerts.A x, Alerts.A y) => x.Sender == y.Sender && x.Text == y.Text;
+
+        // dismiss the toasts on these topics: the ones up start their fade-out now, the held ones are dropped
+        void Resolve(string ends)
+        {
+            foreach (var t in ends.Split('|'))
+            {
+                held.RemoveAll(x => x.Topic == t);
+                for (int i = 0; i < cards.Count; i++)
+                    if (cards[i].a.Topic == t) { var c = cards[i]; c.a.Born = Mathf.Min(c.a.Born, Time.unscaledTime - Life(c.a)); cards[i] = c; }
+            }
+        }
 
         // M3: while the night card is up the toast stack fades away (the old day's toasts go); toasts that arrive meanwhile
         // wait and show once it is gone (Sleep.Night)

@@ -127,6 +127,8 @@ namespace PortBoss.M1
             if (shots != null) { CameraRig.I.Pitch = 38; CameraRig.I.Yaw = s.transform.eulerAngles.y + 160; yield return new WaitForSeconds(0.3f); yield return Shot("leak-1-water"); }
             Ctl.BotInteractHeld = true; yield return Until(() => !s.Leaking, Skiff.PatchTime + 4); Ctl.BotInteractHeld = false;
             Check(!s.Leaking, $"holding E at the hole patches it (prompt '{me.Prompt}')");
+            yield return new WaitForSecondsRealtime(0.5f);                // (toasts run on real time; -pb-fps game time runs faster)
+            Check(Hud.I.ToastsShown("She's sprung a leak! Patch the hole, or bail.") == 0 && Hud.I.ToastsShown("Hole patched. Now bail her dry.") == 1, $"'Hole patched' dismisses the leak warning ({Hud.I.ToastsShown("She's sprung a leak! Patch the hole, or bail.")} leak toasts up)");
             me.Teleport(s.transform.TransformPoint(new Vector3(0, s.HoleLocal.y + 0.1f, 0.3f)), s.transform.eulerAngles.y); yield return new WaitForSeconds(0.5f);
             float wb = s.Water; Ctl.BotInteractHeld = true; yield return Until(() => s.Water < 0.02f, 25); Ctl.BotInteractHeld = false;
             Check(s.Water < 0.02f, $"bailing empties her ({wb:F2} -> {s.Water:F2})");

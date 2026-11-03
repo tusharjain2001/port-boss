@@ -32,21 +32,21 @@ namespace PortBoss.M1
                 if (!double.IsNaN(at) && Sky.Minutes >= at && leakDone != at) { leakDone = at; SpringLeak(); }
             }
             if (Leaking) Water = Mathf.Min(1, Water + dt / FillTime);
-            if (Water >= 1 && !towSaid) { towSaid = true; Alerts.Push("Dot", "You're riding low, kid. Bail her out, or I'll tow you in.", Alerts.Kind.Warning); }
-            if (Water < 0.5f) towSaid = false;
+            if (Water >= 1 && !towSaid) { towSaid = true; Alerts.Push("Dot", "You're riding low, kid. Bail her out, or I'll tow you in.", Alerts.Kind.Warning, "low"); }
+            if (Water < 0.5f && towSaid) { towSaid = false; Alerts.Push("Dot", "That's better. She's riding high again.", Alerts.Kind.Info, ends: "low"); }
         }
 
         public void SpringLeak()
         {
             if (Leaking) return;
             Leaking = true; FindDeck();
-            Alerts.Push("Biscuit", "She's sprung a leak! Patch the hole, or bail.", Alerts.Kind.Warning);
+            Alerts.Push("Biscuit", "She's sprung a leak! Patch the hole, or bail.", Alerts.Kind.Warning, "leak");
             Snd.Play(M1Assets.I.Thud, Hole, 0.9f); CameraRig.Shake(0.2f);
             Debug.Log($"[PB] leak: sprang at {DayTime.Clock(Sky.Minutes)}");
         }
 
         public void ScoopOut() { Water = Mathf.Max(0, Water - Scoop); }
-        public void Patch() { if (!Leaking) return; Leaking = false; Alerts.Push("Biscuit", "Hole patched. Now bail her dry.", Alerts.Kind.Info); Debug.Log("[PB] leak: patched"); }
+        public void Patch() { if (!Leaking) return; Leaking = false; Alerts.Push("Biscuit", "Hole patched. Now bail her dry.", Alerts.Kind.Info, ends: "leak"); Debug.Log("[PB] leak: patched"); }
 
         // the hold-E prompt for the walker on deck (Angler.Interact); null = nothing to do here
         public string LeakPrompt(Angler me)

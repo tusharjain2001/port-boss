@@ -276,7 +276,7 @@ namespace PortBoss.M1
             if (lastBlockKey >= 0 && key != lastBlockKey && ForceWx < 0)
             {
                 var now = W.Block(day, b); var (pd, pb) = b == 0 ? (day - 1, 3) : (day, b - 1); var was = W.Block(pd, pb);
-                if (now != was) Alerts.Push("Weather", Word(now), Alerts.Kind.Weather);
+                if (now != was) Alerts.Push("Weather", Word(now), Alerts.Kind.Weather, "weather", now == Wx.Storm || was == Wx.Storm ? "weather|storm" : "weather"); // (a new report replaces the last; a storm arriving or passing ends Dot's call)
             }
             lastBlockKey = key;
             // storm calls whose time has come since the last check (any storm in the next day and a half)
@@ -286,7 +286,7 @@ namespace PortBoss.M1
                     {
                         double at = Weather.StormCall(d, k);
                         if (at > lastCallCheck && at <= Minutes)
-                            Alerts.Push("Dot · Harbour", $"Storm coming {(k == 0 ? "tomorrow morning" : k == 1 ? "this afternoon" : k == 2 ? "this evening" : "tonight")}. Tie Biscuit up and stay off the water.", Alerts.Kind.Weather);
+                            Alerts.Push("Dot · Harbour", $"Storm coming {(k == 0 ? "tomorrow morning" : k == 1 ? "this afternoon" : k == 2 ? "this evening" : "tonight")}. Tie Biscuit up and stay off the water.", Alerts.Kind.Weather, "storm");
                     }
             lastCallCheck = Minutes;
         }
