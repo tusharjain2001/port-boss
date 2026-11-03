@@ -255,7 +255,7 @@ namespace PortBoss.M1
                 if (glow != null) { glow.gameObject.SetActive(LampW > 0.01f); glow.localScale = Vector3.one * (0.55f + 0.1f * Mathf.Sin(Time.time * 7f)) * range; glow.GetComponent<Renderer>().sharedMaterial.SetColor("_BaseColor", new Color(1f, 0.72f, 0.4f, 0.75f * LampW)); }
             }
             foreach (var r in windows) if (r != null) { r.enabled = LampW > 0.01f; r.sharedMaterial.SetColor("_BaseColor", new Color(1f, 0.74f, 0.42f, LampW)); }
-            if (Map.Glow != null) { foreach (var r in Map.Windows) r.enabled = LampW > 0.01f; Map.Glow.SetColor("_BaseColor", new Color(1f, 0.74f, 0.42f, LampW)); }   // the town's lit windows
+            if (Map.Glow != null) { foreach (var r in Map.Windows) r.enabled = LampW > 0.01f; Map.Glow.SetColor("_BaseColor", new Color(1.7f, 1.2f, 0.62f, LampW)); }   // the town's lit windows (HDR: over the bloom threshold, so they twinkle from the sea)
             var cam = Camera.main;
             if (cam != null) foreach (var (_, glow, _) in lamps) if (glow != null) glow.rotation = Quaternion.LookRotation(glow.position - cam.transform.position);
 

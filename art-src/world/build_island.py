@@ -34,7 +34,7 @@ PAL = dict(dark='#805C52', ink='#3F2C27', paper='#FFFBF2', cream2='#F8EFDD', cre
            cloud='#FFFBF2', orange='#F2994A', path='#E3CFA6', sand2='#D9BF8C', dune='#C6CF86', shingle='#BBB0A6',
            cliff='#B9A391',
            # the finished town (4 Nov): window glass, stone plinths/steps/kerbs, cobbles, soft wall pastels, shutters
-           glass='#3D6E9E', glass2='#5A8DB8', stone='#CDBFA9', stone2='#B3A48E', cob='#D9C7A2', cob2='#CBB690', cob3='#E4D5B4',
+           glass='#3D6E9E', glass2='#5A8DB8', stone='#A8998A', stone2='#8C7F72', cob='#B8A07C', cob2='#A58C6A', cob3='#C6B08C',
            wmint='#CFEBDB', wsky='#CCE1F2', wbutter='#F8E5AE', wrose='#F5CFC3', wlav='#DDD6EE', sage='#86B59A', navy='#2D4F7C',
            flower='#E8577A', flower2='#F4B63F', hedge='#5E9E58')
 NAMES = list(PAL); CI = {n: i for i, n in enumerate(NAMES)}
@@ -641,7 +641,7 @@ def build_streets(mb, shore, px, py, tx, ty, rr):
     for p, (nx, ny) in shore:
         if math.hypot((p[0] - tx) * 0.85, p[1] - ty) > 300: q.append(None); continue
         x, y = p[0] + nx * 5.5, p[1] + ny * 5.5
-        ok = H(x, y) > 0.5 and KIND(x, y) == 1 and math.hypot(x - px - 12, y - py - 3) > 24
+        ok = H(x, y) > 0.5 and KIND(x, y) == 1 and math.hypot(x - px - 12, y - py - 3) > 24 and all(math.hypot(x - sx, y - sy) > {2: 21}.get(n, 14) for n, _, sx, sy, _, _ in SHOP_SPOTS)
         q.append((x, y) if ok else None)
     runs, cur = [], []
     for v in q + [None]:
@@ -711,7 +711,8 @@ def build_streets(mb, shore, px, py, tx, ty, rr):
             if k % 23 == 11:
                 cx, cy = R_[i] - np.array((nx, ny)) * (wd / 2 + 1.6); crates(mb, cx, cy, H(cx, cy), math.atan2(t[1], t[0]), rr)
     for d in doors[:-1]:
-        crates(mb, d[0] + 3.5, d[1] + 1.5, H(d[0] + 3.5, d[1] + 1.5), 0.3, rr)
+        cx, cy = d[0] + 3.5, d[1] + 1.5
+        if SDF(cx, cy) > 8 and street_d(cx, cy) > 1.0: crates(mb, cx, cy, H(cx, cy), 0.3, rr)
 
 
 def build_town(coll):
@@ -825,7 +826,22 @@ def build_town(coll):
                 if clear(x, y, 1.2): tree(x, y); nt += 1
     for x, y, _ in scatter(140, (tx - 330, tx + 330, ty - 320, ty + 320), lambda x, y, r_: 2.0 if KIND(x, y) == 1 and math.hypot((x - tx) * 0.85, y - ty) < 330 and clear(x, y, 2.0) else None, 9.0, 41, 40000):
         tree(x, y); nt += 1
-    finish(gm, 'TownGardens', coll, 60); log('garden trees', nt)
+    FL = ('flower', 'flower2', 'wrose', 'wlav', 'paper', 'sun')
+    def clump(x, y, s_, col):
+        g = H(x, y); gm.add(blob(1, (s_, s_, s_ * 0.6), 40 + int(x * 5 + y * 3) % 900, 0.2, 1.0), 'hedge', M((x, y, g + s_ * 0.25)))
+        if col: gm.add(blob(1, (s_ * 0.55,) * 3, 70 + int(x * 3 + y * 7) % 900, 0.2, 1.0), col, M((x + 0.1, y, g + s_ * 0.75)))
+    nb = 0
+    for hx, hy, yaw, hw, hd, z0 in HOUSES:                                               # beds either side of the door
+        c, s_ = math.cos(yaw), math.sin(yaw); col = rg.choice(FL)
+        for a in (-hw / 2 + 0.9, hw / 2 - 0.9):
+            x, y = hx + a * c + (hd / 2 + 0.55) * s_, hy + a * s_ - (hd / 2 + 0.55) * c
+            if street_d(x, y) < 0.3 or H(x, y) < 0.8 or rg.random() < 0.3: continue
+            gm.add(box(1.5, 0.55, 0.35), 'hedge', M((x, y, H(x, y) + 0.12), (0, 0, yaw)))
+            for k in (-0.45, 0, 0.45): gm.add(blob(1, (0.26,) * 3, 11 + nb * 3 + int(k * 10), 0.2, 1.0), col, M((x + k * c, y + k * s_, H(x, y) + 0.42)))
+            nb += 1
+    lawn = scatter(520, (tx - 330, tx + 330, ty - 320, ty + 320), lambda x, y, r_: 2.0 if KIND(x, y) == 1 and math.hypot((x - tx) * 0.85, y - ty) < 330 and clear(x, y, 0.6) else None, 3.2, 43, 60000)
+    for x, y, _ in lawn: clump(x, y, rg.uniform(0.45, 0.8), rg.choice(FL) if rg.random() < 0.6 else None)
+    finish(gm, 'TownGardens', coll, 60); log('garden trees', nt, 'beds', nb, 'lawn clumps', len(lawn))
     finish(WIN, 'TownWindows', coll, 30, shadow=False); WIN = None
     return finish(mb, 'OldSaltmouth', coll, 30)
 
