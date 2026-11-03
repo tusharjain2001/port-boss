@@ -30,8 +30,8 @@ rules 9, 15, 19).
 ## 2. Chunks (512 m cells, world §8.5 / systems §4.2)
 
 - The grid is aligned to the world origin: cell (i, j) covers X `[512 i, 512 (i+1))`, Z the same.
-  - The island (X −1150 … 1700, Z −1300 … 1300) spans cells i = −3 … 3, j = −3 … 2: 42 cells, about 25 of them with land.
-  - The islets are 4 more cells.
+  - The island (X −1550 … 1700 with the stretched south horn, Z −1300 … 1300) spans cells i = −4 … 3, j = −3 … 2: 48 cells.
+  - Measured from the seabed: 35 cells hold any land, 32 of them inside that box (with Gullrock and part of Lantern Key).
   - Open-water cells have no scene at all.
 - **Export:** `build_island.py -- export` writes, per cell, `Assets/Game/Art/World/PB_Island_c<i>_<j>.fbx` plus
   `PB_Island_c<i>_<j>.json` (the placement list: prefab id, position, rotation, scale, seed: systems §4.8.6). It is one
@@ -74,7 +74,7 @@ rules 9, 15, 19).
 
 ## 5. The seabed texture into `Sea` / `PB_Water`
 
-`art-src/world/seabed/seabed_2048.png` (16-bit, `h = v/65535 × 320 − 160` m, map-B's 5 × 5 km sheet; `seabed_2048.json`
+`art-src/world/seabed/seabed_2048.png` (16-bit, `h = v/65535 × 400 − 160` m, map-B's 5 × 5 km sheet; `seabed_2048.json`
 has the numbers).
 
 1. **Import:** linear (sRGB off), no compression (R16), clamp, bilinear, no mipmaps. Keep a readable CPU copy.
@@ -101,22 +101,22 @@ has the numbers).
 
 | Item | Budget | Blockout today | Note |
 |---|---|---|---|
-| Whole island visible at once (one view) | ≤ 600k tris with LODs | **349k for the whole map at LOD0** (measured in `crescent_bay.blend`, sea and clouds excluded) | Already under budget; LOD1/2 beyond 300 m bring a view to ~150k |
-| Terrain | | 154k (island) + 30k (the 4 islets) | 6 m grid; per cell ~4–8k at LOD0 |
+| Whole island visible at once (one view) | ≤ 600k tris with LODs | **360k for the whole map at LOD0** (measured in `crescent_bay.blend`, sea and clouds excluded) | Already under budget; LOD1/2 beyond 300 m bring a view to ~150k |
+| Terrain | | 163k (island) + 30k (the 4 islets) | 6 m grid; per cell ~4–8k at LOD0 |
 | Town (~235 houses + 8 landmarks, lamps, dinghies) | 2–6k per building (§4.8.4) | 25k in all | Well under; room for M5's details. M1's pier + shack: 19k |
-| Trees | instanced | 75k (1,500 trees) | One draw call per mesh variant |
-| Rocks + foam stand-ins | | 12k (613 rocks); 22k foam | The foam is a render stand-in: in the game it is the water shader's job (§5) |
+| Trees | instanced | 76k (1,500 trees) | One draw call per mesh variant |
+| Rocks + foam stand-ins | | 12k rocks; 22k foam | The foam is a render stand-in: in the game it is the water shader's job (§5) |
 | Ocean | ≤ 2.5 ms GPU | unchanged | |
 | Cell load | < 2 s async | – | Measured by `-pb-islandtest` (below) |
 
-- Per object (LOD0): Island 153,742; Trees 75,140; OldSaltmouth 24,728; Foam 21,568; Pier 13,108; Rocks 12,260; the islets
-  30k; Biscuit 7.7k; Shack 5.9k; Voss blocks 3.4k; lighthouse 636; Mari's boat 228; wreck 116.
+- Per object (LOD0, ridge 220 m + horn +400 m): Island 162,744; Trees 75,780; OldSaltmouth 24,776; Foam 22,264; Pier 13,108;
+  Rocks 12,440; the islets 30k; Biscuit 7.7k; Shack 5.9k; Voss blocks 3.4k; lighthouse 636; Mari's boat 228; wreck 116.
 - The export step will print the triangles per cell and LOD.
 - **Test switch:** `-pb-islandtest`.
   - A bot boat sails the README's routes (the bay, Lantern Key, round to Voss) at T1 speed and logs cell loads, frame
     times and the sailing time.
-  - It passes if Voss round the south horn takes 10.4 min ± 3% at 6 m/s as built (12.4 min with the stretched-horn
-    variant, if Manan picks it), with 0 exceptions and no frame over 33 ms.
+  - It passes if Voss round the south horn takes 12.4 min ± 3% at 6 m/s (4.48 km, the stretched horn Manan picked), with
+    0 exceptions and no frame over 33 ms.
 
 ## 7. Order of work (each one a reviewed branch)
 
@@ -136,10 +136,9 @@ has the numbers).
 6. **Look pass in the real Ponyo shaders.**
    - Test: the capture video watched, against these renders.
 
-## 8. Open before the import (Manan's picks, from the README and the 3 Nov sheets)
+## 8. Picks (from the README and the 3 Nov sheets)
 
-- Ridge 140 m (default) or 220 m: `proof/map-b/ridge-140-vs-220.png`.
-- Voss as drawn (10.4 min at 6 m/s) or the stretched south horn (12.4 min, the gdd's number):
-  `proof/map-b/voss-distance-variant.png`.
+- Decided 3 Nov: ridge 220 m and the south horn stretched 400 m (Voss 12.4 min at 6 m/s, 8.3 in the Kestrel); both are
+  the defaults now. Record: `proof/map-b/ridge-140-vs-220.png`, `proof/map-b/voss-distance-variant.png`.
 - Where Hartley's stands (map B has no pin for it), and whether Mari's boat shows from Day 1 or only from Day 3, as the
   story says.

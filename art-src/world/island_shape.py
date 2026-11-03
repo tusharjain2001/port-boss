@@ -14,7 +14,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OX, OY = 2840.0, 2550.0            # map point that is world (0, 0)
 SIZE, N = 5000.0, 2048             # seabed texture = exactly map-B.png's 5 x 5 km sheet, 2.44 m per pixel
 XW, YN = -OX, OY                   # the sheet's west edge (world X) and north edge (world Y): X -2840..2160, Y -2450..2550
-HMIN, HMAX = -160.0, 160.0         # 16-bit encoding range: h = v / 65535 * 320 - 160 (4.9 mm steps)
+HMIN, HMAX = -160.0, 240.0         # 16-bit encoding range: h = v / 65535 * 400 - 160 (6.1 mm steps; a 220 m ridge fits)
 
 
 def W(mx, my): return (mx - OX, OY - my)          # map -> world
@@ -126,9 +126,10 @@ def bilinear(A, n):
 
 PIER_ROOT = None   # set by heightfield(): world (x, y) of Walt's pier root on the town shore
 
-# Variant knobs (defaults = map B as drawn). RIDGE_H: Saltback Ridge's crest. HORN: metres the south horn's tip reaches
-# further out (west, a little south), which lengthens the way round to Voss; Walt's Cut and everything east stay put.
-RIDGE_H, HORN = 140.0, 0.0
+# Knobs. RIDGE_H: Saltback Ridge's crest. HORN: metres the south horn's tip reaches further out (west, a little south),
+# which lengthens the way round to Voss; Walt's Cut and everything east stay put. Map B as drawn = 140, 0.
+# Defaults = Manan's pick (3 Nov): ridge 220 m, horn +400 m (Voss 4.48 km = 12.4 min at 6 m/s, the gdd's number).
+RIDGE_H, HORN = 220.0, 400.0
 HORN_W = {9: 0.55, 10: 1.0, 11: 0.8}          # ISLAND indices of the south horn's tip and their share of the stretch
 
 

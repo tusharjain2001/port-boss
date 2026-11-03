@@ -25,7 +25,7 @@ def check_seabed():
     pier_end = h[int((S.YN - 0) / meta['metres_per_px']), int((S.W(2830, 0)[0] - S.XW) / meta['metres_per_px'])]
     checks = {"open ocean at the sheet corner < -140 m": at(50, 50) < -140,
               "Voss quay = 3.0 m": abs(at(3900, 2600) - 3.0) < 0.05,
-              "Saltback Ridge crest 120-155 m": 120 < max(at(3480, y) for y in range(2300, 2800, 20)) < 155,
+              "Saltback Ridge crest 200-240 m": 200 < max(at(3480, y) for y in range(2300, 2800, 20)) < 240,
               "Walt's Cut silted at -0.5 m": abs(at(2615, 3360) + 0.5) < 0.15,
               "the bay bowl 4-16 m deep": 4 < -at(2300, 2800) < 16,
               "berth off Walt's pier >= 2.4 m deep": -pier_end >= 2.4,
@@ -68,8 +68,8 @@ def main():
     tag(1100, 2800, 'Lantern Key'); tag(4100, 1050, 'Sorrel Isle'); tag(4300, 4480, 'Mango Cay')
     tag(4150, 3330, 'VOSS HARBOUR', '#FFB4A8'); tag(4150, 3400, 'buoy line + breakwater', '#FFB4A8', fs)
     tag(2440, 3480, "Walt's Cut (silted)", '#FFFFFF', fs, 'rm'); tag(2800, 3950, 'Breaker Point', '#FFFFFF')
-    tag(3330, 1900, 'Saltback Ridge 140 m', '#FFFFFF', fs, 'rm')
-    d.rectangle((40, 2250, 600, 2370), fill='#FFFBF2'); d.text((60, 2262), 'White line = map-B.png coastline, exact', fill='#3F2C27', font=fs)
+    tag(3330, 1900, 'Saltback Ridge 220 m', '#FFFFFF', fs, 'rm')
+    d.rectangle((40, 2250, 760, 2370), fill='#FFFBF2'); d.text((60, 2262), 'White line = map-B.png coastline (south horn +400 m, picked)', fill='#3F2C27', font=fs)
     d.line((60, 2330, 560, 2330), fill='#3F2C27', width=6); d.text((60, 2338), '0                     1 km', fill='#3F2C27', font=fs)
     d.line((60 + 480, 2322, 60 + 480, 2338), fill='#3F2C27', width=4)
     ov.save(os.path.join(PROOF, 'topdown_with_mapB_overlay.png'))
@@ -99,46 +99,4 @@ def labelled_town():
     im.save(os.path.join(PROOF, 'town_labelled.png')); print('wrote town_labelled.png')
 
 
-def grid_sheet(out, title, sub, rows, cols, cells, cw=1280, ch=720):
-    """cells[r][c] = image path; rows/cols = labels."""
-    if not all(os.path.exists(p) for r in cells for p in r): print('skip', out); return
-    lw, head = 260, 130
-    sheet = Image.new('RGB', (lw + len(cols) * (cw + 20) + 20, head + 60 + len(rows) * (ch + 20)), '#FFFBF2'); d = ImageDraw.Draw(sheet)
-    d.text((20, 18), title, fill='#3F2C27', font=font('Fraunces-Bold.ttf', 44)); d.text((20, 78), sub, fill='#805C52', font=font('ZenMaruGothic-Medium.ttf', 24))
-    for c, lab in enumerate(cols): d.text((lw + c * (cw + 20) + cw / 2, head + 30), lab, fill='#3F2C27', font=font('Fraunces-Bold.ttf', 34), anchor='mm')
-    for r, lab in enumerate(rows):
-        d.text((20, head + 60 + r * (ch + 20) + ch / 2), lab, fill='#3F2C27', font=font('ZenMaruGothic-Bold.ttf', 30), anchor='lm')
-        for c in range(len(cols)):
-            sheet.paste(Image.open(cells[r][c]).convert('RGB').resize((cw, ch), Image.LANCZOS), (lw + c * (cw + 20), head + 60 + r * (ch + 20)))
-    sheet.save(os.path.join(PROOF, out)); print('wrote', out)
-
-
-def voss_sheet():
-    a, b = os.path.join(PROOF, 'topdown.png'), os.path.join(PROOF, 'topdown_voss12.png')
-    if not (os.path.exists(a) and os.path.exists(b)): return
-    P = 1200; s = P / 5000; panels = []
-    for img, horn, lab in ((a, 0.0, 'As drawn (default)'), (b, 400.0, 'Variant: south horn +400 m')):
-        S.HORN = horn; F = S.heightfield(); st = (S.PIER_ROOT[0] - 32, S.PIER_ROOT[1]); paths = {}
-        L = S.route_lengths(F, st, {'Voss': (3950, 3000)}, paths=paths)['Voss']
-        im = Image.open(img).convert('RGB').resize((P, P), Image.LANCZOS); d = ImageDraw.Draw(im)
-        pts = [((x + S.OX) * s, (S.OY - y) * s) for x, y in paths['Voss']]
-        d.line(pts, fill='#FFFFFF', width=4); d.line(pts, fill='#F2994A', width=2)
-        txt = '%s: %.2f km to Voss = %.1f min at 6 m/s (Biscuit T1), %.1f in the Kestrel (9 m/s)' % (lab, L / 1000, L / 360, L / 540)
-        panels.append((im, txt)); print('VOSS', txt)
-    S.HORN = 0.0
-    sheet = Image.new('RGB', (2 * P + 60, P + 200), '#FFFBF2'); d = ImageDraw.Draw(sheet)
-    d.text((20, 18), "Voss distance: as drawn vs a stretched south horn (gdd: 12.4 min at 6 m/s)", fill='#3F2C27', font=font('Fraunces-Bold.ttf', 40))
-    d.text((20, 72), "Orange = the real shortest water path from Walt's pier (>= 1.2 m deep). Walt's Cut stays silted. Default stays as drawn.",
-           fill='#805C52', font=font('ZenMaruGothic-Medium.ttf', 22))
-    for k, (im, txt) in enumerate(panels):
-        sheet.paste(im, (20 + k * (P + 20), 120)); d.text((20 + k * (P + 20), P + 140), txt, fill='#3F2C27', font=font('ZenMaruGothic-Bold.ttf', 24))
-    sheet.save(os.path.join(PROOF, 'voss-distance-variant.png')); print('wrote voss-distance-variant.png')
-
-
 labelled_town()
-grid_sheet('ridge-140-vs-220.png', 'Saltback Ridge: 140 m (as drawn, default) vs 220 m',
-           "Same cameras. Top: from the bay mouth, eye level 2 m. Bottom: from Biscuit's deck heading home, eye 1.55 m. Nothing else changes.",
-           ['Bay mouth', "Biscuit's deck"], ['140 m (default)', '220 m'],
-           [[os.path.join(PROOF, 'hero_bay_entrance.png'), os.path.join(PROOF, 'hero_bay_entrance_ridge220.png')],
-            [os.path.join(PROOF, 'deck_home.png'), os.path.join(PROOF, 'deck_home_ridge220.png')]])
-voss_sheet()

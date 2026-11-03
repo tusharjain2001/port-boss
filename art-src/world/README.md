@@ -6,7 +6,7 @@ work. Nothing here is imported into Unity yet.
 | File | What |
 |---|---|
 | `island_shape.py` | The map in numbers (pure numpy): map-B's own control points copied 1:1 from `docs/plan/gdd/world/maps/make_maps.py` `map_b()`, sampled on the exact curves the SVG draws; the coastline distance field; land heights; seabed depths; the sailing-route measure. Run alone: `python art-src/world/island_shape.py` (writes the seabed + prints the measures below) |
-| `build_island.py` | Blender, headless: `blender -b -P art-src/world/build_island.py -- [norender] [proof=<dir>]` (~40 s). Builds the terrain + islets, Old Saltmouth (95 houses + the 7 shops at their map pins), Walt's Landing (**M1's real pier + shack FBX, with Biscuit**), Dot's lighthouse, the wreck, the Voss Causeway over Walt's Cut, Voss Harbour as blocks with its breakwater and buoy line, orange marker buoys at P1–P3, rocks, trees and Ponyo cumulus. Renders 7 views. `.blend` + renders go to `art-src/world/out/` (gitignored); renders are copied to `Desktop/Port Boss/proof/map-b/` |
+| `build_island.py` | Blender, headless: `blender -b -P art-src/world/build_island.py -- [norender] [proof=<dir>]` (~40 s). Builds the terrain + islets, Old Saltmouth (~235 houses + 8 landmark shops), Walt's Landing (**M1's real pier + shack FBX, with Biscuit**), Dot's lighthouse, the wreck, the Voss Causeway over Walt's Cut, Voss Harbour as blocks with its breakwater and buoy line, orange marker buoys at P1–P3, rocks, trees and Ponyo cumulus. Renders 11 views. `.blend` + renders go to `art-src/world/out/` (gitignored); renders are copied to `Desktop/Port Boss/proof/map-b/` |
 | `proof_sheet.py` | `python art-src/world/proof_sheet.py`: the top-down next to map-B.png, the top-down with map-B's exact coastline drawn over it, and **the check**: the seabed PNG decodes with Pillow and 7 spot heights are right (ocean, Voss quay, ridge, the Cut, the bay, the berth, Gullrock) |
 | `seabed/seabed_2048.png` + `.json` | The seabed depth map (below). `seabed_2048_preview.png` = the same in the Ponyo sea bands, for eyes |
 
@@ -22,13 +22,14 @@ seabed depth that colours the sea.
 
 ## Real-world measures (from the heightfield, `island_shape.py`)
 
-| | Blockout (map B as drawn) | gdd says |
+| | Blockout (Manan's pick, 3 Nov: ridge 220 m, south horn +400 m) | gdd says |
 |---|---|---|
-| Main island | **1.87 km E–W × 2.31 km N–S**, 2.34 km² of land (2.76 km² with the islets and the Voss quay) | systems §4.2 "~2.4 × 1.3 km" (that was map A); world §8.4 "~3 km²" |
+| Main island | **2.06 km E–W × 2.32 km N–S**, 2.46 km² of land (2.90 km² with the islets and the Voss quay). Map B as drawn: 1.87 × 2.31 km, 2.34 km² | systems §4.2 "~2.4 × 1.3 km" (that was map A); world §8.4 "~3 km²" |
 | The bay | mouth 1.65 km between the horn tips, 0.96 km from the mouth to Walt's pier; a calm bowl 8–14 m deep | "calm west-facing bay" |
-| Saltback Ridge | crest 149 m (140 m + the hand-made relief), 280 m from the outer coast | 140 m |
+| Saltback Ridge | crest 229 m (220 m + the hand-made relief), 280 m from the outer coast | 140 m (Manan picked 220) |
 | Walt's Cut | 465 m long, 24 m wide, silted to 0.5 m, the Voss Causeway (1.7 m road) across the middle | world §2.3 "~730 m" (map A) |
 | Sea | map-B's sheet, 5 × 5 km; deep (150 m) toward the sheet edge | 5 × 5 km |
+| Triangles | 360k for the whole map at LOD0 (sea and clouds excluded; Island 163k, Trees 76k): `IMPORT-PLAN.md` §6 | ≤ 600k per view |
 
 **Sailing times in Biscuit.** Each time is the shortest water path from the end of Walt's pier. The path keeps at least 1.2 m
 of water under the keel (16-direction search on a 9.8 m grid, about ±3%). Times are given at the gdd's T1 speed of 6 m/s
@@ -40,22 +41,23 @@ of water under the keel (16-direction search on a 9.8 m grid, about ±3%). Times
 | Gullrock | 0.40 | 0.44 | 1.2 | 1.6 | 1.0 |
 | Lantern Key | 1.70 | 1.51 | 4.2 | 5.6 | 4.6 |
 | Wreck of the Margaret | 1.90 | 1.91 | 5.3 | 7.1 | 5.2 |
-| Breaker Point surf | 2.70 | 2.20 | 6.1 | 8.1 | 7.5 |
+| Breaker Point surf | 2.70 | 2.91 | 8.1 | 10.8 | 7.5 |
 | Sorrel Isle | 4.20 | 3.65 | 10.1 | 13.5 | 11.7 |
-| Mango Cay | 4.30 | 3.79 | 10.5 | 14.0 | 12.0 |
-| **Voss Harbour, round the south horn** | 4.50 | **3.73** | **10.4** | 13.8 | **12.4** |
+| Mango Cay | 4.30 | 4.53 | 12.6 | 16.8 | 12.0 |
+| **Voss Harbour, round the south horn** | 4.50 | **4.48** | **12.4** | 16.6 | **12.4** |
 | Voss Harbour via Walt's Cut (dredged to 6 m) | 2.90 | 2.73 | 7.6 | 10.1 | 8.0 |
 
-The gdd's routes were hand-drawn loops, so the real shortest paths are 0–20% shorter. The bay trips match. **Voss comes out
-2 minutes closer than the gdd's 12.4 min at 6 m/s** (question 2 below). Dredging the Cut still saves 1 km (about 3 minutes). The shortest way to Voss really is round the south horn: walling off the south
-makes it 4.71 km round the north (13.1 min at 6 m/s); walling off the north changes nothing.
+**Voss is 12.4 min at 6 m/s (T1 Biscuit) and 8.3 min in the Kestrel (9 m/s), the gdd's numbers**, thanks to the stretched
+south horn. Breaker Point and Mango Cay grew too (the way round the longer horn). Dredging the Cut saves 1.75 km (about
+5 minutes). The shortest way to Voss is round the south horn; walling it off makes it 4.71 km round the north (13.1 min).
+Map B as drawn (horn 0) gave Voss 3.73 km = 10.4 min, Breaker Point 2.20 km, Mango Cay 3.79 km.
 
 ## The seabed depth map (systems §4.3 "Seabed")
 
 - **File:** `seabed/seabed_2048.png`, 2048 × 2048, 16-bit greyscale, linear, 2.44 m per pixel.
 - **Covers exactly map-B's 5 × 5 km sheet:** world X −2840 … 2160, Y −2450 … 2550.
 - **Orientation:** row 0 is the north edge, column 0 the west edge.
-- **Value:** `height_m = value / 65535 × 320 − 160`. Steps are 4.9 mm. Sea level is 0, and `depth = −height`. Land is
+- **Value:** `height_m = value / 65535 × 400 − 160` (range −160 … +240 m, so the 229 m ridge isn't clipped). Steps are 6.1 mm. Sea level is 0, and `depth = −height`. Land is
   positive, so the same file is also the island heightmap.
 - **Variants:** Walt's Cut is in its silted state (0.5 m, causeway in). `heightfield(cut_open=True)` gives the dredged
   variant for the endgame.
@@ -77,11 +79,10 @@ makes it 4.71 km round the north (13.1 min at 6 m/s); walling off the north chan
 
 The picture won wherever the picture said something (rule 42). Where it said nothing, I picked:
 
-1. **Island size.** Map B as drawn is 1.87 × 2.31 km, taller than wide. The systems doc's "2.4 × 1.3 km" was map A's, and
-   world's "~3 km²" is a little high (2.34 km² main, 2.76 km² in all). *Pick: the picture.* The systems row needs updating.
-2. **Voss distance.** It is 10.4 min at 6 m/s by the real shortest path (13.8 min at M1's 4.5 m/s), against the gdd's
-   12.4 min, which came from a wide drawn loop. *Pick: keep Voss where the map puts it.* It still feels far (behind the
-   ridge, more than 10 minutes away). If you want exactly 12.4 min, move it ~0.4 km further east/north-east.
+1. **Island size.** Now 2.06 × 2.32 km (map B as drawn: 1.87 × 2.31). The systems doc's "2.4 × 1.3 km" was map A's, and
+   world's "~3 km²" is close (2.46 km² main, 2.90 km² in all). The systems row needs updating.
+2. **Voss distance.** *Decided by Manan (3 Nov): the south horn stretched 400 m*, so Voss is 12.4 min at 6 m/s as the gdd
+   says (it was 10.4 min as drawn).
 3. **Hale's / Walt's Landing.** The map draws a 130 m orange pier; M1's real pier is 32 m. *Pick: M1's pier and shack*
    (imported as they are), at the map's spot on the town shore, pointing west into the bay.
 4. **The town blob.** The map paints Old Saltmouth's tan blob out over the water past the coastline. *Pick: it is land*, a
@@ -90,7 +91,7 @@ The picture won wherever the picture said something (rule 42). Where it said not
    - **sand:** Breaker Point (the south horn's outer coast), the bay's inner shores of both horns, two coves beside the
      town, Lantern Key's east end, Mango Cay;
    - **rock cliffs:** everything else (the outer coast under the ridge, the horn tips, Gullrock, Sorrel).
-6. **Heights** (only the ridge's 140 m is given). *Pick:*
+6. **Heights** (map B gives only the ridge: 140 m; Manan picked 220 m). *Pick:*
    - north horn 95 → 24 m at the lighthouse;
    - south horn 85 → 15 m, with a 9 m saddle where the Cut crosses;
    - town hillside up to ~20 m;
@@ -106,10 +107,8 @@ The picture won wherever the picture said something (rule 42). Where it said not
 9. **The Wreck of the Margaret.** The map has only a pin. *Pick:* on a 5 m shoal, with her bow, wheelhouse and leaning mast
    above water, so she is a landmark and a photo spot.
 10. **Swell Surf Co.'s pin** sits on the Cut's bank, so it was moved 45 m west onto dry ground.
-11. **★ Scale feel (please look at `hero_bay_entrance.png`).** At true scale, from the bay mouth the 140 m ridge rises only
-    5–6° over the horizon, so the island reads low and long. Inside the bay (the town, the landing, the deck view) it is a
-    proper green bowl. *Pick: keep 140 m.* The alternative: raise the ridge to ~220 m and the horns ×1.5 for a grander Ponyo
-    silhouette. It's one number each in `island_shape.py`.
+11. **Scale feel.** *Decided by Manan (3 Nov): ridge 220 m.* At 140 m the ridge rose only 5–6° over the horizon from the
+    bay mouth; at 220 m the bay face is a green wall over the town. `RIDGE_H` in `island_shape.py`.
 12. **Unity axes, later.** M1's FBX settings put Blender −Y at Unity +Z, which would turn the island 180°. At import, export
     the island with `axis_forward='Z'` (or give the root a 180° yaw), so that north = Unity +Z, as the seabed JSON assumes.
 13. **Voss Harbour** is grey blocks only: 6 red gantry cranes, 2 freighters, container stacks, sheds and the VOSS tower. The
@@ -118,7 +117,9 @@ The picture won wherever the picture said something (rule 42). Where it said not
 
 ## Variants and the look pass (3 Nov, second pass)
 
-**Two variants for Manan.** Both are knobs on the same scripts; the default stays as drawn.
+**Two variants for Manan.** Both are knobs on the same scripts. **Manan picked both (3 Nov); they are now the defaults**
+(`RIDGE_H, HORN = 220, 400` in `island_shape.py`). Map B as drawn: `-- tag=asdrawn ridge=140 horn=0`. The two sheets below
+were made before the pick and stay as its record.
 
 | Knob | Run | Result | Sheet |
 |---|---|---|---|
