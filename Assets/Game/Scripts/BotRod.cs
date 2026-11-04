@@ -92,8 +92,8 @@ namespace PortBoss.M1
             var axis = fg0 != null ? Flat(fg0.transform.forward) : Vector3.zero;
             var face = axis.sqrMagnitude > 0.1f ? Vector3.Cross(Vector3.up, axis.normalized) : Flat(a.transform.forward).normalized;
             if (Vector3.Dot(face, a.transform.forward) < 0) face = -face;
-            string got = "none clear";   // the first with a clear view; higher up when the jetty is in the way at chest height
-            foreach (float up in new[] { 0.55f, 1.3f })
+            string got = "none clear";   // the first with a clear view, from a little above (the moored boat sits low: the jetty hides a fish at chest height)
+            foreach (float up in new[] { 1.1f, 0.55f })
             {
                 foreach (float turn in new[] { 0f, 20f, -20f, 40f, -40f })
                 {
