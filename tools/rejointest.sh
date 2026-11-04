@@ -7,10 +7,10 @@
 EXE=$1; NAME=$2; shift 2
 D=$PB_LOGS/m1/$NAME; rm -rf "$D"; mkdir -p "$D/shots"; SH=$(cygpath -m "$D/shots")
 PORT=$((7600 + RANDOM % 90))
-hidden "$EXE" -batchmode -pb-host -pb-port $PORT -pb-name Host -pb-fps 60 -pb-rejointest host -pb-rejoinshots "$SH" -pb-quit 90 -pb-voicetest -logFile "$(cygpath -m "$D/host.txt")" &
+hidden "$EXE" -batchmode -pb-host -pb-port $PORT -pb-name Host -pb-fps 60 -pb-rejointest host -pb-rejoinshots "$SH" -pb-quit "${HOSTQUIT:-90}" -pb-voicetest -logFile "$(cygpath -m "$D/host.txt")" &
 sleep 4
 for c in fresh quick late; do
-  [ $c = late ] && sleep 12 || sleep 2
+  [ $c = late ] && sleep 12 || { [ $c = quick ] && sleep "${QGAP:-2}" || sleep 2; }   # QGAP=35: the quick one comes after the host timed out the dead one
   hidden "$EXE" -batchmode -pb-join 127.0.0.1:$PORT -pb-name Rider1 -pb-fps 60 -pb-rejointest $c -pb-rejoinshots "$SH" -pb-quit 40 -pb-voicetest "$@" -logFile "$(cygpath -m "$D/rider-$c.txt")"
 done
 wait

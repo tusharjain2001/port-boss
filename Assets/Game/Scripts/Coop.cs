@@ -272,12 +272,20 @@ namespace PortBoss.M1
             var sp = Landing.I != null ? Landing.I.Spawn : null; if (sp == null) return Vector3.zero;
             var r = Vector3.ProjectOnPlane(sp.right, Vector3.up).normalized; var f = Vector3.ProjectOnPlane(sp.forward, Vector3.up).normalized;
             var tries = slot switch { 1 => new[] { r, -r, f, -f }, 2 => new[] { -r, r, -f, f }, 3 => new[] { f + r, f - r, -f + r, -f - r }, _ => new[] { Vector3.zero } };
+            // on the pier (not off its edge) and room for a body there: on map B's landing the first spot sat against
+            // something solid, and the controller slid 0.27 m back out of it toward whoever stood on the spawn
+            Vector3? grounded = null;
             foreach (var t in tries)
             {
                 var p = sp.position + t * 1.2f;
-                if (Ground(p, out var at) && Mathf.Abs(at.y - sp.position.y) < 0.35f) return at; // on the pier, not off its edge
+                if (!Ground(p, out var at) || Mathf.Abs(at.y - sp.position.y) >= 0.35f) continue;
+                grounded ??= at;
+                bool clear = true;
+                foreach (var c in Physics.OverlapCapsule(at + Vector3.up * 0.42f, at + Vector3.up * 1.45f, 0.3f, ~0, QueryTriggerInteraction.Ignore))
+                    if (c.GetComponentInParent<Angler>() == null) { clear = false; break; }
+                if (clear) return at;
             }
-            return sp.position;
+            return grounded ?? sp.position;
         }
         void StartSpot(Angler a, byte slot)
         {
