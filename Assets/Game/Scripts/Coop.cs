@@ -100,7 +100,7 @@ namespace PortBoss.M1
 
         void Connected(ulong id)
         {
-            if (nm.IsServer) { if (id != nm.LocalClientId) Log($"client {id} connected"); return; }
+            if (nm.IsServer) { if (id != nm.LocalClientId) { Log($"client {id} connected"); heard[id] = Time.realtimeSinceStartup; } return; }
             if (id != nm.LocalClientId || helloSent) return;
             helloSent = true; Log($"connected as client {id}");
             // with the fish I hold (code audit 3 Nov, P0: the host's empty copy used to wipe a hotbar filled playing solo)
@@ -114,7 +114,7 @@ namespace PortBoss.M1
             if (nm.ShutdownInProgress || nm.CustomMessagingManager == null) return; // we're the one closing
             if (nm.IsServer)
             {
-                var e = Find(id); if (e == null) return;
+                heard.Remove(id); var e = Find(id); if (e == null) return;
                 KeepAway(e);
                 Roster.Remove(e); Log($"{e.Name} left");
                 Alerts.Push("Crew", e.Name + " left the boat.", Alerts.Kind.Crew);
@@ -357,6 +357,23 @@ namespace PortBoss.M1
             Deliver(() => { float d = t - Now; hostShift = clockSet ? Mathf.Max(hostShift, d) : d; clockSet = true; }, false);
         }
 
+        // host: a crewmate whose game died (no goodbye) goes after Silence s of real time without a pose (they send ~Rate a
+        // second, also alt-tabbed: runInBackground). Left to the transport's own 30 s timeout, on this PC the host never
+        // took another connection after it (rejointest with QGAP=35: quick and late never got in); dropped by us, the next
+        // joiner gets in. A rejoin gets its hotbar and place back as after any leave.
+        const float Silence = 10f;
+        readonly Dictionary<ulong, float> heard = new();
+        void DropSilent()
+        {
+            float now = Time.realtimeSinceStartup; ulong gone = ulong.MaxValue;
+            foreach (var kv in heard) if (now - kv.Value > Silence) { gone = kv.Key; break; }
+            if (gone == ulong.MaxValue) return;
+            heard.Remove(gone);
+            if (!nm.ConnectedClients.ContainsKey(gone)) return;   // left already
+            Log($"{Find(gone)?.Name ?? "client " + gone} sent nothing for {Silence:0} s: their game is gone, dropping them");
+            nm.DisconnectClient(gone);
+        }
+
         void Update()
         {
             if (nm == null || !nm.IsListening) return;
@@ -368,7 +385,7 @@ namespace PortBoss.M1
                 clockT = 1; float t = Now;
                 foreach (var id in nm.ConnectedClientsIds) if (id != nm.LocalClientId) SendTo(id, "pb.clock", w => w.WriteValueSafe(t), NetworkDelivery.Unreliable);
             }
-            if (nm.IsServer) { Tangles(Time.deltaTime); TickAir(); TickDay(); }
+            if (nm.IsServer) { Tangles(Time.deltaTime); TickAir(); TickDay(); DropSilent(); }
             TickVoice();
             sendT -= Time.unscaledDeltaTime;
             if (sendT > 0) return;
@@ -384,6 +401,7 @@ namespace PortBoss.M1
 
         void OnPose(ulong from, FastBufferReader r)
         {
+            if (nm.IsServer) heard[from] = Time.realtimeSinceStartup;
             ulong who = from;
             if (!nm.IsServer) r.ReadValueSafe(out who);
             var p = Angler.Pose.Read(ref r);
