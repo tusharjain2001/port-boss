@@ -72,6 +72,8 @@ namespace PortBoss.M1
             nm.LogLevel = Array.IndexOf(Environment.GetCommandLineArgs(), "-pb-netlog") >= 0 ? LogLevel.Developer : LogLevel.Error; // (tests: NGO's own story)
             nm.OnClientConnectedCallback += Connected; nm.OnClientDisconnectCallback += Disconnected;
             MakeTransport(p, out bool ok);
+            if (nm.LogLevel == LogLevel.Developer && nm.NetworkConfig.NetworkTransport != null)   // (tests: the transport's own events)
+                nm.NetworkConfig.NetworkTransport.OnTransportEvent += (e, id, _, t) => { if (e != NetworkEvent.Data) Log($"net: transport {e}, transport id {id}, at {t:F1} s ({Time.realtimeSinceStartup:F1} s real)"); };
             string where = p.Steam ? (host ? "over Steam" : "a friend over Steam") : host ? p.Port.ToString() : p.Join;
             Log($"{(host ? "hosting" : "joining")} {where}: {(ok ? "ok" : "FAILED")}{(simDelay > 0 ? $" (lag sim {simDelay * 2000:0} ms rtt, {simLoss * 100:0}% loss)" : "")}");
             if (!ok) { Status = host ? "Couldn't host (is another copy already hosting here?)." : "Couldn't connect."; Destroy(gameObject); I = null; return; }
