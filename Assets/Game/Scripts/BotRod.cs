@@ -92,13 +92,19 @@ namespace PortBoss.M1
             var axis = fg0 != null ? Flat(fg0.transform.forward) : Vector3.zero;
             var face = axis.sqrMagnitude > 0.1f ? Vector3.Cross(Vector3.up, axis.normalized) : Flat(a.transform.forward).normalized;
             if (Vector3.Dot(face, a.transform.forward) < 0) face = -face;
-            foreach (float turn in new[] { 0f, 20f, -20f, 40f, -40f, 60f, -60f })   // the first with a clear view
+            string got = "none clear";   // the first with a clear view; higher up when the jetty is in the way at chest height
+            foreach (float up in new[] { 0.55f, 1.3f })
             {
-                from = look + Quaternion.Euler(0, turn, 0) * face * 2.2f + Vector3.up * 0.55f; bool clear = true;
-                foreach (var h in Physics.RaycastAll(from, look - from, Vector3.Distance(from, look) - 0.2f, ~0, QueryTriggerInteraction.Ignore))
-                    if (h.collider.GetComponentInParent<Angler>() == null && (fg0 == null || !h.collider.transform.IsChildOf(fg0.transform))) { clear = false; break; }
-                if (clear && !Physics.CheckSphere(from, 0.2f, ~0, QueryTriggerInteraction.Ignore)) break;
+                foreach (float turn in new[] { 0f, 20f, -20f, 40f, -40f })
+                {
+                    from = look + Quaternion.Euler(0, turn, 0) * face * 2.2f + Vector3.up * up; bool clear = true;
+                    foreach (var h in Physics.RaycastAll(from, look - from, Vector3.Distance(from, look) - 0.2f, ~0, QueryTriggerInteraction.Ignore))
+                        if (h.collider.GetComponentInParent<Angler>() == null && (fg0 == null || !h.collider.transform.IsChildOf(fg0.transform))) { clear = false; break; }
+                    if (clear && !Physics.CheckSphere(from, 0.2f, ~0, QueryTriggerInteraction.Ignore)) { got = $"turn {turn}, up {up}"; break; }
+                }
+                if (got != "none clear") break;
             }
+            Debug.Log($"[PB] rod: {what}: picture from {got}");
             ct.position = from; ct.rotation = Quaternion.LookRotation(look - from);
             var fg = a.Fish.FishGo; var cam = CameraRig.I.Cam;
             if (fg == null) Debug.Log($"[PB] rod: {what}: no fish object");
