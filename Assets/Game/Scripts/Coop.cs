@@ -69,7 +69,7 @@ namespace PortBoss.M1
             bool host = p.Host;
             nm = gameObject.AddComponent<NetworkManager>(); utp = gameObject.AddComponent<UnityTransport>();
             nm.NetworkConfig = new NetworkConfig { NetworkTransport = utp, EnableSceneManagement = false, ConnectionApproval = false, TickRate = 30 };
-            nm.LogLevel = LogLevel.Error;
+            nm.LogLevel = Array.IndexOf(Environment.GetCommandLineArgs(), "-pb-netlog") >= 0 ? LogLevel.Developer : LogLevel.Error; // (tests: NGO's own story)
             nm.OnClientConnectedCallback += Connected; nm.OnClientDisconnectCallback += Disconnected;
             MakeTransport(p, out bool ok);
             string where = p.Steam ? (host ? "over Steam" : "a friend over Steam") : host ? p.Port.ToString() : p.Join;
