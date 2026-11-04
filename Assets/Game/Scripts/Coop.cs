@@ -358,10 +358,9 @@ namespace PortBoss.M1
         }
 
         // host: a crewmate whose game died (no goodbye) goes after Silence s of real time without a pose (they send ~Rate a
-        // second, also alt-tabbed: runInBackground). Left to the transport's own 30 s timeout, on this PC the host never
-        // took another connection after it (rejointest with QGAP=35: quick and late never got in); dropped by us, the next
-        // joiner gets in. A rejoin gets its hotbar and place back as after any leave.
-        const float Silence = 10f;
+        // second, also alt-tabbed: runInBackground), so we stop sending to their closed port: each packet there costs the
+        // transport a receive buffer (CoopSession.MakeTransport). A rejoin gets its hotbar and place back as after any leave.
+        const float Silence = 8f;
         readonly Dictionary<ulong, float> heard = new();
         void DropSilent()
         {
