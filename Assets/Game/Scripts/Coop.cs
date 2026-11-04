@@ -69,9 +69,11 @@ namespace PortBoss.M1
             bool host = p.Host;
             nm = gameObject.AddComponent<NetworkManager>(); utp = gameObject.AddComponent<UnityTransport>();
             nm.NetworkConfig = new NetworkConfig { NetworkTransport = utp, EnableSceneManagement = false, ConnectionApproval = false, TickRate = 30 };
-            nm.LogLevel = LogLevel.Error;
+            nm.LogLevel = Array.IndexOf(Environment.GetCommandLineArgs(), "-pb-netlog") >= 0 ? LogLevel.Developer : LogLevel.Error; // (tests: NGO's own story)
             nm.OnClientConnectedCallback += Connected; nm.OnClientDisconnectCallback += Disconnected;
             MakeTransport(p, out bool ok);
+            if (nm.LogLevel == LogLevel.Developer && nm.NetworkConfig.NetworkTransport != null)   // (tests: the transport's own events)
+                nm.NetworkConfig.NetworkTransport.OnTransportEvent += (e, id, _, t) => { if (e != NetworkEvent.Data) Log($"net: transport {e}, transport id {id}, at {t:F1} s ({Time.realtimeSinceStartup:F1} s real)"); };
             string where = p.Steam ? (host ? "over Steam" : "a friend over Steam") : host ? p.Port.ToString() : p.Join;
             Log($"{(host ? "hosting" : "joining")} {where}: {(ok ? "ok" : "FAILED")}{(simDelay > 0 ? $" (lag sim {simDelay * 2000:0} ms rtt, {simLoss * 100:0}% loss)" : "")}");
             if (!ok) { Status = host ? "Couldn't host (is another copy already hosting here?)." : "Couldn't connect."; Destroy(gameObject); I = null; return; }
@@ -98,7 +100,7 @@ namespace PortBoss.M1
 
         void Connected(ulong id)
         {
-            if (nm.IsServer) { if (id != nm.LocalClientId) Log($"client {id} connected"); return; }
+            if (nm.IsServer) { if (id != nm.LocalClientId) { Log($"client {id} connected"); heard[id] = Time.realtimeSinceStartup; } return; }
             if (id != nm.LocalClientId || helloSent) return;
             helloSent = true; Log($"connected as client {id}");
             // with the fish I hold (code audit 3 Nov, P0: the host's empty copy used to wipe a hotbar filled playing solo)
@@ -112,7 +114,7 @@ namespace PortBoss.M1
             if (nm.ShutdownInProgress || nm.CustomMessagingManager == null) return; // we're the one closing
             if (nm.IsServer)
             {
-                var e = Find(id); if (e == null) return;
+                heard.Remove(id); var e = Find(id); if (e == null) return;
                 KeepAway(e);
                 Roster.Remove(e); Log($"{e.Name} left");
                 Alerts.Push("Crew", e.Name + " left the boat.", Alerts.Kind.Crew);
@@ -272,12 +274,20 @@ namespace PortBoss.M1
             var sp = Landing.I != null ? Landing.I.Spawn : null; if (sp == null) return Vector3.zero;
             var r = Vector3.ProjectOnPlane(sp.right, Vector3.up).normalized; var f = Vector3.ProjectOnPlane(sp.forward, Vector3.up).normalized;
             var tries = slot switch { 1 => new[] { r, -r, f, -f }, 2 => new[] { -r, r, -f, f }, 3 => new[] { f + r, f - r, -f + r, -f - r }, _ => new[] { Vector3.zero } };
+            // on the pier (not off its edge) and room for a body there: on map B's landing the first spot sat against
+            // something solid, and the controller slid 0.27 m back out of it toward whoever stood on the spawn
+            Vector3? grounded = null;
             foreach (var t in tries)
             {
                 var p = sp.position + t * 1.2f;
-                if (Ground(p, out var at) && Mathf.Abs(at.y - sp.position.y) < 0.35f) return at; // on the pier, not off its edge
+                if (!Ground(p, out var at) || Mathf.Abs(at.y - sp.position.y) >= 0.35f) continue;
+                grounded ??= at;
+                bool clear = true;
+                foreach (var c in Physics.OverlapCapsule(at + Vector3.up * 0.42f, at + Vector3.up * 1.45f, 0.3f, ~0, QueryTriggerInteraction.Ignore))
+                    if (c.GetComponentInParent<Angler>() == null) { clear = false; break; }
+                if (clear) return at;
             }
-            return sp.position;
+            return grounded ?? sp.position;
         }
         void StartSpot(Angler a, byte slot)
         {
@@ -347,6 +357,22 @@ namespace PortBoss.M1
             Deliver(() => { float d = t - Now; hostShift = clockSet ? Mathf.Max(hostShift, d) : d; clockSet = true; }, false);
         }
 
+        // host: a crewmate whose game died (no goodbye) goes after Silence s of real time without a pose (they send ~Rate a
+        // second, also alt-tabbed: runInBackground), so we stop sending to their closed port: each packet there costs the
+        // transport a receive buffer (CoopSession.MakeTransport). A rejoin gets its hotbar and place back as after any leave.
+        const float Silence = 8f;
+        readonly Dictionary<ulong, float> heard = new();
+        void DropSilent()
+        {
+            float now = Time.realtimeSinceStartup; ulong gone = ulong.MaxValue;
+            foreach (var kv in heard) if (now - kv.Value > Silence) { gone = kv.Key; break; }
+            if (gone == ulong.MaxValue) return;
+            heard.Remove(gone);
+            if (!nm.ConnectedClients.ContainsKey(gone)) return;   // left already
+            Log($"{Find(gone)?.Name ?? "client " + gone} sent nothing for {Silence:0} s: their game is gone, dropping them");
+            nm.DisconnectClient(gone);
+        }
+
         void Update()
         {
             if (nm == null || !nm.IsListening) return;
@@ -358,7 +384,7 @@ namespace PortBoss.M1
                 clockT = 1; float t = Now;
                 foreach (var id in nm.ConnectedClientsIds) if (id != nm.LocalClientId) SendTo(id, "pb.clock", w => w.WriteValueSafe(t), NetworkDelivery.Unreliable);
             }
-            if (nm.IsServer) { Tangles(Time.deltaTime); TickAir(); TickDay(); }
+            if (nm.IsServer) { Tangles(Time.deltaTime); TickAir(); TickDay(); DropSilent(); }
             TickFirm();
             TickVoice();
             sendT -= Time.unscaledDeltaTime;
@@ -375,6 +401,7 @@ namespace PortBoss.M1
 
         void OnPose(ulong from, FastBufferReader r)
         {
+            if (nm.IsServer) heard[from] = Time.realtimeSinceStartup;
             ulong who = from;
             if (!nm.IsServer) r.ReadValueSafe(out who);
             var p = Angler.Pose.Read(ref r);

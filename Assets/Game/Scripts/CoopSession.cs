@@ -213,6 +213,12 @@ namespace PortBoss.M1
                 if (ok && p.Host) _ = MakeLobby();
                 return;
             }
+            // Unity Transport (UDPNetworkInterface's receive loop) never hands back the buffer of a receive that fails, and on
+            // Windows every packet sent to a crewmate whose game died comes back as "port unreachable", one failed receive
+            // each: at the stock 128 the host went deaf to everyone ~2 s after a crash (no rejoin, the rest timed out).
+            // ponytail: a bigger pool + Coop.DropSilent (8 s) make one crash cost ~600 of 8192 (~12 MB); a fixed package
+            // (or a socket recreate when no one is heard) if crashes pile up in one session.
+            utp.MaxPacketQueueSize = 8192;
             if (p.Host) { utp.SetConnectionData("127.0.0.1", p.Port, "0.0.0.0"); ok = nm.StartHost(); }
             else { var hp = p.Join.Split(':'); utp.SetConnectionData(hp[0], hp.Length > 1 && ushort.TryParse(hp[1], out var jp) ? jp : p.Port); ok = nm.StartClient(); }
         }
