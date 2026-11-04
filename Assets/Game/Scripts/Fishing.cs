@@ -650,7 +650,8 @@ namespace PortBoss.M1
             bool big = Catch.Cm > 140;
             if (!big && StateT < HandsFree + HandOver)
             {
-                var hang = Quaternion.LookRotation(Vector3.up, -transform.forward) * Quaternion.Euler(0, 0, Mathf.Sin(Time.time * 5) * 6f);
+                var hang = Quaternion.LookRotation(Vector3.up, transform.right) *   // nose up, its flank to the front (with its back to me it hung edge-on to anyone facing me)
+                    Quaternion.Euler(0, 0, Mathf.Sin(Time.time * 5) * 6f);
                 var hp = HangHand() - hang * Vector3.forward * (Catch.Cm / 200f * 0.75f);
                 float k = Mathf.SmoothStep(0, 1, (StateT - HandsFree) / HandOver);
                 var up = Quaternion.LookRotation(transform.right, Vector3.up) * Quaternion.Euler(-8f, 0, 0);
