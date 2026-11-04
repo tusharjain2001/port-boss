@@ -81,19 +81,30 @@ namespace PortBoss.M1
             beatsDone = true;
         }
 
-        // a 3/4 front picture of an angler, from 2.4 m off, at chest height
+        // a picture of the fish in an angler's hands: square to the fish's length (a fish held across the chest seen
+        // end-on hides behind the mitts), from the angler's front, 2.2 m off and a little above, with a clear line to the
+        // fish itself (a crate between us hid the hanging fish while the chest was in view)
         IEnumerator Look(string what, Angler a)
         {
             yield return new WaitForEndOfFrame();
-            var ct = CameraRig.I.Cam.transform; var keep = (ct.position, ct.rotation);
-            var look = a.transform.position + Vector3.up * 1.15f; var from = look;
-            foreach (float turn in new[] { -35f, 35f, -60f, 60f, -10f, -85f, 85f })   // the first with a clear view (a crate hid the hands; from his right, the mast stood behind him like a rod)
+            var ct = CameraRig.I.Cam.transform; var keep = (ct.position, ct.rotation); var fg0 = a.Fish.FishGo;
+            var look = fg0 != null ? fg0.transform.position : a.transform.position + Vector3.up * 1.15f; var from = look;
+            var axis = fg0 != null ? Flat(fg0.transform.forward) : Vector3.zero;
+            var face = axis.sqrMagnitude > 0.1f ? Vector3.Cross(Vector3.up, axis.normalized) : Flat(a.transform.forward).normalized;
+            if (Vector3.Dot(face, a.transform.forward) < 0) face = -face;
+            string got = "none clear";   // the first with a clear view, from a little above (the moored boat sits low: the jetty hides a fish at chest height)
+            foreach (float up in new[] { 1.1f, 0.55f })
             {
-                from = look + Quaternion.Euler(0, a.transform.eulerAngles.y + turn, 0) * new Vector3(0, 0.45f, 2.4f); bool clear = true;
-                foreach (var h in Physics.RaycastAll(from, look - from, Vector3.Distance(from, look) - 0.3f, ~0, QueryTriggerInteraction.Ignore))
-                    if (h.collider.GetComponentInParent<Angler>() == null) { clear = false; break; }
-                if (clear && !Physics.CheckSphere(from, 0.2f, ~0, QueryTriggerInteraction.Ignore)) break;
+                foreach (float turn in new[] { 0f, 20f, -20f, 40f, -40f })
+                {
+                    from = look + Quaternion.Euler(0, turn, 0) * face * 2.2f + Vector3.up * up; bool clear = true;
+                    foreach (var h in Physics.RaycastAll(from, look - from, Vector3.Distance(from, look) - 0.2f, ~0, QueryTriggerInteraction.Ignore))
+                        if (h.collider.GetComponentInParent<Angler>() == null && (fg0 == null || !h.collider.transform.IsChildOf(fg0.transform))) { clear = false; break; }
+                    if (clear && !Physics.CheckSphere(from, 0.2f, ~0, QueryTriggerInteraction.Ignore)) { got = $"turn {turn}, up {up}"; break; }
+                }
+                if (got != "none clear") break;
             }
+            Debug.Log($"[PB] rod: {what}: picture from {got}");
             ct.position = from; ct.rotation = Quaternion.LookRotation(look - from);
             var fg = a.Fish.FishGo; var cam = CameraRig.I.Cam;
             if (fg == null) Debug.Log($"[PB] rod: {what}: no fish object");
@@ -102,7 +113,7 @@ namespace PortBoss.M1
                 int rs = 0, on = 0; var b = new Bounds(fg.transform.position, Vector3.zero);
                 foreach (var r in fg.GetComponentsInChildren<Renderer>(true)) { rs++; if (r.enabled && r.gameObject.activeInHierarchy) { on++; b.Encapsulate(r.bounds); } }
                 var hl = a.Anim.HandL; var vp = cam.WorldToViewportPoint(fg.transform.position);
-                Debug.Log($"[PB] rod: {what}: fish {fg.name} active {fg.activeInHierarchy}, scale {fg.transform.lossyScale.x:F2}, renderers {on}/{rs}, bounds {b.size}, {(hl != null ? Vector3.Distance(hl.position, fg.transform.position) : -1):F2} m from the left hand, layer {LayerMask.LayerToName(fg.layer)}, culled by the camera {(cam.cullingMask & (1 << fg.layer)) == 0}, in view at {vp}");
+                Debug.Log($"[PB] rod: {what}: fish {fg.name} active {fg.activeInHierarchy}, scale {fg.transform.lossyScale.x:F2}, renderers {on}/{rs}, bounds {b.size}, {(hl != null ? Vector3.Distance(hl.position, fg.transform.position) : -1):F2} m from the left hand, layer {LayerMask.LayerToName(fg.layer)}, culled by the camera {(cam.cullingMask & (1 << fg.layer)) == 0}, in view at {vp}, hands L/R {(hl != null ? hl.position.y - b.min.y : 0):+0.00;-0.00}/{(a.Anim.HandR != null ? a.Anim.HandR.position.y - b.min.y : 0):+0.00;-0.00} m over its underside");
             }
             NameTags.I?.Place(); Canvas.ForceUpdateCanvases();
             Save(Path.Combine(shots, $"{(Coop.IsHost ? "host" : "rider")}-{shotN++:00}-{what}.png"));

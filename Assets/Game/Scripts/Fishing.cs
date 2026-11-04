@@ -653,7 +653,8 @@ namespace PortBoss.M1
             bool big = Catch.Cm > 140;
             if (!big && StateT < HandsFree + HandOver)
             {
-                var hang = Quaternion.LookRotation(Vector3.up, -transform.forward) * Quaternion.Euler(0, 0, Mathf.Sin(Time.time * 5) * 6f);
+                var hang = Quaternion.LookRotation(Vector3.up, transform.right) *   // nose up, its flank to the front (with its back to me it hung edge-on to anyone facing me)
+                    Quaternion.Euler(0, 0, Mathf.Sin(Time.time * 5) * 6f);
                 var hp = HangHand() - hang * Vector3.forward * (Catch.Cm / 200f * 0.75f);
                 float k = Mathf.SmoothStep(0, 1, (StateT - HandsFree) / HandOver);
                 var up = Quaternion.LookRotation(transform.right, Vector3.up) * Quaternion.Euler(-8f, 0, 0);
@@ -1030,8 +1031,14 @@ namespace PortBoss.M1
             {
                 var f = fishGo.transform; float k = Mathf.SmoothStep(0, 1, (StateT - HandsFree) / HandOver);
                 var fromR = f.InverseTransformPoint(rod.Root.TransformPoint(RodView.GripR)); var fromL = f.InverseTransformPoint(HangHand());
-                me.Anim.Grip = f; me.Anim.GripL = Vector3.Lerp(fromL, new Vector3(0, -0.06f, -0.28f), k); me.Anim.GripR = Vector3.Lerp(fromR, new Vector3(0, -0.06f, 0.22f), k);
-                me.Anim.GripElbow = new Vector3(0, -0.8f, 0); me.Anim.GripFingers = new Vector3(0, 1, 0.3f);
+                // the hands under its belly toward each end, set in metres (the grip is local to the fish, which is scaled to
+                // its size: a 30 cm fish gripped at fixed local points sat wholly inside the two mitts, so a crewmate saw
+                // no fish, Manan + Tushar's test, M3.1)
+                var r = fishGo.GetComponentInChildren<Renderer>(); var c = r != null ? r.bounds.center : f.position;
+                float below = (r != null ? r.bounds.extents.y : 0.05f) + 0.05f, len = Catch.Cm / 100f;
+                Vector3 Under(float along) => f.InverseTransformPoint(c + f.forward * (along * len) - Vector3.up * below);
+                me.Anim.Grip = f; me.Anim.GripL = Vector3.Lerp(fromL, Under(-0.36f), k); me.Anim.GripR = Vector3.Lerp(fromR, Under(0.26f), k);
+                me.Anim.GripElbow = new Vector3(0, -0.8f, 0); me.Anim.GripFingers = new Vector3(0, 0.3f, 1);
             }
         }
 

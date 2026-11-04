@@ -70,8 +70,8 @@ namespace PortBoss.M1
                 return !m.Down && !m.Swimming && l.magnitude < 0.4f && (round != 4 || Angler.NearRail(m, d.normalized));
             }, until - Time.time - 5);
             { var dd = m.transform.position - me.transform.position; dd.y = 0; me.Teleport(me.transform.position, Mathf.Atan2(dd.x, dd.z) * Mathf.Rad2Deg); CameraRig.I.Yaw = Mathf.Atan2(dd.x, dd.z) * Mathf.Rad2Deg; yield return null; }
-            if (round == 2) yield return Until(() => m.Fish.State == Fishing.St.Waiting && m.Fish.StateT > 1f, until - Time.time - 4);
-            if (round == 3) yield return Until(() => m.Fish.State is Fishing.St.Strike or Fishing.St.Heavy or Fishing.St.Minigame, until - Time.time - 4);
+            if (round == 2) yield return Until(() => m.Fish.State == Fishing.St.Waiting && m.Fish.StateT > 1f, 15); // (fixed waits: the wait for them above can use up the round)
+            if (round == 3) yield return Until(() => m.Fish.State is Fishing.St.Strike or Fishing.St.Heavy or Fishing.St.Minigame, 35);
             { var dd = m.transform.position - me.transform.position; dd.y = 0; me.Teleport(me.transform.position, Mathf.Atan2(dd.x, dd.z) * Mathf.Rad2Deg); CameraRig.I.Yaw = Mathf.Atan2(dd.x, dd.z) * Mathf.Rad2Deg; yield return null; } // (again: they may have turned to cast)
             Debug.Log($"[PB] shove: round {round}: shoving the rider ({Vector3.Distance(me.transform.position, m.transform.position):F2} m off, their fishing {m.Fish.State}, at the rail: {Angler.NearRail(m, (m.transform.position - me.transform.position).normalized)})");
             int sent = Angler.ShovesSent; float lo = 99, hi = -1; bool sawDown = false, shot1 = false, shot2 = false;
