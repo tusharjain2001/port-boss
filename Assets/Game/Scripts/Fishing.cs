@@ -1027,8 +1027,14 @@ namespace PortBoss.M1
             {
                 var f = fishGo.transform; float k = Mathf.SmoothStep(0, 1, (StateT - HandsFree) / HandOver);
                 var fromR = f.InverseTransformPoint(rod.Root.TransformPoint(RodView.GripR)); var fromL = f.InverseTransformPoint(HangHand());
-                me.Anim.Grip = f; me.Anim.GripL = Vector3.Lerp(fromL, new Vector3(0, -0.06f, -0.28f), k); me.Anim.GripR = Vector3.Lerp(fromR, new Vector3(0, -0.06f, 0.22f), k);
-                me.Anim.GripElbow = new Vector3(0, -0.8f, 0); me.Anim.GripFingers = new Vector3(0, 1, 0.3f);
+                // the hands under its belly toward each end, set in metres (the grip is local to the fish, which is scaled to
+                // its size: a 30 cm fish gripped at fixed local points sat wholly inside the two mitts, so a crewmate saw
+                // no fish, Manan + Tushar's test, M3.1)
+                var r = fishGo.GetComponentInChildren<Renderer>(); var c = r != null ? r.bounds.center : f.position;
+                float below = (r != null ? r.bounds.extents.y : 0.05f) + 0.05f, len = Catch.Cm / 100f;
+                Vector3 Under(float along) => f.InverseTransformPoint(c + f.forward * (along * len) - Vector3.up * below);
+                me.Anim.Grip = f; me.Anim.GripL = Vector3.Lerp(fromL, Under(-0.36f), k); me.Anim.GripR = Vector3.Lerp(fromR, Under(0.26f), k);
+                me.Anim.GripElbow = new Vector3(0, -0.8f, 0); me.Anim.GripFingers = new Vector3(0, 0.3f, 1);
             }
         }
 

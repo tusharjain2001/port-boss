@@ -107,7 +107,7 @@ namespace PortBoss.M1
                 int rs = 0, on = 0; var b = new Bounds(fg.transform.position, Vector3.zero);
                 foreach (var r in fg.GetComponentsInChildren<Renderer>(true)) { rs++; if (r.enabled && r.gameObject.activeInHierarchy) { on++; b.Encapsulate(r.bounds); } }
                 var hl = a.Anim.HandL; var vp = cam.WorldToViewportPoint(fg.transform.position);
-                Debug.Log($"[PB] rod: {what}: fish {fg.name} active {fg.activeInHierarchy}, scale {fg.transform.lossyScale.x:F2}, renderers {on}/{rs}, bounds {b.size}, {(hl != null ? Vector3.Distance(hl.position, fg.transform.position) : -1):F2} m from the left hand, layer {LayerMask.LayerToName(fg.layer)}, culled by the camera {(cam.cullingMask & (1 << fg.layer)) == 0}, in view at {vp}");
+                Debug.Log($"[PB] rod: {what}: fish {fg.name} active {fg.activeInHierarchy}, scale {fg.transform.lossyScale.x:F2}, renderers {on}/{rs}, bounds {b.size}, {(hl != null ? Vector3.Distance(hl.position, fg.transform.position) : -1):F2} m from the left hand, layer {LayerMask.LayerToName(fg.layer)}, culled by the camera {(cam.cullingMask & (1 << fg.layer)) == 0}, in view at {vp}, hands L/R {(hl != null ? hl.position.y - b.min.y : 0):+0.00;-0.00}/{(a.Anim.HandR != null ? a.Anim.HandR.position.y - b.min.y : 0):+0.00;-0.00} m over its underside");
             }
             NameTags.I?.Place(); Canvas.ForceUpdateCanvases();
             Save(Path.Combine(shots, $"{(Coop.IsHost ? "host" : "rider")}-{shotN++:00}-{what}.png"));
