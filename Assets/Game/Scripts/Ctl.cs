@@ -134,7 +134,8 @@ namespace PortBoss.M1
     public static class Settings
     {
         public static float MouseSens = PlayerPrefsGet("m1.mouse", 1f), PadSens = PlayerPrefsGet("m1.pad", 1f);
-        public static bool Invert;
+        public static bool Invert = InvertSaved();
+        static bool InvertSaved() { try { return PlayerPrefs.GetInt("m1.invert", 0) != 0; } catch { return false; } }
         public static float TimingOffsetMs = PlayerPrefsGet("m1.offset", 0f);  // −100…+100, the minigame calibration knob
         // co-op voice (systems §3.6): open mic by default (Manan 2 Nov); push-to-talk (hold V) or off go in the settings
         // screen later. For now: -pb-voice open|ptt|off, or "m1.voice" saved on this PC.
