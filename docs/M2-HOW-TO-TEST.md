@@ -20,7 +20,7 @@
 - **You can't walk through each other any more:** on the pier, the jetty and the boat. Walking into a friend stops you,
   or slides you round them if you're a little off line. Someone standing still is never pushed, so nobody goes off
   the boat from being walked into.
-- **Shove a friend: G** (within 1.5 m, in front of you). They fall over for a second. At the rail, they can go over
+- **Shove a friend: G** (pad: **D-pad right**) (within 1.5 m, in front of you). They fall over for a second. At the rail, they can go over
   the side. You can shove once every 3 s.
   - A friend whose line is out waiting gets it reeled in; the bait stays on.
   - A friend fighting a fish loses it, and the bait too.
@@ -106,7 +106,7 @@ checklist works the same way.
 | Toss a fish (a ring shows where it lands; hold longer to throw further) | hold **Q**, let go |
 | Drop one fish at your feet (over the side, it swims away) | tap **Q** |
 | Invite friends (any time in a crew; Esc first isn't needed) | **I** |
-| Shove a crewmate (in front of you, within 1.5 m; once every 3 s) | **G** |
+| Shove a crewmate (in front of you, within 1.5 m; once every 3 s) | **G** (pad: **D-pad right**) |
 | Patch the leak (in a storm, at the hole) | hold **E** |
 | Leave the crew and play on alone | **Esc**, then **L** |
 | Switch to the next free crew member | **F9** |
@@ -147,7 +147,7 @@ Play about 30 minutes in one session, over Steam if you can.
 - [ ] F8 (fall over): the other sees you go limp and get up again.
 - [ ] Walk into each other on the pier and on the boat: you stop or slide round, no shaking, and the one standing
   still doesn't move (nobody gets pushed in).
-- [ ] **G** next to your friend: they go over and get up. At the rail they can go in the water. Shove them while
+- [ ] **G** (pad: **D-pad right**) next to your friend: they go over and get up. At the rail they can go in the water. Shove them while
   their line is out (it reels in) and while they fight a fish (it gets away).
 
 **Catching and patching (M3.1)**

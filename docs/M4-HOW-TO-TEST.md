@@ -25,7 +25,8 @@ Pull the M4 branch (or `main` once Kufu merges it) and run `bash tools/m1build.s
 | Phone: buttons | mouse, or arrows + Enter | d-pad + A |
 | A shop counter | **E** at the counter | X |
 | Buy / sell in a shop | click, or hold E on the button | hold A |
-| The bait pouch | **hold R**, point, let go (tap R: the next bait) | hold Y, point with a stick |
+| The bait pouch | **hold R**, point, let go (tap R: the next bait) | hold Y, point with a stick (Y is only the pouch) |
+| Shove a crewmate (co-op) | **G** | **D-pad right** |
 | Save & quit | Esc, then **Q** (closing the window saves too) | Start, then Q |
 | Test only, host only | **F10** = +1 hour, **Shift+F10** = +6 hours | |
 

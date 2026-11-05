@@ -52,7 +52,7 @@ namespace PortBoss.M1
         public static bool Jump => Bot ? BotJump : Ui < 2 && KD(Key.Space) || (P != null && P.buttonSouth.wasPressedThisFrame);
         public static bool JumpHeld => Bot ? BotJumpHeld : K_(Key.Space) || (P != null && P.buttonSouth.isPressed); // let go early: a lower hop
         public static bool Interact => Bot ? BotInteract : Ui < 2 && KD(Key.E) || (P != null && P.buttonWest.wasPressedThisFrame);
-        public static bool Shove => Bot ? BotShove : Ui == 0 && (KD(Key.G) || (P != null && P.buttonNorth.wasPressedThisFrame && !Pouch.Ready)); // M3.1: a friendly shove (pad Y: only when the bait pouch (hold Y, M4) can't open)
+        public static bool Shove => Bot ? BotShove : Ui == 0 && (KD(Key.G) || (P != null && P.dpad.right.wasPressedThisFrame)); // M3.1: a friendly shove (pad: D-pad right; Y is the bait pouch only, Manan 5 Nov; on foot the D-pad's right is free, the phone/shop use it at Ui != 0)
         public static bool Brace => Bot ? BotBrace : K_(Key.C) || (P != null && P.rightStickButton.isPressed); // M3: hold to brace on deck
         public static bool InteractHeld => Bot ? BotInteractHeld : Ui < 2 && K_(Key.E) || (P != null && P.buttonWest.isPressed);
         public static bool PushToTalk => !Bot && K_(Key.V); // (when Settings.Voice is push-to-talk)

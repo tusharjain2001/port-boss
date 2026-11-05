@@ -11,7 +11,7 @@ namespace PortBoss.M1
     public class Pouch : MonoBehaviour
     {
         public static Pouch I; public static bool Open => I != null && I.open;
-        public static bool Ready => I != null && I.CanUse(); // (Ctl: pad Y is the pouch while it can open, else the shove)
+        public static bool Ready => I != null && I.CanUse(); // (pad Y is the pouch only; the shove is D-pad right)
         const float HoldS = 0.22f, R = 168;
         RectTransform root; readonly RectTransform[] pocket = new RectTransform[5]; readonly Text[] name_ = new Text[5], count = new Text[5];
         Text midName, midSub; bool open, down, tookUi; float downT; int sel; Vector2 aim;
