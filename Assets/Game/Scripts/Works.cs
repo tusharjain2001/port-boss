@@ -717,9 +717,9 @@ namespace PortBoss.M1
                 var top = C.Wh[slot].Fish[^1]; var sp = FishDb.Get(top.Species); if (sp == null) break;
                 var bar = Coop.On ? Coop.I.Book.Bar(who) : Angler.I.Bar;
                 if (!bar.CanFit(new[] { new Fish { Species = sp, Grade = top.Grade } })) { if (n == 0) Alerts.Push("Warehouse", "Hotbar full.", Alerts.Kind.Info); break; }
-                var wf = C.Take(slot, Sky.Minutes);
-                if (Coop.On) { var f = Coop.I.Book.Make(who, sp, wf.Grade, wf.Cm, wf.Kg, (float)wf.CaughtAt); Coop.I.Book.Keep(who, f.Id); }
-                else Angler.I.Bar.Add(new Fish { Species = sp, Grade = wf.Grade, Cm = wf.Cm, Kg = wf.Kg, CaughtAt = (float)wf.CaughtAt });
+                var wf = C.Take(slot, Sky.Minutes); float caught = (float)(Sky.Minutes - Company.AgeOf(wf, Sky.Minutes));   // the cold room's slower rot comes with it
+                if (Coop.On) { var f = Coop.I.Book.Make(who, sp, wf.Grade, wf.Cm, wf.Kg, caught); Coop.I.Book.Keep(who, f.Id); }
+                else Angler.I.Bar.Add(new Fish { Species = sp, Grade = wf.Grade, Cm = wf.Cm, Kg = wf.Kg, CaughtAt = caught });
                 n++; if (!all) break;
             }
             if (Coop.On && n > 0) Coop.I.Bar(who);

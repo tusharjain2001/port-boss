@@ -61,7 +61,7 @@ namespace PortBoss.M1
             }
             Hud.Create(rig.UiCam, p);
             Sleep.Create(); // M3: Walt's cot, tired, the night skip
-            Firm.Create(); Works.Create(); Phone.Create(); Shop.Create(); YShop.Create(); Wardrobe.Create(); Pouch.Create(); // M4: the company, the phone (Tab), the shop counters
+            Firm.Create(); Works.Create(); Phone.Create(); Shop.Create(); YShop.Create(); Wardrobe.Create(); StoreUi.Create(); Pouch.Create(); // M4: the company, the phone (Tab), the shop counters
             BakeIcons(a);
 
             sea = gameObject.AddComponent<AudioSource>(); sea.clip = a.Waves; sea.loop = true; sea.volume = 0.32f; sea.spatialBlend = 0; sea.Play();
