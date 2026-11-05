@@ -235,7 +235,7 @@ namespace PortBoss.M1
         {
             Skipping = true; Frozen = true;
             var me = Angler.I; double from = Sky.Minutes; int fromDay = DayTime.Day(from - DayTime.Wake);
-            bool mine = !Coop.On || who == Coop.Me;
+            bool mine = who == null || Coop.On && who == Coop.Me; // (a host that left its crew mid heads-up still runs the rider's skip: not mine)
             Log($"night: {name} {(k == Kind.Bed ? "slept" : "passed out")}, {DayTime.Clock(from)} Day {DayTime.Day(from)} -> {DayTime.Clock(to)} Day {DayTime.Day(to)}");
             Hud.I?.Quiet(true);                            // the toasts fade with the day; new ones wait for the morning
             yield return Fade(0, 1, 1.2f);
