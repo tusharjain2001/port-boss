@@ -91,7 +91,7 @@ namespace PortBoss.M1
             Reg(m, "pb.ask", OnAsk); Reg(m, "pb.clock", OnClock);
             Reg(m, "pb.roll", OnRoll); Reg(m, "pb.rolled", OnRolled);
             Reg(m, "pb.landed", OnLanded); Reg(m, "pb.tangle", OnTangle);
-            RegisterItems(m); Reg(m, "pb.voice", OnVoice); Reg(m, "pb.place", OnPlace); RegisterDay(m); RegisterSleep(m); RegisterFirm(m); Reg(m, "pb.shove", OnShove);
+            RegisterItems(m); Reg(m, "pb.voice", OnVoice); Reg(m, "pb.place", OnPlace); RegisterDay(m); RegisterSleep(m); RegisterFirm(m); RegisterM5(m); Reg(m, "pb.shove", OnShove);
             StartVoice();
             if (!host && System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-pb-oldjoin") < 0) gameObject.AddComponent<JoinView>(); // M3.1: the view waits till I'm me, where I was (JoinView)
             if (host)
@@ -227,7 +227,7 @@ namespace PortBoss.M1
                     SendTo(id, "pb.roster", w =>
                     {
                         w.WriteValueSafe((byte)Owner.Length); foreach (var o in Owner) w.WriteValueSafe(o); w.WriteValueSafe((byte)Roster.Count);
-                        foreach (var e in Roster) { w.WriteValueSafe(e.Id); w.WriteValueSafe(e.Slot); w.WriteValueSafe(e.Crew); w.WriteValueSafe(e.Name); }
+                        foreach (var e in Roster) { w.WriteValueSafe(e.Id); w.WriteValueSafe(e.Slot); w.WriteValueSafe(e.Crew); w.WriteValueSafe(e.Name); w.WriteValueSafe(e.Key ?? MyKey(e.Name)); }   // (M5: the key, for their outfit)
                     }, NetworkDelivery.ReliableSequenced);
         }
 
@@ -238,7 +238,7 @@ namespace PortBoss.M1
             var list = new List<Entry>();
             for (int i = 0; i < n; i++)
             {
-                var e = new Entry(); r.ReadValueSafe(out e.Id); r.ReadValueSafe(out e.Slot); r.ReadValueSafe(out e.Crew); r.ReadValueSafe(out string nm_); e.Name = nm_;
+                var e = new Entry(); r.ReadValueSafe(out e.Id); r.ReadValueSafe(out e.Slot); r.ReadValueSafe(out e.Crew); r.ReadValueSafe(out string nm_); e.Name = nm_; r.ReadValueSafe(out string key_); e.Key = key_;
                 list.Add(e);
             }
             Deliver(() => { Roster.Clear(); Roster.AddRange(list); for (int i = 0; i < owners.Length && i < Owner.Length; i++) Owner[i] = owners[i]; Apply(); }, true);

@@ -45,6 +45,7 @@ namespace PortBoss.M1
         public readonly List<Npc> Keepers = new();
         bool started; float reconcileT;
         public static bool NavOk;
+        public static (string boat, int ch, int sw, int pat)? TryPaint;   // YShop: the colour you're looking at, on her (this machine only)
 
         public static void Create() { var g = new GameObject("Works"); I = g.AddComponent<Works>(); I.Build(); }
 
@@ -333,6 +334,10 @@ namespace PortBoss.M1
         void PaintBoat(Skiff b, BoatSt st, double m)
         {
             if (!boatR.TryGetValue(b, out var rs) || rs == null) { var l = new List<Renderer>(); foreach (var r in b.GetComponentsInChildren<Renderer>(true)) if (r is MeshRenderer && Channels.Has(r)) l.Add(r); boatR[b] = rs = l.ToArray(); Log($"{b.Name}: {rs.Length} painted parts"); }
+            if (TryPaint is { } tp && tp.boat == b.Id && (st.Job == null || m >= st.Job.End))
+            {   // trying a colour on in the shop: a copy of her paint with it, nothing saved
+                var t = st.Copy(); t.Job = null; t.Paint[tp.ch] = tp.sw; if (tp.ch == 1) t.Pattern = tp.pat; st = t;
+            }
             Channels.Boat(rs, st, m, new Vector3(0, 0, 1));
         }
         // ---- what's been fitted: speed, leaks, the pump, the deck lights
