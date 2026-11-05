@@ -115,7 +115,10 @@ namespace PortBoss.M1
             int bait1 = fish.BaitCount[fish.BaitI];
             Debug.Log($"[PB] shove: round {round}: down {(downAt >= 0 ? "yes" : "no")}, {upAt - downAt:F1} s till up, my fishing was {before} -> {fish.State} ('{outcome}'), bait {bait0} -> {bait1}, in the water: {wet}");
             Check(downAt >= 0, $"round {round}: shoved, I go over");
-            if (round == 1) Check(upAt - downAt is > 0.8f and < 4f, $"round 1: down, then up again ({upAt - downAt:F1} s with the get-up)");
+            // the longest a fall can take: lying ≤ 1.8 s (Angler.Lying) + the longer get-up clip + its 0.25 s blend into the idle
+            // (+0.2 s slack); a flat 4 s failed a normal fall on Standing Up (4.2 s; -pb-knocktest measures 3.7-4.5 s)
+            float maxUp = 0; foreach (var g in M1Assets.I.GetUps) maxUp = Mathf.Max(maxUp, (g.To - g.From) / g.Speed);
+            if (round == 1) Check(upAt - downAt > 0.8f && upAt - downAt < 1.8f + maxUp + 0.45f, $"round 1: down, then up again ({upAt - downAt:F1} s with the get-up, at most {1.8f + maxUp + 0.45f:F1})");
             if (round == 2) Check(before is Fishing.St.Waiting or Fishing.St.Settle or Fishing.St.Bite && /* a bite in the moment before the shove: still no fish on */ outcome == "reeled" && bait1 == bait0, "round 2: my line was out waiting: it reels in, the bait kept");
             if (round == 3) Check(before is Fishing.St.Strike or Fishing.St.Heavy or Fishing.St.Minigame && outcome == "knocked" && bait1 == bait0 - 1 && fish.Catch == null, "round 3: a fish on: it gets away, the bait lost");
             if (round == 4) Check(wet, "round 4: shoved at the rail: over it, into the water");
