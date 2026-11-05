@@ -457,6 +457,7 @@ namespace PortBoss.M1
                 y += 6; float x = 0;
                 foreach (var (label, act) in new (string, Action)[] { ("Sounds good!", () => Firm.I.AnswerMari(true)), ("Can you pay more?", () => Firm.I.HaggleMari()), ("Not now", () => Firm.I.AnswerMari(false)) })
                 {
+                    if (act != null && label == "Can you pay more?" && c.Haggled) continue;   // asked once already
                     float w = label.Length * 8.6f + 30; if (x + w > CW) { x = 0; y += 46; }
                     Pill(list, label, x, y, w, 38, Ponyo.Paper, Ponyo.Ink, act, UiKit.Body, 15); x += w + 8;
                 }

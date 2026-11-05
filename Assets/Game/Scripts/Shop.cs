@@ -263,7 +263,7 @@ namespace PortBoss.M1
         }
         public static readonly string[] BaitGlyph = { "worm", "shrimp", "sardine", "squid", "mix" };   // FishDb.Baits order
         public static Color BaitCol(int i) => i switch { 0 => Ponyo.Hex("D9826A"), 1 => Ponyo.Hex("F29A85"), 2 => Ponyo.Hex("8FA6C0"), 3 => Ponyo.Hex("E7D6C6"), _ => Ponyo.Hex("C98A1A") };
-        static string Hooks(int i) => i switch { 0 => "sprat, mullet, mackerel", 1 => "garfish, bream (Fibreglass rod)", 2 => "bigger fish further out", 3 => "squid lovers (Act 2)", _ => "" };
+        static string Hooks(int i) => i switch { 0 => "sprat, mullet, mackerel", 1 => "garfish, bream (Fibreglass rod)", 2 => "conger, mahi-mahi, blue shark", 3 => "snapper, grouper, swordfish", _ => "" };
 
         // the sell panel: the hotbar's fish, one row per stack
         float Sell()

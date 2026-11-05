@@ -83,6 +83,33 @@ namespace PortBoss.M1
             Assert.AreEqual("−$17 · Shrimp ×10, Worms ×10", Alerts.Merge("−$12 · Shrimp ×10", "−$5 · Worms ×10", 2));
         }
 
+        // M4 quality: the anchor glyph (Mari's mooring card) lost its top half: a zero-length segment gave NaN pixels
+        [Test]
+        public void AnchorGlyphHasItsTop()
+        {
+            var t = Glyphs.Get("anchor").texture; int S = t.width;
+            float A(float x, float y) => t.GetPixel((int)((x + 1) / 2 * S), (int)((y + 1) / 2 * S)).a;
+            Assert.Greater(A(0, 0.70f), 0.5f, "the ring on top");
+            Assert.Greater(A(0, 0.30f), 0.5f, "the shaft above the stock");
+            Assert.Greater(A(0.30f, 0.18f), 0.5f, "the stock");
+            Assert.Greater(A(0, -0.62f), 0.5f, "the arc at the bottom");
+            foreach (var c in t.GetPixels()) Assert.IsFalse(float.IsNaN(c.a));
+        }
+
+        // M4 quality: the forecast's wind and waves stay inside each state's range (systems §1.5.1), the same each time
+        [Test]
+        public void ForecastWindAndWavesInRange()
+        {
+            int[] lo = { 0, 5, 12, 0, 10, 25 }, hi = { 8, 12, 20, 6, 18, 40 }; float[] hl = { .2f, .3f, .6f, .2f, .5f, 1.6f }, hh = { .4f, .6f, 1f, .4f, .9f, 2.5f };
+            var w = new Weather(7); var w2 = new Weather(7);
+            for (int d = 1; d < 200; d++) for (int b = 0; b < 3; b++) for (int k = 0; k < 6; k++)
+            {
+                var (kn, hs) = w.Sea(d, b, (Wx)k);
+                Assert.That(kn >= lo[k] && kn <= hi[k] && hs >= hl[k] - 1e-4f && hs <= hh[k] + 1e-4f, $"day {d} block {b} {(Wx)k}: {kn} kn {hs} m");
+                Assert.AreEqual((kn, hs), w2.Sea(d, b, (Wx)k));
+            }
+        }
+
         // batch: -executeMethod PortBoss.M1.M4Tests.RunAll (without the Test Runner)
         public static void RunAll()
         {
@@ -97,6 +124,8 @@ namespace PortBoss.M1
             Do("SaveRefusesANewerSchema", t.SaveRefusesANewerSchema);
             Do("GzipAndCrcRoundTrip", t.GzipAndCrcRoundTrip);
             Do("MoneyToastsMerge", t.MoneyToastsMerge);
+            Do("AnchorGlyphHasItsTop", t.AnchorGlyphHasItsTop);
+            Do("ForecastWindAndWavesInRange", t.ForecastWindAndWavesInRange);
             UnityEngine.Debug.Log($"[PB] RESULT m4test: {(fails == 0 ? "PASS" : fails + " FAIL")}");
             UnityEditor.EditorApplication.Exit(fails == 0 ? 0 : 1);
         }
