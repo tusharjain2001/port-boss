@@ -308,7 +308,9 @@ namespace PortBoss.M1
         }
 
         // ---------------------------------------------------------------- asks (client -> host): the tiller, the anchor, a body
-        public enum Ask : byte { Helm, LeaveHelm, Anchor, NextCrew, Scoop, Patch }
+        public enum Ask : byte { Helm, LeaveHelm, Anchor, NextCrew, Scoop, Patch, Crew0 = 16 }   // (M5) Crew0 + n: the wardrobe picks crew member n
+        public static void PickCrew(int c) => Request((Ask)((int)Ask.Crew0 + c));
+        public static bool CrewTaken(int c) => On && I.Roster.Exists(e => e.Crew == c && e.Id != I.nm.LocalClientId);
 
         public static void Request(Ask what)
         {
@@ -351,6 +353,14 @@ namespace PortBoss.M1
                     break;
                 case Ask.NextCrew:
                     e.Crew = FreeCrew(e.Crew + 1, from); Log($"{e.Name} is now {CrewName(e.Crew)}");
+                    break;
+                default:
+                    if (what >= Ask.Crew0)   // (M5) the wardrobe: one crew member each (two players can't both be Pip)
+                    {
+                        int c = what - Ask.Crew0;
+                        if (Roster.Exists(x => x.Crew == c && x.Id != from)) Log($"{e.Name} can't be {CrewName(c)}: taken");
+                        else { e.Crew = (byte)c; Log($"{e.Name} is now {CrewName(c)} (wardrobe)"); }
+                    }
                     break;
             }
             Broadcast(); Apply();

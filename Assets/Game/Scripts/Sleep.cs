@@ -23,6 +23,15 @@ namespace PortBoss.M1
         public static bool Off;                     // tests that drive the clock through the night (-pb-daytest)
         public static float WalkMul = 1;            // 0.9 from 01:30 (tired)
         public static Transform Cot; public static float CotH = 0.5f;
+        // (M5) beds bought at Plank & Post: the nearest one is "the cot" while you're at it (Walt's stays Cot0)
+        public static Transform Cot0; public static readonly List<Transform> Beds = new();
+        public static void AddBed(Transform t, string id) { Beds.RemoveAll(b => b == null); if (!Beds.Contains(t)) Beds.Add(t); }
+        static void NearestBed(Vector3 p)
+        {
+            if (Cot0 == null) Cot0 = Cot; var best = Cot0; float bd = best != null ? (best.position - p).sqrMagnitude : float.MaxValue;
+            foreach (var b in Beds) if (b != null) { float d = (b.position - p).sqrMagnitude; if (d < bd) { bd = d; best = b; } }
+            Cot = best;
+        }
         public static System.Action<string> OnLog; // test hooks
         public const float HeadsUp = 5, FightWait = 10, BedHold = 1, NearBed = 30;
 
@@ -98,12 +107,15 @@ namespace PortBoss.M1
         {
             if (I == null || Cot == null || me.Remote || me.OnBoat || me.Swimming || I.Skipping && !I.lying) return null;
             if (I.lying) return "Asleep…";
+            if (!I.CotTaken) NearestBed(me.transform.position);
             var d = Cot.position - me.transform.position; d.y = 0;
             if (d.magnitude > 1.7f) { I.holdT = 0; return null; }
-            if (!DayTime.BedOk(Sky.Minutes)) { I.holdT = 0; return "Too early. Back after 8 PM."; }
-            if (Ctl.InteractHeld) { I.holdT += Time.deltaTime; if (I.holdT >= BedHold) { I.holdT = 0; I.LieDown(me); } }
-            else I.holdT = 0;
-            return I.holdT > 0 ? $"Sleeping… {Mathf.CeilToInt((BedHold - I.holdT) * 10) / 10f:0.0}" : "Hold to sleep (skips to 7:00 AM)";
+            // (M5) a tap opens the wardrobe (any bed, systems §1.9); a hold sleeps
+            bool ok = DayTime.BedOk(Sky.Minutes);
+            if (Ctl.InteractHeld) { I.holdT += Time.deltaTime; if (ok && I.holdT >= BedHold) { I.holdT = 0; I.LieDown(me); } }
+            else { if (I.holdT > 0 && I.holdT < 0.3f) Wardrobe.Show(); I.holdT = 0; }
+            if (!ok) return "Tap: wardrobe · too early to sleep, back after 8 PM";
+            return I.holdT > 0.3f ? $"Sleeping… {Mathf.CeilToInt((BedHold - I.holdT) * 10) / 10f:0.0}" : "Tap: wardrobe · hold to sleep (skips to 7:00 AM)";
         }
 
         public bool Lying => lying;
