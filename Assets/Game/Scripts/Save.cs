@@ -94,7 +94,7 @@ namespace PortBoss.M1
                 w.End().K("sel").V(bar != null ? bar.Selected : 0).End();
             }
             w.End();
-            var s = Skiff.I;
+            var s = Skiff.At(0);   // Biscuit ("boat"); M5: the others in "boats"
             if (s != null)
             {
                 var p = s.transform.position; w.K("boat").Obj();
@@ -103,6 +103,14 @@ namespace PortBoss.M1
                 w.K("moored").V(s.Moored).K("anchored").V(s.Anchored)
                     .K("water").V(R2(s.Water)).K("leaking").V(s.Leaking).End();
             }
+            w.K("boats").Arr();
+            foreach (var b in Skiff.All)
+            {
+                if (b.Index == 0) continue; var p = b.transform.position;
+                w.Obj().K("id").V(b.Id); if (!b.Moored) w.K("x").V(R2(p.x)).K("z").V(R2(p.z)).K("yaw").V(Yaw(b.transform.eulerAngles.y));
+                w.K("moored").V(b.Moored).K("anchored").V(b.Anchored).End();
+            }
+            w.End();
             w.K("deck").Arr();
             var deck = new List<FishPickup>(FishPickup.All); deck.RemoveAll(d => d == null || d.F == null);
             deck.Sort((a, b) => a.transform.position.x.CompareTo(b.transform.position.x));
@@ -274,7 +282,14 @@ namespace PortBoss.M1
                 me.Bar.Selected = Mathf.Clamp(Json.I(p, "sel"), 0, Hotbar.Slots - 1);
                 if (p.ContainsKey("x")) PlaceMe(me, new Vector3(Json.F(p, "x"), Json.F(p, "y"), Json.F(p, "z")), Json.F(p, "yaw"), Json.B(p, "boat"));
             }
-            var s0 = Skiff.I; var bo = Json.O(o, "boat");
+            foreach (var bx in Json.L(o, "boats"))
+            {
+                if (bx is not Dictionary<string, object> bd) continue; var b = Skiff.Of(Json.S(bd, "id")); if (b == null) continue;
+                b.Moored = Json.B(bd, "moored"); b.Anchored = Json.B(bd, "anchored");
+                if (!b.Moored && bd.ContainsKey("x")) b.transform.SetPositionAndRotation(new Vector3(Json.F(bd, "x"), b.transform.position.y, Json.F(bd, "z")), Quaternion.Euler(0, Json.F(bd, "yaw"), 0));
+                b.Notch = 0; b.Speed = 0; b.TakeOver();
+            }
+            var s0 = Skiff.At(0); var bo = Json.O(o, "boat");
             if (s0 != null && bo != null)
             {
                 s0.Moored = Json.B(bo, "moored"); s0.Anchored = Json.B(bo, "anchored"); s0.Water = Json.F(bo, "water"); s0.Leaking = Json.B(bo, "leaking");
@@ -293,7 +308,7 @@ namespace PortBoss.M1
         // where I stood: on Biscuit (her deck, wherever she is now) or ashore
         static void PlaceMe(Angler me, Vector3 at, float yaw, bool onBoat)
         {
-            var s = Skiff.I;
+            Skiff s = Skiff.At(0); foreach (var b in Skiff.All) if (b.Inside(at, 0.5f)) { s = b; break; }   // (M5: the Kestrel too)
             if (onBoat && s != null && !s.Inside(at, 0.5f)) at = s.transform.TransformPoint(new Vector3(0, 0.6f, 0));
             me.Teleport(at, yaw);   // exactly where they stood (the saved spot was a resting one), so the hash matches
         }

@@ -25,6 +25,15 @@ namespace PortBoss.M1
         public static Transform Cot; public static float CotH = 0.5f;
         // (M5) beds bought at Plank & Post: the nearest one is "the cot" while you're at it (Walt's stays Cot0)
         public static Transform Cot0; public static readonly List<Transform> Beds = new();
+        // the Rested buff (economy §2.3): slept in a fixed or bought bed -> the next awake day has no heavy eyes (01:30)
+        public static int RestedDay = -1;
+        public static bool GoodBed => Firm.C != null && (Cot != Cot0 || Firm.C.Owned.Contains("bed:cot"));
+        static void OnJumped(double from, double to)
+        {
+            if (I == null || !I.lying || !GoodBed) return;
+            RestedDay = DayTime.Day(to - DayTime.Wake);
+            Alerts.Push("Rested", "A proper night's sleep. No heavy eyes tonight.", Alerts.Kind.Info); Log("rested (a good bed)");
+        }
         public static void AddBed(Transform t, string id) { Beds.RemoveAll(b => b == null); if (!Beds.Contains(t)) Beds.Add(t); }
         static void NearestBed(Vector3 p)
         {
@@ -60,7 +69,7 @@ namespace PortBoss.M1
         public static void Create()
         {
             var g = new GameObject("Sleep"); I = g.AddComponent<Sleep>();
-            I.BuildCot(); I.BuildUi();
+            I.BuildCot(); I.BuildUi(); Sky.Jumped += OnJumped;
         }
 
         static void Log(string s) { Debug.Log("[PB] sleep: " + s); OnLog?.Invoke(s); }
@@ -142,7 +151,7 @@ namespace PortBoss.M1
             var me = Angler.I; if (me == null || Title.Shown || Off) return;
             double m = Sky.Minutes; int day = DayTime.Day(m - DayTime.Wake); // (the "awake day" runs 07:00 -> 07:00)
             if (DayTime.Tired(m) && tiredDay != day && !Skipping) { tiredDay = day; Alerts.Push("Getting tired", "It's late. Walt's cot is by the shack. Hold E on it to sleep.", Alerts.Kind.Info); }
-            bool heavy = DayTime.Heavy(m) && !Skipping;
+            bool heavy = DayTime.Heavy(m) && !Skipping && RestedDay != day;   // (M5: a night in a proper bed: no heavy eyes the next night)
             if (heavy && heavyDay != day) { heavyDay = day; Log("heavy eyes (01:30): vignette, walk -10%"); }
             WalkMul = heavy ? 0.9f : 1;
             float va = heavy ? Mathf.Clamp01((float)(DayTime.OfDay(m) - DayTime.HeavyAt) / 20f) * 0.55f : 0;
