@@ -51,7 +51,7 @@ namespace PortBoss.M1
         public static readonly string[] Pattern = { "Plain band", "Twin pinstripe", "Racing double", "Wave", "Checker", "Dots", "Sun rays", "Chevron" };
         public static readonly string[] Channel = { "Hull", "Stripe", "Trim", "Deck" };
         public static readonly string[] SlotName = { "Hat", "Top", "Over", "Legs", "Boots", "Gloves" };
-        public static readonly string[] Preset = { "Bruno", "Stretch", "Pip", "Rani", "Gus", "Sully" };   // M1Assets.Crew order
+        public static readonly string[] Preset = { "Pip", "Bruno", "Stretch", "Rani", "Gus", "Sully" };   // M1Assets.Crew order (M1Build)
         public const int Swatches = 24, Patterns = 8;
         public const int PaintPrice = 150, TrimPrice = 80, StripePrice = 120, StainPrice = 100, DyePrice = 25;
 
@@ -168,13 +168,13 @@ namespace PortBoss.M1
     public enum Policy { Anyone, Ask, HostOnly }
 
     // a player's look (their Kit): the crew member, the 6 slots worn, a dye per slot, the clothes owned
-    public sealed class Look
+    public sealed class Outfit
     {
         public int Preset = -1;                                       // index into Catalog.Preset, -1 = not picked yet
         public string[] Wear = new string[6];                         // item ids ("wear:beanie") or null = the preset's own
         public int[] Dye = { -1, -1, -1, -1, -1, -1 };                // swatch per slot, -1 = as made
         public readonly HashSet<string> Owned = new();                // bought clothes (+ dyes are per worn item)
-        public Look Copy() { var l = new Look { Preset = Preset, Wear = (string[])Wear.Clone(), Dye = (int[])Dye.Clone() }; l.Owned.UnionWith(Owned); return l; }
+        public Outfit Copy() { var l = new Outfit { Preset = Preset, Wear = (string[])Wear.Clone(), Dye = (int[])Dye.Clone() }; l.Owned.UnionWith(Owned); return l; }
         public void Reset() { Wear = new string[6]; Dye = new[] { -1, -1, -1, -1, -1, -1 }; }
     }
 
@@ -194,14 +194,14 @@ namespace PortBoss.M1
         public readonly Dictionary<string, BoatSt> Boats = new() { ["biscuit"] = new BoatSt() };
         public readonly List<Ask> Asks = new();
         public readonly List<Store10> Wh = new();                     // racks then cold slots
-        public readonly Dictionary<string, Look> Looks = new();       // per player key
+        public readonly Dictionary<string, Outfit> Outfits = new();       // per player key
         public readonly List<string> Fresh = new();                   // installed today (the 07:00 timelapse plays these)
         int askNext = 1;
 
         public event Action<string> Installed;                        // an item appeared in its spot (the game pops it in)
 
         public BoatSt BoatOf(string b) { if (!Boats.TryGetValue(b, out var s)) Boats[b] = s = new BoatSt(); return s; }
-        public Look LookOf(string key) { if (!Looks.TryGetValue(key, out var l)) Looks[key] = l = new Look(); return l; }
+        public Outfit OutfitOf(string key) { if (!Outfits.TryGetValue(key, out var l)) Outfits[key] = l = new Outfit(); return l; }
         public bool Has(string item) => item == null || Owned.Contains(item) || (item.StartsWith("up:") && Boats.TryGetValue(item.Split(':')[1], out var b) && b.Ups.Contains(item.Split(':')[2]));
         public bool Ordered(string item) => Orders.Exists(o => o.Item == item);
         public int WhTier => Owned.Contains("wh:3") ? 3 : Owned.Contains("wh:2") ? 2 : Owned.Contains("wh:1") ? 1 : 0;
@@ -225,7 +225,7 @@ namespace PortBoss.M1
             if (!Catalog.IsOpen(w.At, at)) return Catalog.ClosedSign(w.At, at);
             if (w.Needs != null && !Has(w.Needs)) { var n = Catalog.Get(w.Needs); return "Needs " + (n?.Name ?? w.Needs); }
             if (w.Boat != null && w.Boat != "biscuit" && !Owned.Contains("boat:" + w.Boat)) return $"Buy the {Cap(w.Boat)} first";
-            var look = LookOf(key);
+            var look = OutfitOf(key);
             switch (w.Fit)
             {
                 case Fit.Wear: if (look.Owned.Contains(item) || item == "wear:none") return "You own it"; break;
@@ -280,8 +280,8 @@ namespace PortBoss.M1
             else Done.Add(tx);
             switch (w.Fit)
             {
-                case Fit.Wear: LookOf(key).Owned.Add(item); WearIt(key, item); break;
-                case Fit.Dye: LookOf(key).Dye[arg / 100] = arg % 100; break;
+                case Fit.Wear: OutfitOf(key).Owned.Add(item); WearIt(key, item); break;
+                case Fit.Dye: OutfitOf(key).Dye[arg / 100] = arg % 100; break;
                 case Fit.Paint: StartPaint(w, arg, at); break;
                 case Fit.Repair:
                     if (instant) { Orders.RemoveAll(o => o.Item == item); Repair(w); }
@@ -316,17 +316,17 @@ namespace PortBoss.M1
         // ---- clothes: wearing an owned item (free); the preset's own garments are always owned
         public bool WearIt(string key, string item)
         {
-            var l = LookOf(key); var w = Catalog.Get(item);
+            var l = OutfitOf(key); var w = Catalog.Get(item);
             if (w == null || w.Slot < 0 || (!l.Owned.Contains(item) && item != "wear:none")) return false;
             l.Wear[w.Slot] = item; l.Dye[w.Slot] = -1; return true;
         }
-        public void WearOwn(string key, int slot) { var l = LookOf(key); l.Wear[slot] = null; l.Dye[slot] = -1; }
+        public void WearOwn(string key, int slot) { var l = OutfitOf(key); l.Wear[slot] = null; l.Dye[slot] = -1; }
         // one crew member per player in co-op (§1.9): "" or why not
         public string PickPreset(string key, int preset, IEnumerable<string> online)
         {
             if (preset < 0 || preset >= Catalog.Preset.Length) return "No such crew member";
-            foreach (var k in online) if (k != key && Looks.TryGetValue(k, out var o) && o.Preset == preset) return $"{Catalog.Preset[preset]} is taken";
-            var l = LookOf(key); if (l.Preset != preset) { l.Preset = preset; l.Reset(); }
+            foreach (var k in online) if (k != key && Outfits.TryGetValue(k, out var o) && o.Preset == preset) return $"{Catalog.Preset[preset]} is taken";
+            var l = OutfitOf(key); if (l.Preset != preset) { l.Preset = preset; l.Reset(); }
             return "";
         }
 
@@ -419,7 +419,7 @@ namespace PortBoss.M1
             foreach (var o in Orders) if (Owned.Contains(o.Item)) return $"{o.Item} owned and still ordered";
             var seen = new HashSet<string>(); foreach (var o in Orders) if (!seen.Add(o.Item)) return $"{o.Item} ordered twice";
             foreach (var w in Catalog.All) if (Catalog.Unique(w) && w.Fit != Fit.Repair && Owned.Contains(w.Id) && w.Needs != null && !Has(w.Needs) && w.Needs.StartsWith("boat:") == false && !Owned.Contains(w.Needs)) return $"{w.Id} owned without {w.Needs}";
-            foreach (var kv in Looks) for (int s = 0; s < 6; s++) { var it = kv.Value.Wear[s]; if (it != null && it != "wear:none" && !kv.Value.Owned.Contains(it)) return $"{kv.Key} wears {it} unowned"; }
+            foreach (var kv in Outfits) for (int s = 0; s < 6; s++) { var it = kv.Value.Wear[s]; if (it != null && it != "wear:none" && !kv.Value.Owned.Contains(it)) return $"{kv.Key} wears {it} unowned"; }
             return "";
         }
 
@@ -444,11 +444,11 @@ namespace PortBoss.M1
             w.K("wh").Arr();
             foreach (var s in Wh) { w.Obj().K("cold").V(s.Cold).K("fish").Arr(); foreach (var f in s.Fish) w.Obj().K("sp").V(f.Species).K("g").V(f.Grade).K("cm").V(f.Cm).K("kg").V(f.Kg).K("v").V(f.Value).K("at").V(f.CaughtAt).K("cold").V(f.ColdIn).K("id").V(f.Id).End(); w.End().End(); }
             w.End();
-            var lk = new List<string>(Looks.Keys); lk.Sort(StringComparer.Ordinal);
+            var lk = new List<string>(Outfits.Keys); lk.Sort(StringComparer.Ordinal);
             w.K("looks").Obj();
             foreach (var k in lk)
             {
-                var l = Looks[k]; w.K(k).Obj().K("preset").V(l.Preset).K("wear").Arr(); foreach (var x in l.Wear) w.V(x); w.End();
+                var l = Outfits[k]; w.K(k).Obj().K("preset").V(l.Preset).K("wear").Arr(); foreach (var x in l.Wear) w.V(x); w.End();
                 w.K("dye").Arr(); foreach (var d in l.Dye) w.V(d); w.End();
                 var ow = new List<string>(l.Owned); ow.Sort(StringComparer.Ordinal); w.K("owned").Arr(); foreach (var o in ow) w.V(o); w.End(); w.End();
             }
@@ -489,11 +489,11 @@ namespace PortBoss.M1
             if (o.TryGetValue("looks", out var lo) && lo is Dictionary<string, object> ld)
                 foreach (var kv in ld)
                 {
-                    var e = (Dictionary<string, object>)kv.Value; var l = new Look { Preset = Json.I(e, "preset", -1) };
+                    var e = (Dictionary<string, object>)kv.Value; var l = new Outfit { Preset = Json.I(e, "preset", -1) };
                     if (e.TryGetValue("wear", out var we) && we is List<object> wl2) for (int i = 0; i < 6 && i < wl2.Count; i++) l.Wear[i] = wl2[i] as string;
                     e.TryGetValue("dye", out var dy); l.Dye = Ints(dy, 6, -1);
                     if (e.TryGetValue("owned", out var lo2) && lo2 is List<object> ll2) foreach (var x in ll2) l.Owned.Add((string)x);
-                    Looks[kv.Key] = l;
+                    Outfits[kv.Key] = l;
                 }
         }
 
@@ -535,14 +535,14 @@ namespace PortBoss.M1
             if (c.PriceM5("pip", "paint:biscuit:0", 14) != 0) return F("back to the last colour not free");
             c.BuyM5("p3", "pip", "Pip", "paint:biscuit:0", 14, t, false, out _); if (c.Cash != cash - 150 || c.Boats["biscuit"].Paint[0] != 14) return F($"last colour free: ${cash - c.Cash}");
             // clothes: own, wear, dye; a second Pip refused
-            if (c.PickPreset("pip", 2, new[] { "pip", "rani" }) != "") return F("pick Pip");
-            if (c.PickPreset("rani", 2, new[] { "pip", "rani" }) != "Pip is taken") return F("two Pips");
+            if (c.PickPreset("pip", 0, new[] { "pip", "rani" }) != "") return F("pick Pip");
+            if (c.PickPreset("rani", 0, new[] { "pip", "rani" }) != "Pip is taken") return F("two Pips");
             if (c.PickPreset("rani", 3, new[] { "pip", "rani" }) != "") return F("pick Rani");
-            if (c.PickPreset("rani", 2, new[] { "rani" }) != "") return F("Pip free once the first Pip left");
+            if (c.PickPreset("rani", 0, new[] { "rani" }) != "") return F("Pip free once the first Pip left");
             c.PickPreset("rani", 3, new[] { "pip", "rani" });
-            if (!c.BuyM5("h1", "pip", "Pip", "wear:beanie", 0, t, false, out why) || c.LookOf("pip").Wear[0] != "wear:beanie") return F("beanie " + why);
-            cash = c.Cash; if (!c.BuyM5("h2", "pip", "Pip", "dye", 0 * 100 + 4, t, false, out why) || c.LookOf("pip").Dye[0] != 4 || c.Cash != cash - 25) return F("dye " + why);
-            c.WearOwn("pip", 0); if (c.LookOf("pip").Wear[0] != null) return F("back to own hat");
+            if (!c.BuyM5("h1", "pip", "Pip", "wear:beanie", 0, t, false, out why) || c.OutfitOf("pip").Wear[0] != "wear:beanie") return F("beanie " + why);
+            cash = c.Cash; if (!c.BuyM5("h2", "pip", "Pip", "dye", 0 * 100 + 4, t, false, out why) || c.OutfitOf("pip").Dye[0] != 4 || c.Cash != cash - 25) return F("dye " + why);
+            c.WearOwn("pip", 0); if (c.OutfitOf("pip").Wear[0] != null) return F("back to own hat");
             if (!c.WearIt("pip", "wear:beanie")) return F("swap back to an owned beanie (free)");
             if (c.WearIt("pip", "wear:captain")) return F("wore an unowned cap");
             // Ask the crew: co-op only, above min($5,000, 25%)

@@ -41,6 +41,11 @@ namespace PortBoss.EditorTools
             var ids = Directory.Exists(Root + "/Art/Fish") ? Directory.GetFiles(Root + "/Art/Fish", "PB_Fish_*.fbx").Select(p => p.Replace('\\', '/')).ToArray() : new string[0];
             a.FishIds = ids.Select(p => Path.GetFileNameWithoutExtension(p).Substring("PB_Fish_".Length)).ToArray();
             a.Fish = ids.Select(Model).ToArray();
+            a.Kestrel = Model(Root + "/Art/PB_Boat_Kestrel_T2.fbx");
+            var m5 = Directory.Exists(Root + "/Art/M5") ? Directory.GetFiles(Root + "/Art/M5", "PB_*.fbx").Select(p => p.Replace('\\', '/')).OrderBy(p => p).ToArray() : new string[0];
+            a.M5Ids = m5.Select(p => Path.GetFileNameWithoutExtension(p).Substring(3)).ToArray(); a.M5 = m5.Select(Model).ToArray();
+            a.M5Spots = AssetDatabase.LoadAssetAtPath<TextAsset>(Root + "/Art/M5/PB_M5_Spots.json");
+            Debug.Log($"[M1Build] M5: kestrel {(a.Kestrel != null)}, {a.M5.Count(m => m != null)} props ({string.Join(" ", a.M5Ids)}), spots {(a.M5Spots != null)}");
             Debug.Log($"[M1Build] boat {(a.Boat != null)}, landing {(a.Landing != null)}, fish {a.Fish.Count(f => f != null)}: {string.Join(" ", a.FishIds)}");
             // map B, Crescent Bay (art-src/world/build_island.py -- export): the cells, the props, the anchors, the seabed
             const string wd = Root + "/Art/World";
