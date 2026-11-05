@@ -427,7 +427,7 @@ namespace PortBoss.M1
                 {
                     var a = Alerts.Queue[i];
                     var st = UiKit.Img(list, UiKit.Circle, Alerts.Col(a.K), "stamp"); st.rectTransform.Place(new Vector2(0, 1), new Vector2(0, -y - 2), new Vector2(26, 26), new Vector2(0, 1));
-                    var g = UiKit.Txt(st.transform, Alerts.Glyph(a.K), UiKit.Black, 13, a.K == Alerts.Kind.Info ? Ponyo.Ink : Ponyo.Paper, TextAnchor.MiddleCenter); g.rectTransform.Stretch();
+                    Alerts.Stamp(st.transform, a.K, 13);
                     Caps(list, a.Sender, 36, y, CW - 36, SubInk, TextAnchor.UpperLeft, 12);
                     var t = T(list, a.Text, UiKit.Body, 15, Ponyo.Ink, 36, y + 16, CW - 36, 20); float th = Mathf.Max(20, t.preferredHeight); t.rectTransform.sizeDelta = new Vector2(CW - 36, th);
                     y += 26 + th;
