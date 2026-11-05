@@ -174,13 +174,15 @@ namespace PortBoss.M1
         // a deck, a pier or the shore under that point (else it's the sea)
         public static bool Ground(Vector3 p, out Vector3 at)
         {
-            at = p; float sea = Sea.Height(p); var boat = Skiff.I != null ? Skiff.I.transform : null;
+            at = p; bool found = false; float sea = Sea.Height(p); var boat = Skiff.I != null ? Skiff.I.transform : null;
             // Biscuit's own floor counts whatever the sea outside does: the sea is cut out inside her hull, and her low
-            // floor sits near the waterline, so on a wave crest it read as "under the sea" and a fish tossed into her swam away
+            // floor sits near the waterline, so on a wave crest it read as "under the sea" and a fish tossed into her swam away.
+            // A flag, not "at == p": a point exactly on the surface (map B's spawn sits on the pier's deck top) read as no
+            // ground, or let a lower hit 0.3 m inside the deck win, and every joiner start spot failed (menutest 0.88 m)
             foreach (var h in Physics.RaycastAll(p + Vector3.up * 2f, Vector3.down, 6f, ~0, QueryTriggerInteraction.Ignore))
                 if (h.collider.GetComponentInParent<Angler>() == null && h.collider.GetComponentInParent<FishPickup>() == null
-                    && (h.point.y > sea - 0.2f || boat != null && h.collider.transform.IsChildOf(boat)) && (at == p || h.point.y > at.y)) at = h.point;
-            return at != p;
+                    && (h.point.y > sea - 0.2f || boat != null && h.collider.transform.IsChildOf(boat)) && (!found || h.point.y > at.y)) { at = h.point; found = true; }
+            return found;
         }
 
         // host: deck fish appear and go on every machine

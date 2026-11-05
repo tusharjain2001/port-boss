@@ -287,6 +287,7 @@ namespace PortBoss.M1
                     if (c.GetComponentInParent<Angler>() == null) { clear = false; break; }
                 if (clear) return at;
             }
+            Log($"no clear start spot for slot {slot}: {(grounded.HasValue ? "a grounded one" : "the spawn")} instead"); // the 0.88 m bug was silent
             return grounded ?? sp.position;
         }
         void StartSpot(Angler a, byte slot)
