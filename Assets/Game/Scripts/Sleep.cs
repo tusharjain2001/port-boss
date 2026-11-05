@@ -206,9 +206,10 @@ namespace PortBoss.M1
         // who is fighting a fish right now (the host's own player, then each crewmate as their poses show)
         static string Fighter()
         {
-            var me = Angler.I;
-            if (me != null && me.Fish.Fighting) return Coop.I.Find(Coop.Me)?.Name ?? "Host";
-            foreach (var kv in Coop.I.Mates) if (kv.Value != null && kv.Value.Fish.Fighting) return Coop.I.Find(kv.Key)?.Name ?? kv.Value.NetName;
+            var me = Angler.I; var c = Coop.I;
+            if (c == null) return null;                    // (the host left its crew mid heads-up: no one to wait for)
+            if (me != null && me.Fish.Fighting) return c.Find(Coop.Me)?.Name ?? "Host";
+            foreach (var kv in c.Mates) if (kv.Value != null && kv.Value.Fish.Fighting) return Coop.I.Find(kv.Key)?.Name ?? kv.Value.NetName;
             return null;
         }
 

@@ -169,7 +169,7 @@ namespace PortBoss.M1
         }
 
         // every copy: the water inside, a sheet of sea that rises up to 22 cm over the deck. Shallow, it's a narrow, clear
-        // puddle down the keel line; deep, a darker sheet wall to wall; it sloshes against her roll. Under ~1 cm: dry.
+        // puddle down the keel line that runs to her low side; deep, a darker sheet wall to wall. Under ~1 cm: dry.
         void WaterVisual()
         {
             if (Water < 0.04f) { if (waterQ != null) waterQ.gameObject.SetActive(false); return; }
@@ -184,10 +184,10 @@ namespace PortBoss.M1
             waterQ.gameObject.SetActive(true);
             float k = Mathf.SmoothStep(0, 1, Mathf.InverseLerp(0.04f, 0.6f, Water));
             float roll = Mathf.DeltaAngle(0, transform.localEulerAngles.z);
-            waterQ.localRotation = Quaternion.Euler(90, 0, -roll * 0.35f);                 // (it stays a little more level than the hull)
-            waterQ.localScale = new Vector3(Mathf.Lerp(0.55f, 1.3f, k), Mathf.Lerp(2.4f, 3.2f, k), 1);
+            waterQ.localRotation = Quaternion.Euler(90, 0, 0);                              // (tilted to stay level, it poked through the gunwale)
+            waterQ.localScale = new Vector3(Mathf.Lerp(0.55f, 1.15f, k), Mathf.Lerp(2.4f, 3.1f, k), 1);
             waterQ.localPosition = new Vector3(-roll * 0.012f * (1 - k), HoleLocal.y + 0.02f + 0.2f * Water, -0.3f); // (a puddle runs to the low side)
-            waterM.SetColor("_BaseColor", Color.Lerp(new Color(0.55f, 0.86f, 0.86f, 0.35f), new Color(0.2f, 0.56f, 0.64f, 0.78f), k));
+            waterM.SetColor("_BaseColor", Color.Lerp(new Color(0.55f, 0.86f, 0.86f, 0.35f), new Color(0.22f, 0.6f, 0.66f, 0.72f), k));
         }
     }
 }

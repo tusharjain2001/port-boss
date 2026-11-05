@@ -124,10 +124,13 @@ namespace PortBoss.M1
             }
             // never got in (wrong address, nobody hosting), or turned away with a reason (the crew full): the title menu and
             // a left alert say so (the menu may be closed already: a Steam join closes it before the relay connects)
-            if (!helloSent || !string.IsNullOrEmpty(nm.DisconnectReason))
+            // (a host that quits or leaves closes the connection with NGO's own "[Disconnect Event]..." reason: that's the
+            // host leaving, not a refusal: M3 quality, the rider stayed stuck in bed and the raw text showed as a toast)
+            string why = nm.DisconnectReason; bool refused = !string.IsNullOrEmpty(why) && !why.StartsWith("[Disconnect Event]");
+            if (!helloSent || refused)
             {
                 Log("couldn't connect" + (string.IsNullOrEmpty(nm.DisconnectReason) ? "" : ": " + nm.DisconnectReason));
-                Fail(string.IsNullOrEmpty(nm.DisconnectReason) ? "Couldn't connect." : nm.DisconnectReason);
+                Fail(refused ? why : "Couldn't connect.");
                 Lobby?.Leave(); Lobby = null;
                 nm.Shutdown(); Destroy(gameObject); I = null; return;
             }

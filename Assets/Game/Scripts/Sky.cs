@@ -57,8 +57,8 @@ namespace PortBoss.M1
         public static readonly Look[] Looks =
         {
             // (M3 quality: the first dawn read lavender-white with a mint sea; the spec's peach horizon and pink-lit turquoise)
-            new Look { Sun = H("FFC9A8"), SunI = 0.9f, Shade = H("A79BE0"), Top = H("8D7FC4"), Mid = H("E2A9BE"), Hor = H("FFD49E"),
-                AmbS = H("A79BE0"), AmbE = H("EBC2BA"), AmbG = H("6E6488"), Shallow = H("52C6C2"), Deep = H("3A5FB0"), Fog = H("F7CDB0"),
+            new Look { Sun = H("FFC9A8"), SunI = 0.9f, Shade = H("A79BE0"), Top = H("8D7FC4"), Mid = H("E2A9BE"), Hor = H("FFC98C"),
+                AmbS = H("A79BE0"), AmbE = H("EBC2BA"), AmbG = H("6E6488"), Shallow = H("52C6C2"), Deep = H("3A5FB0"), Fog = H("F5C2A2"),
                 FogStart = 200, FogEnd = 1500, CloudLit = H("FFCBA4"), CloudShade = H("A79BE0"), Refl = H("FFC9C2"), Bloom = 0.5f, Exposure = 0.07f, Sat = 16, Temp = 12, Vignette = 0.16f },
             new Look { Sun = H("FFF3DC"), SunI = 1.6f, Shade = H("98A6EA"), Top = H("3A86E0"), Mid = H("7DB4EC"), Hor = H("D6E8F2"),
                 AmbS = H("98A6EA"), AmbE = H("C4C2D2"), AmbG = H("6C6A80"), Shallow = H("46D6C8"), Deep = H("2160B8"), Fog = H("DCE6EE"),
