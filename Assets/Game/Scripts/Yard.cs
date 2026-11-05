@@ -345,10 +345,10 @@ namespace PortBoss.M1
             if (a == null || a.St != AskSt.Open) { why = "Already answered"; return false; }
             if (key == a.Key) { why = "Someone else has to say OK"; return false; }
             a.Answer = who;
-            if (!yes) { a.St = AskSt.Declined; Text(who, $"Not now: {Catalog.Get(a.Item)?.Name}.", at, me: true); return true; }
+            if (!yes) { a.St = AskSt.Declined; Text(a.Who, $"{who}: not now, the {Catalog.Get(a.Item)?.Name}.", at); return true; }   // (in the asker's thread, under the ask)
             a.St = AskSt.Approved;
             bool ok = BuyM5(a.Tx, a.Key, a.Who, a.Item, a.Arg, at, false, out why);
-            Text(who, ok ? $"OK! Buy the {Catalog.Get(a.Item)?.Name}." : $"OK, but: {why}", at, me: true);
+            Text(a.Who, ok ? $"{who}: OK! Bought the {Catalog.Get(a.Item)?.Name}." : $"{who}: OK, but: {why}", at);
             return true;
         }
         // 60 s with no answer approves it when nobody else is online to ask

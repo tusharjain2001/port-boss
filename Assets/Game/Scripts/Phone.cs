@@ -441,6 +441,7 @@ namespace PortBoss.M1
                 bub.Place(new Vector2(0, 1), new Vector2(msg.Me ? CW - bw : 0, -y), new Vector2(bw, th + 20), new Vector2(0, 1));
                 y += th + 30;
                 if (msg.Offer == "mari" && i == lastOffer) y = OfferCard(c, y) + 10;
+                if (msg.Offer != null && msg.Offer.StartsWith("ask:") && int.TryParse(msg.Offer.Substring(4), out int askId)) y = AskCard(c, askId, y) + 10;   // M5: Ask the crew
             }
             // quick replies (never free text)
             if (Thread == Company.MariName && c.Mari == DealSt.Offered)
@@ -488,6 +489,43 @@ namespace PortBoss.M1
                 T(card, s, UiKit.Bold, 14, c.Mari == DealSt.Active ? Ponyo.Hex("3E9A4E") : SubInk, 16, ry - 4, CW - 32, 22);
             }
             return y + (live ? 236 : 186);
+        }
+
+        // M5: a crewmate asks to spend over the limit (economy §8): one OK from anyone else buys it; the asker can't answer
+        float AskCard(Company c, int id, float y)
+        {
+            var a = c.Asks.Find(x => x.Id == id); if (a == null) return y;
+            bool live = a.St == AskSt.Open, mine = a.Key == Firm.MyKey;
+            float h = live && !mine ? 214 : 170;
+            var card = Card(list, 0, y, CW, h, Ponyo.Paper, 18, true, Ponyo.Hex("B4572F"));
+            var head = UiKit.Card(card, "head", 16, Ponyo.Hex("E07A4A"), false, Ponyo.Hex("B4572F")); head.Place(new Vector2(0, 1), Vector2.zero, new Vector2(CW, 48), new Vector2(0, 1));
+            Ico(head, "bank", Ponyo.Paper, 16, 12, 24);
+            T(head, "Ask the crew", UiKit.DisplayBold, 20, Ponyo.Paper, 48, 10, 260, 30);
+            float ry = 60; var w = Catalog.Get(a.Item);
+            foreach (var (k, v) in new[] { ("Item", w?.Name ?? a.Item), ("Asked by", a.Who) })
+            { T(card, k, UiKit.Body, 14, SubInk, 16, ry, 120, 20); T(card, v, UiKit.Body, 14, Ponyo.Ink, 110, ry, CW - 126, 20, TextAnchor.UpperRight); ry += 24; }
+            T(card, "Costs", UiKit.Body, 14, SubInk, 16, ry + 6, 120, 20);
+            T(card, $"${a.Price:N0}", UiKit.DisplayBold, 24, Ponyo.Hex("C98A1A"), 120, ry, CW - 136, 32, TextAnchor.UpperRight);
+            ry += 40;
+            if (live && !mine)
+            {
+                float bw = (CW - 16 * 2 - 10) / 2;
+                Pill(card, "Not now", 16, ry, bw, 46, Ponyo.Paper2, Ponyo.Ink, () => Works.Answer(id, false));
+                Pill(card, "OK, buy it", 16 + bw + 10, ry, bw, 46, Ponyo.Sunflower, Ponyo.Ink, () => Works.Answer(id, true));
+            }
+            else
+            {
+                double left = Company.AskMinutes - (Sky.Minutes - a.At);
+                string s = a.St switch
+                {
+                    AskSt.Open => $"Waiting for a crewmate's OK · {Mathf.Max(1, (int)left)} min left",
+                    AskSt.Approved => $"Bought · {a.Answer} said OK",
+                    AskSt.Declined => $"Not now · {a.Answer}",
+                    _ => "Lapsed · nobody answered",
+                };
+                T(card, s, UiKit.Bold, 14, a.St == AskSt.Approved ? Ponyo.Hex("3E9A4E") : SubInk, 16, ry - 4, CW - 32, 22);
+            }
+            return y + h;
         }
 
         float Contracts()
