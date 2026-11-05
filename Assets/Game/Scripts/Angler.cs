@@ -97,7 +97,7 @@ namespace PortBoss.M1
         }
 
         public static int Body;    // which of M1Assets.Crew she is (F9 in game steps through them)
-        GameObject body;
+        GameObject body; public GameObject BodyGo => body;   // (M5: the wardrobe dresses it)
         float BodyK => Size / (1.47f / 1.78f); // this body against Pip's, which the clip lifts and the get-up creep were sampled on
 
         public void Wear(int index, Color colour) => Wear(M1Assets.I, index, colour);
@@ -180,6 +180,7 @@ namespace PortBoss.M1
 
         // The player colour (orange, blue, green, red by join slot) on the armband and back patch: the kit paints them the
         // slot-0 orange (kitlib `player`), swapped here on a copy of the mesh.
+        public static void PaintBand(SkinnedMeshRenderer r, Color to) => Paint(r, to);   // (M5: the wardrobe's turntable)
         static void Paint(SkinnedMeshRenderer r, Color to)
         {
             var src = r.sharedMesh; var cols = src.colors32; if (cols == null || cols.Length == 0) return;
