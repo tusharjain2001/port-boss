@@ -20,6 +20,8 @@ namespace PortBoss.M1
         public Fishing Fish;
 
         public bool OnBoat { get; private set; }
+        // M5: the boat I'm on or at (mine: Skiff.I, the one I last stood on or am nearest; a crewmate's: from their pose)
+        public Skiff Boat => Remote ? Skiff.At(netBoat) : Skiff.I; byte netBoat;
         public bool Swimming { get; private set; }
         public bool AtHelm => helm;
         public bool Busy;                 // fishing owns the body (fight, reveal): no walking
@@ -196,14 +198,14 @@ namespace PortBoss.M1
             // her back; UpT: how far into it), 3 tossing a fish (Up: its species; UpT: how far into the throw), 4 patching
             // the hole (UpT: s into it), 5 shoving a crewmate (UpT: s into it). Hop: her
             // Teleport count (a ladder, the end of a get-up: jumps, never blends).
-            public byte State, Hop, Up; public float UpT; public Vector3 Hips; public Quaternion[] Rot;
+            public byte State, Hop, Up, Boat; public float UpT; public Vector3 Hips; public Quaternion[] Rot;
             public Fishing.Net F; // their fishing (M2 step 3)
             public bool OnBoat => (Flags & 1) != 0; public bool Swim => (Flags & 2) != 0; public bool Helm => (Flags & 4) != 0; public bool Grounded => (Flags & 8) != 0;
             public bool Jumped => (Flags & 16) != 0; public bool FallIn => (Flags & 32) != 0; public bool Crouch => (Flags & 64) != 0; public bool Skid => (Flags & 128) != 0;
             public void Write(ref Unity.Netcode.FastBufferWriter w)
             {
                 w.WriteValueSafe(T); w.WriteValueSafe(Flags); w.WriteValueSafe(P); w.WriteValueSafe(Vel); w.WriteValueSafe(Yaw); w.WriteValueSafe(AirT); w.WriteValueSafe(Vy); w.WriteValueSafe(SprintW);
-                w.WriteValueSafe(State); w.WriteValueSafe(Hop);
+                w.WriteValueSafe(State); w.WriteValueSafe(Hop); w.WriteValueSafe(Boat);
                 if (State == 1) { w.WriteValueSafe(Hips); w.WriteValueSafe((byte)Rot.Length); foreach (var q in Rot) w.WriteValueSafe(q); }
                 else if (State >= 2) { w.WriteValueSafe(Up); w.WriteValueSafe(UpT); }
                 F.Write(ref w);
@@ -212,7 +214,7 @@ namespace PortBoss.M1
             {
                 var p = new Pose(); r.ReadValueSafe(out p.T); r.ReadValueSafe(out p.Flags); r.ReadValueSafe(out p.P); r.ReadValueSafe(out p.Vel);
                 r.ReadValueSafe(out p.Yaw); r.ReadValueSafe(out p.AirT); r.ReadValueSafe(out p.Vy); r.ReadValueSafe(out p.SprintW);
-                r.ReadValueSafe(out p.State); r.ReadValueSafe(out p.Hop);
+                r.ReadValueSafe(out p.State); r.ReadValueSafe(out p.Hop); r.ReadValueSafe(out p.Boat);
                 if (p.State == 1) { r.ReadValueSafe(out p.Hips); r.ReadValueSafe(out byte n); p.Rot = new Quaternion[n]; for (int i = 0; i < n; i++) r.ReadValueSafe(out p.Rot[i]); }
                 else if (p.State >= 2) { r.ReadValueSafe(out p.Up); r.ReadValueSafe(out p.UpT); }
                 p.F = Fishing.Net.Read(ref r);
@@ -227,7 +229,7 @@ namespace PortBoss.M1
             int f = (OnBoat ? 1 : 0) | (Swimming ? 2 : 0) | (helm ? 4 : 0) | (Grounded ? 8 : 0) | (jumped ? 16 : 0) | (fallIn ? 32 : 0) | (crouchT >= 0 ? 64 : 0) | (skidT > 0 ? 128 : 0);
             var p = new Pose { T = t, Flags = (byte)f, P = OnBoat ? localOnBoat : transform.position, Yaw = OnBoat ? localYaw : transform.eulerAngles.y, Vel = Vel, AirT = airT, Vy = vy, SprintW = SprintW, Hop = hop };
             if (Swimming) p.P.y -= Sea.Height(transform.position) - SwimDepth;
-            var s = Skiff.I; bool boat = OnBoat && s != null;
+            var s = Boat; bool boat = OnBoat && s != null; if (s != null) p.Boat = (byte)s.Index;
             if (downT >= 0 && rag != null)
             {
                 var inv = boat ? Quaternion.Inverse(s.transform.rotation) : Quaternion.identity;
@@ -250,7 +252,7 @@ namespace PortBoss.M1
         void RemoteUpdate(float dt)
         {
             if (!Net.Sample(out var a, out var b, out float k)) return;
-            var s = Skiff.I;
+            netBoat = b.Boat; var s = Boat;
             // boarding, leaving, the tiller, into or out of the sea, a jump to a new place, going down or getting up: no
             // blend between two places
             if (a.OnBoat != b.OnBoat || a.Helm != b.Helm || a.Swim != b.Swim || a.Hop != b.Hop || a.State != b.State) a = b;
@@ -300,7 +302,7 @@ namespace PortBoss.M1
             }
             downT += dt;
             bool blend = a.Rot != null && a.Rot.Length == b.Rot.Length;
-            var s = Skiff.I; bool boat = OnBoat && s != null;
+            var s = Boat; bool boat = OnBoat && s != null;
             var q0 = boat ? s.transform.rotation : Quaternion.identity;
             var rot = new Quaternion[b.Rot.Length];
             for (int i = 0; i < rot.Length; i++) rot[i] = q0 * (blend ? Quaternion.Slerp(a.Rot[i], b.Rot[i], k) : b.Rot[i]);
@@ -313,7 +315,7 @@ namespace PortBoss.M1
             float dt = Time.deltaTime;
             if (dt <= 0) return;
             if (Remote) { RemoteUpdate(dt); return; }
-            var s = Skiff.I;
+            var s = Boat;
             if (downT >= 0) { Lying(dt); return; } // the ragdoll has the body (and the root stays put under it)
             // carried by the boat
             if (OnBoat && s != null)
@@ -498,7 +500,7 @@ namespace PortBoss.M1
             v += (k * (target - x) - 2 * zeta * Mathf.Sqrt(k) * v) * dt; x += v * dt;
         }
 
-        public void TakeHelm() { var s = Skiff.I; if (s == null) return; BeginHelm(s); Fish.Stow(); }
+        public void TakeHelm() { var s = Boat; if (s == null) return; BeginHelm(s); Fish.Stow(); }
         void BeginHelm(Skiff s)
         {
             helm = true; s.AtHelm = true; helmT = 0;
@@ -517,7 +519,7 @@ namespace PortBoss.M1
                 : s.transform.InverseTransformPoint(s.Helm.position);
             return new Vector3(rest.x + 0.6f, s.transform.InverseTransformPoint(s.Helm.position).y, rest.z - 0.02f);
         }
-        public void LeaveHelm() { var s = Skiff.I; helm = false; if (s != null) { s.AtHelm = false; s.Steer = 0; } if (CameraRig.I != null) CameraRig.I.M = CameraRig.Mode.Follow; if (!Coop.IsHost) Coop.Request(Coop.Ask.LeaveHelm); }
+        public void LeaveHelm() { var s = Boat; helm = false; if (s != null) { s.AtHelm = false; s.Steer = 0; } if (CameraRig.I != null) CameraRig.I.M = CameraRig.Mode.Follow; if (!Coop.IsHost) Coop.Request(Coop.Ask.LeaveHelm); }
 
         public void Select(int i)
         {
@@ -529,10 +531,14 @@ namespace PortBoss.M1
         // Which deck are we on? Re-anchor in the boat's space after every move.
         void Track()
         {
-            var s = Skiff.I;
+            var s = Boat;
             bool on = false;
             if (s != null && !Swimming && Physics.Raycast(transform.position + Vector3.up * 0.4f, Vector3.down, out var hit, 0.9f, ~0, QueryTriggerInteraction.Ignore))
+            {
+                var hs = !helm && !Remote ? hit.transform.GetComponentInParent<Skiff>() : null;
+                if (hs != null && hs != s) { Skiff.I = s = hs; }
                 on = hit.transform.IsChildOf(s.transform);
+            }
             if (helm) on = true;
             OnBoat = on;
             if (on) { localOnBoat = s.transform.InverseTransformPoint(transform.position); localYaw = transform.eulerAngles.y - s.transform.eulerAngles.y; }
@@ -545,7 +551,7 @@ namespace PortBoss.M1
         void Interact()
         {
             Prompt = null;
-            var s = Skiff.I;
+            var s = Boat;
             if (Busy || Fish.Locked || Shop.Open) return;
             // ladders from the water
             if (Swimming)
@@ -717,7 +723,7 @@ namespace PortBoss.M1
         // how hard: a stagger-and-fall; aboard, at the rail and pushed outward, a fling (up and over the gunwale)
         public static bool NearRail(Angler m, Vector3 dir)
         {
-            var s = Skiff.I; if (s == null || !m.OnBoat) return false;
+            var s = m.Boat; if (s == null || !m.OnBoat) return false;
             var l = s.transform.InverseTransformPoint(m.transform.position); var ld = s.transform.InverseTransformDirection(dir);
             return Mathf.Abs(l.x) > 0.3f && Mathf.Sign(l.x) == Mathf.Sign(ld.x) && Mathf.Abs(ld.x) > 0.5f;
         }
@@ -767,7 +773,7 @@ namespace PortBoss.M1
         // benches and sides, and it's clear of crewmates; of those, the one nearest where I stand.
         Vector3 KneelSpot()
         {
-            var s = Skiff.I; var h = s.HoleLocal; var me = s.transform.InverseTransformPoint(transform.position);
+            var s = Boat; var h = s.HoleLocal; var me = s.transform.InverseTransformPoint(transform.position);
             Vector3 best = h + (me - h).normalized * KneelOff; float bd = float.MaxValue;
             foreach (float off in new[] { KneelOff, KneelOff - 0.06f, KneelOff + 0.07f })
                 for (int i = 0; i < 12; i++)
@@ -793,7 +799,7 @@ namespace PortBoss.M1
         // ease to the kneeling spot, facing the hole
         void KneelAtHole(float dt)
         {
-            var s = Skiff.I; if (s == null) return;
+            var s = Boat; if (s == null) return;
             var d = s.Hole - transform.position; d.y = 0;
             if (d.sqrMagnitude > 0.0025f) transform.rotation = Quaternion.Euler(0, Mathf.MoveTowardsAngle(transform.eulerAngles.y, Mathf.Atan2(d.x, d.z) * Mathf.Rad2Deg, 360f * dt), 0);
             var mv = s.transform.TransformPoint(kneelAt) - transform.position; mv.y = 0;
@@ -802,7 +808,7 @@ namespace PortBoss.M1
 
         void Repairing()
         {
-            var a = M1Assets.I; var s = Skiff.I;
+            var a = M1Assets.I; var s = Boat;
             bool on = RepairT >= 0 && s != null && !helm && !Swimming && a.Repair != null;
             if (!on)
             {
@@ -839,7 +845,7 @@ namespace PortBoss.M1
 
         void Helm(float dt)
         {
-            var s = Skiff.I;
+            var s = Boat;
             Prompt = s.Moored ? "W  Cast off   ·   E  Leave the tiller" : s.CanMoor ? "F  Moor   ·   E  Leave the tiller" : "W/S  Throttle   ·   A/D  Steer   ·   E  Leave";
             Cc.enabled = false;
             // slide onto the seat (0.35 s) instead of jumping there
@@ -864,7 +870,7 @@ namespace PortBoss.M1
         {
             var inward = top.position - bottom.position; inward.y = 0;
             var toCentre = reference.position - top.position; toCentre.y = 0;
-            bool boat = reference == Skiff.I?.transform;
+            bool boat = reference == Boat?.transform;
             var dir = (boat && toCentre.sqrMagnitude > 0.01f ? toCentre : inward).normalized;
             var p = top.position + dir * 0.7f;
             if (Physics.Raycast(p + Vector3.up * 1.5f, Vector3.down, out var hit, 3f, ~0, QueryTriggerInteraction.Ignore) && hit.collider.GetComponentInParent<Angler>() == null)
@@ -892,7 +898,7 @@ namespace PortBoss.M1
         public void Knock(Vector3 push)
         {
             if (rag == null || Down || Swimming || Fish.Locked) return; // (never with a line out)
-            if (helm) { LeaveHelm(); if (Skiff.I != null) Skiff.I.Notch = 0; }
+            if (helm) { LeaveHelm(); if (Boat != null) Boat.Notch = 0; }
             Fish.Stow(); RepairT = -1;
             Anim.Over = null; Anim.OverW = overW = 0; Anim.Flail = false; Anim.Grip = null; Anim.Act = null;
             Model.localPosition = Vector3.zero; Model.localRotation = Quaternion.identity; Model.localScale = Vector3.one;
@@ -1006,7 +1012,7 @@ namespace PortBoss.M1
             if (helm) { Anim.Act = M1Assets.I.Helm; Anim.ActTime = -1; }
             else if (sit > 0.02f && Anim.Act == M1Assets.I.Helm) Anim.Act = null;
             // turning on the spot: the feet step round with it (a little walk-cycle), instead of sliding
-            float yawNow = OnBoat && Skiff.I != null ? transform.eulerAngles.y - Skiff.I.transform.eulerAngles.y : transform.eulerAngles.y;
+            float yawNow = OnBoat && Boat != null ? transform.eulerAngles.y - Boat.transform.eulerAngles.y : transform.eulerAngles.y;
             float turnRate = Mathf.Abs(Mathf.DeltaAngle(lastYaw, yawNow)) / dt; lastYaw = yawNow;
             float animSp = sp;
             if (!helm && !Swimming) animSp = Mathf.Max(sp, Mathf.Clamp01((turnRate - 60f) / 300f) * 0.8f);
@@ -1022,10 +1028,10 @@ namespace PortBoss.M1
             }
             else slot = Grounded || Time.time - lastGround < 0.15f ? CharAnim.Slot.Idle : CharAnim.Slot.Jump;
             // hands: the rod (Fishing sets Grip) or the tiller
-            if (helm && Skiff.I.TillerGrip != null)
+            if (helm && Boat.TillerGrip != null)
             {
                 // left hand on the tiller's grip, right hand resting on the right knee
-                var tg = Skiff.I.TillerGrip;
+                var tg = Boat.TillerGrip;
                 Anim.Grip = tg; Anim.GripL = new Vector3(0.0f, 0.01f, 0.0f);
                 Anim.GripR = tg.InverseTransformPoint(transform.TransformPoint(new Vector3(0.15f, 0.52f, -0.02f)));
                 // elbows down and back; +x cancels the left arm's built-in outward hint, so its elbow stays off the tiller bar

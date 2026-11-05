@@ -14,6 +14,7 @@ namespace PortBoss.M1
         public const float FillTime = 150, Scoop = 0.05f, ScoopEvery = 1.1f, PatchTime = 10;
         public float Water;                       // 0..1 inside the hull
         public bool Leaking;
+        public bool Sound, Pump;                  // M5 (Works.Tune): Doyle's hull patch (or a boat that never leaks); the bilge pump bails
         public Vector3 HoleLocal = new(0.35f, 0.1f, 0.5f);   // (midships: clear of the tiller's and the anchor's prompts)
         public float SpeedMul => Water >= 0.999f ? 0.3f : 1 - 0.3f * Water;
         public float List => 5f * Water;
@@ -25,13 +26,14 @@ namespace PortBoss.M1
         // the real copy, every frame
         void LeakTick(float dt)
         {
-            if (Sky.W != null && !Leaking && !Moored)
+            if (Sky.W != null && !Leaking && !Moored && !Sound)
             {
                 var (d, b) = Weather.BlockAt(Sky.Minutes);
                 double at = Sky.W.LeakAt(d, b);
                 if (!double.IsNaN(at) && Sky.Minutes >= at && leakDone != at) { leakDone = at; SpringLeak(); }
             }
             if (Leaking) Water = Mathf.Min(1, Water + dt / FillTime);
+            if (Pump && Water > 0) Water = Mathf.Max(0, Water - dt / (FillTime * 0.6f));   // out-pumps the hole: she never fills
             if (Water >= 1 && !towSaid) { towSaid = true; Alerts.Push("Dot", "You're riding low, kid. Bail her out, or I'll tow you in.", Alerts.Kind.Warning, "low"); }
             if (Water < 0.5f && towSaid) { towSaid = false; Alerts.Push("Dot", "That's better. She's riding high again.", Alerts.Kind.Info, ends: "low"); }
         }
@@ -40,13 +42,13 @@ namespace PortBoss.M1
         {
             if (Leaking) return;
             Leaking = true; FindDeck(); LeakFx.Ensure(this);
-            Alerts.Push("Biscuit", "She's sprung a leak! Patch the hole, or bail.", Alerts.Kind.Warning, "leak");
+            Alerts.Push(Name, "She's sprung a leak! Patch the hole, or bail.", Alerts.Kind.Warning, "leak");
             Snd.Play(M1Assets.I.Thud, Hole, 0.9f); CameraRig.Shake(0.2f);
             Debug.Log($"[PB] leak: sprang at {DayTime.Clock(Sky.Minutes)}");
         }
 
         public void ScoopOut() { Water = Mathf.Max(0, Water - Scoop); }
-        public void Patch() { if (!Leaking) return; Leaking = false; Alerts.Push("Biscuit", "Hole patched. Now bail her dry.", Alerts.Kind.Info, ends: "leak"); Snd.Play(M1Assets.I.Thud, Hole, 0.7f, 1.3f); Debug.Log("[PB] leak: patched"); }
+        public void Patch() { if (!Leaking) return; Leaking = false; Alerts.Push(Name, "Hole patched. Now bail her dry.", Alerts.Kind.Info, ends: "leak"); Snd.Play(M1Assets.I.Thud, Hole, 0.7f, 1.3f); Debug.Log("[PB] leak: patched"); }
 
         // the hold-E prompt for the walker on deck (Angler.Interact); null = nothing to do here
         public string LeakPrompt(Angler me)
@@ -103,7 +105,7 @@ namespace PortBoss.M1
             {
                 rogueWarned = at;
                 var me = Angler.I;
-                if (me != null && me.OnBoat) Alerts.Push("Biscuit", "Rogue wave! Hold C to brace!", Alerts.Kind.Warning);
+                if (me != null && me.OnBoat) Alerts.Push(Name, "Rogue wave! Hold C to brace!", Alerts.Kind.Warning);
                 Snd.Play(Synth.Roar, transform.position + transform.right * 6, 1f);
             }
             if (lead > 0 || lead < -1 || rogueHit == at) return;
