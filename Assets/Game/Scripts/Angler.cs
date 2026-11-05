@@ -24,6 +24,7 @@ namespace PortBoss.M1
         public bool AtHelm => helm;
         public bool Busy;                 // fishing owns the body (fight, reveal): no walking
         public float Lie, LieH;           // M3: 0..1 lying down on a bed, the bed's height
+        bool InBed => !Remote && Sleep.I != null && Sleep.I.Still; // in the cot or out cold, waiting for the skip: no walking, no jumping
         public float FaceYaw = float.NaN; // fishing faces the aim
         public Vector3 Vel;               // own walking velocity (not the boat's)
         public float Size = 1;            // body height / the 1.78 m worker the rod and hold poses were made on
@@ -194,7 +195,7 @@ namespace PortBoss.M1
             public float T; public byte Flags; public Vector3 P, Vel; public float Yaw, AirT, Vy, SprintW;
             // State 0 up, 1 knocked over (Hips + Rot: where the ragdoll's parts lie), 2 getting up (Up: which get-up, +128 on
             // her back; UpT: how far into it), 3 tossing a fish (Up: its species; UpT: how far into the throw), 4 patching
-            // the hole (UpT: s into it), 5 shoving a crewmate (UpT: s into it). Hop: her
+            // the hole (UpT: s into it), 5 shoving a crewmate (UpT: s into it), 6 lying down (M3: Up: the bed's height in cm, UpT: how far down). Hop: her
             // Teleport count (a ladder, the end of a get-up: jumps, never blends).
             public byte State, Hop, Up; public float UpT; public Vector3 Hips; public Quaternion[] Rot;
             public Fishing.Net F; // their fishing (M2 step 3)
@@ -238,6 +239,7 @@ namespace PortBoss.M1
             else if (ThrowT >= 0) { p.State = 3; p.Up = (byte)Mathf.Max(0, throwSp); p.UpT = ThrowT; }
             else if (RepairT >= 0) { p.State = 4; p.UpT = RepairT; }
             else if (ShoveT >= 0) { p.State = 5; p.UpT = ShoveT; }
+            else if (Lie > 0) { p.State = 6; p.Up = (byte)Mathf.Clamp(LieH * 100, 0, 255); p.UpT = Lie; } // M3: in the cot, or slumped on a deck
             if (Fish != null) p.F = Fish.NetState();
             return p;
         }
@@ -276,6 +278,7 @@ namespace PortBoss.M1
             if (b.State == 3) { ThrowT = a.State == 3 ? Mathf.Lerp(a.UpT, b.UpT, k) : b.UpT; throwSp = b.Up; } else ThrowT = -1;
             RepairT = b.State == 4 ? (a.State == 4 ? Mathf.Lerp(a.UpT, b.UpT, k) : b.UpT) : -1;
             float shoveWas = ShoveT; ShoveT = b.State == 5 ? (a.State == 5 ? Mathf.Lerp(a.UpT, b.UpT, k) : b.UpT) : -1;
+            Lie = b.State == 6 ? (a.State == 6 ? Mathf.Lerp(a.UpT, b.UpT, k) : b.UpT) : 0; if (b.State == 6) LieH = b.Up / 100f;
             if (shoveWas < 0 && ShoveT >= 0) Snd.Play(Synth.Whoosh, transform.position, 0.4f, 1.5f);
             Vel = Vector3.Lerp(a.Vel, b.Vel, k); SprintW = b.SprintW; airT = b.AirT; vy = b.Vy;
             Swimming = b.Swim; helm = b.Helm; netGrounded = b.Grounded; jumped = b.Jumped; fallIn = b.FallIn;
@@ -348,7 +351,7 @@ namespace PortBoss.M1
 
             // walking
             var cam = CameraRig.I;
-            var input = Busy || Sleep.Frozen || RepairT >= 0 || ShoveT >= 0 ? Vector2.zero : Ctl.Move;
+            var input = Busy || Sleep.Frozen || InBed || RepairT >= 0 || ShoveT >= 0 ? Vector2.zero : Ctl.Move;
             var fwd = cam != null ? Quaternion.Euler(0, cam.Yaw, 0) : transform.rotation;
             var wish = fwd * new Vector3(input.x, 0, input.y);
             float load = Load;
@@ -369,7 +372,7 @@ namespace PortBoss.M1
             // Eased starts and stops (a critically damped spring: 90% of the way in 1.94 x its time), slower per crate:
             // 0 -> 90% in 0.22 s + 0.05 s a crate, 90% -> stopped in 0.18 s + 0.07 s a crate; a skid stops in 0.15 s.
             bool speeding = target.sqrMagnitude > Vel.sqrMagnitude + 0.01f;
-            float t90 = skidT > 0 ? 0.1f : Swimming ? 0.45f : speeding ? 0.22f + 0.05f * load : 0.18f + 0.07f * load;
+            float t90 = skidT > 0 ? 0.1f : Swimming ? 0.45f : speeding ? 0.22f + 0.05f * load : 0.18f + 0.07f * load + (OnBoat && Skiff.Wet ? 0.15f : 0); // (M3: a wet deck, a small skid)
             Vel = Vector3.SmoothDamp(Vel, target, ref velV, t90 / 1.94f, Mathf.Infinity, dt);
             if (sprint && Fish.Holding) Fish.Stow();
 
@@ -388,7 +391,8 @@ namespace PortBoss.M1
                 crouchT = -1; rising = false;
             }
             float g = Swimming ? 0 : Jump(dt, grounded, load);
-            var step = Crowd(Vel * dt, dt, target.sqrMagnitude > 0.01f); var shove = step / dt - Vel;
+            var slide = OnBoat && s != null && !Braced && !helm && !InBed && grounded && !Down ? s.Slide(transform.position) : Vector3.zero; // (M3: a steep deck)
+            var step = Crowd((Vel + slide) * dt, dt, target.sqrMagnitude > 0.01f); var shove = step / dt - Vel;
             Cc.Move(step + Vector3.up * (vy - 0.5f * g * dt) * dt); // the exact arc at any frame rate
             vy -= g * dt;
             Land();
@@ -450,7 +454,7 @@ namespace PortBoss.M1
         // Returns this frame's gravity.
         float Jump(float dt, bool grounded, float load)
         {
-            if (!Busy && Ctl.Jump) jumpBuf = Time.time;
+            if (!Busy && !InBed && Ctl.Jump) jumpBuf = Time.time;
             if (crouchT < 0 && !Busy && Time.time - jumpBuf < 0.12f && Time.time - lastGround < 0.12f) { crouchT = 0; jumpBuf = -9; }
             if (crouchT >= 0 && (crouchT += dt) >= 0.08f)
             {

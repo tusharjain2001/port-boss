@@ -139,6 +139,7 @@ namespace PortBoss.M1
             if (Skiff.I != null && Skiff.I.Remote) Skiff.I.TakeOver();
             Lobby?.Leave(); Lobby = null;
             nm.Shutdown(); Destroy(gameObject); I = null;
+            Sleep.I?.HostGone();                               // (mid heads-up: no skip would ever come)
         }
 
         // ---------------------------------------------------------------- the roster (host)

@@ -14,7 +14,7 @@ namespace PortBoss.M1
         public static Transform Root;
         public static bool On => Root != null;
         public static readonly List<Renderer> Windows = new(); public static Material Glow;   // the town's lit windows (Sky turns them on with the lamps)
-        public static Material Ground; public static float GroundSat, GroundBri;   // the hill, trees and gardens: Sky mutes them at night (upward faces catch the sky light)
+        public static Material Ground, Town; public static float GroundSat, GroundBri, TownSat, TownBri;   // the hill, trees and gardens: Sky mutes them at night (upward faces catch the sky light)
 
         [System.Serializable] public class Anchor { public string id, name; public float[] pos, fwd; public bool ground; }
         [System.Serializable] class Spot { public float[] pos; public float yaw; }
@@ -45,6 +45,9 @@ namespace PortBoss.M1
             Ground = new Material(toon) { name = "PB_Toon_Ground" }; GroundSat = Ground.GetFloat("_Saturation"); GroundBri = Ground.GetFloat("_Brightness");
             foreach (var r in Root.GetComponentsInChildren<MeshRenderer>())
                 if (r.name.Contains("_Terrain") || r.name.EndsWith("_Trees") || r.name.EndsWith("_Garden")) Util.Toon(r.gameObject, Ground);
+            // the houses (a cell's "_Town" mesh): day-bright at night beside the dimmed hill, so Sky dims them too (M3 quality)
+            Town = new Material(toon) { name = "PB_Toon_Town" }; TownSat = Town.GetFloat("_Saturation"); TownBri = Town.GetFloat("_Brightness");
+            foreach (var r in Root.GetComponentsInChildren<MeshRenderer>()) if (r.name.EndsWith("_Town")) Util.Toon(r.gameObject, Town);
             // the panes that light up at dusk (a cell's "_Windows" mesh): one shared glow, no shadows, no collider
             Windows.Clear(); Glow = Util.Soft(new Color(1f, 0.74f, 0.42f, 0f), Texture2D.whiteTexture);
             foreach (var r in Root.GetComponentsInChildren<MeshRenderer>())

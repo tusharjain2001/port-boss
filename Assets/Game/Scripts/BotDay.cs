@@ -100,12 +100,16 @@ namespace PortBoss.M1
             yield return SailOut(false);
             var s = Skiff.I;
             if (shots != null) { CameraRig.I.Pitch = 14; yield return Shot("storm-0-fair"); }
-            Sky.ForceWx = 5; yield return new WaitForSeconds(6f); // (the look eases in over ~2 s)
+            float dry = 0, wet = 0; yield return StopTime(t => dry = t);
+            Sky.ForceWx = 5; Sky.HeldAt = 1e9; yield return new WaitForSeconds(6f); // (the look eases in over ~2 s; the held storm's own leak and waves pushed away: this test springs its own)
             float roll = 0, pitch = 0; bool aboard = true;
             void Measure() { roll = Mathf.Max(roll, Mathf.Abs(Mathf.DeltaAngle(0, s.transform.eulerAngles.z))); pitch = Mathf.Max(pitch, Mathf.Abs(Mathf.DeltaAngle(0, s.transform.eulerAngles.x))); aboard &= me.OnBoat && !me.Swimming; }
             for (float t = 0; t < 30; t += Time.deltaTime) { Measure(); if (shots != null && Mathf.Abs(t - 10) < Time.deltaTime) yield return Shot("storm-1-anchored"); yield return null; }
             Debug.Log($"[PB] storm: anchored 30 s in a storm (wave amp {Sea.Amp:F2} m, len {Sea.Len:F0} m): max roll {roll:F1}°, pitch {pitch:F1}°, aboard {aboard}");
             Check(roll <= 25 && pitch <= 20 && aboard, $"anchored in the storm: roll {roll:F1}° <= 25, pitch {pitch:F1}° <= 20, still aboard");
+            Check(roll > 8, $"a storm rolls her harder than a fair day's 6° cap (systems §1.6: up to 22°): {roll:F1}°");
+            yield return StopTime(t => wet = t);
+            Check(wet - dry > 0.1f && wet - dry < 0.2f, $"a wet deck: stopping from a walk takes {dry:F2} s dry, {wet:F2} s in the storm (+0.15 s, systems §1.6.5)");
             // under way: up anchor, full ahead, a turn
             float r0 = roll, p0 = pitch; roll = pitch = 0;
             s.ToggleAnchor(); yield return Until(() => !s.Anchored, 4);
@@ -150,8 +154,26 @@ namespace PortBoss.M1
             me.Teleport(Deck(-0.6f, 0), s.transform.eulerAngles.y); yield return new WaitForSeconds(0.5f);
             Skiff.TestOver = true; s.RogueNow(); yield return Until(() => kn, Skiff.RogueWarn + 2); yield return Until(() => me.Swimming, 5); Skiff.TestOver = false;
             Check(ov && me.Swimming, $"at the rail, unbraced, it can throw you over the side (over {ov}, swimming {me.Swimming})");
+
+            // a held storm (F11, -pb-weather storm) brings its own leak and rogue waves, timed from the hold (M3 lead 1)
+            yield return Until(() => !me.Down, 8); me.Teleport(Deck(0, 0.3f), s.transform.eulerAngles.y); Ctl.BotBrace = true;
+            int hits = 0; Skiff.OnRogue = (k, o) => hits++;
+            Sky.ForceWx = 1; Sky.ForceWx = 5; double held = Sky.HeldAt, first = double.NaN; float ts0 = Time.timeScale; Time.timeScale = 4;
+            yield return Until(() => { if (hits > 0 && double.IsNaN(first)) first = Sky.Minutes - held; return s.Leaking && hits > 0; }, 160 / 4f);
+            Time.timeScale = ts0; Ctl.BotBrace = false;
+            Check(s.Leaking && hits > 0 && first <= 75 + 1, $"a held storm springs its own leak ({(s.Leaking ? "yes" : "no")}, due {Sky.LeakAt(0, 0) - held:F0} min after the hold) and rogue waves (first {first:F0} min after the hold, {hits} braced)");
             Debug.Log($"[PB] RESULT stormtest: {(dayFails == 0 ? "PASS" : "FAIL")}");
             Application.Quit();
+        }
+
+        // walk the deck aft to fore 0.7 s, let go: how long until the walk is down to 10% (the stop's t90)
+        IEnumerator StopTime(System.Action<float> got)
+        {
+            var s = Skiff.I; me.Teleport(s.transform.TransformPoint(new Vector3(0, s.HoleLocal.y + 0.1f, -1.3f)), s.transform.eulerAngles.y); CameraRig.I.Yaw = s.transform.eulerAngles.y;
+            yield return new WaitForSeconds(0.4f);
+            Ctl.BotMove = new Vector2(0, 1); yield return new WaitForSeconds(0.7f); float v0 = me.Vel.magnitude; Ctl.BotMove = Vector2.zero;
+            float t = 0; while (me.Vel.magnitude > 0.1f * v0 && t < 2) { yield return null; t += Time.deltaTime; }
+            Debug.Log($"[PB] storm: stop from {v0:F2} m/s in {t:F2} s (wet {Skiff.Wet})"); got(t);
         }
 
         // ---------------------------------------------------------------- sleep
@@ -190,6 +212,7 @@ namespace PortBoss.M1
             if (role == "host" || role == "rider") { yield return CoopSleep(role == "host"); yield break; }
             yield return new WaitForSeconds(0.5f);
             var s = Skiff.I; Sky.ForceWx = 1;
+            int horns = 0; Sleep.OnLog += l => { if (l.StartsWith("the ferry horn")) horns++; };
             // 1) too early
             Sky.Jump(DayTime.At(1, 15 * 60));
             me.Teleport(Sleep.BedSide, Quaternion.LookRotation(Flat(Sleep.Cot.position - Sleep.BedSide)).eulerAngles.y);
@@ -213,6 +236,7 @@ namespace PortBoss.M1
             yield return WaitSkip();
             Check(Sky.Day == 2 && Sky.Hour >= 7 && Sky.Hour < 7.25, "woke Day 2 at 7:00 AM: " + WakeLine());
             Check(Sleep.I.LastWake == "in bed" && Vector3.Distance(me.transform.position, Sleep.BedSide) < 0.6f, "woke beside the cot");
+            Check(horns == 1, $"the ferry horn sounds once with the 07:00 fade-in ({horns})");
             yield return new WaitForSeconds(0.3f);
             Check(Hud.I.ToastsShown() > 0, $"toasts show again after the card ({Hud.I.ToastsShown()} up: the morning toast)");
             Check(mack.Fresh == 1, $"caught 18:00, slept 21:00 -> 07:00: the mackerel is {Rot.Names[mack.Fresh]} ({(Sky.Minutes - mack.CaughtAt) / 60:F1} h old; want Good)");
@@ -246,30 +270,40 @@ namespace PortBoss.M1
 
         // host + one rider (tools/sleeptest.sh). The host sleeps in the cot at 21:00 on Days 1-4 while the rider is
         // (1) in a fight, (2) swimming, (3) at the tiller under way, (4) on the deck; then (5) both are up at 02:00 and pass
-        // out together: one skip. Each machine checks where it woke and that both clocks agree.
+        // out together: one skip; (6) both in the one cot (the latency race's outcome): one skip, the rider steps out the
+        // far side, and can't walk off lying down; (7) the rider lies down and the host leaves mid heads-up: the rider
+        // still sleeps (alone), never stuck. Each machine checks where it woke and that both clocks agree.
         IEnumerator CoopSleep(bool host)
         {
             yield return Until(() => Coop.On && Coop.I.Roster.Count >= 2, 40);
             if (!Coop.On || Coop.I.Roster.Count < 2) { Debug.Log("[PB] RESULT sleeptest: FAIL (never connected)"); Application.Quit(); yield break; }
             yield return new WaitForSeconds(2f);
             var s = Skiff.I;
-            string[] want = { "", "where I stood", "ladder", "at the tiller", "on the boat", "where I fell" };
-            for (int r = 1; r <= 5; r++)
+            string[] want = { "", "where I stood", "ladder", "at the tiller", "on the boat", "where I fell", "in bed", "in bed" };
+            for (int r = 1; r <= 7; r++)
             {
                 if (host)
                 {
                     Sky.ForceWx = 1;
-                    Sky.Jump(r < 5 ? DayTime.At(r, 21 * 60) : DayTime.At(6, 115));
+                    Sky.Jump(r < 5 ? DayTime.At(r, 21 * 60) : r == 5 ? DayTime.At(6, 115) : DayTime.At(r + 1, 21 * 60));
                     Debug.Log($"[PB] m3: round {r} at Day {Sky.Day} {DayTime.Clock(Sky.Minutes)}");
-                    if (r < 5) { me.Teleport(Sleep.BedSide, 0); yield return new WaitForSeconds(r == 1 ? 12f : 7f); yield return LieDown(); Check(Sleep.I.Lying, $"round {r}: the host lies down"); }
+                    if (r == 7)
+                    {
+                        // the rider goes to bed; mid heads-up, the host leaves the crew
+                        me.Teleport(Landing.I.Spawn.position + Vector3.up * 0.05f, 0);
+                        yield return Until(() => Sleep.I.Skipping, 40); yield return new WaitForSeconds(1.5f);
+                        Check(Sleep.I.Skipping && !Sleep.I.CardUp, "round 7: the rider's heads-up is running: the host leaves now");
+                        Coop.Leave(); break;
+                    }
+                    if (r < 5 || r == 6) { me.Teleport(Sleep.BedSide, 0); yield return new WaitForSeconds(r == 1 ? 12f : 7f); yield return LieDown(); Check(Sleep.I.Lying, $"round {r}: the host lies down"); }
                     else me.Teleport(Landing.I.Spawn.position + Vector3.up * 0.05f, 0);
                     yield return WaitSkip();
-                    Check(Sleep.I.LastWake == (r < 5 ? "in bed" : "where I fell"), $"round {r}: host " + WakeLine());
+                    Check(Sleep.I.LastWake == (r == 5 ? "where I fell" : "in bed") && (r != 6 || Vector3.Distance(me.transform.position, Sleep.BedSide) < 0.6f && Sky.Day == 8 && Sky.Hour < 7.25), $"round {r}: host " + WakeLine());
                 }
                 else
                 {
                     // wait for the host's round to start (its clock reaches us)
-                    yield return Until(() => r < 5 ? Sky.Day == r && Sky.Hour >= 20.9 : Sky.Day == 6 && Sky.Hour >= 1.9 && Sky.Hour < 7, 60);
+                    yield return Until(() => r < 5 ? Sky.Day == r && Sky.Hour >= 20.9 : r == 5 ? Sky.Day == 6 && Sky.Hour >= 1.9 && Sky.Hour < 7 : Sky.Day == r + 1 && Sky.Hour >= 20.9, 60);
                     Debug.Log($"[PB] m3: round {r}: rider at Day {Sky.Day} {DayTime.Clock(Sky.Minutes)}");
                     if (me.AtHelm) { me.LeaveHelm(); yield return new WaitForSeconds(0.5f); }
                     int had = 0; foreach (var sl in me.Bar.S) had += sl.Fish.Count;
@@ -303,16 +337,42 @@ namespace PortBoss.M1
                         yield return new WaitForSeconds(2f);
                         Debug.Log($"[PB] m3: rider driving at {s.Speed:F1} m/s (owner: {(!s.Remote ? "me" : "not me")})");
                     }
-                    else if (r == 4) me.Teleport(s.transform.TransformPoint(new Vector3(0.3f, 1.0f, 0.6f)), s.transform.eulerAngles.y);
-                    else me.Teleport(Landing.I.Spawn.position + Vector3.up * 0.05f + Vector3.right, 0);
+                    else if (r == 4)
+                    {
+                        me.Teleport(s.transform.TransformPoint(new Vector3(0.3f, 1.0f, 0.6f)), s.transform.eulerAngles.y);
+                        // the heads-up toast counts down (systems §1.4.1: "night skips in 5 s" with a 5-segment ring)
+                        yield return Until(() => Sleep.I.Skipping, 30); string b0 = Hud.I.ToastBody("Host is going"); yield return new WaitForSecondsRealtime(2.2f);
+                        string b1 = Hud.I.ToastBody("Host is going");
+                        Check(b0 != null && b1 != null && b0 != b1 && (b1.Contains("in 3 s") || b1.Contains("in 2 s")), $"the heads-up counts down: '{b0}' -> 2.2 s -> '{b1}'");
+                        if (shots != null) yield return Shot("coop-headsup");
+                    }
+                    else if (r == 5) me.Teleport(Landing.I.Spawn.position + Vector3.up * 0.05f + Vector3.right, 0);
+                    else if (r == 6)
+                    {
+                        // the host lies down; a moment later, so do I (the race: the host's heads-up already on its way)
+                        me.Teleport(Sleep.FarSide, Quaternion.LookRotation(Flat(Sleep.Cot.position - Sleep.FarSide)).eulerAngles.y);
+                        yield return Until(() => Sleep.I.Skipping, 30); Sleep.I.TestLie(); yield return new WaitForSeconds(0.6f);
+                        var p0 = me.transform.position; Ctl.BotMove = new Vector2(0, 1); yield return new WaitForSeconds(1f); Ctl.BotMove = Vector2.zero;
+                        float moved = Vector3.Distance(Flat(p0), Flat(me.transform.position));
+                        Check(Sleep.I.Lying && moved < 0.05f, $"round 6: in the cot with the host; pushing forward 1 s moves me {moved:F2} m (lying: no walking)");
+                    }
+                    else
+                    {
+                        // I go to bed; the host leaves mid heads-up: I still sleep, alone
+                        yield return new WaitForSeconds(1f); yield return LieDown(); Check(Sleep.I.Lying, "round 7: the rider lies down");
+                        yield return Until(() => !Coop.On, 20);
+                        Debug.Log($"[PB] m3: round 7: the host is gone ({(Coop.On ? "still on" : "solo now")}) at {DayTime.Clock(Sky.Minutes)}");
+                    }
                     if (r != 1) yield return WaitSkip(); else yield return Until(() => !Sleep.I.Skipping, 40);
                     int now = 0; foreach (var sl in me.Bar.S) now += sl.Fish.Count;
                     bool ok = Sleep.I.LastWake != null && Sleep.I.LastWake.Contains(want[r]);
                     if (r == 1) ok &= now == had + 1;
                     if (r == 3) ok &= s.Anchored;
+                    if (r == 6) ok &= Vector3.Distance(me.transform.position, Sleep.FarSide) < 0.6f && Sky.Day == 8 && Sky.Hour < 7.25;
+                    if (r == 7) ok &= !Coop.On && Sky.Day == 9 && Sky.Hour < 7.25 && !Sleep.I.Skipping && !Sleep.I.Still;
                     Check(ok, $"round {r}: rider ({(r == 1 ? $"fish {had}->{now}" : r == 3 ? (s.Anchored ? "Biscuit anchored" : "Biscuit NOT anchored") : "")}) " + WakeLine());
                 }
-                Debug.Log($"[PB] m3: clock after round {r}: Day {Sky.Day} {Sky.Minutes:F1}");
+                if (r < 7) Debug.Log($"[PB] m3: clock after round {r}: Day {Sky.Day} {Sky.Minutes:F1}");
                 yield return new WaitForSeconds(2f);
             }
             Debug.Log($"[PB] RESULT sleeptest {(host ? "host" : "rider")}: {(dayFails == 0 ? "PASS" : "FAIL")}");

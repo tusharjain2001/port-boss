@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
 
@@ -16,7 +17,15 @@ namespace PortBoss.M1
         public static double Minutes = DayTime.Start;       // the world clock (in-game minutes)
         public static int Seed = 1;
         public static Weather W = new(1);
-        public static int ForceWx = -1;                     // debug/tests: hold one weather (-1 = the forecast's)
+        // debug/tests: hold one weather (-1 = the forecast's). HeldAt = the clock when the hold last changed: a held storm
+        // springs its leak and rogue waves timed from then, like a rolled storm from its block's start.
+        public static int ForceWx { get => forceWx; set { if (value != forceWx) HeldAt = Minutes; forceWx = value; } }
+        static int forceWx = -1; public static double HeldAt;
+
+        // the storm events at a moment's block: the forecast's storm, or a held one (F11, -pb-weather storm)
+        public static double LeakAt(int day, int b) => ForceWx == (int)Wx.Storm ? HeldAt + 20 + Weather.U(Seed, (int)HeldAt, 61) * 120 : ForceWx >= 0 ? double.NaN : W.LeakAt(day, b);
+        public static double[] Rogues(int day, int b) => ForceWx == (int)Wx.Storm ? new[] { 0, 1, 2 }.Select(i => HeldAt + 15 + 80 * i + Weather.U(Seed, (int)HeldAt, 70 + i) * 60).ToArray()
+            : ForceWx >= 0 ? System.Array.Empty<double>() : W.Rogues(day, b);
         public static System.Action<double, double> Jumped; // (from, to): a sleep skip
 
         public static double Hour => DayTime.OfDay(Minutes) / 60.0;
@@ -47,9 +56,10 @@ namespace PortBoss.M1
         // Dawn, Day, Golden, Dusk, Night, Storm. Sun = the sun's colour/intensity (the moon's is apart: night has no sun).
         public static readonly Look[] Looks =
         {
-            new Look { Sun = H("FFC9A8"), SunI = 0.9f, Shade = H("A79BE0"), Top = H("8D7FC4"), Mid = H("C7A9CF"), Hor = H("FFE1B0"),
-                AmbS = H("A79BE0"), AmbE = H("E2C9C6"), AmbG = H("6E6488"), Shallow = H("6CD3C9"), Deep = H("3D69B8"), Fog = H("FAD9C2"),
-                FogStart = 200, FogEnd = 1500, CloudLit = H("FFD6B4"), CloudShade = H("A79BE0"), Refl = H("FFEFE6"), Bloom = 0.5f, Exposure = 0.12f, Sat = 12, Temp = 10, Vignette = 0.16f },
+            // (M3 quality: the first dawn read lavender-white with a mint sea; the spec's peach horizon and pink-lit turquoise)
+            new Look { Sun = H("FFC9A8"), SunI = 0.9f, Shade = H("A79BE0"), Top = H("8D7FC4"), Mid = H("E2A9BE"), Hor = H("FFD49E"),
+                AmbS = H("A79BE0"), AmbE = H("EBC2BA"), AmbG = H("6E6488"), Shallow = H("52C6C2"), Deep = H("3A5FB0"), Fog = H("F7CDB0"),
+                FogStart = 200, FogEnd = 1500, CloudLit = H("FFCBA4"), CloudShade = H("A79BE0"), Refl = H("FFC9C2"), Bloom = 0.5f, Exposure = 0.07f, Sat = 16, Temp = 12, Vignette = 0.16f },
             new Look { Sun = H("FFF3DC"), SunI = 1.6f, Shade = H("98A6EA"), Top = H("3A86E0"), Mid = H("7DB4EC"), Hor = H("D6E8F2"),
                 AmbS = H("98A6EA"), AmbE = H("C4C2D2"), AmbG = H("6C6A80"), Shallow = H("46D6C8"), Deep = H("2160B8"), Fog = H("DCE6EE"),
                 FogStart = 260, FogEnd = 1900, CloudLit = H("FFF8EC"), CloudShade = H("98A6EA"), Refl = H("F4F8FF"), Bloom = 0.45f, Exposure = 0.1f, Sat = 14, Temp = 6, Vignette = 0.16f },
@@ -122,7 +132,7 @@ namespace PortBoss.M1
         // A sleep skip (or a test): every system reads the clock, so they all move with it. The look snaps (no blend).
         public static void Jump(double to)
         {
-            double from = Minutes; Minutes = to;
+            double from = Minutes; Minutes = to; if (forceWx >= 0) HeldAt = to; // (a held storm's events start over after a skip)
             if (I != null) { I.snap = true; I.lastBlockKey = -1; I.lastCallCheck = to; }
             Jumped?.Invoke(from, to);
         }
@@ -158,6 +168,8 @@ namespace PortBoss.M1
             StormW = x.Storm;
             // the HUD's paper (systems §2.7): Golden +4% warm, Dusk +6% warm, Night -12% and cooler, Storm cooler and duller
             UiKit.Lit.color = Color.Lerp(Color.Lerp(UiTint[(int)a], UiTint[(int)b], k), UiTint[(int)LightState.Storm], x.Storm);
+            var lc = UiKit.Lit.color; float rw = 0.85f * NightW * (1 - x.Storm);
+            UiKit.Rim.color = new Color(lc.r * (1 + 1.0f * rw), lc.g * (1 + 0.9f * rw), lc.b * (1 + 0.2f * rw), lc.a);
 
             // storm: slate over whatever the hour is, darker at night
             if (x.Storm > 0.001f)
@@ -256,7 +268,8 @@ namespace PortBoss.M1
             }
             foreach (var r in windows) if (r != null) { r.enabled = LampW > 0.01f; r.sharedMaterial.SetColor("_BaseColor", new Color(1f, 0.74f, 0.42f, LampW)); }
             if (Map.Glow != null) { foreach (var r in Map.Windows) r.enabled = LampW > 0.01f; Map.Glow.SetColor("_BaseColor", new Color(1.7f, 1.2f, 0.62f, LampW)); }   // the town's lit windows (HDR: over the bloom threshold, so they twinkle from the sea)
-            if (Map.Ground != null) { Map.Ground.SetFloat("_Saturation", Map.GroundSat * (1 - 0.45f * NightW)); Map.Ground.SetFloat("_Brightness", Map.GroundBri * (1 - 0.4f * NightW)); }   // the hill takes the night like the houses
+            if (Map.Ground != null) { Map.Ground.SetFloat("_Saturation", Map.GroundSat * (1 - 0.45f * NightW)); Map.Ground.SetFloat("_Brightness", Map.GroundBri * (1 - 0.4f * NightW)); }   // the hill takes the night
+            if (Map.Town != null) { Map.Town.SetFloat("_Saturation", Map.TownSat * (1 - 0.35f * NightW)); Map.Town.SetFloat("_Brightness", Map.TownBri * (1 - 0.3f * NightW)); }       // the houses too, a little less: their warm windows show
             var cam = Camera.main;
             if (cam != null) foreach (var (_, glow, _) in lamps) if (glow != null) glow.rotation = Quaternion.LookRotation(glow.position - cam.transform.position);
 

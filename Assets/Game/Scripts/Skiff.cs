@@ -192,8 +192,11 @@ namespace PortBoss.M1
             float hB = Sea.Height(pos + q * new Vector3(0, 0, 2.1f)), hS = Sea.Height(pos + q * new Vector3(0, 0, -2.1f));
             float hP = Sea.Height(pos + q * new Vector3(-0.85f, 0, 0)), hR = Sea.Height(pos + q * new Vector3(0.85f, 0, 0));
             float ty = (hB + hS + hP + hR) * 0.25f - 0.02f;
-            float tp = Mathf.Clamp(-Mathf.Atan2(hB - hS, 4.2f) * Mathf.Rad2Deg, -3f, 3f) - 2.5f * Mathf.Clamp01(Speed / MaxSpeed);
-            float tr = Mathf.Clamp(Mathf.Atan2(hR - hP, 1.7f) * Mathf.Rad2Deg, -6f, 6f) - Rudder / 35f * 3f * Mathf.Clamp01(Mathf.Abs(Speed) / MaxSpeed) + List; // (+ the list of a boat shipping water)
+            // max roll by the sea (systems §1.6: 6° Clear, 12° Breezy, 22° Storm; pitch half), and a rougher sea throws her about
+            // more than its slope alone (a storm's "heavy roll", §1.5.1: the slope across a 1.7 m beam gave ~4° in a storm)
+            float sea = Mathf.Clamp01((Sea.Amp - 0.14f) / 0.36f), rmax = 6 + 16 * sea, gain = 1 + 1.6f * sea;
+            float tp = Mathf.Clamp(-Mathf.Atan2(hB - hS, 4.2f) * Mathf.Rad2Deg * gain, -rmax / 2, rmax / 2) - 2.5f * Mathf.Clamp01(Speed / MaxSpeed);
+            float tr = Mathf.Clamp(Mathf.Atan2(hR - hP, 1.7f) * Mathf.Rad2Deg * gain, -rmax, rmax) - Rudder / 35f * 3f * Mathf.Clamp01(Mathf.Abs(Speed) / MaxSpeed) + List; // (+ the list of a boat shipping water)
             Spring(ref y, ref vy, ty, 3.2f, dt); Spring(ref pitch, ref vp, tp, 2.6f, dt); Spring(ref roll, ref vr, tr, 2.4f, dt);
             transform.SetPositionAndRotation(new Vector3(pos.x, y, pos.z), q * Quaternion.Euler(pitch, 0, roll));
             // the deck's colliders where the hull is now (auto-sync is off): the walkers' controllers and their "on the deck?"

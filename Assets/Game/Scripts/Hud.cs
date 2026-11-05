@@ -11,13 +11,14 @@ namespace PortBoss.M1
         public enum Kind { Message, Money, Info, Weather, Warning, Crew, Story }
         // Topic: what a toast is about; Ends: the topics it resolves ('|'-separated). A toast that ends a topic dismisses the
         // older toasts on it ("Hole patched" ends "She's sprung a leak!"), so two toasts never contradict each other.
-        public struct A { public string Sender, Text, Topic, Ends, Hint; public Kind K; public float Born; public int N; }   // N: how many merged into it
+        public struct A { public string Sender, Text, Topic, Ends, Hint; public Kind K; public float Born, Due; public int N; }   // N: how many merged into it; Due: a countdown's end ("in 5 s")
         public static readonly List<A> Queue = new();
         public static System.Action<A> OnPush;
         // hint (M4): one action on the toast, after a "Tab" key cap ("Open phone")
-        public static void Push(string sender, string text, Kind k = Kind.Info, string topic = null, string ends = null, string hint = null)
+        // secs (M3): a countdown toast: its "in N s" counts down and a ring of segments round its stamp goes out (the sleep heads-up)
+        public static void Push(string sender, string text, Kind k = Kind.Info, string topic = null, string ends = null, string hint = null, float secs = 0)
         {
-            var a = new A { Sender = sender, Text = text, K = k, Topic = topic, Ends = ends, Hint = hint, Born = Time.unscaledTime };
+            var a = new A { Sender = sender, Text = text, K = k, Topic = topic, Ends = ends, Hint = hint, Born = Time.unscaledTime, Due = secs > 0 ? Time.unscaledTime + secs : 0 };
             Queue.Add(a); if (Queue.Count > 100) Queue.RemoveAt(0); // (the phone's Notifications: the 100 newest)
             Debug.Log($"[PB] alert {k}: {sender}: {text}");
             OnPush?.Invoke(a);
@@ -339,6 +340,17 @@ namespace PortBoss.M1
             c.Place(new Vector2(0, 1), new Vector2(-480, -40), new Vector2(452, h), new Vector2(0, 1));
             var st = UiKit.Img(c, UiKit.Circle, Alerts.Col(a.K), "stamp"); st.rectTransform.Place(new Vector2(0, 1), new Vector2(18, -18), new Vector2(40, 40), new Vector2(0, 1));
             UiKit.Img(st.transform, UiKit.RingSprite, Ponyo.Line, "edge").rectTransform.Stretch(-1);
+            if (a.Due > 0)
+            {
+                // the countdown ring: one segment a second, round the stamp from 12 o'clock (systems §1.4.1)
+                int n = Mathf.Max(1, Mathf.RoundToInt(a.Due - a.Born)); var ring = UiKit.Rect("ring", st.transform); ring.Stretch();
+                for (int i = 0; i < n; i++)
+                {
+                    float ang = (90 - 360f * i / n) * Mathf.Deg2Rad;
+                    var d = UiKit.Img(ring, UiKit.Circle, Ponyo.Leaf, "seg" + i); d.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * 27, new Vector2(9, 9), new Vector2(0.5f, 0.5f));
+                    UiKit.Img(d.transform, UiKit.RingSprite, Ponyo.Line, "edge").rectTransform.Stretch(-1);
+                }
+            }
             var gl = UiKit.Txt(st.transform, Alerts.Glyph(a.K), UiKit.Black, 20, a.K == Alerts.Kind.Info ? Ponyo.Ink : Ponyo.Paper, TextAnchor.MiddleCenter); gl.rectTransform.Stretch();
             var s = UiKit.Txt(c, UiKit.Caps(a.Sender), UiKit.Bold, 14, Ponyo.InkSoft, TextAnchor.UpperLeft); s.rectTransform.Stretch(); s.rectTransform.offsetMin = new Vector2(72, 0); s.rectTransform.offsetMax = new Vector2(-16, -16);
             var t = UiKit.Txt(c, a.Text, UiKit.Body, 20, Ponyo.Ink, TextAnchor.UpperLeft); t.name = "body"; t.rectTransform.Stretch(); t.rectTransform.offsetMin = new Vector2(72, 18); t.rectTransform.offsetMax = new Vector2(-18, -38);
@@ -357,8 +369,19 @@ namespace PortBoss.M1
         }
 
         // ~4-5 s (a warning or a text with an action a little longer); every message stays in the phone's Notifications
-        static float Life(Alerts.A a) => a.K == Alerts.Kind.Warning ? 7f : a.Hint != null ? 6.5f : Mathf.Clamp(3.8f + 0.02f * a.Text.Length, 4f, 5.5f);
+        static float Life(Alerts.A a) => a.Due > 0 ? Mathf.Max(4.5f, a.Due - a.Born + 1.2f) : a.K == Alerts.Kind.Warning ? 7f : a.Hint != null ? 6.5f : Mathf.Clamp(3.8f + 0.02f * a.Text.Length, 4f, 5.5f);
         const int MaxToasts = 3;
+
+        // a countdown toast, each frame: "in 4 s" ... "now", and the ring's segments go out one a second
+        static void Count(RectTransform r, Alerts.A a)
+        {
+            int left = Mathf.Max(0, Mathf.CeilToInt(a.Due - Time.unscaledTime));
+            var body = r.Find("body")?.GetComponent<Text>();
+            if (body != null) body.text = System.Text.RegularExpressions.Regex.Replace(a.Text, @"in \d+ s", left > 0 ? $"in {left} s" : "now");
+            var ring = r.Find("stamp/ring");
+            if (ring != null) for (int i = 0; i < ring.childCount; i++) { var img = ring.GetChild(i).GetComponent<Image>(); var c = img.color; c.a = Mathf.MoveTowards(c.a, i < left ? 1 : 0.12f, Time.unscaledDeltaTime * 6); img.color = c; img.transform.GetChild(0).GetComponent<Image>().color = new Color(Ponyo.Line.r, Ponyo.Line.g, Ponyo.Line.b, c.a); }
+        }
+        public string ToastBody(string starts) { foreach (var c in cards) if (c.a.Text.StartsWith(starts)) return c.r.Find("body")?.GetComponent<Text>()?.text; return null; } // (tests)
 
         // ------------------------------------------------------------------------------------------------ per frame
         void LateUpdate()
@@ -569,6 +592,8 @@ namespace PortBoss.M1
                 cg.alpha = (1 - outT) * quietA;
                 var cur = r.anchoredPosition; r.anchoredPosition = new Vector2(x, Mathf.Lerp(cur.y, y, 1 - Mathf.Exp(-dt / 0.06f)));
                 life.rectTransform.anchorMax = new Vector2(Mathf.Clamp01(1 - age / L), 0);
+                if (a.Due > 0) Count(r, a);
+                if (a.K == Alerts.Kind.Warning && Sky.I != null && Sky.I.StormW > 0.5f) { var st = r.Find("stamp"); if (st != null) st.localScale = Vector3.one * (1 + 0.28f * Mathf.Sin(Mathf.Clamp01((age - 0.15f) / 0.45f) * Mathf.PI)); } // (§2.7: a storm's warnings pulse once)
                 y -= h + 14;
                 if (outT >= 1) { Destroy(r.gameObject); cards.RemoveAt(i); i--; }
             }

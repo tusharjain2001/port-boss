@@ -62,6 +62,10 @@ Built from `main` after 3 Nov, the game has a clock, so a 30-minute session sees
 - **In a storm** (later days): Biscuit can spring a leak (hold E at the hole to patch it, hold E elsewhere on deck to
   bail), and rogue waves come with a warning: **hold C to brace**, or you get knocked over.
 - To try it quickly (the host only): **F10** jumps an hour (Shift+F10: six hours), **F11** holds the next weather.
+  A storm held with F11 brings its own trouble, timed from the moment you held it (off the pier, on the boat): the first
+  rogue wave within ~1¼ minutes (then two more, ~80 s apart) and a leak within ~2½ minutes.
+- **Fish freshness:** each stage lasts 12 game hours (Fresh, Good, Stale, Old, then Rotten at 48 h). A fish caught
+  **between 5 and 7 PM** is "Good" after a night's sleep (woken at 7 AM); one caught after 7 PM is still "Fresh".
 
 M2 adds co-op: up to 4 of you on Biscuit, fishing together, handing fish around, talking by voice, over Steam or your
 home network. This page is for Tushar and Manan. Play together on two PCs for about 30 minutes, tick the boxes, and note
@@ -153,7 +157,7 @@ Play about 30 minutes in one session, over Steam if you can.
 **Catching and patching (M3.1)**
 - [ ] Catch a fish: the rod stays in your hand for a second, then goes on your back with a reach over the shoulder.
   Your friend sees the same.
-- [ ] A leak in a storm (the host presses F11 until "Weather held: Storm", then waits on the boat): the spurting hole, the red ring and the pin are easy to find. Hold E at the
+- [ ] A leak in a storm (the host presses F11 until "Weather held: Storm", then waits on the boat, off the pier, up to ~2½ minutes; a rogue wave comes first, hold C): the spurting hole, the red ring and the pin are easy to find. Hold E at the
   hole: you kneel and hammer, the pin fills up, and a plank is nailed on. Your friend sees it all.
 
 **Leaving and coming back**
