@@ -359,7 +359,11 @@ namespace PortBoss.M1
                     {
                         int c = what - Ask.Crew0;
                         if (Roster.Exists(x => x.Crew == c && x.Id != from)) Log($"{e.Name} can't be {CrewName(c)}: taken");
-                        else { e.Crew = (byte)c; Log($"{e.Name} is now {CrewName(c)} (wardrobe)"); }
+                        else
+                        {
+                            e.Crew = (byte)c; Log($"{e.Name} is now {CrewName(c)} (wardrobe)");
+                            var o = Firm.C?.OutfitOf(e.Key ?? MyKey(e.Name)); if (o != null && o.Preset != c) { o.Preset = c; o.Reset(); Firm.I.Dirty = true; }   // (their clothes: the new crew member's own)
+                        }
                     }
                     break;
             }

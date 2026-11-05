@@ -65,6 +65,7 @@ namespace PortBoss.M1
             else if (Arg("-pb-tosstest") != null) yield return TossTest();
             else if (Arg("-pb-menutest") != null) yield return MenuTest(Arg("-pb-menutest"));
             else if (M4Tests() is IEnumerator m4) yield return m4; // M4 (BotM4.cs)
+            else if (M5Tests() is IEnumerator m5) yield return m5; // M5 (BotM5.cs)
             else if (Arg("-pb-invitetest") != null) yield return InviteTest(Arg("-pb-invitetest"));
             else if (Arg("-pb-rodtest") != null) yield return RodTest(Arg("-pb-rodtest"), Arg("-pb-rodshots") ?? "rodshots");
             else if (Arg("-pb-crowdtest") != null) yield return CrowdTest(Arg("-pb-crowdtest"), Arg("-pb-crowdshots") ?? "crowdshots");

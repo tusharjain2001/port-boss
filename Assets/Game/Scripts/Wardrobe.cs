@@ -47,6 +47,8 @@ namespace PortBoss.M1
         class Dressed { public string Sig; public GameObject Hat; public SkinnedMeshRenderer Shell; public Vector4 PatK; public Color Skin; public bool HasOver; }
         static readonly Dictionary<GameObject, Dressed> dressed = new();
         static readonly Dictionary<Mesh, Mesh> withBind = new();
+        public static string HatOf(GameObject body) => body != null && dressed.TryGetValue(body, out var d) && d.Hat != null ? d.Hat.name : null;   // (tests)
+        public static string SigOf(GameObject body) => body != null && dressed.TryGetValue(body, out var d) ? d.Sig : null;
 
         // Dress a body (the GameObject holding the kit's SkinnedMeshRenderers) in an outfit (+ a try-on for the mirror)
         public static void Dress(GameObject body, Outfit o, string tryOn = null, (int slot, int sw)? tryDye = null)

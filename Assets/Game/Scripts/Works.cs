@@ -173,10 +173,13 @@ namespace PortBoss.M1
                 src.RemoveAll(s => s.component != null && (s.component.GetComponentInParent<Skiff>() != null || s.component.GetComponentInParent<Angler>() != null));
                 var set = NavMesh.GetSettingsByID(0); set.agentRadius = 0.3f; set.agentHeight = 1.8f; set.agentClimb = 0.45f; set.agentSlope = 40;
                 var data = NavMeshBuilder.BuildNavMeshData(set, src, b, Vector3.zero, Quaternion.identity);
-                if (data != null) { NavMesh.AddNavMeshData(data); NavOk = true; Log($"navmesh: {src.Count} sources over the town"); }
+                if (navInst.valid) navInst.Remove();
+                if (data != null) { navInst = NavMesh.AddNavMeshData(data); NavOk = true; Log($"navmesh: {src.Count} sources over the town"); }
             }
             catch (Exception e) { Log("navmesh: " + e.Message); NavOk = false; }
         }
+        NavMeshDataInstance navInst;
+        public void RebuildNav() { BuildNav(); paths.Clear(); }   // (the set-spot validator: with every item installed)
         // a walk from a to b on the navmesh (straight if there's none)
         public static List<Vector3> Path(Vector3 a, Vector3 b)
         {
@@ -421,6 +424,9 @@ namespace PortBoss.M1
             foreach (var k in new List<string>(shown.Keys)) foreach (var p in pre) if (k.StartsWith(p)) { if (shown[k] != null) Destroy(shown[k]); shown.Remove(k); }
         }
         public Transform Office => office; public Transform Warehouse => warehouse;
+        public IReadOnlyDictionary<string, GameObject> ShownAll => shown; public GameObject ShownOf(string item) => shown.TryGetValue(item, out var g) ? g : null;
+        public bool IsShown(string item) => shown.ContainsKey(item);
+        public Transform KestrelBerth => kestrelBerth; public Transform KestrelSlip => kestrelSlip;
         public Vector3? WarehouseDoor => warehouse != null ? (Spots.TryGetValue("socket_door", out var d) && d.IsChildOf(warehouse) ? d.position : warehouse.position) : (Vector3?)null;
 
         // an item's visual in its spot
