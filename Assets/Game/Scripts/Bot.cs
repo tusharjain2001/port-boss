@@ -104,7 +104,7 @@ namespace PortBoss.M1
             }
             else
             {
-                if (Arg("-pb-menufish") is string mf) for (int i = 0; i < int.Parse(mf); i++) me.Bar.Add(new Fish { Species = FishDb.All[i % FishDb.All.Length], Grade = 1, Cm = 20 + i, Kg = 0.2f });
+                if (Arg("-pb-menufish") is string mf) for (int i = 0; i < int.Parse(mf); i++) me.Bar.Add(new Fish { Species = FishDb.All[i % FishDb.All.Count], Grade = 1, Cm = 20 + i, Kg = 0.2f });
                 Title.I.GoTo("address"); yield return null; Title.I.Type("127.0.0.1:7999"); Title.I.Choose(1); // nobody there
                 yield return Wait(() => Coop.Status != "" && Coop.I == null, 20);
                 yield return new WaitForSecondsRealtime(0.3f);
@@ -131,6 +131,7 @@ namespace PortBoss.M1
                 int kept = 0; var pl = Json.O((Dictionary<string, object>)Json.Parse(PortBoss.M1.Save.Capture()), "players");
                 foreach (var kv in pl) if (kv.Key != Firm.MyKey && kv.Value is Dictionary<string, object> pd) kept += PortBoss.M1.Save.BarOf(pd).Count;
                 Check($"the save keeps the joiner's hotbar after they left: {kept} fish (want {mk})", kept == int.Parse(mk));
+                PortBoss.M1.Save.OnQuit();   // the pause menu's save & quit (batch mode skips the save on closing)
             }
             Debug.Log($"[PB] RESULT menu host: {(ok ? "PASS" : "FAIL")}");
             Application.Quit();
