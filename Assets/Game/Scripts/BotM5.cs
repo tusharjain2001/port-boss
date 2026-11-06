@@ -60,6 +60,22 @@ namespace PortBoss.M1
             return p;
         }
         static Vector3 ItemView(Transform item, Vector3 target) => Works.I.Office != null && item.IsChildOf(Works.I.Office) ? RoomView(item, Works.I.Office) : ClearView(target, item, Quaternion.LookRotation(item.forward).eulerAngles.y, 2.2f, 1.0f);
+        // the bearing (every 15 deg) whose camera 'dist' out over open water sees 'target' past the fewest things: a fat
+        // sphere (0.45 m) from the camera to 1.2 m short of it, so a lamp post or the pier's edge counts (the film's orbits)
+        static float OpenBearing(Vector3 target, Transform own, float dist, float up)
+        {
+            float best = 0; int bestN = int.MaxValue;
+            for (int k = 0; k < 24; k++)
+            {
+                float deg = k * 15; var from = target + Quaternion.Euler(0, deg, 0) * Vector3.forward * dist + Vector3.up * up; var d = target - from;
+                int n = Physics.CheckSphere(from, 0.5f) ? 50 : 0;
+                if (Physics.Raycast(from, Vector3.down, out var g, 40) && g.point.y > Sea.Level + 0.1f) n += 50;
+                foreach (var h in Physics.SphereCastAll(from, 0.45f, d.normalized, d.magnitude - 1.2f)) if (!h.collider.transform.IsChildOf(own) && !(h.collider is CharacterController)) n += 1;
+                if (n < bestN) { bestN = n; best = deg; }
+            }
+            Debug.Log($"[PB] m5: open bearing {best} ({bestN} in the way)");
+            return best;
+        }
         static IEnumerator OpenNow(Store s) { while (!Catalog.IsOpen(s, Sky.Minutes)) { JumpTo(Today + 1, 10); yield return null; } }
 
         // stand at a counter, facing it
@@ -550,7 +566,7 @@ namespace PortBoss.M1
             var bis = Skiff.At(0); var bst = Co.BoatOf("biscuit");
             // 1. open on the payoff: Biscuit freshly painted at golden hour, the Kestrel behind (0-6 s)
             JumpTo(1, 17.2); bst.Paint = new[] { 9, 0, 22, 4 }; bst.Pattern = 5; yield return null;
-            { var c = bis.transform.position + Vector3.up; var v0 = ClearView(c, bis.transform, bis.transform.eulerAngles.y + 60, 8, 2.6f, true) - c; float b0 = Mathf.Atan2(v0.x, v0.z) * Mathf.Rad2Deg;
+            { var c = bis.transform.position + Vector3.up; float b0 = OpenBearing(c, bis.transform, 8, 2.6f);
               for (float t = 0; t < 6; t += Time.deltaTime) { LookAt(c, c + Quaternion.Euler(0, b0 - 10 + t * 3.5f, 0) * new Vector3(0, 2.6f, 8)); yield return null; } }
             bst.Paint = new[] { -1, -1, -1, -1 }; bst.Pattern = 0; JumpTo(2, 10); RigOn();
             // 2. Doyle's counter, the shop: the hull swatches tried on her live (6-22 s)
@@ -598,7 +614,8 @@ namespace PortBoss.M1
             // 6. out: the Kestrel bought and at the landing beside Biscuit (82-90 s)
             Works.HostBuy(Firm.I.NewTx("m5"), Works.MyKey, Works.MyName, "boat:kestrel", 0, false, out _); JumpTo(Today, 17.6);
             yield return new WaitForSeconds(0.8f);
-            for (float t = 0; t < 7; t += Time.deltaTime) { var c = (bis.transform.position + (W.Kestrel != null ? W.Kestrel.transform.position : bis.transform.position)) / 2 + Vector3.up; LookAt(c, c + Quaternion.Euler(0, -30 + t * 6, 0) * new Vector3(0, 5, -16)); yield return null; }
+            { var kt = W.Kestrel != null ? W.Kestrel.transform : bis.transform; var c0 = (bis.transform.position + kt.position) / 2 + Vector3.up; float kb = OpenBearing(c0, kt, 16, 5);
+              for (float t = 0; t < 7; t += Time.deltaTime) { var c = (bis.transform.position + kt.position) / 2 + Vector3.up; LookAt(c, c + Quaternion.Euler(0, kb - 15 + t * 4, 0) * new Vector3(0, 5, 16)); yield return null; } }
             Debug.Log("[PB] RESULT m5film: done");
             Application.Quit();
         }
