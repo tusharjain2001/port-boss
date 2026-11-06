@@ -583,11 +583,11 @@ namespace PortBoss.M1
             foreach (var b in boats) y = BoatCard(c, b, m, y) + 12;
             if (boats.Count < 2)
             {   // the locked second boat (the mockup): Fergus sells boats at the yard
-                var lk = Card(list, 0, y, CW, 64, Ponyo.Paper2);
-                Ico(lk, "lock", SubInk, 16, 18, 28);
+                var lk = Card(list, 0, y, CW, 80, Ponyo.Paper2);   // (two lines of text: it wrapped out of a 64 px card)
+                Ico(lk, "lock", SubInk, 16, 26, 28);
                 T(lk, "Second boat", UiKit.Bold, 16, Ponyo.Ink, 56, 12, CW - 70, 22);
-                T(lk, "Fergus sells boats at the yard (Doyle Boatworks).", UiKit.Body, 13, SubInk, 56, 34, CW - 70, 20);
-                y += 76;
+                T(lk, "Fergus sells boats at the yard (Doyle Boatworks).", UiKit.Body, 13, SubInk, 56, 34, CW - 70, 38);
+                y += 92;
             }
             var free = c.Staff.FindAll(x => x.Boat == null);
             Caps(list, free.Count > 0 ? "Free hands" : c.Staff.Count == 0 ? "No crew yet" : "Everyone has a boat", 2, y); y += 24;
