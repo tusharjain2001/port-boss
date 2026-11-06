@@ -100,15 +100,15 @@ namespace PortBoss.M1
             P("wh:2", "Storage", "Warehouse T2: Cold Room", 2500, Fit.Overnight, "spot_wh", "An insulated back room, frosty door", 2, "wh:1", 2, null, "Slots|24|24|", "Cold|0|12|");
             P("wh:3", "Storage", "Warehouse T3: Big Warehouse", 8000, Fit.Overnight, "spot_wh", "Extended shed, a forklift lane", 3, "wh:2", 3, "Act 3");
             P("bed:cot", "Living", "Fix Walt's bed (the cot)", 120, Fit.Now, "spot_cot", "Sleep with the Rested buff", 1, null, 1, null, "Rested|no|yes|");
-            P("bed:bunk", "Living", "Bunk bed", 350, Fit.Now, "spot_bunk", "An extra co-op sleep spot", 1, null, 1, null, "Beds|1|2|");
-            P("bed:double", "Living", "Double bed", 700, Fit.Now, "spot_double", "Comfort +3", 2, null, 1, null, "Comfort|+0|+3|");
+            P("bed:bunk", "Living", "Bunk bed", 350, Fit.Now, "spot_bunk", "An extra co-op sleep spot (needs the patched office: no room in the shack)", 1, "office:1", 1, null, "Beds|1|2|");
+            P("bed:double", "Living", "Double bed", 700, Fit.Now, "spot_double", "Comfort +3 (needs the patched office)", 2, "office:1", 1, null, "Comfort|+0|+3|");
             P("bed:hammock", "Living", "Hammock", 200, Fit.Now, "spot_hammock", "Sleep aboard a boat with a cabin (the Kestrel)", 1, "boat:kestrel", 1, null, "Sleep aboard|no|yes|");
             foreach (var (id, name, price, sub) in new[] {
                 ("chair", "Captain's chair", 80, "Comfort +1"), ("desk", "Walt's desk, mended", 250, "Comfort +1"), ("shelves", "Shelves", 150, "Comfort +1"),
                 ("wardrobe", "Wardrobe", 400, "Comfort +1 · change clothes here"), ("rug", "Rag rug", 60, "Pure style"), ("plant", "Potted fern", 30, "Pure style"),
                 ("lamp", "Table lamp", 90, "Pure style · warm light at night"), ("floorlamp", "Floor lamp", 150, "Pure style · warm light"), ("painting", "Painting: Biscuit at dawn", 200, "Pure style"),
                 ("painting2", "Painting: the old lighthouse", 500, "Pure style"), ("stove", "Stove", 400, "Cook fish: the Well-fed buff"), ("maptable", "Map table", 900, "The big map: spots, orders, boats") })
-                P("furn:" + id, "Furniture", name, price, Fit.Now, "spot_" + id, sub, id == "maptable" ? 2 : 1, null, 1, null, id == "chair" || id == "desk" || id == "shelves" || id == "wardrobe" ? new[] { "Comfort|+0|+1|" } : new string[0]);
+                P("furn:" + id, "Furniture", name, price, Fit.Now, "spot_" + id, sub, id == "maptable" ? 2 : 1, id == "maptable" ? "office:1" : null, 1, null, id == "chair" || id == "desk" || id == "shelves" || id == "wardrobe" ? new[] { "Comfort|+0|+1|" } : new string[0]);
             P("furn:trophy", "Furniture", "Trophy mount", 300, Fit.Now, "spot_trophy", "Display a Trophy fish", 1, null, 1, "First Trophy");
             P("furn:balcony", "Furniture", "Balcony (office)", 3000, Fit.Overnight, "spot_balcony", "The place to look at your port", 2, "office:1");
             P("office:1", "Office", "Office T1: Patched Office", 2000, Fit.Overnight, "office", "Liveable office · the Crew app works fully · 3 staff", 2, null, 1, null, "Staff|0|3|");

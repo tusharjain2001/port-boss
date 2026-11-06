@@ -38,6 +38,8 @@ namespace PortBoss.M1
         {
             var hud = (RectTransform)Hud.I.transform; cam = CameraRig.I != null ? CameraRig.I.UiCam : null;
             root = UiKit.Card(hud, "yshop", 36, Ponyo.Paper, true, Ponyo.Line, 6); root.Place(new Vector2(0.5f, 0.5f), new Vector2(0, -12), new Vector2(W, H));
+            // above the HUD's toasts and tutorial hints (they used to sit over the shop header)
+            var oc = root.gameObject.AddComponent<Canvas>(); oc.overrideSorting = true; oc.sortingOrder = 20; root.gameObject.AddComponent<UnityEngine.UI.GraphicRaycaster>();
             var esc = UiKit.Key(root, "Esc", 34); esc.Place(new Vector2(1, 1), new Vector2(-122, 52), esc.sizeDelta, new Vector2(1, 0.5f));
             T(root, "Leave shop", UiKit.Body, 17, Ponyo.Paper, W - 116, -40, 120, 26).alignment = TextAnchor.MiddleLeft;
             // the right pane: a slightly cooler paper, a dashed rule between

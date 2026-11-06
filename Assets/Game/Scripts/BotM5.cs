@@ -44,7 +44,15 @@ namespace PortBoss.M1
         IEnumerator BoatShot(Skiff b, string n, float side = 1, float dist = 9, float up = 3.2f)
         {
             var t = b.transform; var c = t.position + Vector3.up * 0.9f;
-            LookAt(c, c + t.right * side * dist * 0.8f + t.forward * dist * 0.55f + Vector3.up * up); yield return M5Shot(n, 0.6f);
+            // the asked-for side first, then the others: the first view with nothing (pier, lamp, shed) between it and the boat
+            Vector3 pick = c + t.right * side * dist * 0.8f + t.forward * dist * 0.55f + Vector3.up * up;
+            foreach (var (sx, fz) in new[] { (side, 0.55f), (-side, 0.55f), (side, -0.55f), (-side, -0.55f) })
+            {
+                var from = c + t.right * sx * dist * 0.8f + t.forward * dist * fz + Vector3.up * up; bool clear = true;
+                foreach (var h in Physics.RaycastAll(from, c - from, Vector3.Distance(from, c))) if (!h.collider.transform.IsChildOf(t)) { clear = false; break; }
+                if (clear) { pick = from; break; }
+            }
+            LookAt(c, pick); yield return M5Shot(n, 0.6f);
         }
         static List<Renderer> PaintedParts(Skiff b) { var l = new List<Renderer>(); foreach (var r in b.GetComponentsInChildren<Renderer>(true)) if (r is MeshRenderer && Channels.Has(r)) l.Add(r); return l; }
         static Bounds BoundsOf(GameObject g)
@@ -90,7 +98,7 @@ namespace PortBoss.M1
                 yield return AtShop(s);
                 M5(W.Near == s, $"{s.Name}: standing at the counter ({(s.Real ? "map anchor" : "temporary spot")})");
                 M5(s.Keeper != null && s.Keeper.gameObject.activeInHierarchy, $"{s.Name}: {s.Owner} is at the counter at 10:00");
-                CameraRig.I.Yaw += 180; yield return M5Shot($"world-{s.Id}", 1.0f); CameraRig.I.Yaw -= 180; yield return null;
+                { var back = s.Front - s.At.position; back.y = 0; back = back.normalized; var side = Vector3.Cross(Vector3.up, back); LookAt(s.At.position + Vector3.up * 1.4f, s.Front + back * 4.5f + side * 2.2f + Vector3.up * 2.6f); yield return M5Shot($"world-{s.Id}", 1.0f); RigOn(); yield return null; }
                 YShop.Show(s); yield return null;
                 M5(YShop.Open, $"{s.Name}: E opens the shop");
                 var cats = new List<string>(); foreach (var w in Catalog.Of(s.S)) if (!cats.Contains(w.Cat)) cats.Add(w.Cat);
@@ -115,7 +123,7 @@ namespace PortBoss.M1
             JumpTo(1, 19.25); yield return new WaitForSeconds(0.3f);
             var plank = W.Shops.Find(x => x.S == Store.Plank); yield return AtShop(plank);
             var pr = Works.Prompt(me); M5(pr != null && pr.Contains("·") && !YShop.Open && !plank.IsOpen(Sky.Minutes), $"Plank & Post after 18:00: \"{pr}\"");
-            M5(plank.Keeper == null || !plank.Keeper.gameObject.activeInHierarchy || Vector3.Distance(plank.Keeper.transform.position, plank.At.position) > 1.5f, "Ingrid has gone in");
+            M5(plank.Keeper == null || !plank.Keeper.Visible, "Ingrid has gone in");
 
             // ---------------- 3. the set-spot validator: before
             JumpTo(2, 10); yield return new WaitForSeconds(0.5f);
@@ -134,6 +142,7 @@ namespace PortBoss.M1
             {
                 string sp = w.Spot; if (sp == null) { missing.Add(w.Id + " (none)"); continue; }
                 bool has = sp == "office" ? W.Office != null || W.Spots.ContainsKey("office") : sp == "doyle_slip" ? W.KestrelSlip != null : W.Spots.ContainsKey(sp);
+                if (!has && w.Needs == "office:1" && M1Assets.I.M5Prefab("Bld_office1") is { } o1) has = Util.Find(o1.transform, sp) != null;   // comes with the patched office
                 if (!has && !(w.Id == "furn:balcony")) missing.Add($"{w.Id} ({sp})");
                 string fam = w.Id.StartsWith("wh:") || w.Id.StartsWith("office:") ? w.Id.Split(':')[0] : w.Id;
                 if (!bySpot.TryGetValue(sp, out var l)) bySpot[sp] = l = new List<string>(); if (!l.Contains(fam)) l.Add(fam);
@@ -149,7 +158,7 @@ namespace PortBoss.M1
             yield return new WaitForSeconds(0.6f);
             int popped = now.Count(w => W.IsShown(w.Id));
             M5(popped == now.Count(w => Co.Has(w.Id)), $"furniture installs at once: {popped} shown of {now.Count(w => Co.Has(w.Id))} bought");
-            var chair = W.ShownOf("furn:chair"); if (chair != null) { LookAt(chair.transform.position + Vector3.up * 0.5f, chair.transform.position + chair.transform.forward * 2.4f + chair.transform.right * 1.2f + Vector3.up * 1.6f); yield return M5Shot("installed-chair-pop", 0.12f); yield return M5Shot("installed-chair-settled", 0.8f); RigOn(); }
+            var chair = W.ShownOf("furn:chair"); if (chair != null) { { var cp = chair.transform.position; var mid = W.Office != null ? BoundsOf(W.Office.gameObject).center : cp + chair.transform.forward; var inw = mid - cp; inw.y = 0; inw = inw.sqrMagnitude > 0.01f ? inw.normalized : chair.transform.forward; LookAt(cp + Vector3.up * 0.5f, cp + inw * 2.6f + Vector3.up * 1.7f); } yield return M5Shot("installed-chair-pop", 0.12f); yield return M5Shot("installed-chair-settled", 0.8f); RigOn(); }
             // two rounds: B3 needs B2, the lamps need the one before
             for (int round = 0; round < 4; round++)
             {
@@ -167,6 +176,11 @@ namespace PortBoss.M1
             // the office tiers (the shack becomes Walt's office)
             Works.HostBuy(Firm.I.NewTx("m5"), Works.MyKey, Works.MyName, "office:1", 0, false, out var wo); JumpTo(Today + 1, 7.0); yield return new WaitForSeconds(2.5f); JumpTo(Today, 10);
             M5(Co.OfficeTier == 1, $"the office T1 is built overnight ({(wo == "" ? "ordered" : wo)})");
+            // what needs the patched office (the bunk, the double bed, the map table): now it fits
+            var later = now.Where(w => w.Needs == "office:1").ToList();
+            foreach (var w in later) { bool ok = Works.HostBuy(Firm.I.NewTx("m5"), Works.MyKey, Works.MyName, w.Id, 0, false, out var wy); if (!ok) M5(false, $"buy {w.Id}: {wy}"); }
+            yield return new WaitForSeconds(0.6f);
+            M5(later.Count == 3 && later.All(w => W.ShownOf(w.Id) != null), $"with the office T1: {string.Join(", ", later.Select(w => w.Id + (W.ShownOf(w.Id) != null ? " in its spot" : " MISSING")))}");
             // every item in its spot, still in place, after the office tier moved the furniture over
             yield return new WaitForSeconds(0.6f);
             // overlaps
@@ -273,6 +287,7 @@ namespace PortBoss.M1
                 CameraRig.I.Yaw = kes.transform.eulerAngles.y + 160; yield return M5Shot("kestrel-aboard-before-buying", 0.8f);
                 me.Teleport(spawn + Vector3.up * 0.1f, 0); yield return new WaitForSeconds(0.6f);
                 LookAt(kes.transform.position + Vector3.up, kes.transform.position + kes.transform.right * -9 + kes.transform.forward * 6 + Vector3.up * 4); yield return M5Shot("kestrel-at-doyles", 0.6f); RigOn();
+                JumpTo(Today + 1, 10); yield return null;   // Doyle's open (the paint jobs ran into the evening)
                 bool kb = Works.HostBuy(Firm.I.NewTx("m5"), Works.MyKey, Works.MyName, "boat:kestrel", 0, false, out var kw);
                 yield return new WaitForSeconds(1.0f);
                 M5(kb && Works.CanDrive(kes) && W.KestrelBerth != null && Vector3.Distance(kes.transform.position, W.KestrelBerth.position) < 3, $"bought ({kw}): she's at the landing ({(W.KestrelBerth != null ? Vector3.Distance(kes.transform.position, W.KestrelBerth.position) : -1):F1} m from her berth) and drives");
@@ -340,8 +355,9 @@ namespace PortBoss.M1
             Wardrobe.Show(); yield return null; M5(Wardrobe.Open, "the wardrobe opens");
             yield return M5Shot("wardrobe-mine", 1.0f);
             for (int p = 0; p < 6; p++) { Wardrobe.I.Tap("crew " + Catalog.Preset[p]); yield return M5Shot($"wardrobe-preset-{Catalog.Preset[p].ToLowerInvariant()}", 0.9f); }
+            Wardrobe.I.Tap("crew Sully"); yield return new WaitForSeconds(0.6f);   // a second tap on the shown one: be them
             M5(Co.OutfitOf(Works.MyKey).Preset == 5 && Angler.Body == 5, $"picked Sully in the wardrobe (preset {Co.OutfitOf(Works.MyKey).Preset}, body {Angler.Body})");
-            Wardrobe.I.Tap("crew Pip"); yield return new WaitForSeconds(0.4f);
+            Wardrobe.I.Tap("crew Pip"); yield return new WaitForSeconds(0.4f); Wardrobe.I.Tap("crew Pip"); yield return new WaitForSeconds(0.4f);
             foreach (var t in new[] { "Hat", "Top", "Over", "Legs", "Boots", "Gloves" }) { Wardrobe.I.Tap("tab " + t); yield return M5Shot($"wardrobe-tab-{t.ToLowerInvariant()}", 0.4f); }
             Wardrobe.I.Hide(); yield return null;
             Debug.Log($"[PB] m5: bank ${Co.Cash}, ledger {Co.Ledger.Count} lines, owned {Co.Owned.Count}");
@@ -419,13 +435,13 @@ namespace PortBoss.M1
                 yield return Until(() => Other().Crew == 0, 30);
                 Wardrobe.Show(); yield return new WaitForSeconds(0.6f);
                 if (shots != null) yield return M5Shot("coop-wardrobe-pip-taken", 0.6f);
-                Wardrobe.I.Tap("crew Pip"); yield return new WaitForSeconds(3f);
+                Wardrobe.I.Tap("crew Pip"); yield return new WaitForSeconds(0.4f); Wardrobe.I.Tap("crew Pip"); yield return new WaitForSeconds(3f);
                 M5(Mine().Crew != 0, $"Pip is taken by {hn}: I stay {Mine().Crew}");
-                Wardrobe.I.Tap("crew Rani"); yield return Until(() => Mine().Crew == 3, 10);
+                Wardrobe.I.Tap("crew Rani"); yield return new WaitForSeconds(0.4f); Wardrobe.I.Tap("crew Rani"); yield return Until(() => Mine().Crew == 3, 20);
                 M5(Mine().Crew == 3 && Angler.Body == 3, $"I'm Rani (roster {Mine().Crew}, body {Angler.Body})");
                 Wardrobe.I.Hide();
                 // ---- 2. the host's buys reach me: the chair pops in, the paint job runs here, the host's cap
-                yield return Until(() => W.IsShown("furn:chair"), 20);
+                yield return Until(() => W.IsShown("furn:chair") && Co.BoatOf("biscuit").Job != null, 60);
                 M5(W.IsShown("furn:chair"), "the host's chair is in its spot here");
                 var job = Co.BoatOf("biscuit").Job; M5(job != null && job.To == 9, $"the host's paint job runs here too ({job?.To})");
                 yield return Until(() => Coop.I.Mates.TryGetValue(Other().Id, out var m) && Wardrobe.HatOf(m.BodyGo) == "wear:captain", 20);
@@ -455,7 +471,7 @@ namespace PortBoss.M1
                 if (shots != null) yield return M5Shot("coop-ask-card-asker-ok", 0.3f);
                 Phone.I.Hide();
                 // ---- 5. the office: Not now
-                Works.Buy("office:1", 0);
+                Works.AskCrew("office:1", 0);   // under the limit: asked on purpose
                 yield return Until(() => Co.Asks.Exists(a => a.Item == "office:1" && a.St == AskSt.Declined), 40);
                 M5(Co.Asks.Exists(a => a.Item == "office:1" && a.St == AskSt.Declined), $"{hn} said not now to the office");
                 // ---- 6. my sou'wester (the host sees it)

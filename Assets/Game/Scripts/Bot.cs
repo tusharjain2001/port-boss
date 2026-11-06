@@ -1001,6 +1001,8 @@ namespace PortBoss.M1
             if (!Application.isBatchMode || CameraRig.I == null) { ScreenCapture.CaptureScreenshot(path); return; }
             // batchmode draws nothing by itself: render the scene camera, then the UI camera, each into its own fresh
             // texture, and lay the (premultiplied) UI over the scene, as the stacked cameras do in the game
+            // the off-screen cameras (a shop's preview, the wardrobe's turntable) also draw nothing by themselves
+            foreach (var oc in Camera.allCameras) if (oc.targetTexture != null && oc != CameraRig.I.Cam && oc != CameraRig.I.UiCam) oc.Render();
             var tex = Grab(CameraRig.I.Cam, w, h, false);
             // URP writes alpha 1 for the UI camera's empty background, so recover the UI's coverage by drawing it over
             // black and over white: alpha = 1 - (white - black), colour (premultiplied) = the black pass

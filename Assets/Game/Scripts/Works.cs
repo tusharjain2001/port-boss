@@ -185,10 +185,15 @@ namespace PortBoss.M1
         public static List<Vector3> Path(Vector3 a, Vector3 b)
         {
             var l = new List<Vector3>();
-            if (NavOk && NavMesh.SamplePosition(a, out var ha, 3, NavMesh.AllAreas) && NavMesh.SamplePosition(b, out var hb, 3, NavMesh.AllAreas))
+            // the nearest walkable points (3 m, else 12 m: a spot beside a counter or a hull can sit just off the mesh)
+            if (NavOk && (NavMesh.SamplePosition(a, out var ha, 3, NavMesh.AllAreas) || NavMesh.SamplePosition(a, out ha, 12, NavMesh.AllAreas))
+                      && (NavMesh.SamplePosition(b, out var hb, 3, NavMesh.AllAreas) || NavMesh.SamplePosition(b, out hb, 12, NavMesh.AllAreas)))
             {
                 var p = new NavMeshPath();
-                if (NavMesh.CalculatePath(ha.position, hb.position, NavMesh.AllAreas, p) && p.status == NavMeshPathStatus.PathComplete) { l.AddRange(p.corners); return l; }
+                if (NavMesh.CalculatePath(ha.position, hb.position, NavMesh.AllAreas, p) && p.status != NavMeshPathStatus.PathInvalid && p.corners.Length > 0
+                    && (p.status == NavMeshPathStatus.PathComplete || Vector3.Distance(p.corners[p.corners.Length - 1], hb.position) < 2))
+                { if (Vector3.Distance(a, ha.position) > 0.3f) l.Add(a); l.AddRange(p.corners); if (Vector3.Distance(b, hb.position) > 0.3f) l.Add(b); return l; }
+                Log($"no walk from {a} to {b} ({p.status})");
             }
             l.Add(a); l.Add(b); return l;
         }
@@ -241,6 +246,11 @@ namespace PortBoss.M1
             bool owned = C.Owned.Contains("boat:kestrel");
             Kestrel = Skiff.Create(a.Kestrel, Game.ToonMat, owned ? kestrelBerth : kestrelSlip, "kestrel", "Kestrel");
             Kestrel.Top = 9f; Kestrel.Sound = true;
+            {   // the hammock's spot: slung across the aft cockpit, behind the helm (hooks on the gunwales)
+                var helm = Kestrel.Helm; var h = new GameObject("spot_hammock").transform; h.SetParent(Kestrel.transform, false);
+                h.localPosition = helm != null ? Kestrel.transform.InverseTransformPoint(helm.position) + new Vector3(0, 0, -1.9f) : new Vector3(0, 0.5f, -2.4f);
+                Spots["spot_hammock"] = h;
+            }
             Kestrel.Hull.size = Vector3.Max(Kestrel.Hull.size, new Vector3(2.4f, 1.2f, 7.2f));
         }
         public static bool CanDrive(Skiff s) => s == null || s.Id != "kestrel" || (C != null && C.Owned.Contains("boat:kestrel"));
@@ -309,8 +319,7 @@ namespace PortBoss.M1
             KestrelTick();
             // the host: asks that lapse (nobody else online), and the overnight builds land in Company.Tick
             if (Sky.Authority && (!Coop.On || Coop.IsHost)) C.TickAsks(m, key => Others(key));
-            reconcileT -= Time.unscaledDeltaTime;
-            if (reconcileT <= 0) { reconcileT = 0.25f; Reconcile(); }
+            if (Time.frameCount % 8 == 0) Reconcile();   // every 8 frames (frame-based: a batch run's frames outrun real time)
             Tester();
         }
         static bool Others(string key)
@@ -800,6 +809,7 @@ namespace PortBoss.M1
         }
         public void Paint(bool on) { painting = on; if (roller != null) roller.gameObject.SetActive(on); }
         public void Show(bool on) { if (body != null && body.activeSelf != on) body.SetActive(on); }
+        public bool Visible => body != null && body.activeSelf;
         public void Hold(Vector3 p, Vector3 face, bool walking)
         {
             face.y = 0; transform.position = p; if (face.sqrMagnitude > 1e-4f) transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(face.normalized), 1 - Mathf.Exp(-10 * Time.deltaTime));

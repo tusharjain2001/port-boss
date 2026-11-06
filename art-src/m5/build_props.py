@@ -1433,7 +1433,7 @@ def site_spots():
         spot_lamp1=(-1.0, -12.25, DECK, 90, 'docklamp'),
         spot_lamp2=(-1.0, -4.75, DECK, 90, 'docklamp'),
         spot_lamp3=(-1.0, 2.75, DECK, 90, 'docklamp'),
-        spot_lamp4=(2.2, 10.8, g(2.2, 10.8), -90, 'docklamp'),
+        spot_lamp4=(6.3, 10.9, g(6.3, 10.9), -90, 'docklamp'),
         spot_power=(1.05, -17.4, DECK, -90, 'powerpost'),
         spot_tap=(1.05, -15.8, DECK, -90, 'tap'),
         spot_wh=(wx, wy, wz, 0, 'wh'),
