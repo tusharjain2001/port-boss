@@ -46,6 +46,14 @@ namespace PortBoss.M1
                             break;
                         }
                     case 5: ok = Works.HostTake(from, arg, flag) > 0; why = ok ? "" : "Hotbar full."; break;
+                    // M6: the crew (Workers.cs): hire, assign, fire, recall, Rosie's board seen
+                    case 6: why = c.Hire(tx, e.Name, arg, Sky.Minutes, flag); ok = why == ""; break;
+                    case 7: why = Workers.HostAssign(arg, item); ok = why == ""; break;
+                    case 8: why = c.Fire(tx, e.Name, arg, Sky.Minutes); ok = why == ""; break;
+                    case 9: why = Workers.HostRecall(arg); ok = why == ""; break;
+                    case 10: c.BoardSeen = true; break;
+                    case 11: why = c.Tow(tx, e.Name, arg, Sky.Minutes); ok = why == ""; break;
+                    case 12: why = c.ShelveBait(arg, int.TryParse(item, out var nb) ? nb : 0); ok = why == ""; break;
                 }
                 Firm.I.Dirty = true;
                 if (from != nm.LocalClientId) SendTo(from, "pb.m5r", w => { w.WriteValueSafe(op); w.WriteValueSafe(item); w.WriteValueSafe(ok); w.WriteValueSafe(why ?? ""); }, NetworkDelivery.ReliableSequenced);
@@ -60,7 +68,8 @@ namespace PortBoss.M1
                 bool asked = why.StartsWith("ask:");
                 if (op == 0 || op == 1) Works.Done?.Invoke(item, ok, asked ? "" : why);
                 if (asked) Alerts.Push("Ask the crew", $"Asked the crew: {Catalog.Get(item)?.Name}. One OK buys it.", Alerts.Kind.Info, why);
-                else if (!ok && why != "") Alerts.Push(op >= 4 ? "Warehouse" : "Shop", why, Alerts.Kind.Info);
+                if (op >= 6) Workers.Done?.Invoke(op == 6 ? "hire" : op == 7 ? "assign" : op == 8 ? "fire" : op == 9 ? "recall" : op == 11 ? "tow" : op == 12 ? "bait" : "seen", ok, why);
+                if (!ok && why != "" && !asked) Alerts.Push(op >= 6 ? "Crew" : op >= 4 ? "Warehouse" : "Shop", why, Alerts.Kind.Info);
             }, true);
         }
     }

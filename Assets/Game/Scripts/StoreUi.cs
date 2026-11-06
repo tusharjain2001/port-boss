@@ -9,13 +9,14 @@ namespace PortBoss.M1
     // M5: the warehouse (systems §1.1.6): the company's one store, E at its door. Left: what's on you (your hotbar's
     // fish, one row per stack: Store / Store all). Right: the racks (12, 24 from T1) and the cold room (12 from T2), a slot
     // = 10 fish of one species + grade, its freshness (the cold room rots at 25%). Click a slot: take one; Shift: the lot.
+    // M6: along the bottom, the crew's bait shelf (economy §5.4): leave 10 from your pouch; workers take from it first.
     public class StoreUi : MonoBehaviour
     {
         public static StoreUi I;
         public static bool Open => I != null && I.root != null && I.root.gameObject.activeSelf;
         static Company C => Firm.C;
-        const float W = 1360, H = 820, Pad = 34;
-        RectTransform root, left, rack; Text title, sub; Camera cam;
+        const float W = 1360, H = 900, Pad = 34;
+        RectTransform root, left, rack, shelf; Text title, sub; Camera cam;
         readonly List<(RectTransform r, Action a)> btns = new(); int focus = -1; string key;
 
         public static void Create() { var g = new GameObject("StoreUi"); I = g.AddComponent<StoreUi>(); I.Build(); }
@@ -30,8 +31,9 @@ namespace PortBoss.M1
             title = T(root, "", UiKit.DisplayBold, 40, Ponyo.Ink, Pad + 96, 30, 800, 50); sub = T(root, "", UiKit.Body, 17, Ponyo.InkSoft, Pad + 98, 82, 900, 24);
             var esc = UiKit.Key(root, "Esc", 30); esc.Place(new Vector2(1, 1), new Vector2(-Pad - 64, -40), esc.sizeDelta, new Vector2(1, 1));
             T(root, "Leave", UiKit.Body, 16, Ponyo.InkSoft, W - Pad - 56, 44, 60, 24);
-            left = UiKit.Rect("on you", root).Place(new Vector2(0, 1), new Vector2(Pad, -130), new Vector2(420, H - 160), new Vector2(0, 1));
-            rack = UiKit.Rect("racks", root).Place(new Vector2(0, 1), new Vector2(Pad + 450, -130), new Vector2(W - 2 * Pad - 450, H - 160), new Vector2(0, 1));
+            left = UiKit.Rect("on you", root).Place(new Vector2(0, 1), new Vector2(Pad, -130), new Vector2(420, H - 240), new Vector2(0, 1));
+            rack = UiKit.Rect("racks", root).Place(new Vector2(0, 1), new Vector2(Pad + 450, -130), new Vector2(W - 2 * Pad - 450, H - 240), new Vector2(0, 1));
+            shelf = UiKit.Rect("bait shelf", root).Place(new Vector2(0, 1), new Vector2(Pad, -(H - 104)), new Vector2(W - 2 * Pad, 80), new Vector2(0, 1));
             root.gameObject.SetActive(false);
         }
         public static void Show() => I?.ShowI();
@@ -53,6 +55,7 @@ namespace PortBoss.M1
             if (Ctl.Escape || kb != null && kb.escapeKey.wasPressedThisFrame || pad != null && pad.buttonEast.wasPressedThisFrame || me == null || door.HasValue && Vector3.Distance(door.Value, me.transform.position) > 4f)
             { Ctl.UiEsc = Time.frameCount; Hide(); return; }
             var sb = new System.Text.StringBuilder(); foreach (var s in me.Bar.S) sb.Append(s.Fish.Count).Append(';'); foreach (var s in C.Wh) sb.Append(s.Fish.Count).Append(',');
+            foreach (var b in C.BaitStore) sb.Append(b).Append('b'); foreach (var b in Firm.I.MyKit.Bait) sb.Append(b).Append('p');
             string k = sb.Append(C.WhTier).Append((int)(Sky.Minutes / 30)).ToString();
             if (k != key) { key = k; Draw(); }
             var mouse = Mouse.current;
@@ -78,6 +81,24 @@ namespace PortBoss.M1
             }
             if ((kb != null && (kb.eKey.wasPressedThisFrame || kb.enterKey.wasPressedThisFrame) || pad != null && pad.buttonSouth.wasPressedThisFrame) && focus >= 0 && focus < btns.Count) Press(focus);
         }
+        // the crew's bait shelf: one chip per bait a worker can take (Walt's Mix stays yours)
+        void DrawShelf()
+        {
+            var kit = Firm.I.MyKit; string[] nice = { "Worms", "Shrimp", "Sardine", "Squid strip" };
+            T(shelf, "CREW BAIT SHELF · your workers take from here first, then June's delivers the rest (+$" + Company.BaitDelivery + ")", UiKit.Bold, 13, Ponyo.InkSoft, 0, 0, W - 2 * Pad, 18);
+            float cw = (W - 2 * Pad - 3 * 12) / 4;
+            for (int i = 0; i < 4; i++)
+            {
+                int idx = i;
+                var r = UiKit.Card(shelf, "bait " + i, 16, Ponyo.Paper, false, Ponyo.Hex("E2D3BB"), 2); r.Place(new Vector2(0, 1), new Vector2(i * (cw + 12), -24), new Vector2(cw, 54), new Vector2(0, 1));
+                T(r, $"{nice[i]}  ×{C.BaitStore[i]}", UiKit.Bold, 17, Ponyo.Ink, 14, 6, cw - 130, 24);
+                T(r, $"{kit.Bait[i]} in your pouch", UiKit.Body, 13, Ponyo.InkSoft, 14, 30, cw - 130, 18);
+                bool can = kit.Bait[i] > 0;
+                var b = UiKit.Card(r, "leave", 16, can ? Ponyo.Sunflower : Ponyo.Paper2, can, Ponyo.Hex("B88A1E"), can ? 3 : 0); b.Place(new Vector2(1, 0.5f), new Vector2(-10, 0), new Vector2(108, 36), new Vector2(1, 0.5f));
+                UiKit.Txt(b, can ? $"Leave {Mathf.Min(10, kit.Bait[i])}" : "None on you", UiKit.Bold, 14, can ? Ponyo.Ink : Ponyo.InkSoft, TextAnchor.MiddleCenter).rectTransform.Stretch();
+                Btn(b, "leave bait " + i, () => { if (Firm.I.MyKit.Bait[idx] <= 0) return; Workers.LeaveBait(idx); Snd.Play2D(Synth.Plunk, 0.35f, 1.2f); });
+            }
+        }
         bool Hit(RectTransform r, Vector2 sp) => r != null && RectTransformUtility.RectangleContainsScreenPoint(r, sp, cam);
         static Vector2 Centre(RectTransform r) { var c = r.TransformPoint(r.rect.center); return new Vector2(c.x, c.y); }
         void Press(int i) { focus = i; key = null; btns[i].a(); }
@@ -93,7 +114,8 @@ namespace PortBoss.M1
 
         void Draw()
         {
-            foreach (Transform t in left) Destroy(t.gameObject); foreach (Transform t in rack) Destroy(t.gameObject); btns.Clear();
+            foreach (Transform t in left) Destroy(t.gameObject); foreach (Transform t in rack) Destroy(t.gameObject); foreach (Transform t in shelf) Destroy(t.gameObject); btns.Clear();
+            DrawShelf();
             int tier = C.WhTier; string[] names = { "Walt's Old Shed", "Patched Warehouse", "Cold Room", "Big Warehouse" };
             title.text = "Warehouse · " + names[Mathf.Min(tier, 3)];
             int racks = C.Racks, cold = C.ColdSlots, used = 0; foreach (var s in C.Wh) if (s.Fish.Count > 0) used++;

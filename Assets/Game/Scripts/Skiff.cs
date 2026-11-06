@@ -19,6 +19,8 @@ namespace PortBoss.M1
         public static Skiff At(int i) => i >= 0 && i < All.Count ? All[i] : null;
         public static Skiff Of(string id) { foreach (var b in All) if (b.Id == id) return b; return null; }
         public int Index; public string Id = "biscuit", Name = "Biscuit"; public float Top = MaxSpeed;
+        // M6: a crew member has her out on a shift (from the company, so every co-op machine agrees)
+        public bool Crewed => Firm.C != null && Firm.C.Staff.Exists(w => w.Boat == Id && w.Run != null && !w.Run.Landed && w.Run.St != WSt.NoShow);
         public Transform Helm, TillerGrip, LadderTop, LadderBottom, AnchorPt, Motor, Prop, CamPoint;
         public Transform[] Rails;
         public Bounds Hull;                       // local, from HullBottom_colBox (+ the sides)
@@ -130,7 +132,7 @@ namespace PortBoss.M1
         // This copy becomes the real boat (its driver, or the host when the driver leaves): carry on from where it is shown.
         public void TakeOver()
         {
-            Remote = false; Net.Clear(); AtHelm = Angler.I != null && Angler.I.AtHelm;
+            Remote = false; Net.Clear(); AtHelm = Angler.I != null && Angler.I.AtHelm && Angler.I.Boat == this;   // only the boat you steer (M6: a crewed Biscuit isn't yours)
             var e = transform.eulerAngles; pos = new Vector3(transform.position.x, 0, transform.position.z); y = transform.position.y;
             yaw = e.y; pitch = Mathf.DeltaAngle(0, e.x); roll = Mathf.DeltaAngle(0, e.z); vy = vp = vr = 0;
             if (Anchored) anchorAt = pos;
@@ -160,7 +162,7 @@ namespace PortBoss.M1
             if (Remote) { FollowNet(dt); Physics.SyncTransforms(); Visuals(dt); return; }
             // rudder: follows the stick, recentres in ~0.6 s
             Rudder = Mathf.Abs(Steer) > 0.05f ? Mathf.MoveTowards(Rudder, Steer * 35f, 120f * dt) : Mathf.MoveTowards(Rudder, 0, 60f * dt);
-            if (!AtHelm && Notch != 0 && !Moored) { Notch = 0; Alerts.Push(Name, "Throttle eased to stop.", Alerts.Kind.Info); } // no runaway boats
+            if (!AtHelm && !Crewed && Notch != 0 && !Moored) { Notch = 0; Alerts.Push(Name, "Throttle eased to stop.", Alerts.Kind.Info); } // no runaway boats
 
             LeakTick(dt);
             float want = Moored || Anchored ? 0 : TargetSpeed * SpeedMul;
@@ -304,15 +306,15 @@ namespace PortBoss.M1
             return k;
         }
 
-        public void CastOff()
+        public void CastOff(bool quiet = false)
         {
             if (!Moored) return;
             Moored = false; moorBlend = 0;
-            Alerts.Push(Name, "Cast off. W / S for the throttle, A / D to steer.", Alerts.Kind.Info, "berth", "berth");
+            if (!quiet) Alerts.Push(Name, "Cast off. W / S for the throttle, A / D to steer.", Alerts.Kind.Info, "berth", "berth");
         }
 
         public bool CanMoor => !Moored && MoorAt != null && Vector3.Distance(Flat(pos), Flat(MoorAt.position)) < 6f && Mathf.Abs(Speed) < 2f;
-        public void Moor() { Moored = true; Anchored = false; moorBlend = 0; Notch = 0; Speed = 0; Alerts.Push(Name, "Moored at Walt's Landing.", Alerts.Kind.Info, "berth", "berth|anchor"); }
+        public void Moor(bool quiet = false) { Moored = true; Anchored = false; moorBlend = 0; Notch = 0; Speed = 0; if (!quiet) Alerts.Push(Name, "Moored at Walt's Landing.", Alerts.Kind.Info, "berth", "berth|anchor"); }
         static Vector3 Flat(Vector3 v) => new Vector3(v.x, 0, v.z);
 
         // M3: a boat left loose for the night anchors itself where it is (systems §1.4.2)

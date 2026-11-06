@@ -582,13 +582,14 @@ namespace PortBoss.M1
             if (OnBoat && s.Helm != null && Near(s.Helm.position, 1.3f))
             {
                 if (s.Remote && s.AtHelm) { Prompt = "A crewmate has the tiller"; return; } // co-op: one driver
+                if (s.Crewed) { Prompt = $"{Firm.C.Staff.Find(w => w.Boat == s.Id)?.Name ?? "The crew"} has the tiller (a shift)"; return; } // M6
                 if (!Works.CanDrive(s)) { Prompt = $"{s.Name} · Doyle's, ${Catalog.Get("boat:kestrel")?.Price:N0}"; if (Ctl.Interact) Alerts.Push("Doyle Boatworks", Works.DriveRefusal(s), Alerts.Kind.Info); return; } // M5: walk aboard before buying
                 Prompt = "Take the tiller"; if (Ctl.Interact) { BeginHelm(s); Fish.Stow(); } return;
             }
             if (OnBoat && s.AnchorPt != null && Near(s.AnchorPt.position, 1.4f) && !s.Moored) { Prompt = s.AnchorT >= 0 ? "…" : s.Anchored ? "Raise the anchor" : "Drop the anchor"; if (Ctl.Interact) { if (s.Remote) Coop.Request(Coop.Ask.Anchor); else s.ToggleAnchor(); } return; }
             var leak = s.LeakPrompt(this); if (leak != null) { Prompt = leak; return; }  // M3: patch the leak, bail
             var shop = Firm.Prompt(this); if (shop != null) { Prompt = shop; return; } // M4: the shop counters
-            var works = Works.Prompt(this); if (works != null) { Prompt = works; return; } // M5: Doyle's, Plank & Post, Hartley's, the wardrobe, the warehouse
+            var works = Works.Prompt(this) ?? Workers.Prompt(this); if (works != null) { Prompt = works; return; } // M5: Doyle's, Plank & Post, Hartley's, the wardrobe, the warehouse
             var bed = Sleep.BedPrompt(this); if (bed != null) { Prompt = bed; return; } // M3: Walt's cot
             var pick = FishPickup.Nearest(transform.position, 1.6f);
             if (pick != null) { Prompt = Bar.Full ? "Hotbar full" : "Pick up " + pick.F.Species.Name; if (Ctl.Interact && !Bar.Full) pick.Take(this); return; }

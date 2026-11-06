@@ -831,6 +831,9 @@ namespace PortBoss.M1
         public void Paint(bool on) { painting = on; if (roller != null) roller.gameObject.SetActive(on); }
         public void Show(bool on) { if (body != null && body.activeSelf != on) body.SetActive(on); }
         public bool Visible => body != null && body.activeSelf;
+        // a wave (M6: a crew skipper passing you): the right arm up, the forearm swinging, for secs
+        float waveUntil; public void Wave(float secs) => waveUntil = Time.time + secs;
+        static void Aim(Transform bone, Transform child, Vector3 dir) { if (bone == null || child == null) return; var cur = child.position - bone.position; if (cur.sqrMagnitude > 1e-6f) bone.rotation = Quaternion.FromToRotation(cur, dir) * bone.rotation; }
         public void Hold(Vector3 p, Vector3 face, bool walking)
         {
             face.y = 0; transform.position = p; if (face.sqrMagnitude > 1e-4f) transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(face.normalized), 1 - Mathf.Exp(-10 * Time.deltaTime));
@@ -842,6 +845,17 @@ namespace PortBoss.M1
             if (anim == null || body == null || !body.activeSelf) return;
             anim.Tick(speed > 0.15f ? CharAnim.Slot.Walk : CharAnim.Slot.Idle, speed);
             if (painting && roller != null) roller.parent.localRotation *= Quaternion.Euler(0, 0, Mathf.Sin(Time.time * 7) * 25);   // rolling up and down the planks
+            if (Time.time < waveUntil && anim != null)
+            {
+                var an = body.GetComponentInChildren<Animator>(); if (an == null || !an.isHuman) return;
+                Transform ua = an.GetBoneTransform(HumanBodyBones.RightUpperArm), la = an.GetBoneTransform(HumanBodyBones.RightLowerArm), hd = an.GetBoneTransform(HumanBodyBones.RightHand);
+                float k = Mathf.Clamp01((waveUntil - Time.time) / 0.3f) * Mathf.Clamp01((Time.time - (waveUntil - 2.6f)) / 0.3f);   // ease in and out
+                var up = transform.up; var side = transform.right;
+                var cur = la != null && ua != null ? (la.position - ua.position).normalized : side;
+                Aim(ua, la, Vector3.Slerp(cur, (up * 0.75f + side * 0.6f).normalized, k));
+                var cur2 = hd != null && la != null ? (hd.position - la.position).normalized : up;
+                Aim(la, hd, Vector3.Slerp(cur2, (up + side * Mathf.Sin(Time.time * 9) * 0.55f).normalized, k));
+            }
         }
     }
 }

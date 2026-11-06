@@ -155,7 +155,7 @@ namespace PortBoss.M1
         string Key()
         {
             var c = Firm.C; int minute = (int)Sky.Minutes;
-            return $"{Screen}|{Thread}|{minute}|{c?.Cash}|{c?.Msgs.Count}|{c?.Mari}|{c?.Ledger.Count}|{c?.MariTracked}|{Unread()}|{Alerts.Queue.Count}|{mapFilter}|{(int)scroll}|{Settings.MouseSens:F2}|{Settings.Invert}|{Settings.TimingOffsetMs}|{Settings.Voice}|{H24}|{Firm.I?.MyKit.Rod}";
+            return $"{Screen}|{Thread}|{minute}|{c?.Cash}|{c?.Msgs.Count}|{c?.Mari}|{c?.Ledger.Count}|{c?.MariTracked}|{Unread()}|{Alerts.Queue.Count}|{mapFilter}|{(int)scroll}|{Settings.MouseSens:F2}|{Settings.Invert}|{Settings.TimingOffsetMs}|{Settings.Voice}|{H24}|{Firm.I?.MyKit.Rod}|{CrewTab}|{crewEdit}|{eWho}|{eSpot}|{eBait}|{eSh}|{eBack}|{c?.Staff.Count}|{c?.Board.Count}|{c?.BoardSeen}|{CrewLive(c)}";
         }
 
         // ---------------------------------------------------------------- input: mouse, keys, pad
@@ -369,6 +369,8 @@ namespace PortBoss.M1
         {
             var l = new List<(string, int)>();
             if (c.Mari == DealSt.Active) l.Add(("Mari's rent", c.MariPrice));
+            int today = DayTime.Day(Sky.Minutes);   // M6: tomorrow's wages (today's shift, and any IOU)
+            foreach (var w in c.Staff) { int due = w.Owed + (w.Run != null && w.Run.Day == today && w.Run.St != WSt.NoShow && !w.Run.Paid ? c.WageToday(w) : 0); if (due > 0) l.Add(($"Wage: {w.Name}", -due)); }
             return l;
         }
 
@@ -551,14 +553,184 @@ namespace PortBoss.M1
             return y + 280;
         }
 
+        // ---------------------------------------------------------------- M6: the Crew app (systems §1.5 Crew, mockup 03-phone "3 · Crew")
+        // Tab Boats: a card per boat (skipper, bait, back-by, the live line and a progress bar), a locked second boat, the
+        // free hands. Tab Hire at Rosie's: today's three faces. Assign: pick a boat -> a worker -> spot -> bait -> shift -> back-by.
+        public int CrewTab; string crewEdit; int eWho = -1, eBack; string eSpot, eBait; Shift eSh; bool eBuy = true;
+        static readonly string[] Baits = { "Worm", "Shrimp", "Sardine", "Squid" };
+        static readonly Color CrewBlue = Ponyo.Hex("4C5BB8");
+        static List<Skiff> CrewAtSea() { var l = new List<Skiff>(); if (Firm.C != null) foreach (var w in Firm.C.Staff) if (w.Boat != null && w.Run != null && !w.Run.Landed && w.Run.St != WSt.NoShow && Skiff.Of(w.Boat) is { } b) l.Add(b); return l; }
+        static string CrewLive(Company c) { if (c == null) return ""; var s = ""; foreach (var w in c.Staff) s += $"{w.Id}{w.Boat}{w.Spot}{w.Bait}{(int)w.Sh}{w.BackBy}{w.Iou}{w.Run?.St}{w.Run?.Landed};"; return s; }
         float Crew()
         {
-            Header("Crew");
-            var card = Card(list, 0, 70, CW, 250, Ponyo.Paper2);
-            Ico(card, "lock", SubInk, CW / 2 - 28, 30, 56);
-            T(card, "Rosie's hiring board", UiKit.DisplayBold, 22, Ponyo.Ink, 0, 100, CW, 30, TextAnchor.UpperCenter);
-            T(card, "Opens in Act 2. Hire deckhands at The Mooring Line, give them a boat and bait, and they fish while you do something else.", UiKit.Body, 15, SubInk, 24, 136, CW - 48, 90, TextAnchor.UpperCenter);
-            return 340;
+            var c = Firm.C; double m = Sky.Minutes;
+            if (c.Act < 2)
+            {
+                Header("Crew");
+                var card = Card(list, 0, 70, CW, 250, Ponyo.Paper2);
+                Ico(card, "lock", SubInk, CW / 2 - 28, 30, 56);
+                T(card, "Rosie's hiring board", UiKit.DisplayBold, 22, Ponyo.Ink, 0, 100, CW, 30, TextAnchor.UpperCenter);
+                T(card, "Opens in Act 2. Hire deckhands at The Mooring Line, give them a boat and bait, and they fish while you do something else.", UiKit.Body, 15, SubInk, 24, 136, CW - 48, 90, TextAnchor.UpperCenter);
+                return 340;
+            }
+            Header("Crew", $"{c.Staff.Count} hired");
+            float y = 58, tw = (CW - 8) / 2;
+            Pill(list, "Boats", 0, y, tw, 38, CrewTab == 0 ? Ponyo.Sunflower : Ponyo.Paper2, Ponyo.Ink, () => { CrewTab = 0; }, null, 15);
+            Pill(list, "Hire at Rosie's", tw + 8, y, tw, 38, CrewTab == 1 ? Ponyo.Sunflower : Ponyo.Paper2, Ponyo.Ink, () => { CrewTab = 1; }, null, 15);
+            y += 52;
+            if (CrewTab == 1) return Hire(c, m, y);
+            var boats = Boats(c);
+            foreach (var b in boats) y = BoatCard(c, b, m, y) + 12;
+            if (boats.Count < 2)
+            {   // the locked second boat (the mockup): Fergus sells boats at the yard
+                var lk = Card(list, 0, y, CW, 64, Ponyo.Paper2);
+                Ico(lk, "lock", SubInk, 16, 18, 28);
+                T(lk, "Second boat", UiKit.Bold, 16, Ponyo.Ink, 56, 12, CW - 70, 22);
+                T(lk, "Fergus sells boats at the yard (Doyle Boatworks).", UiKit.Body, 13, SubInk, 56, 34, CW - 70, 20);
+                y += 76;
+            }
+            var free = c.Staff.FindAll(x => x.Boat == null);
+            Caps(list, free.Count > 0 ? "Free hands" : c.Staff.Count == 0 ? "No crew yet" : "Everyone has a boat", 2, y); y += 24;
+            if (c.Staff.Count == 0) { T(list, "Rosie's board at The Mooring Line lists who's looking for work (11 AM - 2 AM).", UiKit.Body, 14, SubInk, 2, y, CW, 40); y += 46; }
+            foreach (var w in free) y = FreeCard(c, w, m, y) + 10;
+            return y;
+        }
+        static string Stars(int n, int pot) => new string('★', n) + new string('☆', Math.Max(0, pot - n));
+        static string BoatSub(string b) => b == "biscuit" ? "Walt's 5 m skiff" : b == "kestrel" ? "7.5 m launch" : "";
+        static string Hrs(double mins) { int h = (int)(mins / 60), mi = (int)(mins % 60); return h > 0 ? (mi >= 30 ? $"{h}½ h" : $"{h} h") : $"{Math.Max(1, mi)} min"; }
+        (string, Color) Status(Company c, Worker w, double m)
+        {
+            if (w == null) return ("No skipper", Ponyo.Hex("B9AC98"));
+            if (w.Iou >= 0) return ("Unpaid", Ponyo.Poppy);
+            if (DayTime.Day(m) < w.StartDay) return ("Starts tomorrow", Ponyo.Hex("B9AC98"));
+            var r = w.Run;
+            if (r == null || r.Landed && r.Day != DayTime.Day(m)) return ("At berth", Ponyo.Hex("7DBE6A"));
+            if (r.St == WSt.NoShow) return ("Didn't show", Ponyo.Hex("B9AC98"));
+            if (r.Landed) return ("Home", Ponyo.Hex("7DBE6A"));
+            return Company.StateAt(r, m) switch
+            {
+                WSt.Leaving => ("Leaving", Ponyo.Sky), WSt.Out => ("Sailing out", Ponyo.Sky), WSt.Fishing => ("Fishing", Ponyo.Hex("2FB5A3")),
+                WSt.Coming => ("Coming home", Ponyo.Sky), WSt.Stranded => ("Aground!", Ponyo.Poppy), _ => ("At berth", Ponyo.Hex("7DBE6A"))
+            };
+        }
+        void Row2(RectTransform card, string k, string v, float ry) { Caps(card, k, 16, ry + 3, 90); T(card, v, UiKit.Body, 15, Ponyo.Ink, 106, ry, CW - 122, 22); }
+        float BoatCard(Company c, string b, double m, float y)
+        {
+            var w = c.Staff.Find(x => x.Boat == b); var r = w?.Run; bool edit = crewEdit == b;
+            bool atSea = r != null && !r.Landed && r.St != WSt.NoShow;
+            float h = edit ? 410 : w == null ? 128 : 236;
+            var card = Card(list, 0, y, CW, h, Ponyo.Paper, 18, true);
+            var ic = UiKit.Img(card, UiKit.Circle, Ponyo.Hex("DDEBF7"), "boat bg"); ic.rectTransform.Place(new Vector2(0, 1), new Vector2(14, -14), new Vector2(44, 44), new Vector2(0, 1));
+            Ico(card, "boat", Ponyo.SeaDeep, 22, 22, 28);
+            T(card, Cap(b), UiKit.DisplayBold, 21, Ponyo.Ink, 68, 10, 170, 28);
+            T(card, BoatSub(b) + (w != null && w.Spot != null ? " · " + Company.SpotName(w.Spot) : ""), UiKit.Body, 13, SubInk, 68, 38, CW - 80, 18);
+            var (st, col) = Status(c, w, m);
+            var pill = UiKit.Card(card, "status", 12, col, false, Color.Lerp(col, Ponyo.Line, 0.4f), 2); pill.Place(new Vector2(1, 1), new Vector2(-14, -14), new Vector2(18 + st.Length * 8.2f, 26), new Vector2(1, 1));
+            UiKit.Txt(pill, st, UiKit.Bold, 13, Ponyo.Paper, TextAnchor.MiddleCenter).rectTransform.Stretch();
+            if (edit) return Editor(c, b, card, w, y, h);
+            float bw = (CW - 28 - 16) / 3;
+            if (w == null)
+            {
+                T(card, c.Staff.Exists(x => x.Boat == null) ? "No one's skipper yet. Give her a free hand." : c.Staff.Count == 0 ? "Hire a deckhand at Rosie's first." : "Every hand has a boat.", UiKit.Body, 14, SubInk, 16, 66, CW - 32, 20);
+                if (c.Staff.Exists(x => x.Boat == null)) Pill(card, "Assign", 14, 86, CW - 28, 32, Ponyo.Sunflower, Ponyo.Ink, () => OpenEditor(c, b, c.Staff.Find(x => x.Boat == null)), null, 14);
+                return y + h;
+            }
+            // skipper
+            Caps(card, "Skipper", 16, 72, 90); Avatar(card, w.Name, 106, 66, 28);
+            T(card, w.Name, UiKit.Bold, 15, Ponyo.Ink, 140, 68, 150, 22);
+            T(card, $"F {Stars(w.Fishing, w.PotF)} S {Stars(w.Sea, w.PotS)}", UiKit.Body, 12, SubInk, 140, 88, CW - 150, 16);
+            int need = (int)Math.Ceiling(Company.PlannedCatch(w, b) * Company.Share(w)), shelf = c.BaitStore[Company.BaitIx(w.Bait)]; var bp = c.BaitPlan(w, need);
+            Fit(T(card, bp.got == 0 ? $"{w.Bait} · none on the shelf, top-up off!" : bp.bought > 0 ? $"{w.Bait} · shelf {shelf} + June's ~${bp.cost}" : $"{w.Bait} · from the shelf ({shelf})",
+                UiKit.Body, 15, bp.got < need ? Ponyo.Poppy : Ponyo.Ink, 106, 110, CW - 122, 22), 12); Caps(card, "Bait", 16, 113, 90);
+            Row2(card, "Back by", $"{Clock(DayTime.At(DayTime.Day(m), Company.BackOf(w)))} · {w.Sh} shift", 134);
+            string so = r == null ? "No trips yet" : r.St == WSt.NoShow ? "Didn't show today" : r.Landed ? $"Last trip {r.Catch} fish{(r.Rare > 0 ? $", {r.Rare} rare" : "")}"
+                : Company.StateAt(r, m) == WSt.Stranded ? "Aground. Doyle's tow ($200), or the 7 AM tide" : $"{Company.CatchSoFar(r, m)} fish · {Hrs(Math.Max(0, r.HomeAt - m))} left";
+            if (w.Iou >= 0) so = "Unpaid! Working on an IOU. Pay by 7 AM or they quit.";
+            Caps(card, "So far", 16, 161, 90); Fit(T(card, so, UiKit.Bold, 15, w.Iou >= 0 ? Ponyo.Poppy : Ponyo.Ink, 106, 158, CW - 122, 22), 12);
+            float k = r == null || r.St == WSt.NoShow ? 0 : r.Landed ? 1 : Mathf.Clamp01((float)((m - r.Start) / Math.Max(1, r.HomeAt - r.Start)));
+            UiKit.Img(card, null, Ponyo.Hex("EADFCC"), "bar").rectTransform.Place(new Vector2(0, 1), new Vector2(16, -186), new Vector2(CW - 32, 6), new Vector2(0, 1));
+            UiKit.Img(card, null, Ponyo.Hex("2FB5A3"), "fill").rectTransform.Place(new Vector2(0, 1), new Vector2(16, -186), new Vector2((CW - 32) * k, 6), new Vector2(0, 1));
+            Pill(card, atSea ? "Change" : "Assign", 14, 198, bw, 30, atSea ? Ponyo.Paper2 : Ponyo.Sunflower, Ponyo.Ink, () => { if (!atSea) OpenEditor(c, b, w); else Alerts.Push("Crew", $"{w.Name} is at sea. Recall first.", Alerts.Kind.Info); }, null, 14);
+            bool aground = atSea && Company.StateAt(r, m) == WSt.Stranded;
+            if (aground) Pill(card, $"Tow · ${Company.TowFee}", 22 + bw, 198, bw, 30, Ponyo.Poppy, Ponyo.Paper, () => Workers.Tow(w.Id), null, 14);
+            else if (atSea && Company.StateAt(r, m) == WSt.Coming) Pill(card, "Coming home", 22 + bw, 198, bw, 30, Ponyo.Paper2, SubInk, () => { }, null, 14);
+            else Pill(card, atSea ? "Recall" : "Fire", 22 + bw, 198, bw, 30, Ponyo.Paper2, Ponyo.Ink, () => { if (atSea) Workers.Recall(w.Id); else Workers.Fire(w.Id); }, null, 14);
+            Pill(card, "Track", 30 + 2 * bw, 198, bw, 30, Ponyo.Paper2, Ponyo.Ink, () => { mapFilter = "Crew"; Go(Scr.Map); }, null, 14);
+            return y + h;
+        }
+        void OpenEditor(Company c, string b, Worker w)
+        {
+            crewEdit = b; eWho = w?.Id ?? -1; eSpot = w?.Spot ?? Company.SpotIds[1]; eBait = w?.Bait ?? "Shrimp"; eSh = w?.Sh ?? Shift.Day; eBack = w?.BackBy ?? 0; eBuy = w?.BuyBait ?? true;
+        }
+        float Editor(Company c, string b, RectTransform card, Worker cur, float y, float h)
+        {
+            var who = c.Staff.Find(x => x.Id == eWho);
+            float ry = 68;
+            ry = Row(card, "Skipper", who?.Name ?? "-", ry, () => { var l = c.Staff.FindAll(x => x.Boat == null || x.Boat == b); var ids = l.ConvertAll(x => x.Id); ids.Add(-1); eWho = ids[(ids.IndexOf(eWho) + 1) % ids.Count]; });
+            ry = Row(card, "Spot", Company.SpotName(eSpot), ry, () => { eSpot = Company.SpotIds[(Array.IndexOf(Company.SpotIds, eSpot) + 1) % Company.SpotIds.Length]; });
+            ry = Row(card, "Bait", $"{eBait} · shelf {c.BaitStore[Company.BaitIx(eBait)]}", ry, () => { eBait = Baits[(Array.IndexOf(Baits, eBait) + 1) % Baits.Length]; });
+            ry = Row(card, "Top up", eBuy ? $"June's delivers (+${Company.BaitDelivery})" : "Off: the shelf only", ry, () => eBuy = !eBuy);
+            ry = Row(card, "Shift", eSh == Shift.Early ? "Early 05-13" : eSh == Shift.Day ? "Day 08-17" : "Late 13-22 (+50%)", ry, () => { eSh = (Shift)(((int)eSh + 1) % 3); eBack = 0; });
+            int end = Company.ShiftTo[(int)eSh], from = Company.ShiftFrom[(int)eSh];
+            ry = Row(card, "Back by", eBack == 0 ? Clock(DayTime.At(0, end)) + " (shift end)" : Clock(DayTime.At(0, eBack)), ry, () => { int nb = (eBack == 0 ? end : eBack) - 60; eBack = nb < from + 180 ? 0 : nb; });
+            if (who != null)
+            {
+                var tmp = new Worker { Fishing = who.Fishing, Sea = who.Sea, Quirk = who.Quirk, Sh = eSh, BackBy = eBack };
+                double exp = Company.Expected(tmp, b, c.BoatOf(b).Ups.Contains("engine1")); int lo = (int)Math.Floor(exp * 0.9), hi = (int)Math.Ceiling(exp * 1.1);
+                T(card, $"Expect {lo}-{hi} fish · {Company.Hold(b)} max in her hold · ${(int)Math.Round(who.Wage * (eSh == Shift.Late ? 1.5 : 1))}/day", UiKit.Body, 13, SubInk, 14, ry + 4, CW - 28, 18);
+            }
+            ry += 26;
+            float hw = (CW - 28 - 8) / 2;
+            Pill(card, "Cancel", 14, ry, hw, 36, Ponyo.Paper2, Ponyo.Ink, () => { crewEdit = null; }, null, 15);
+            Pill(card, "Confirm", 22 + hw, ry, hw, 36, Ponyo.Sunflower, Ponyo.Ink, () =>
+            {
+                if (cur != null && cur.Id != eWho) Workers.Assign(cur.Id, null, cur.Spot, cur.Bait, cur.Sh, cur.BackBy, cur.BuyBait);   // the old skipper steps ashore
+                if (eWho >= 0) Workers.Assign(eWho, b, eSpot, eBait, eSh, eBack, eBuy);
+                crewEdit = null;
+            }, null, 15);
+            return y + h;
+        }
+        float FreeCard(Company c, Worker w, double m, float y)
+        {
+            var card = Card(list, 0, y, CW, 112, Ponyo.Paper, 18, true);
+            Avatar(card, w.Name, 14, 14, 44);
+            T(card, w.Name, UiKit.Bold, 17, Ponyo.Ink, 68, 12, 180, 22);
+            T(card, $"Fishing {Stars(w.Fishing, w.PotF)}  Sea {Stars(w.Sea, w.PotS)}", UiKit.Body, 13, SubInk, 68, 34, CW - 80, 18);
+            T(card, $"${c.WageToday(w)}/day", UiKit.Bold, 15, Ponyo.Ink, CW - 120, 12, 106, 22, TextAnchor.UpperRight);
+            Fit(T(card, (w.Quirk != "" ? $"\"{w.Quirk}\" · " : "") + (DayTime.Day(m) < w.StartDay ? "Starts tomorrow at 7." : "Ashore, ready."), UiKit.Body, 13, SubInk, 68, 52, CW - 82, 18), 11);
+            float hw = (CW - 28 - 8) / 2; string fb = FreeBoat(c, w);
+            Pill(card, fb != null ? "Assign" : "No free boat", 14, 74, hw, 30, fb != null ? Ponyo.Sunflower : Ponyo.Paper2, Ponyo.Ink, () => { if (fb != null) OpenEditor(c, fb, w); }, null, 14);
+            Pill(card, "Fire", 22 + hw, 74, hw, 30, Ponyo.Paper2, Ponyo.Ink, () => Workers.Fire(w.Id), null, 14);
+            return y + 112;
+        }
+        float Row(RectTransform card, string k, string v, float ry, Action next)
+        {
+            T(card, k, UiKit.Body, 14, SubInk, 14, ry + 8, 70, 20);
+            Pill(card, v + "  ›", 84, ry, CW - 98, 32, Ponyo.Paper2, Ponyo.Ink, next, UiKit.Body, 14);
+            return ry + 38;
+        }
+        static string Cap(string b) => b == null ? "-" : Skiff.Of(b) is { } s ? s.Name : char.ToUpper(b[0]) + b.Substring(1);
+        static List<string> Boats(Company c) { var l = new List<string> { "biscuit" }; foreach (var o in c.Owned) if (o.StartsWith("boat:")) l.Add(o.Substring(5)); return l; }
+        static string FreeBoat(Company c, Worker w) => Boats(c).Find(b => !c.Staff.Exists(x => x != w && x.Boat == b));
+
+        float Hire(Company c, double m, float y)
+        {
+            if (!c.BoardSeen) { T(list, "Visit Rosie's board at The Mooring Line first (11 AM - 2 AM). After that you can hire from here.", UiKit.Body, 15, SubInk, 2, y, CW, 60); return y + 70; }
+            Caps(list, $"Rosie's board · new faces at 7 AM", 2, y); y += 24;
+            if (c.Board.Count == 0) { T(list, "Nobody looking today.", UiKit.Body, 15, SubInk, 2, y, CW, 24); return y + 34; }
+            foreach (var w in c.Board)
+            {
+                var card = Card(list, 0, y, CW, 132, Ponyo.Paper, 18, true);
+                Avatar(card, w.Name, 14, 14, 44);
+                T(card, w.Name, UiKit.Bold, 17, Ponyo.Ink, 68, 12, 180, 22);
+                T(card, $"Fishing {Stars(w.Fishing, w.PotF)}  Sea {Stars(w.Sea, w.PotS)}", UiKit.Body, 13, SubInk, 68, 34, CW - 80, 18);
+                T(card, $"${w.Wage}/day", UiKit.Bold, 15, Ponyo.Ink, CW - 120, 12, 106, 22, TextAnchor.UpperRight);
+                Fit(T(card, (w.Quirk != "" ? $"\"{w.Quirk}\" · " : "") + w.Line, UiKit.Body, 13, SubInk, 68, 54, CW - 82, 34), 11);
+                int fee = c.HireFee(w, DayTime.Day(m)); bool rehire = c.Rehire.ContainsKey(w.Name) && c.Rehire[w.Name] >= DayTime.Day(m);
+                Pill(card, $"Hire · ${fee}{(rehire ? " (rehire ×2)" : "")}", 14, 90, CW - 28, 34, c.Cash >= fee ? Ponyo.Sunflower : Ponyo.Paper2, Ponyo.Ink, () => { Workers.Hire(w.Id, true); }, null, 15);
+                y += 142;
+            }
+            return y;
         }
 
         float Bank()
@@ -766,6 +938,7 @@ namespace PortBoss.M1
                 if (Coop.On && Coop.I != null) foreach (var kv in Coop.I.Mates) { var a = kv.Value; if (a != null) Dot(a.Colour, 12, () => a != null ? a.transform.position : (Vector3?)null); }
                 if (Firm.C.MariHere(Sky.Minutes)) { var mb = Firm.Anchor("mari_boat"); var mpos = mb != null ? mb.position : Firm.I.Stalls[2].At.position; Dot(Ponyo.Hex("2FB5A3"), 10, () => mpos); }
                 if (Skiff.I != null) Dot(Ponyo.SeaC, 13, () => Skiff.I != null ? Skiff.I.transform.position : (Vector3?)null, true);
+                foreach (var b in CrewAtSea()) Dot(CrewBlue, 12, () => b != null ? b.transform.position : (Vector3?)null, true);   // M6: a worker's boat
             }
             Dot(Ponyo.Ink, 14, () => Angler.I != null ? Angler.I.transform.position : (Vector3?)null, true);
             y += MapH + 10;
@@ -786,6 +959,7 @@ namespace PortBoss.M1
         {
             var l = new List<(string, Color)> { ("You", Ponyo.Ink), ("Biscuit", Ponyo.SeaC) };
             if (Coop.On && Coop.I != null) foreach (var kv in Coop.I.Mates) if (kv.Value != null && l.Count < 4) l.Add((kv.Value.NetName ?? "Crew", kv.Value.Colour));
+            if (CrewAtSea().Count > 0) l.Insert(2, ("Crew at sea", CrewBlue));
             if (l.Count < 4) l.Add(("Shops", Ponyo.Hex("E39A4C")));
             return l;
         }

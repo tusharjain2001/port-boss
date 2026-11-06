@@ -338,7 +338,7 @@ namespace PortBoss.M1
             {
                 case Ask.Helm:
                     // the tiller is free unless someone else sits at it: the boat (and its feel) moves to the driver
-                    if (s != null && (BoatOwner == from || !s.AtHelm)) { BoatOwner = from; Log($"{e.Name} has the tiller"); }
+                    if (s != null && !s.Crewed && (BoatOwner == from || !s.AtHelm)) { BoatOwner = from; Log($"{e.Name} has the tiller"); }
                     break;
                 case Ask.LeaveHelm:
                     if (BoatOwner == from && from != nm.LocalClientId) { BoatOwner = nm.LocalClientId; Log($"{e.Name} left the tiller: the boat is the host's"); }
