@@ -78,7 +78,9 @@ namespace PortBoss.M1
         // -pb-menutest host|join [-pb-menuaddr <address>] [-pb-menushots <dir>] (tools/menutest.sh, M2 step 6): plays the
         // title menu as a player would. host: "Host on this network". hostsaved (with -pb-savedir holding a world): "Host on
         // this network", then that world from the "Which world?" list: the crew plays its day and bank. -pb-menucash <n>
-        // on the joiner: the bank it must see. join: "Join on this network", first a wrong address
+        // on the joiner: the bank it must see; -pb-menufish <n>: it joins holding n fish; -pb-menuwantfish <n>: it must get
+        // n fish back (its own, from the host's save: economy §8); -pb-menukeep <n> on the host: after the joiner left, the
+        // save still holds their n fish. join: "Join on this network", first a wrong address
         // (the menu must come back saying so), then the right one. Both: in, the other in the crew list, out.
         IEnumerator MenuTest(string what)
         {
@@ -102,6 +104,7 @@ namespace PortBoss.M1
             }
             else
             {
+                if (Arg("-pb-menufish") is string mf) for (int i = 0; i < int.Parse(mf); i++) me.Bar.Add(new Fish { Species = FishDb.All[i % FishDb.All.Length], Grade = 1, Cm = 20 + i, Kg = 0.2f });
                 Title.I.GoTo("address"); yield return null; Title.I.Type("127.0.0.1:7999"); Title.I.Choose(1); // nobody there
                 yield return Wait(() => Coop.Status != "" && Coop.I == null, 20);
                 yield return new WaitForSecondsRealtime(0.3f);
@@ -115,6 +118,7 @@ namespace PortBoss.M1
             Check($"{(what == "host" ? "hosting" : "joined")} from the menu, the menu gone, the world running (time {Time.timeScale})", Coop.Joined && !Title.Shown && Time.timeScale == 1);
             yield return Wait(() => Coop.I != null && Coop.I.Roster.Count >= 2, 30);
             if (what == "join" && Arg("-pb-menucash") != null) { yield return new WaitForSecondsRealtime(3f); Check($"the joiner sees the host's world: bank ${Firm.C?.Cash} (want ${Arg("-pb-menucash")}), Day {DayTime.Day(Sky.Minutes)}", Firm.C != null && Firm.C.Cash.ToString() == Arg("-pb-menucash")); }
+            if (what == "join" && Arg("-pb-menuwantfish") is string wf) { yield return Wait(() => me.Bar.FishCount == int.Parse(wf), 10); Check($"my own hotbar is back from the host's save: {me.Bar.FishCount} fish (want {wf})", me.Bar.FishCount == int.Parse(wf)); }
             yield return new WaitForSecondsRealtime(1.5f);
             Check($"the crew list shows both: {NameTags.I?.CrewNames}", NameTags.I != null && NameTags.I.CrewRows == 2);
             if (what == "host" && PortBoss.M1.Save.Current == null) { float apart = 99; foreach (var m in Coop.I.Mates.Values) if (m != null) apart = Mathf.Min(apart, Vector3.Distance(m.transform.position, me.transform.position)); Check($"the joiner stands apart from me, not inside me: {apart:F2} m (me {(Landing.I != null && Landing.I.Spawn != null ? Vector3.Distance(me.transform.position, Landing.I.Spawn.position) : -1):F2} m from the spawn; them at {string.Join(" / ", System.Linq.Enumerable.Select(Coop.I.Mates.Values, m => m == null ? "-" : $"{m.transform.position.x:F2} {m.transform.position.y:F2} {m.transform.position.z:F2}"))})", apart >= 0.9f && apart < 5f); }
@@ -122,6 +126,12 @@ namespace PortBoss.M1
             if (what == "join") { if (Landing.I != null && Landing.I.Spawn != null) Debug.Log($"[PB] menu: me {Vector3.Distance(me.transform.position, Landing.I.Spawn.position):F2} m from the spawn at {me.transform.position.x:F2} {me.transform.position.y:F2} {me.transform.position.z:F2}"); yield return new WaitForSecondsRealtime(2f); Debug.Log($"[PB] RESULT menu join: {(ok ? "PASS" : "FAIL")}"); Application.Quit(); yield break; }
             yield return Wait(() => Coop.I != null && Coop.I.Roster.Count < 2, 30);
             Check("the joiner left and the crew list shrank to one", Coop.I != null && Coop.I.Roster.Count == 1);
+            if (Arg("-pb-menukeep") is string mk)
+            {
+                int kept = 0; var pl = Json.O((Dictionary<string, object>)Json.Parse(PortBoss.M1.Save.Capture()), "players");
+                foreach (var kv in pl) if (kv.Key != Firm.MyKey && kv.Value is Dictionary<string, object> pd) kept += PortBoss.M1.Save.BarOf(pd).Count;
+                Check($"the save keeps the joiner's hotbar after they left: {kept} fish (want {mk})", kept == int.Parse(mk));
+            }
             Debug.Log($"[PB] RESULT menu host: {(ok ? "PASS" : "FAIL")}");
             Application.Quit();
         }

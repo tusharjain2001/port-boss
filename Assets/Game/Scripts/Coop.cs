@@ -163,13 +163,14 @@ namespace PortBoss.M1
                 }
                 if (Roster.Count >= MaxCrew) { Log($"{name} can't join: the crew is full ({MaxCrew})"); nm.DisconnectClient(from, "The crew is full."); return; }
                 var back = Back(key, from);
+                Away savedAt = null; bool saved = back == null && FromSave(key, from, out savedAt);   // their things from the world we host
                 byte slot = back != null && !Roster.Exists(x => x.Slot == back.Slot) ? back.Slot : (byte)0;
                 if (back == null || slot != back.Slot) { slot = 0; while (Roster.Exists(x => x.Slot == slot)) slot++; }
                 var e = new Entry { Id = from, Slot = slot, Crew = FreeCrew(back != null ? back.Crew : wish, from), Name = string.IsNullOrEmpty(name) ? "Crew " + (slot + 1) : name, Key = key };
-                Roster.Add(e); Log($"{e.Name} {(back != null ? "is back" : "joined")}: slot {slot}, {CrewName(e.Crew)}{(back != null ? $", their hotbar back ({Book.Bar(from).FishCount} fish)" : "")}");
-                Alerts.Push("Crew", back != null ? $"{e.Name} is back aboard." : $"{e.Name} came aboard as {CrewName(e.Crew)}.", Alerts.Kind.Crew);
+                Roster.Add(e); Log($"{e.Name} {(back != null ? "is back" : "joined")}: slot {slot}, {CrewName(e.Crew)}{(back != null || saved ? $", their hotbar back{(saved ? " from the save" : "")} ({Book.Bar(from).FishCount} fish)" : "")}");
+                Alerts.Push("Crew", back != null || saved ? $"{e.Name} is back aboard." : $"{e.Name} came aboard as {CrewName(e.Crew)}.", Alerts.Kind.Crew);
                 Broadcast(); Apply();
-                if (back != null) SendPlace(from, back);
+                if (back != null) SendPlace(from, back); else if (savedAt != null) SendPlace(from, savedAt);
                 // the boat as it is now, so the joiner doesn't wait for the next pose to see it
                 if (Skiff.I != null && BoatOwner == nm.LocalClientId) SendBoat(Skiff.I.NetPose(Now));
                 // their hotbar (the book's) and the fish lying about. What they brought goes into the book first: all of it
@@ -177,7 +178,9 @@ namespace PortBoss.M1
                 // the book's already. ponytail: a fish they let go while away still comes back (the book never heard);
                 // fixing that needs trusting the client's whole hotbar, or a save.
                 int took = 0; var spill = new List<ulong>(); // (no room in their hotbar: on the deck at their feet, never lost)
-                foreach (var f in held) if (back == null || f.Id == 0)
+                // ponytail: from the save, the save wins and nothing they bring is booked (a crew copy they continued holds the
+                // same fish, booking both would double them); fish from an unrelated solo world stay in that world's save.
+                foreach (var f in held) if (!saved && (back == null || f.Id == 0))
                 {
                     var m = Book.Make(from, f.Species, f.Grade, f.Cm, f.Kg, f.CaughtAt);
                     if (Book.Keep(from, m.Id)) took++; else if (Book.Drop(from, m.Id)) spill.Add(m.Id);

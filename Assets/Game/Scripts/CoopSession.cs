@@ -238,7 +238,7 @@ namespace PortBoss.M1
         }
 
         // ---------------------------------------------------------------- rejoin (host)
-        class Away { public ulong Id; public byte Crew, Slot; public Vector3 At; public float Yaw; public bool Boat; }
+        class Away { public ulong Id; public byte Crew, Slot; public Vector3 At; public float Yaw; public bool Boat; public string Name; }
         readonly Dictionary<string, Away> away = new();
         public static bool Placed;                               // (tests) the host put me back where I was
 
@@ -246,7 +246,7 @@ namespace PortBoss.M1
         void KeepAway(Entry e)
         {
             if (string.IsNullOrEmpty(e.Key)) return;
-            var a = new Away { Id = e.Id, Crew = e.Crew, Slot = e.Slot };
+            var a = new Away { Id = e.Id, Crew = e.Crew, Slot = e.Slot, Name = e.Name };
             var s = Skiff.I;
             if (Mates.TryGetValue(e.Id, out var m) && m != null)
             {
@@ -266,6 +266,25 @@ namespace PortBoss.M1
             away.Remove(key);
             Book.Rekey(a.Id, id);
             return a;
+        }
+
+        // (the save) everyone who left this session, with the hotbar the book keeps for them
+        public void ForAway(Action<string, string, Hotbar> f) { foreach (var kv in away) f(kv.Key, kv.Value.Name, Book.Bar(kv.Value.Id)); }
+
+        // a crewmate of the saved world we host, joining for the first time this session (economy §8): their hotbar from
+        // the save into the book, and where they stood (null: the save has no spot for them)
+        bool FromSave(string key, ulong id, out Away place)
+        {
+            place = null;
+            if (string.IsNullOrEmpty(key) || !Save.Others.TryGetValue(key, out var o) || o is not Dictionary<string, object> p) return false;
+            Save.Others.Remove(key);
+            foreach (var f in Save.BarOf(p)) { var m = Book.Make(id, f.Species, f.Grade, f.Cm, f.Kg, f.CaughtAt); if (!Book.Keep(id, m.Id)) Book.Free(id, m.Id); }
+            if (p.ContainsKey("x"))
+            {
+                var s = Skiff.I; var at = new Vector3(Json.F(p, "x"), Json.F(p, "y"), Json.F(p, "z")); bool boat = Json.B(p, "boat") && s != null;
+                place = new Away { Id = id, Boat = boat, At = boat ? s.transform.InverseTransformPoint(at) : at, Yaw = Json.F(p, "yaw") - (boat ? s.transform.eulerAngles.y : 0) };
+            }
+            return true;
         }
 
         void SendPlace(ulong to, Away a)

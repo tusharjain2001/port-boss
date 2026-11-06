@@ -27,6 +27,9 @@ namespace PortBoss.M1
         public static bool IsCopy;
         public static Action<string> OnLog;
         public static string LastHash;                    // (tests) the hash of the last save / load
+        // the rest of the crew's things in the loaded world (their key -> what the save holds): kept in every save, and
+        // handed back when they join the host again (economy §8: "gets their own items back")
+        public static Dictionary<string, object> Others = new();
         static void Log(string s) { Debug.Log("[PB] save: " + s); OnLog?.Invoke(s); }
 
         static string Arg(string k) { var a = Environment.GetCommandLineArgs(); int i = Array.IndexOf(a, k); return i >= 0 && i + 1 < a.Length ? a[i + 1] : null; }
@@ -81,12 +84,18 @@ namespace PortBoss.M1
             w.K("company"); if (Firm.C != null) Firm.C.Write(w); else w.Obj().End();
             // players: me (solo) or the whole crew (the host's book)
             w.K("players").Obj();
-            var people = new List<(string key, string name, Hotbar bar, Angler body)>();
-            if (Coop.On && Coop.IsHost) foreach (var e in Coop.I.Roster) { Coop.I.Book.Bars.TryGetValue(e.Id, out var b); people.Add((e.Key ?? Coop.MyKey(e.Name), e.Name, b, e.Id == Coop.Me ? Angler.I : Coop.I.Mates.TryGetValue(e.Id, out var m) ? m : null)); }
-            else if (Angler.I != null) people.Add((Firm.MyKey, Coop.MyName, Angler.I.Bar, Angler.I));
-            people.Sort((a, b) => string.CompareOrdinal(a.key, b.key));
-            foreach (var (key, name, bar, body) in people)
+            var people = new List<(string key, string name, Hotbar bar, Angler body, object kept)>();
+            if (Coop.On && Coop.IsHost)
             {
+                foreach (var e in Coop.I.Roster) { Coop.I.Book.Bars.TryGetValue(e.Id, out var b); people.Add((e.Key ?? Coop.MyKey(e.Name), e.Name, b, e.Id == Coop.Me ? Angler.I : Coop.I.Mates.TryGetValue(e.Id, out var m) ? m : null, null)); }
+                Coop.I.ForAway((k, n, b) => people.Add((k, n, b, null, null)));          // left this session: their hotbar still theirs
+            }
+            else if (Angler.I != null) people.Add((Firm.MyKey, Coop.MyName, Angler.I.Bar, Angler.I, null));
+            foreach (var kv in Others) if (!people.Exists(x => x.key == kv.Key)) people.Add((kv.Key, null, null, null, kv.Value)); // not back yet
+            people.Sort((a, b) => string.CompareOrdinal(a.key, b.key));
+            foreach (var (key, name, bar, body, kept) in people)
+            {
+                if (kept != null) { w.K(key).Any(kept); continue; }
                 w.K(key).Obj().K("name").V(name);
                 if (body != null) { var p = body.transform.position; w.K("x").V(R2(p.x)).K("y").V(R2(p.y)).K("z").V(R2(p.z)).K("yaw").V(Yaw(body.transform.eulerAngles.y)).K("boat").V(body.OnBoat); }
                 w.K("bar").Arr();
@@ -122,6 +131,12 @@ namespace PortBoss.M1
         {
             var sp = FishDb.Get(Json.S(o, "sp")); if (sp == null) return null;
             return new Fish { Species = sp, Grade = Json.I(o, "g"), Cm = Json.F(o, "cm"), Kg = Json.F(o, "kg"), CaughtAt = Json.F(o, "at") };
+        }
+        // a saved player's hotbar fish
+        public static List<Fish> BarOf(Dictionary<string, object> p)
+        {
+            var l = new List<Fish>(); foreach (var fo in Json.L(p, "bar")) if (fo is Dictionary<string, object> fd && ReadFish(fd) is Fish f) l.Add(f);
+            return l;
         }
 
         // the hash the save test compares: the world as the game holds it (not the file's bytes)
@@ -266,6 +281,7 @@ namespace PortBoss.M1
             string key = Firm.MyKey;
             if (!players.ContainsKey(key) && players.Count == 1) foreach (var k in players.Keys) { if (c.Kits.TryGetValue(k, out var kk)) { c.Kits.Remove(k); c.Kits[key] = kk; } key = k; }
             Firm.I.Use(c);
+            Others = new(); foreach (var kv in players) if (kv.Key != key) Others[kv.Key] = kv.Value;
             var me = Angler.I;
             if (me != null && players.TryGetValue(key, out var po) && po is Dictionary<string, object> p)
             {
@@ -306,7 +322,7 @@ namespace PortBoss.M1
         // a fresh world (the title's New game): the start of Day 1, $40, June's worms
         public static void NewWorld()
         {
-            Current = null; CurrentName = null; IsCopy = false;
+            Current = null; CurrentName = null; IsCopy = false; Others = new();
             Firm.I.Use(new Company()); Log("a new world");
         }
 
