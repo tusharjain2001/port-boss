@@ -65,6 +65,8 @@ namespace PortBoss.M1
             else if (Arg("-pb-tosstest") != null) yield return TossTest();
             else if (Arg("-pb-menutest") != null) yield return MenuTest(Arg("-pb-menutest"));
             else if (M4Tests() is IEnumerator m4) yield return m4; // M4 (BotM4.cs)
+            else if (M5Tests() is IEnumerator m5) yield return m5; // M5 (BotM5.cs)
+            else if (M6Tests() is IEnumerator m6) yield return m6; // M6 (BotM6.cs)
             else if (Arg("-pb-invitetest") != null) yield return InviteTest(Arg("-pb-invitetest"));
             else if (Arg("-pb-rodtest") != null) yield return RodTest(Arg("-pb-rodtest"), Arg("-pb-rodshots") ?? "rodshots");
             else if (Arg("-pb-crowdtest") != null) yield return CrowdTest(Arg("-pb-crowdtest"), Arg("-pb-crowdshots") ?? "crowdshots");
@@ -1000,6 +1002,8 @@ namespace PortBoss.M1
             if (!Application.isBatchMode || CameraRig.I == null) { ScreenCapture.CaptureScreenshot(path); return; }
             // batchmode draws nothing by itself: render the scene camera, then the UI camera, each into its own fresh
             // texture, and lay the (premultiplied) UI over the scene, as the stacked cameras do in the game
+            // the off-screen cameras (a shop's preview, the wardrobe's turntable) also draw nothing by themselves
+            foreach (var oc in Camera.allCameras) if (oc.targetTexture != null && oc != CameraRig.I.Cam && oc != CameraRig.I.UiCam) oc.Render();
             var tex = Grab(CameraRig.I.Cam, w, h, false);
             // URP writes alpha 1 for the UI camera's empty background, so recover the UI's coverage by drawing it over
             // black and over white: alpha = 1 - (white - black), colour (premultiplied) = the black pass
@@ -1269,8 +1273,8 @@ namespace PortBoss.M1
         IEnumerator Film(string dir, float secs, int w = 1920, int h = 1080)
         {
             Directory.CreateDirectory(dir); int fps0 = Time.captureFramerate; Time.captureFramerate = 30; int i = 0; Debug.Log($"[PB] film start {Time.time:F3}");
-            float end = Time.time + secs;
-            while (Time.time < end)
+            int frames = Mathf.RoundToInt(secs * 30);   // counted in frames, not game time: a Time.timeScale timelapse would end it early
+            while (i < frames)
             {
                 yield return new WaitForEndOfFrame();
                 var ct = CameraRig.I.Cam.transform; var keep = (ct.position, ct.rotation);

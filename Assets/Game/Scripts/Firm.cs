@@ -208,13 +208,13 @@ namespace PortBoss.M1
         }
 
         static Material Mat(Color c) { var m = new Material(Game.ToonMat); m.SetColor("_BaseColor", c); return m; }
-        static GameObject Box(Transform root, string n, Vector3 p, Vector3 s, Color col, Vector3 rot = default)
+        internal static GameObject Box(Transform root, string n, Vector3 p, Vector3 s, Color col, Vector3 rot = default)
         {
             var q = GameObject.CreatePrimitive(PrimitiveType.Cube); q.name = n; Destroy(q.GetComponent<Collider>());
             q.transform.SetParent(root, false); q.transform.localPosition = p; q.transform.localRotation = Quaternion.Euler(rot); q.transform.localScale = s;
             q.GetComponent<MeshRenderer>().sharedMaterial = Mat(col); return q;
         }
-        static void Sign(Transform root, string text, Vector3 p, Color col, float size)
+        internal static void Sign(Transform root, string text, Vector3 p, Color col, float size)
         {
             var g = new GameObject("sign text"); g.transform.SetParent(root, false); g.transform.localPosition = p; g.transform.localRotation = Quaternion.Euler(0, 180, 0);
             var tm = g.AddComponent<TextMesh>(); tm.text = text; tm.font = UiKit.DisplayBold; tm.fontSize = 96; tm.characterSize = size; tm.anchor = TextAnchor.MiddleCenter; tm.alignment = TextAlignment.Center; tm.color = col;

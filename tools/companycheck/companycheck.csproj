@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- The M4 money rules without Unity: Company.cs (bank, Ledger, Mari, market, June's shelf, kits, save JSON) + Day.cs (DayTime). Run tools/companycheck.sh. -->
+  <!-- The M4 money rules (and M5 shops, M6 crew) without Unity: Company.cs, Yard.cs, Crew.cs (bank, Ledger, Mari, market, June's shelf, kits, save JSON) + Day.cs (DayTime). Run tools/companycheck.sh. -->
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><LangVersion>9.0</LangVersion><Nullable>disable</Nullable><EnableDefaultCompileItems>false</EnableDefaultCompileItems></PropertyGroup>
-  <ItemGroup><Compile Include="Main.cs;$(PB_PROJECT)/Assets/Game/Scripts/Company.cs;$(PB_PROJECT)/Assets/Game/Scripts/Day.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="Main.cs;$(PB_PROJECT)/Assets/Game/Scripts/Company.cs;$(PB_PROJECT)/Assets/Game/Scripts/Yard.cs;$(PB_PROJECT)/Assets/Game/Scripts/Day.cs;$(PB_PROJECT)/Assets/Game/Scripts/Crew.cs" /></ItemGroup>
 </Project>

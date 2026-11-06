@@ -12,6 +12,9 @@ PALETTE = dict(skin='#9A6544', skin_dk='#85543A', shave='#5E4A42', hair='#1E1A1A
                denim='#8FA9C4', denim_d='#7892AE', fray='#C9D6E2', olive='#6B6F3E', olive_d='#5A5E33', belt='#6E4428',
                pouch='#7E4E2C', pouch_d='#663E22', radio='#26262A', spanner='#B4B8BD', bandana='#D9A23A', bandana_d='#BE8A2C',
                gold='#E3B94C', glove='#E2B43C', glove_d='#C99A2C', boot='#26262A', sole='#161618')
+# clothes channels by part (kitlib.CH): 1 Hat, 2 Top, 3 Over, 4 Legs, 5 Boots, 6 Gloves; belt, tool belt, buttons 0
+CLOTHES = dict(Bandana=1, Torso=dict(denim=2, olive=4), Shoulder=2, Collar=2, Pockets=2, Flaps=2, Leg=4, Cargo=4, Boot=5,
+               Laces=5, Glove=6)
 
 HEAD_C = Vector((0, -0.006, 1.272)); HEAD_R = Vector((0.145, 0.138, 0.156))
 LEG_X = 0.115

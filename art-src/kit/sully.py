@@ -10,6 +10,9 @@ HAT = None
 FACE_Z = 1.3
 PALETTE = dict(skin='#E2A784', skin_dk='#CF9070', hair='#4A3428', iris='#3A4A5A', suit='#B8A47E', suit_d='#A08C66',
                brass='#C99A3A', brass_d='#A67C2A', brass_l='#E0B85A', glove='#26262A', glove_d='#1A1A1C', sole='#2A2622')
+# clothes channels by part (kitlib.CH): 1 Hat, 2 Top, 3 Over, 4 Legs, 5 Boots, 6 Gloves. The one-piece suit is Top above
+# the waist fold, Legs below; the breastplate is his Over; the helmet is his head (0: hiding a hat must never take it)
+CLOTHES = dict(Torso=lambda c, n: 4 if c.z < 0.665 else 2, Shoulder=2, Arm=2, Corselet=3, Leg=4, Boot=5, Glove=6)
 
 HELM_C = Vector((0, -0.01, 1.3)); HELM_R = 0.2
 FACE_C = Vector((0, HELM_C.y - 0.082, HELM_C.z))     # his face's front sits 1 cm behind the porthole's opening

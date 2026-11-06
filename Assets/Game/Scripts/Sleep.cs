@@ -8,7 +8,7 @@ namespace PortBoss.M1
 {
     // M3 sleep (gdd systems §1.4, MUST): one sleeper skips the night to 07:00 for everyone and the weather moves on.
     // - Walt's old cot stands by the shack. Hold E 1 s on it from 20:00 to 05:00, or any time you're tired; before that
-    //   "Too early. Back after 8 PM." You lie down (1 s), then the skip.
+    //   "Tap: wardrobe · too early to sleep, back after 8 PM" (M5: a tap opens the wardrobe). You lie down (1 s), then the skip.
     // - Tired from 23:00 (a toast); from 01:30 the edges darken and you walk 10% slower; at 02:00 you pass out where you
     //   stand, which counts as one player sleeping.
     // - Co-op: the host runs the skip. Everyone else gets "Pip is going to sleep · night skips in 5 s"; a crewmate in a
@@ -23,6 +23,24 @@ namespace PortBoss.M1
         public static bool Off;                     // tests that drive the clock through the night (-pb-daytest)
         public static float WalkMul = 1;            // 0.9 from 01:30 (tired)
         public static Transform Cot; public static float CotH = 0.5f;
+        // (M5) beds bought at Plank & Post: the nearest one is "the cot" while you're at it (Walt's stays Cot0)
+        public static Transform Cot0; public static readonly List<Transform> Beds = new();
+        // the Rested buff (economy §2.3): slept in a fixed or bought bed -> the next awake day has no heavy eyes (01:30)
+        public static int RestedDay = -1;
+        public static bool GoodBed => Firm.C != null && (Cot != Cot0 || Firm.C.Owned.Contains("bed:cot"));
+        static void OnJumped(double from, double to)
+        {
+            if (I == null || !I.lying || !GoodBed) return;
+            RestedDay = DayTime.Day(to - DayTime.Wake);
+            Alerts.Push("Rested", "A proper night's sleep. No heavy eyes tonight.", Alerts.Kind.Info); Log("rested (a good bed)");
+        }
+        public static void AddBed(Transform t, string id) { Beds.RemoveAll(b => b == null); if (!Beds.Contains(t)) Beds.Add(t); }
+        static void NearestBed(Vector3 p)
+        {
+            if (Cot0 == null) Cot0 = Cot; var best = Cot0; float bd = best != null ? (best.position - p).sqrMagnitude : float.MaxValue;
+            foreach (var b in Beds) if (b != null) { float d = (b.position - p).sqrMagnitude; if (d < bd) { bd = d; best = b; } }
+            Cot = best;
+        }
         public static System.Action<string> OnLog; // test hooks
         public const float HeadsUp = 5, FightWait = 10, BedHold = 1, NearBed = 30;
 
@@ -51,7 +69,7 @@ namespace PortBoss.M1
         public static void Create()
         {
             var g = new GameObject("Sleep"); I = g.AddComponent<Sleep>();
-            I.BuildCot(); I.BuildUi();
+            I.BuildCot(); I.BuildUi(); Sky.Jumped += OnJumped;
         }
 
         static void Log(string s) { Debug.Log("[PB] sleep: " + s); OnLog?.Invoke(s); }
@@ -98,12 +116,15 @@ namespace PortBoss.M1
         {
             if (I == null || Cot == null || me.Remote || me.OnBoat || me.Swimming || I.Skipping && !I.lying) return null;
             if (I.lying) return "Asleep…";
+            if (!I.CotTaken) NearestBed(me.transform.position);
             var d = Cot.position - me.transform.position; d.y = 0;
             if (d.magnitude > 1.7f) { I.holdT = 0; return null; }
-            if (!DayTime.BedOk(Sky.Minutes)) { I.holdT = 0; return "Too early. Back after 8 PM."; }
-            if (Ctl.InteractHeld) { I.holdT += Time.deltaTime; if (I.holdT >= BedHold) { I.holdT = 0; I.LieDown(me); } }
-            else I.holdT = 0;
-            return I.holdT > 0 ? $"Sleeping… {Mathf.CeilToInt((BedHold - I.holdT) * 10) / 10f:0.0}" : "Hold to sleep (skips to 7:00 AM)";
+            // (M5) a tap opens the wardrobe (any bed, systems §1.9); a hold sleeps
+            bool ok = DayTime.BedOk(Sky.Minutes);
+            if (Ctl.InteractHeld) { I.holdT += Time.deltaTime; if (ok && I.holdT >= BedHold) { I.holdT = 0; I.LieDown(me); } }
+            else { if (I.holdT > 0 && I.holdT < 0.3f) Wardrobe.Show(); I.holdT = 0; }
+            if (!ok) return "Tap: wardrobe · too early to sleep, back after 8 PM";
+            return I.holdT > 0.3f ? $"Sleeping… {Mathf.CeilToInt((BedHold - I.holdT) * 10) / 10f:0.0}" : "Tap: wardrobe · hold to sleep (skips to 7:00 AM)";
         }
 
         public bool Lying => lying;
@@ -130,7 +151,7 @@ namespace PortBoss.M1
             var me = Angler.I; if (me == null || Title.Shown || Off) return;
             double m = Sky.Minutes; int day = DayTime.Day(m - DayTime.Wake); // (the "awake day" runs 07:00 -> 07:00)
             if (DayTime.Tired(m) && tiredDay != day && !Skipping) { tiredDay = day; Alerts.Push("Getting tired", "It's late. Walt's cot is by the shack. Hold E on it to sleep.", Alerts.Kind.Info); }
-            bool heavy = DayTime.Heavy(m) && !Skipping;
+            bool heavy = DayTime.Heavy(m) && !Skipping && RestedDay != day;   // (M5: a night in a proper bed: no heavy eyes the next night)
             if (heavy && heavyDay != day) { heavyDay = day; Log("heavy eyes (01:30): vignette, walk -10%"); }
             WalkMul = heavy ? 0.9f : 1;
             float va = heavy ? Mathf.Clamp01((float)(DayTime.OfDay(m) - DayTime.HeavyAt) / 20f) * 0.55f : 0;

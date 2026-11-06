@@ -12,6 +12,10 @@ PALETTE = dict(skin='#E9B892', skin_dk='#D69C77', cheek='#E79A86', hair='#1F1C1E
                flannel='#8C4A2F', flannel_m='#7A3E27', flannel_d='#5E2D1C', roll='#B9A48A', khaki='#B39A6E', khaki_d='#9C8459',
                belt='#4A3326', buckle='#B4B8BD', hat='#F1EFE8', hat_d='#D9D6CC', muff='#D9483B', muff_d='#A8322A', band='#2A2A2E',
                boot='#2A2A2E', sole='#18181A', sock_r='#D9483B', sock_o='#EB8A2E', sock_y='#E9C93A', sock_g='#5AA34A', sock_b='#3D7BD9')
+# clothes channels by part (kitlib.CH): 1 Hat, 2 Top, 3 Over, 4 Legs, 5 Boots, 6 Gloves; belt, buckle, muffs, rainbow socks 0
+PLAID = dict(flannel=2, flannel_m=2, flannel_d=2)
+CLOTHES = dict(HardHat=1, Torso=dict(PLAID, khaki=4), Shoulder=2, Arm=dict(PLAID, roll=2), Pockets=2, Flaps=2, Shorts=4,
+               Boot=5, Laces=5)
 
 HEAD_C = Vector((0, -0.006, 1.27)); HEAD_R = Vector((0.132, 0.128, 0.152))
 LEG_X = 0.1

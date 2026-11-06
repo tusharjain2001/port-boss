@@ -195,7 +195,7 @@ namespace PortBoss.M1
             me.Teleport(Sleep.BedSide, Quaternion.LookRotation(Flat(Sleep.Cot.position - Sleep.BedSide)).eulerAngles.y);
             yield return new WaitForSeconds(0.4f);
             Ctl.BotInteractHeld = true; yield return new WaitForSeconds(1.5f);
-            Check(!Sleep.I.Lying && !Sleep.I.Skipping && me.Prompt == "Too early. Back after 8 PM.", $"15:00 at the cot: \"{me.Prompt}\", no sleep");
+            Check(!Sleep.I.Lying && !Sleep.I.Skipping && me.Prompt != null && me.Prompt.Contains("too early to sleep, back after 8 PM")   /* M5: a tap on the cot is the wardrobe */, $"15:00 at the cot: \"{me.Prompt}\", no sleep");
             Ctl.BotInteractHeld = false;
             if (shots != null) yield return Shot("sleep-1-too-early");
             // 2) the cot at 21:00

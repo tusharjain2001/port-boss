@@ -11,7 +11,16 @@ namespace PortBoss.M1
     [DefaultExecutionOrder(-100)]
     public partial class Skiff : MonoBehaviour
     {
-        public static Skiff I;
+        public static Skiff I;                    // the boat I'm on, at, or nearest (M5: Biscuit or the Kestrel)
+        // M5: every boat (0 Biscuit, 1 the Kestrel). Id: the company's key ("biscuit"); Top: full speed now (the engine
+        // rebuild and Engine I/II raise it, Works.Tune)
+        public const int MaxBoats = 4;
+        public static readonly System.Collections.Generic.List<Skiff> All = new();
+        public static Skiff At(int i) => i >= 0 && i < All.Count ? All[i] : null;
+        public static Skiff Of(string id) { foreach (var b in All) if (b.Id == id) return b; return null; }
+        public int Index; public string Id = "biscuit", Name = "Biscuit"; public float Top = MaxSpeed;
+        // M6: a crew member has her out on a shift (from the company, so every co-op machine agrees)
+        public bool Crewed => Firm.C != null && Firm.C.Staff.Exists(w => w.Boat == Id && w.Run != null && !w.Run.Landed && w.Run.St != WSt.NoShow);
         public Transform Helm, TillerGrip, LadderTop, LadderBottom, AnchorPt, Motor, Prop, CamPoint;
         public Transform[] Rails;
         public Bounds Hull;                       // local, from HullBottom_colBox (+ the sides)
@@ -33,19 +42,23 @@ namespace PortBoss.M1
         AudioSource engine;
         ParticleSystem wake, bowSpray;
 
-        public static Skiff Create(GameObject prefab, Material toon, Transform moor)
+        public static Skiff Create(GameObject prefab, Material toon, Transform moor, string id = "biscuit", string name = "Biscuit")
         {
             var g = Instantiate(prefab);
-            g.name = "Biscuit";
+            g.name = name;
             Util.Colliders(g); Util.Toon(g, toon);
             var s = g.AddComponent<Skiff>();
-            I = s;
+            s.Id = id; s.Name = name; s.Index = All.Count; All.Add(s);
+            if (I == null) I = s;
             Transform F(string n) => Util.Find(g.transform, n);
-            s.Helm = F("socket_helm"); s.TillerGrip = F("socket_tiller_grip"); s.LadderTop = F("socket_ladder_top"); s.LadderBottom = F("socket_ladder_bottom");
+            s.Helm = F("socket_helm"); s.TillerGrip = F("socket_tiller_grip") ?? F("socket_wheel"); s.LadderTop = F("socket_ladder_top"); s.LadderBottom = F("socket_ladder_bottom");
             s.AnchorPt = F("socket_anchor"); s.Motor = F("Motor"); s.Prop = F("Prop"); s.CamPoint = F("cam_boat");
             s.Rails = new[] { F("rail_L"), F("rail_R"), F("rail_bow"), F("rail_stern") };
             // The whole hull (keel to gunwale) for the bump check; the underwater box itself must not trip the walker.
             s.Hull = new Bounds(new Vector3(0, 0.25f, 0), new Vector3(1.9f, 1.1f, 4.9f));
+            if (id != "biscuit") { var b = new Bounds(); bool any = false;   // another hull: its own deck and side boxes
+                foreach (var c in g.GetComponentsInChildren<Collider>()) { if (c.isTrigger) continue; var lb = c.bounds; lb.center = g.transform.InverseTransformPoint(lb.center); if (!any) b = lb; else b.Encapsulate(lb); any = true; }
+                if (any) { b.min = new Vector3(b.min.x, Mathf.Max(b.min.y, -0.35f), b.min.z); s.Hull = b; } }
             var hb = F("HullBottom_colBox"); if (hb != null && hb.TryGetComponent<Collider>(out var hc)) hc.enabled = false;
             var rb = g.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.interpolation = RigidbodyInterpolation.None;
             // a hull-shaped trigger box, only for working out how far the hull sits inside the pier or the shore
@@ -93,7 +106,7 @@ namespace PortBoss.M1
 
         static Vector3 OnSea(Vector3 p) => new(p.x, Sea.Height(p) + 0.04f, p.z);
 
-        public float TargetSpeed => Notch < 0 ? -Reverse : Notch * MaxSpeed / 3f;
+        public float TargetSpeed => Notch < 0 ? -Reverse : Notch * Top / 3f;
 
         public struct Pose
         {
@@ -113,13 +126,13 @@ namespace PortBoss.M1
         public Pose NetPose(float t) => new()
         {
             T = t, X = pos.x, Y = y, Z = pos.z, Yaw = yaw, Pitch = pitch, Roll = roll, Speed = Speed, Rudder = Rudder, AnchorT = AnchorT, Water = Water, Notch = (sbyte)Notch,
-            Flags = (byte)((Moored ? 1 : 0) | (Anchored ? 2 : 0) | (AtHelm ? 4 : 0) | (Leaking ? 8 : 0)),
+            Flags = (byte)((Moored ? 1 : 0) | (Anchored ? 2 : 0) | (AtHelm ? 4 : 0) | (Leaking ? 8 : 0) | (Index << 4)),
         };
 
         // This copy becomes the real boat (its driver, or the host when the driver leaves): carry on from where it is shown.
         public void TakeOver()
         {
-            Remote = false; Net.Clear(); AtHelm = Angler.I != null && Angler.I.AtHelm;
+            Remote = false; Net.Clear(); AtHelm = Angler.I != null && Angler.I.AtHelm && Angler.I.Boat == this;   // only the boat you steer (M6: a crewed Biscuit isn't yours)
             var e = transform.eulerAngles; pos = new Vector3(transform.position.x, 0, transform.position.z); y = transform.position.y;
             yaw = e.y; pitch = Mathf.DeltaAngle(0, e.x); roll = Mathf.DeltaAngle(0, e.z); vy = vp = vr = 0;
             if (Anchored) anchorAt = pos;
@@ -144,11 +157,12 @@ namespace PortBoss.M1
         void Update()
         {
             float dt = Time.deltaTime;
+            if (Index == 0) PickMine();
             RogueTick();
             if (Remote) { FollowNet(dt); Physics.SyncTransforms(); Visuals(dt); return; }
             // rudder: follows the stick, recentres in ~0.6 s
             Rudder = Mathf.Abs(Steer) > 0.05f ? Mathf.MoveTowards(Rudder, Steer * 35f, 120f * dt) : Mathf.MoveTowards(Rudder, 0, 60f * dt);
-            if (!AtHelm && Notch != 0 && !Moored) { Notch = 0; Alerts.Push("Biscuit", "Throttle eased to stop.", Alerts.Kind.Info); } // no runaway boats
+            if (!AtHelm && !Crewed && Notch != 0 && !Moored) { Notch = 0; Alerts.Push(Name, "Throttle eased to stop.", Alerts.Kind.Info); } // no runaway boats
 
             LeakTick(dt);
             float want = Moored || Anchored ? 0 : TargetSpeed * SpeedMul;
@@ -208,7 +222,7 @@ namespace PortBoss.M1
                 if (AnchorT >= 1.5f)
                 {
                     AnchorT = -1; Anchored = !Anchored; anchorAt = pos;
-                    Alerts.Push("Biscuit", Anchored ? "Anchor down. She'll hold here." : "Anchor up.", Alerts.Kind.Info, "anchor", "anchor");
+                    Alerts.Push(Name, Anchored ? "Anchor down. She'll hold here." : "Anchor up.", Alerts.Kind.Info, "anchor", "anchor");
                     Snd.Play(M1Assets.I.Splash, AnchorPt != null ? AnchorPt.position : transform.position, Anchored ? 0.7f : 0.3f);
                 }
             }
@@ -292,15 +306,15 @@ namespace PortBoss.M1
             return k;
         }
 
-        public void CastOff()
+        public void CastOff(bool quiet = false)
         {
             if (!Moored) return;
             Moored = false; moorBlend = 0;
-            Alerts.Push("Biscuit", "Cast off. W / S for the throttle, A / D to steer.", Alerts.Kind.Info, "berth", "berth");
+            if (!quiet) Alerts.Push(Name, "Cast off. W / S for the throttle, A / D to steer.", Alerts.Kind.Info, "berth", "berth");
         }
 
         public bool CanMoor => !Moored && MoorAt != null && Vector3.Distance(Flat(pos), Flat(MoorAt.position)) < 6f && Mathf.Abs(Speed) < 2f;
-        public void Moor() { Moored = true; Anchored = false; moorBlend = 0; Notch = 0; Speed = 0; Alerts.Push("Biscuit", "Moored at Walt's Landing.", Alerts.Kind.Info, "berth", "berth|anchor"); }
+        public void Moor(bool quiet = false) { Moored = true; Anchored = false; moorBlend = 0; Notch = 0; Speed = 0; if (!quiet) Alerts.Push(Name, "Moored at Walt's Landing.", Alerts.Kind.Info, "berth", "berth|anchor"); }
         static Vector3 Flat(Vector3 v) => new Vector3(v.x, 0, v.z);
 
         // M3: a boat left loose for the night anchors itself where it is (systems §1.4.2)
@@ -312,8 +326,18 @@ namespace PortBoss.M1
         public bool Inside(Vector3 w, float pad = 0)
         {
             var l = transform.InverseTransformPoint(w);
-            return Mathf.Abs(l.x) < 1.0f + pad && Mathf.Abs(l.z) < 2.6f + pad;
+            return Mathf.Abs(l.x - Hull.center.x) < Hull.extents.x + 0.05f + pad && Mathf.Abs(l.z - Hull.center.z) < Hull.extents.z + 0.15f + pad;
         }
+        // ashore or swimming (not on a deck, not at a helm): my boat is the nearest one (the ladders, the prompts, the camera)
+        static void PickMine()
+        {
+            var me = Angler.I; if (me == null || All.Count < 2 || me.OnBoat || me.AtHelm) return;
+            Skiff best = I; float bd = best != null ? Vector3.Distance(best.transform.position, me.transform.position) : 1e9f;
+            foreach (var b in All) { if (!b.gameObject.activeInHierarchy) continue; float d = Vector3.Distance(b.transform.position, me.transform.position); if (d < bd - 0.5f) { bd = d; best = b; } }
+            I = best;
+        }
+        void OnDestroy() { All.Remove(this); for (int i = 0; i < All.Count; i++) All[i].Index = i; if (I == this) I = All.Count > 0 ? All[0] : null; }
+
         public float GunwaleY(Vector3 w) => transform.TransformPoint(new Vector3(0, 0.7f, transform.InverseTransformPoint(w).z)).y;
     }
 }

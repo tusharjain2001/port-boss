@@ -42,10 +42,12 @@ def J(a): return R.uniform(-a, a)
 
 # ---------------------------------------------------------------- mesh building ------------------------------------------------
 class MB:
-    """Collects primitive bmeshes into one mesh; every face carries a palette index (written as the Col attribute)."""
-    def __init__(s): s.bm = bmesh.new(); s.lay = s.bm.faces.layers.int.new('ci')
+    """Collects primitive bmeshes into one mesh; every face carries a palette index (written as the Col attribute) and a
+    paint channel ch (0 none, 1 Hull, 2 Stripe, 3 Trim, 4 Deck), written as Col alpha = 255 - 16*ch. ch is an int or a
+    {palette name: channel} dict applied to each face's final colour (others 0)."""
+    def __init__(s): s.bm = bmesh.new(); s.lay = s.bm.faces.layers.int.new('ci'); s.chl = s.bm.faces.layers.int.new('ch')
 
-    def add(s, src, col=None, mat=None):
+    def add(s, src, col=None, mat=None, ch=0):
         if mat is not None: bmesh.ops.transform(src, matrix=mat, verts=src.verts)
         src.normal_update()
         sl = src.faces.layers.int.get('ci')
@@ -54,10 +56,11 @@ class MB:
             try: nf = s.bm.faces.new([vm[v] for v in f.verts])
             except ValueError: continue
             nf[s.lay] = f[sl] if col is None else CI[col(f.calc_center_median(), f.normal) if callable(col) else col]
+            nf[s.chl] = ch.get(NAMES[nf[s.lay]], 0) if isinstance(ch, dict) else ch
         src.free(); return s
 
 
-def put(mb, bm, col, loc=(0, 0, 0), rot=(0, 0, 0)): mb.add(bm, col, M(loc, rot))
+def put(mb, bm, col, loc=(0, 0, 0), rot=(0, 0, 0), ch=0): mb.add(bm, col, M(loc, rot), ch)
 
 
 _MAT = {}
@@ -84,11 +87,12 @@ def finish(mb, name, coll, angle=50):
     """bmesh -> object: Col corner colours (sRGB bytes), smooth + sharp-by-angle, weighted normals (flat faces stay flat)."""
     me = bpy.data.meshes.new(name); mb.bm.to_mesh(me); mb.bm.free()
     vals = [0] * len(me.polygons); me.attributes['ci'].data.foreach_get('value', vals)
+    chs = [0] * len(me.polygons); me.attributes['ch'].data.foreach_get('value', chs)
     rgb = [srgb(PAL[n]) for n in NAMES]; cols = [0.0] * (len(me.loops) * 4)
     for p in me.polygons:
-        c = rgb[vals[p.index]] + (1.0,)
+        c = rgb[vals[p.index]] + ((255 - 16 * chs[p.index]) / 255,)
         for li in range(p.loop_start, p.loop_start + p.loop_total): cols[li * 4:li * 4 + 4] = c
-    me.attributes.remove(me.attributes['ci'])
+    me.attributes.remove(me.attributes['ci']); me.attributes.remove(me.attributes['ch'])
     ca = me.color_attributes.new('Col', 'BYTE_COLOR', 'CORNER'); ca.data.foreach_set('color_srgb', cols)
     me.color_attributes.active_color = ca
     me.polygons.foreach_set('use_smooth', [True] * len(me.polygons))
@@ -419,6 +423,7 @@ def strake_col(sd, k, i):
 
 
 WL = 0.08                     # anti-fouling line, just above the waterline
+HULL_CH = {'paper': 1, 'cream2': 1, 'red': 2}   # paint channels of the hull skins: topsides = Hull, sheer strake/band = Stripe
 
 
 def build_hull(mb):
@@ -435,7 +440,7 @@ def build_hull(mb):
     zsplit(bm, WL)
     for f in bm.faces:
         if f.calc_center_median().z < WL: f[lay] = CI['rust']
-    mb.add(bm)
+    mb.add(bm, ch=HULL_CH)
     # --- inner skin (painted cream inside) ---
     bm = bmesh.new()
     for sd in (1, -1):
@@ -466,18 +471,18 @@ def build_hull(mb):
     for f in bm.faces:
         if f[lay] == CI['cream3']: continue
         c = f.calc_center_median(); f[lay] = CI['rust' if c.z < WL else 'red' if c.z > z1 - 0.22 else 'paper']
-    mb.add(bm)
+    mb.add(bm, ch=HULL_CH)
     # --- gunwale + rubrail (warm wood), both sides ---
     prof = rrect(-0.075, 0.045, -0.08, 0.045, 0.02, (1, 1, 0, 0))
     for sd in (1, -1):
         path = [hull_pt(TST[i], K - 1, 0, sd, SEC[i]) for i in range(NS + 1)]
         path.append(path[-1] + Vector((0, 0.05, 0)))
-        mb.add(sweep(path, [(a * sd, b) for a, b in prof]), 'wood')
+        mb.add(sweep(path, [(a * sd, b) for a, b in prof]), 'wood', ch=3)
     # transom cap
     ytop = lambda z: ystern(z) + 0.025
     path = [Vector((-Bs(1) - 0.05, ytop(z1), z1)), Vector((-Bs(1) * 0.5, ytop(z1 + 0.022), z1 + 0.022)), Vector((0, ytop(z1 + 0.03), z1 + 0.03)),
             Vector((Bs(1) * 0.5, ytop(z1 + 0.022), z1 + 0.022)), Vector((Bs(1) + 0.05, ytop(z1), z1))]
-    mb.add(sweep(path, rrect(-0.055, 0.055, -0.035, 0.045, 0.018, (1, 1, 0, 0))), 'wood')
+    mb.add(sweep(path, rrect(-0.055, 0.055, -0.035, 0.045, 0.018, (1, 1, 0, 0))), 'wood', ch=3)
     # --- keel + stem post (one swept backbone) ---
     path = [Vector((0, ystern(zk(1)) + 0.05, zk(1)))] + [Vector((0, yst(TST[i], zk(TST[i])), zk(TST[i]))) for i in range(NS, 0, -1)]
     z0, ztop = zk(0), 0.80
@@ -497,7 +502,7 @@ def build_interior(mb):
         while inner_hw(yf, 0.075) < xo and yf < 0: yf += 0.02
         yr = 2.075
         L = yr - yf; cy = (yf + yr) / 2
-        put(mb, box(w, L - abs(J(0.02)), 0.045, 0.014, 1), 'wood' if k != 5 else 'weath', ((x0 + x1) / 2, cy, 0.0975), (0, D(J(1.2)), D(J(0.15))))
+        put(mb, box(w, L - abs(J(0.02)), 0.045, 0.014, 1), 'wood' if k != 5 else 'weath', ((x0 + x1) / 2, cy, 0.0975), (0, D(J(1.2)), D(J(0.15))), 4)
     # floor battens peeking out at the ends
     # ribs (bent frames) inside
     for y in (-1.5, -0.55, 0.35, 1.15, 1.8):
@@ -508,18 +513,18 @@ def build_interior(mb):
     # risers (seat stringers) along both sides at z~0.36
     ys = frange(-1.6, 2.36, 0.44)
     for sd in (1, -1):
-        mb.add(sweep([Vector((sd * (inner_hw(y, 0.37) - 0.02), y, 0.365)) for y in ys], rrect(-0.019, 0.019, -0.035, 0.035, 0.01, (1, 1, 0, 0))), 'wood')
+        mb.add(sweep([Vector((sd * (inner_hw(y, 0.37) - 0.02), y, 0.365)) for y in ys], rrect(-0.019, 0.019, -0.035, 0.035, 0.01, (1, 1, 0, 0))), 'wood', ch=3)
     # centre thwart, near the bow third (top z=0.45)
     ty = -1.0; hw = min(inner_hw(ty - 0.13, 0.42), inner_hw(ty + 0.13, 0.42)) - 0.005
-    put(mb, box(2 * hw, 0.26, 0.05, 0.02, 2), 'wood', (0, ty, 0.425), (0, 0, D(0.8)))
-    put(mb, box(0.07, 0.07, 0.30, 0.015, 1), 'midwood', (0, ty, 0.25))          # centre post
+    put(mb, box(2 * hw, 0.26, 0.05, 0.02, 2), 'wood', (0, ty, 0.425), (0, 0, D(0.8)), 3)
+    put(mb, box(0.07, 0.07, 0.30, 0.015, 1), 'midwood', (0, ty, 0.25), ch=3)    # centre post
     # stern bench (helm seat) with a locker front
     y0, y1 = 2.08, ystern(0.45) - 0.005
     hw = min(inner_hw(y0, 0.42), inner_hw(y1 - 0.04, 0.42)) - 0.005
     for k, (a, b) in enumerate(((y0, y0 + 0.175), (y0 + 0.19, y1))):
-        put(mb, box(2 * hw, b - a, 0.05, 0.016, 2), 'wood' if k == 0 else 'weath', (0, (a + b) / 2, 0.425), (0, D(J(0.8)), 0))
+        put(mb, box(2 * hw, b - a, 0.05, 0.016, 2), 'wood' if k == 0 else 'weath', (0, (a + b) / 2, 0.425), (0, D(J(0.8)), 0), 3)
     hwf = inner_hw(y0 + 0.02, 0.13) - 0.01
-    put(mb, box(2 * hwf, 0.035, 0.30, 0.012, 1), 'midwood', (0, y0 + 0.02, 0.25))
+    put(mb, box(2 * hwf, 0.035, 0.30, 0.012, 1), 'midwood', (0, y0 + 0.02, 0.25), ch=3)
     # foredeck over the front 0.8 m: 4 planks clipped to the hull, deck beam under its edge, a cleat
     zd, ye = 0.58, -1.70
     L = [(y, x) for y, x in hw_line(zd) if y < ye]
@@ -529,8 +534,8 @@ def build_interior(mb):
     for k in range(4):
         x0 = -0.86 + k * 0.435; x1 = x0 + 0.42
         p = clip([(x0, -3.0), (x1, -3.0), (x1, ye), (x0, ye)], poly)
-        if len(p) >= 3: mb.add(slab(p, 0.555, 0.60 + J(0.004), 0.014, 1), 'wood' if k != 2 else 'weath')
-    put(mb, box(2 * inner_hw(ye - 0.04, 0.53) - 0.01, 0.08, 0.06, 0.015, 1), 'midwood', (0, ye - 0.035, 0.525))
+        if len(p) >= 3: mb.add(slab(p, 0.555, 0.60 + J(0.004), 0.014, 1), 'wood' if k != 2 else 'weath', ch=4)
+    put(mb, box(2 * inner_hw(ye - 0.04, 0.53) - 0.01, 0.08, 0.06, 0.015, 1), 'midwood', (0, ye - 0.035, 0.525), ch=4)   # deck beam
     # horn cleat on the foredeck
     cx, cyy = 0.0, -2.0
     put(mb, box(0.07, 0.16, 0.05, 0.015, 1), 'dark', (cx, cyy, 0.625))

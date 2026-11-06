@@ -1,6 +1,6 @@
 # Port Boss character kit (docs/plan/replan/chars/cast.md, editor-kit.md §2b): builds the crew's bodies from code in
 # Blender 5.2, headless:   blender -b -P build_kit.py -- [pip bruno stretch rani gus sully | all] [path/to/X Bot.fbx] [norender]
-# (no name = pip). Per character <name>.py: HEIGHT, ARM_DOWN, HAT (the hat bone, Pip space), PALETTE, build().
+# (no name = pip). Per character <name>.py: HEIGHT, ARM_DOWN, HAT (the hat bone, Pip space), PALETTE, CLOTHES, build().
 # Output: Assets/Game/Art/PB_Char_<Name>.fbx  +  art-src/kit/out/<name>.blend, <name>-*.png (gitignored).
 # Skeleton: X Bot's joints, read from X Bot.fbx at build time (the Mixamo file is never shipped), scaled uniformly so the
 # Head joint sits at 82% of the character's height; Mixamo bone names without the prefix; mitten hands keep only the
@@ -20,7 +20,7 @@ NAMES = CREW if 'all' in ARGV else [a for a in ARGV if a in CREW] or ['pip']
 def build_one(name):
     bpy.ops.wm.read_factory_settings(use_empty=True); kitlib._MAT = None
     m = importlib.import_module(name)
-    kitlib.PAL = dict(COMMON, **m.PALETTE)
+    kitlib.PAL = dict(COMMON, **m.PALETTE); kitlib.CH = getattr(m, 'CLOTHES', {})
     Name = name.capitalize(); k = m.HEIGHT / PIP_H
     rig, J, s = build_rig(read_xbot(XBOT), m.HEIGHT, Name, m.HAT)
     print('SCALE X Bot -> %s %.4f (Pip space x %.4f)' % (Name, s, k))

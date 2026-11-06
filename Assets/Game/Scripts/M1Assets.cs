@@ -16,6 +16,9 @@ namespace PortBoss.M1
         public string[] FishIds; public GameObject[] Fish;
         public GameObject[] Cells; public GameObject WorldProps; public TextAsset WorldJson; public Texture2D Seabed; // map B (Art/World, Map.cs)
         public TextAsset FishCsv;
+        public GameObject Kestrel;                           // M5: the T2 launch (art-src/m5/build_kestrel.py)
+        public string[] M5Ids; public GameObject[] M5;       // M5 props, buildings and hats (Art/M5/PB_<Prop|Bld|Hat>_<id>.fbx), id = "Prop_desk"
+        public TextAsset M5Spots;                            // the set spots on Walt's Landing (art-src/m5/spots.json)
         public AnimationClip Idle, Walk, Run, Sprint, Jump, Land, SwimIdle, Swim, Climb, Drive;
         public AnimationClip JumpUp, Throw, GetUpBack, GetUpFront, FallIn; // the feel pass's Mixamo clips (Jumping Up, Frisbee Throw, Getting Up, Standing Up, Falling Into Pool)
         // sampled on Pip at build (M1Build.Feel): how far a clip lifts the hips above standing (the game takes it back out:
@@ -39,6 +42,7 @@ namespace PortBoss.M1
         static M1Assets i;
         public static M1Assets I => i != null ? i : i = Resources.Load<M1Assets>("M1Assets");
 
+        public GameObject M5Prefab(string id) { if (M5Ids == null) return null; int k = System.Array.IndexOf(M5Ids, id); return k >= 0 ? M5[k] : null; }
         public GameObject FishPrefab(string id)
         {
             if (FishIds == null) return null;

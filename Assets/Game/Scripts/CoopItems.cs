@@ -219,6 +219,7 @@ namespace PortBoss.M1
         }
 
         // ---------------------------------------------------------------- hotbars, tosses, gives, notes (clients)
+        public void Bar(ulong who) => SendBar(who);   // (M5) the warehouse moved fish in or out of their hotbar
         void SendBar(ulong who)
         {
             if (who == nm.LocalClientId || !Book.Bars.TryGetValue(who, out var b)) return;

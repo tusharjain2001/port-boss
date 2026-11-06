@@ -30,7 +30,15 @@ namespace PortBoss.M1
 
         public class Entry { public ulong Id; public byte Slot, Crew; public string Name, Key; } // (Key: host only, for a rejoin)
         public readonly List<Entry> Roster = new();
-        public ulong BoatOwner;                         // the client whose copy of Biscuit is the real one
+        // M5: one owner per boat (Skiff.All[i]: 0 Biscuit, 1 the Kestrel): the client whose copy of that boat is the real one
+        public readonly ulong[] Owner = new ulong[Skiff.MaxBoats];
+        public ulong BoatOwner { get => Owner[0]; set => Owner[0] = value; }   // Biscuit's (the M2-M4 tests)
+        // someone left or came back: the boats they ran are the host's again
+        void Unown(ulong id)
+        {
+            for (int b = 0; b < Owner.Length; b++)
+                if (Owner[b] == id) { Owner[b] = nm.LocalClientId; var s = Skiff.At(b); if (s != null) { s.AtHelm = false; s.TakeOver(); } }
+        }
         public readonly Dictionary<ulong, Angler> Mates = new();
         public Entry Find(ulong id) => Roster.Find(e => e.Id == id);
         public static Action<string> OnLog;             // test hooks
@@ -83,14 +91,15 @@ namespace PortBoss.M1
             Reg(m, "pb.ask", OnAsk); Reg(m, "pb.clock", OnClock);
             Reg(m, "pb.roll", OnRoll); Reg(m, "pb.rolled", OnRolled);
             Reg(m, "pb.landed", OnLanded); Reg(m, "pb.tangle", OnTangle);
-            RegisterItems(m); Reg(m, "pb.voice", OnVoice); Reg(m, "pb.place", OnPlace); RegisterDay(m); RegisterSleep(m); RegisterFirm(m); Reg(m, "pb.shove", OnShove);
+            RegisterItems(m); Reg(m, "pb.voice", OnVoice); Reg(m, "pb.place", OnPlace); RegisterDay(m); RegisterSleep(m); RegisterFirm(m); RegisterM5(m); Reg(m, "pb.shove", OnShove);
             StartVoice();
             if (!host && System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-pb-oldjoin") < 0) gameObject.AddComponent<JoinView>(); // M3.1: the view waits till I'm me, where I was (JoinView)
             if (host)
             {
                 Roster.Add(new Entry { Id = nm.LocalClientId, Slot = 0, Crew = (byte)Angler.Body, Name = myName });
                 if (Angler.I != null) Book.Bars[nm.LocalClientId] = Angler.I.Bar; // the host's own hotbar is the book's
-                BoatOwner = nm.LocalClientId; Apply();
+                for (int b = 0; b < Owner.Length; b++) Owner[b] = nm.LocalClientId;
+                Apply();
             }
         }
 
@@ -118,7 +127,7 @@ namespace PortBoss.M1
                 KeepAway(e);
                 Roster.Remove(e); Log($"{e.Name} left");
                 Alerts.Push("Crew", e.Name + " left the boat.", Alerts.Kind.Crew);
-                if (BoatOwner == id) { BoatOwner = nm.LocalClientId; if (Skiff.I != null) { Skiff.I.AtHelm = false; Skiff.I.TakeOver(); } }
+                Unown(id);
                 Broadcast(); Apply();
                 return;
             }
@@ -136,7 +145,7 @@ namespace PortBoss.M1
             Alerts.Push("Crew", "The host left. You're on your own now.", Alerts.Kind.Warning);
             foreach (var a in Mates.Values) if (a != null) Destroy(a.gameObject);
             Mates.Clear(); Roster.Clear();
-            if (Skiff.I != null && Skiff.I.Remote) Skiff.I.TakeOver();
+            foreach (var b in Skiff.All) if (b.Remote) b.TakeOver();
             Lobby?.Leave(); Lobby = null;
             nm.Shutdown(); Destroy(gameObject); I = null;
         }
@@ -158,7 +167,7 @@ namespace PortBoss.M1
                 {
                     Log($"{old.Name} is back before their old connection closed: retiring it");
                     KeepAway(old); Roster.Remove(old);
-                    if (BoatOwner == old.Id) { BoatOwner = nm.LocalClientId; if (Skiff.I != null) { Skiff.I.AtHelm = false; Skiff.I.TakeOver(); } }
+                    Unown(old.Id);
                     nm.DisconnectClient(old.Id);
                 }
                 if (Roster.Count >= MaxCrew) { Log($"{name} can't join: the crew is full ({MaxCrew})"); nm.DisconnectClient(from, "The crew is full."); return; }
@@ -171,7 +180,7 @@ namespace PortBoss.M1
                 Broadcast(); Apply();
                 if (back != null) SendPlace(from, back);
                 // the boat as it is now, so the joiner doesn't wait for the next pose to see it
-                if (Skiff.I != null && BoatOwner == nm.LocalClientId) SendBoat(Skiff.I.NetPose(Now));
+                foreach (var b in Skiff.All) if (Owner[b.Index] == nm.LocalClientId) SendBoat(b.NetPose(Now));
                 // their hotbar (the book's) and the fish lying about. What they brought goes into the book first: all of it
                 // for a newcomer; for a returning player only what they caught on their own while away (Id 0), the rest is
                 // the book's already. ponytail: a fish they let go while away still comes back (the book never heard);
@@ -217,21 +226,22 @@ namespace PortBoss.M1
                 if (id != nm.LocalClientId)
                     SendTo(id, "pb.roster", w =>
                     {
-                        w.WriteValueSafe(BoatOwner); w.WriteValueSafe((byte)Roster.Count);
-                        foreach (var e in Roster) { w.WriteValueSafe(e.Id); w.WriteValueSafe(e.Slot); w.WriteValueSafe(e.Crew); w.WriteValueSafe(e.Name); }
+                        w.WriteValueSafe((byte)Owner.Length); foreach (var o in Owner) w.WriteValueSafe(o); w.WriteValueSafe((byte)Roster.Count);
+                        foreach (var e in Roster) { w.WriteValueSafe(e.Id); w.WriteValueSafe(e.Slot); w.WriteValueSafe(e.Crew); w.WriteValueSafe(e.Name); w.WriteValueSafe(e.Key ?? MyKey(e.Name)); }   // (M5: the key, for their outfit)
                     }, NetworkDelivery.ReliableSequenced);
         }
 
         void OnRoster(ulong from, FastBufferReader r)
         {
-            r.ReadValueSafe(out ulong owner); r.ReadValueSafe(out byte n);
+            r.ReadValueSafe(out byte nb); var owners = new ulong[nb]; for (int i = 0; i < nb; i++) r.ReadValueSafe(out owners[i]);
+            r.ReadValueSafe(out byte n);
             var list = new List<Entry>();
             for (int i = 0; i < n; i++)
             {
-                var e = new Entry(); r.ReadValueSafe(out e.Id); r.ReadValueSafe(out e.Slot); r.ReadValueSafe(out e.Crew); r.ReadValueSafe(out string nm_); e.Name = nm_;
+                var e = new Entry(); r.ReadValueSafe(out e.Id); r.ReadValueSafe(out e.Slot); r.ReadValueSafe(out e.Crew); r.ReadValueSafe(out string nm_); e.Name = nm_; r.ReadValueSafe(out string key_); e.Key = key_;
                 list.Add(e);
             }
-            Deliver(() => { Roster.Clear(); Roster.AddRange(list); BoatOwner = owner; Apply(); }, true);
+            Deliver(() => { Roster.Clear(); Roster.AddRange(list); for (int i = 0; i < owners.Length && i < Owner.Length; i++) Owner[i] = owners[i]; Apply(); }, true);
         }
 
         // Make the world match the roster: my own body and colour, a body for everyone else, and who runs the boat.
@@ -256,13 +266,12 @@ namespace PortBoss.M1
             }
             foreach (var id in new List<ulong>(Mates.Keys))
                 if (Find(id) == null) { if (Mates[id] != null) Destroy(Mates[id].gameObject); Mates.Remove(id); }
-            var s = Skiff.I;
-            if (s != null)
+            foreach (var s in Skiff.All)
             {
-                bool mine = BoatOwner == nm.LocalClientId;
-                if (BoatOwner != shownOwner) { s.Net.Clear(); shownOwner = BoatOwner; }
+                ulong ow = Owner[s.Index]; bool mine = ow == nm.LocalClientId;
+                if (ow != shownOwner[s.Index]) { s.Net.Clear(); shownOwner[s.Index] = ow; }
                 if (mine && s.Remote) s.TakeOver(); else if (!mine) s.Remote = true;
-                if (!mine && a != null && a.AtHelm) a.LeaveHelm(); // someone else got there first
+                if (!mine && a != null && a.AtHelm && Skiff.I == s) a.LeaveHelm(); // someone else got there first
             }
         }
 
@@ -299,47 +308,63 @@ namespace PortBoss.M1
         }
 
         // ---------------------------------------------------------------- asks (client -> host): the tiller, the anchor, a body
-        public enum Ask : byte { Helm, LeaveHelm, Anchor, NextCrew, Scoop, Patch }
+        public enum Ask : byte { Helm, LeaveHelm, Anchor, NextCrew, Scoop, Patch, Crew0 = 16 }   // (M5) Crew0 + n: the wardrobe picks crew member n
+        public static void PickCrew(int c) => Request((Ask)((int)Ask.Crew0 + c));
+        public static bool CrewTaken(int c) => On && I.Roster.Exists(e => e.Crew == c && e.Id != I.nm.LocalClientId);
 
         public static void Request(Ask what)
         {
             if (!On) return;
-            if (IsHost) I.Handle(I.nm.LocalClientId, what);
-            else I.Send("pb.ask", w => w.WriteValueSafe((byte)what), NetworkDelivery.ReliableSequenced);
+            byte boat = (byte)(Skiff.I != null ? Skiff.I.Index : 0);   // (M5) the boat I'm on
+            if (IsHost) I.Handle(I.nm.LocalClientId, what, boat);
+            else I.Send("pb.ask", w => { w.WriteValueSafe((byte)what); w.WriteValueSafe(boat); }, NetworkDelivery.ReliableSequenced);
         }
 
-        void OnAsk(ulong from, FastBufferReader r) { r.ReadValueSafe(out byte b); Deliver(() => { if (nm.IsServer) Handle(from, (Ask)b); else Owned((Ask)b); }, true); }
+        void OnAsk(ulong from, FastBufferReader r) { r.ReadValueSafe(out byte b); r.ReadValueSafe(out byte boat); Deliver(() => { if (nm.IsServer) Handle(from, (Ask)b, boat); else Owned((Ask)b, boat); }, true); }
 
         // a client driving the boat: the host forwards a crewmate's anchor, scoop or patch to the real copy, here
-        static void Owned(Ask what)
+        static void Owned(Ask what, byte boat)
         {
-            var s = Skiff.I; if (s == null || s.Remote) return;
+            var s = Skiff.At(boat); if (s == null || s.Remote) return;
             if (what == Ask.Anchor) s.ToggleAnchor(); else if (what == Ask.Scoop) s.ScoopOut(); else if (what == Ask.Patch) s.Patch();
         }
 
-        void Handle(ulong from, Ask what)
+        void Handle(ulong from, Ask what, byte boat = 0)
         {
             if (!nm.IsServer) return;
-            var s = Skiff.I; var e = Find(from); if (e == null) return;
+            var s = Skiff.At(boat); var e = Find(from); if (e == null) return;
+            ref ulong BoatOwner = ref Owner[boat < Owner.Length ? boat : 0];
             switch (what)
             {
                 case Ask.Helm:
                     // the tiller is free unless someone else sits at it: the boat (and its feel) moves to the driver
-                    if (s != null && (BoatOwner == from || !s.AtHelm)) { BoatOwner = from; Log($"{e.Name} has the tiller"); }
+                    if (s != null && !s.Crewed && (BoatOwner == from || !s.AtHelm)) { BoatOwner = from; Log($"{e.Name} has the tiller"); }
                     break;
                 case Ask.LeaveHelm:
                     if (BoatOwner == from && from != nm.LocalClientId) { BoatOwner = nm.LocalClientId; Log($"{e.Name} left the tiller: the boat is the host's"); }
                     break;
                 case Ask.Anchor:
                     if (BoatOwner == nm.LocalClientId) s?.ToggleAnchor();
-                    else SendTo(BoatOwner, "pb.ask", w => w.WriteValueSafe((byte)Ask.Anchor), NetworkDelivery.ReliableSequenced);
+                    else { ulong to = BoatOwner; SendTo(to, "pb.ask", w => { w.WriteValueSafe((byte)Ask.Anchor); w.WriteValueSafe(boat); }, NetworkDelivery.ReliableSequenced); }
                     break;
                 case Ask.Scoop: case Ask.Patch:                       // M3 leaks: the water belongs to the real boat
                     if (BoatOwner == nm.LocalClientId) { if (what == Ask.Scoop) s?.ScoopOut(); else s?.Patch(); }
-                    else SendTo(BoatOwner, "pb.ask", w => w.WriteValueSafe((byte)what), NetworkDelivery.ReliableSequenced);
+                    else { ulong to = BoatOwner; SendTo(to, "pb.ask", w => { w.WriteValueSafe((byte)what); w.WriteValueSafe(boat); }, NetworkDelivery.ReliableSequenced); }
                     break;
                 case Ask.NextCrew:
                     e.Crew = FreeCrew(e.Crew + 1, from); Log($"{e.Name} is now {CrewName(e.Crew)}");
+                    break;
+                default:
+                    if (what >= Ask.Crew0)   // (M5) the wardrobe: one crew member each (two players can't both be Pip)
+                    {
+                        int c = what - Ask.Crew0;
+                        if (Roster.Exists(x => x.Crew == c && x.Id != from)) Log($"{e.Name} can't be {CrewName(c)}: taken");
+                        else
+                        {
+                            e.Crew = (byte)c; Log($"{e.Name} is now {CrewName(c)} (wardrobe)");
+                            var o = Firm.C?.OutfitOf(e.Key ?? MyKey(e.Name)); if (o != null && o.Preset != c) { o.Preset = c; o.Reset(); Firm.I.Dirty = true; }   // (their clothes: the new crew member's own)
+                        }
+                    }
                     break;
             }
             Broadcast(); Apply();
@@ -363,9 +388,13 @@ namespace PortBoss.M1
         // transport a receive buffer (CoopSession.MakeTransport). A rejoin gets its hotbar and place back as after any leave.
         const float Silence = 8f;
         readonly Dictionary<ulong, float> heard = new();
+        float lastDropCheck;
         void DropSilent()
         {
             float now = Time.realtimeSinceStartup; ulong gone = ulong.MaxValue;
+            // the host itself stalled (a long frame: a big time jump, a load): its own pause is nobody's silence
+            if (lastDropCheck > 0 && now - lastDropCheck > 2f) foreach (var k in new List<ulong>(heard.Keys)) heard[k] = now;
+            lastDropCheck = now;
             foreach (var kv in heard) if (now - kv.Value > Silence) { gone = kv.Key; break; }
             if (gone == ulong.MaxValue) return;
             heard.Remove(gone);
@@ -377,6 +406,7 @@ namespace PortBoss.M1
         void Update()
         {
             if (nm == null || !nm.IsListening) return;
+            if (Time.unscaledDeltaTime > 1f) Log($"a {Time.unscaledDeltaTime:F1} s frame here");   // a stall (shows which machine froze)
             // the lag simulator's inbox
             for (int i = 0; i < inbox.Count; i++) if (inbox[i].at <= Now) { var a = inbox[i].a; inbox.RemoveAt(i--); a(); }
             clockT -= Time.unscaledDeltaTime;
@@ -397,7 +427,7 @@ namespace PortBoss.M1
                 var p = me.NetPose(Now);
                 if (nm.IsServer) Relay(nm.LocalClientId, p); else Send("pb.pose", w => p.Write(ref w), NetworkDelivery.UnreliableSequenced);
             }
-            if (Skiff.I != null && BoatOwner == nm.LocalClientId && !Skiff.I.Remote) SendBoat(Skiff.I.NetPose(Now));
+            foreach (var b in Skiff.All) if (Owner[b.Index] == nm.LocalClientId && !b.Remote) SendBoat(b.NetPose(Now));
         }
 
         void OnPose(ulong from, FastBufferReader r)
@@ -440,12 +470,12 @@ namespace PortBoss.M1
             var p = Skiff.Pose.Read(ref r);
             Deliver(() =>
             {
-                if (owner != BoatOwner) return;
+                int bi = p.Flags >> 4; if (bi >= Owner.Length || owner != Owner[bi]) return;
                 if (nm.IsServer) RelayBoat(owner, p);
-                var s = Skiff.I; if (s != null && s.Remote) s.Net.Add(p.T, p);
+                var s = Skiff.At(bi); if (s != null && s.Remote) s.Net.Add(p.T, p);
             }, false);
         }
-        ulong shownOwner = ulong.MaxValue;
+        readonly ulong[] shownOwner = { ulong.MaxValue, ulong.MaxValue, ulong.MaxValue, ulong.MaxValue };
 
         // ---------------------------------------------------------------- fishing (gdd fishing §4.2, §4.4)
         // The host decides the fish: each cast asks it, and it rolls the species, size and weight then (the answer is back
