@@ -173,6 +173,12 @@ namespace PortBoss.M1
                     // where the clear air in front of me starts
                     float clear = Vector3.Distance(c, p);
                     foreach (var h in Physics.RaycastAll(c, p - c, clear)) if (!h.collider.transform.IsChildOf(me.transform) && h.distance < clear) clear = h.distance;
+                    // Mabel (no collider) behind her counter stands on that line too: the near plane starts in front of her
+                    if (Works.I != null) foreach (var k in Works.I.Keepers) if (k != null && k.Visible)
+                    {
+                        var kp = k.transform.position + Vector3.up * 1.1f - c; float along = Vector3.Dot(kp, d);
+                        if (along > 0 && along < clear && (kp - d * along).magnitude < 0.7f) clear = Mathf.Max(0.3f, along - 0.45f);
+                    }
                     pcam.nearClipPlane = Mathf.Max(0.05f, Vector3.Distance(c, p) - clear + 0.02f);
                     break;
                 }

@@ -209,7 +209,7 @@ namespace PortBoss.M1
 
         // ---------------------------------------------------------------- the screen (mockup 07, 1920x1080 pixels)
         RectTransform root, cards, items, swatches, left, right; Text crewName, crewLine, colourT, dyeCap, hint, resetT; Image colourDot;
-        RawImage turnImg; Camera tcam, cam; RenderTexture trt; Transform stage; GameObject turn; int turnFor = -1; float yaw = 180, yawV;
+        RawImage turnImg; Camera tcam, cam; RenderTexture trt; Transform stage; GameObject turn; int turnFor = -1; float yaw = Front, yawV; const float Front = 0;   // the turntable body faces the camera at 0 (its idle turns it; the portrait bake, no idle, uses 180)
         readonly RenderTexture[] portraits = new RenderTexture[6];
         int tab, preset, sel = -1;
         readonly List<(RectTransform r, Action a)> btns = new(); int focus = -1; string key;
@@ -286,7 +286,7 @@ namespace PortBoss.M1
         void ShowI()
         {
             if (Open) return;
-            preset = Mathf.Clamp(Mine.Preset >= 0 ? Mine.Preset : Angler.Body, 0, 5); tab = 0; sel = -1; key = null; focus = -1; yaw = 180; yawV = 0;
+            preset = Mathf.Clamp(Mine.Preset >= 0 ? Mine.Preset : Angler.Body, 0, 5); tab = 0; sel = -1; key = null; focus = -1; yaw = Front; yawV = 0;
             root.gameObject.SetActive(true); stage.gameObject.SetActive(true); tcam.enabled = true; Ctl.Ui = 2;
             if (!Application.isBatchMode) { Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }
             Snd.Play2D(Synth.Creak, 0.25f, 1.4f); Snd.Play2D(Synth.Tik, 0.3f, 0.9f);
@@ -431,7 +431,7 @@ namespace PortBoss.M1
                     var bd = UiKit.Card(c, "badge", 11, bc, false, Color.Lerp(bc, Ponyo.Line, 0.4f), 0); float bw = 18 + lab.Length * 8.5f; bd.Place(new Vector2(1, 1), new Vector2(-8, -10), new Vector2(bw, 24), new Vector2(1, 1));
                     var bt = UiKit.Txt(bd, lab, UiKit.Bold, 12, Ponyo.Paper, TextAnchor.MiddleCenter); bt.rectTransform.Stretch();
                 }
-                int ii = i; Btn(c, "crew " + Catalog.Preset[i], () => { if (preset != ii) { preset = ii; sel = -1; yaw = 180; } else Pick(ii); });
+                int ii = i; Btn(c, "crew " + Catalog.Preset[i], () => { if (preset != ii) { preset = ii; sel = -1; yaw = Front; } else Pick(ii); });
             }
             crewName.text = Catalog.Preset[preset] == "Gus" ? "Old Gus" : Catalog.Preset[preset]; crewLine.text = Line[preset];
             int slot = MySlot; colourDot.color = Coop.Colours[slot];
