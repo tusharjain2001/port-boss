@@ -215,6 +215,7 @@ namespace PortBoss.M1
         public void Pick(Ware w)
         {
             Sel = w; rush = false; slot = 0; pat = 0;
+            if (w != null && w.Cat != cat) { cat = w.Cat; scroll = 0; }   // picking an item shows its own tab
             sw = -1;
             if (w != null && w.Fit == Fit.Paint) { var b = C.BoatOf(w.Boat); pat = b.Pattern; sw = -1; }
             if (w != null && w.Fit == Fit.Dye) slot = 1;
