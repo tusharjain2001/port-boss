@@ -109,6 +109,8 @@ namespace PortBoss.M1
 
         // where you stand to get in or out: beside the cot, on the sea side, facing it
         public static Vector3 BedSide => Cot.position + Cot.right * 0.75f * Side + Vector3.up * 0.05f;
+        public static Vector3 FarSide => Cot.position - Cot.right * 0.75f * Side + Vector3.up * 0.05f;
+        static Vector3 Flat(Vector3 v) { v.y = 0; return v; }
         static float Side => Landing.I != null && Vector3.Dot(Landing.I.Spawn.position - Cot.position, Cot.right) < 0 ? -1 : 1;
 
         // Angler.Interact asks: the prompt on the cot (and hold E 1 s to lie down)
@@ -128,6 +130,7 @@ namespace PortBoss.M1
         }
 
         public bool Lying => lying;
+        public bool Still => lying || slumped || passedOut && Skipping; // in the cot, or out cold waiting for the skip: no walking
         public bool CardUp => card != null && card.gameObject.activeSelf;
         public bool CotTaken;                       // someone is in the cot (co-op: the host says who)
 
@@ -142,6 +145,8 @@ namespace PortBoss.M1
             StartCoroutine(Ease(me, 0, 1, 1f));
             Request(Kind.Bed);
         }
+
+        public void TestLie() => LieDown(Angler.I); // (tests: the one-cot latency race's outcome, lying down after a crewmate did)
 
         IEnumerator Ease(Angler me, float a, float b, float s) { for (float t = 0; t < s; t += Time.deltaTime) { me.Lie = Mathf.SmoothStep(a, b, t / s); yield return null; } me.Lie = b; }
 
@@ -222,10 +227,20 @@ namespace PortBoss.M1
         // who is fighting a fish right now (the host's own player, then each crewmate as their poses show)
         static string Fighter()
         {
-            var me = Angler.I;
-            if (me != null && me.Fish.Fighting) return Coop.I.Find(Coop.Me)?.Name ?? "Host";
-            foreach (var kv in Coop.I.Mates) if (kv.Value != null && kv.Value.Fish.Fighting) return Coop.I.Find(kv.Key)?.Name ?? kv.Value.NetName;
+            var me = Angler.I; var c = Coop.I;
+            if (c == null) return null;                    // (the host left its crew mid heads-up: no one to wait for)
+            if (me != null && me.Fish.Fighting) return c.Find(Coop.Me)?.Name ?? "Host";
+            foreach (var kv in c.Mates) if (kv.Value != null && kv.Value.Fish.Fighting) return Coop.I.Find(kv.Key)?.Name ?? kv.Value.NetName;
             return null;
+        }
+
+        // a client whose host left: a skip still in its heads-up never comes. In the cot or out cold: sleep alone; awake:
+        // carry on (the night card already up finishes on its own)
+        public void HostGone()
+        {
+            if (!Skipping || Frozen || hostRun) return; // (a host leaving its own skip just carries on)
+            if (lying || passedOut) { Log("the host left mid heads-up: sleeping alone"); StartCoroutine(Night(null, lying ? Kind.Bed : Kind.PassOut, DayTime.NextWake(Sky.Minutes), Angler.I.NetName ?? "You")); }
+            else { Log("the host left mid heads-up: no skip"); Skipping = false; CotTaken = false; }
         }
 
         // every machine: the heads-up toast for the others
@@ -233,7 +248,7 @@ namespace PortBoss.M1
         {
             Skipping = true;
             if (Coop.On && who == Coop.Me) return;
-            Alerts.Push("Night", k == Kind.Bed ? $"{name} is going to sleep · night skips in {HeadsUp:0} s" : $"{name} passed out · night skips in {HeadsUp:0} s", Alerts.Kind.Info);
+            Alerts.Push("Night", k == Kind.Bed ? $"{name} is going to sleep · night skips in {HeadsUp:0} s" : $"{name} passed out · night skips in {HeadsUp:0} s", Alerts.Kind.Info, secs: HeadsUp);
             if (k == Kind.Bed) CotTaken = true;
         }
 
@@ -242,7 +257,7 @@ namespace PortBoss.M1
         {
             Skipping = true; Frozen = true;
             var me = Angler.I; double from = Sky.Minutes; int fromDay = DayTime.Day(from - DayTime.Wake);
-            bool mine = !Coop.On || who == Coop.Me;
+            bool mine = who == null || Coop.On && who == Coop.Me; // (a host that left its crew mid heads-up still runs the rider's skip: not mine)
             Log($"night: {name} {(k == Kind.Bed ? "slept" : "passed out")}, {DayTime.Clock(from)} Day {DayTime.Day(from)} -> {DayTime.Clock(to)} Day {DayTime.Day(to)}");
             Hud.I?.Quiet(true);                            // the toasts fade with the day; new ones wait for the morning
             yield return Fade(0, 1, 1.2f);
@@ -295,8 +310,9 @@ namespace PortBoss.M1
             yield return CardFade(false);
             Hud.I?.Quiet(false);
             if (slumped) { me.Lie = 0; slumped = false; }
-            if (lying) { me.Lie = 0; lying = false; me.Teleport(BedSide, Quaternion.LookRotation(Cot.position - BedSide).eulerAngles.y + 180); }
+            if (lying) { me.Lie = 0; lying = false; var at = mine ? BedSide : FarSide; me.Teleport(at, Quaternion.LookRotation(Flat(Cot.position - at)).eulerAngles.y + 180); } // (two in the one cot, a latency race: the second steps out the other side)
             Frozen = false;
+            Snd.Play2D(Synth.Horn, 0.4f); Log("the ferry horn: 07:00");
             yield return Fade(1, 0, 1f);
             Skipping = false; CotTaken = false;
             Alerts.Push($"Day {newDay} · {DayTime.DayName(newDay)}", $"7:00 AM. {Sky.Word(Sky.W.Block(newDay, 0))}", Alerts.Kind.Weather);

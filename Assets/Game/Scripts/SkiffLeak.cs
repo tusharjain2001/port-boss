@@ -1,8 +1,10 @@
+using System.Collections;
 using UnityEngine;
 
 namespace PortBoss.M1
 {
-    // Leaks (gdd systems §1.6.4): in a storm Biscuit can spring a leak (seeded, at most once per storm, Weather.LeakAt).
+    // Leaks (gdd systems §1.6.4): in a storm Biscuit can spring a leak (seeded, at most once per storm, Sky.LeakAt: the
+    // forecast's storm, or one held with F11 / -pb-weather storm, timed from the hold).
     // Water rises inside (visible), she slows by up to 30% and lists 5°. Patch: hold E at the hole (10 s). Bail: hold E
     // anywhere else on deck while there's water. She never sinks: at max water the engine coughs at 30% and Dot offers a tow.
     // The real copy (the driver's, else the host's) owns the water; it rides in the boat's pose; a crewmate's scoop or patch
@@ -19,7 +21,7 @@ namespace PortBoss.M1
         public float SpeedMul => Water >= 0.999f ? 0.3f : 1 - 0.3f * Water;
         public float List => 5f * Water;
 
-        double leakDone = double.NaN; bool towSaid, patchSent; float holdT; Transform waterQ; bool deckFound;
+        double leakDone = double.NaN; bool towSaid, patchSent; float holdT; Transform waterQ; Material waterM; bool deckFound;
 
         public Vector3 Hole => transform.TransformPoint(HoleLocal);
 
@@ -29,7 +31,7 @@ namespace PortBoss.M1
             if (Sky.W != null && !Leaking && !Moored && !Sound)
             {
                 var (d, b) = Weather.BlockAt(Sky.Minutes);
-                double at = Sky.W.LeakAt(d, b);
+                double at = Sky.LeakAt(d, b);
                 if (!double.IsNaN(at) && Sky.Minutes >= at && leakDone != at) { leakDone = at; SpringLeak(); }
             }
             if (Leaking) Water = Mathf.Min(1, Water + dt / FillTime);
@@ -94,9 +96,52 @@ namespace PortBoss.M1
         {
             if (Sky.W == null || Moored) return;
             var (d, b) = Weather.BlockAt(Sky.Minutes);
-            foreach (var at in Sky.W.Rogues(d, b)) Rogue(at);
+            foreach (var at in Sky.Rogues(d, b)) Rogue(at);
             if (!double.IsNaN(forcedRogue)) Rogue(forcedRogue);
         }
+
+        // the telegraph's white crest (systems §1.6.5): a line of foam that rises out of the sea to starboard and runs in
+        // over the 3 s warning, breaking on her side as it hits
+        IEnumerator Crest(double at)
+        {
+            var root = new GameObject("rogue.crest").transform; var mat = Util.Soft(new Color(1, 1, 1, 0));
+            var qs = new Transform[11];
+            for (int i = 0; i < qs.Length; i++)
+            {
+                var q = GameObject.CreatePrimitive(PrimitiveType.Quad); Destroy(q.GetComponent<Collider>());
+                var r = q.GetComponent<Renderer>(); r.sharedMaterial = mat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                q.transform.SetParent(root, false); qs[i] = q.transform;
+            }
+            for (double lead = at - Sky.Minutes; lead > -0.5; lead = at - Sky.Minutes)
+            {
+                float k = Mathf.Clamp01(1 - (float)lead / RogueWarn), fade = Mathf.Clamp01(k * 3) * Mathf.Clamp01(1 + (float)lead / 0.5f);
+                var cam = Camera.main; var fwd = transform.forward; fwd.y = 0; fwd.Normalize(); var side = Vector3.Cross(Vector3.up, fwd);
+                var c = transform.position + side * Mathf.Lerp(26, 1.2f, k);
+                for (int i = 0; i < qs.Length; i++)
+                {
+                    float o = (i - qs.Length / 2) * 1.3f, w = 1 - Mathf.Abs(o) / 9f;   // (taller in the middle: one wave, not a wall)
+                    var p = c + fwd * o - side * (o * o * 0.04f); p.y = Sea.Height(p) + Mathf.Lerp(0.2f, 1.1f, k * k) * w;
+                    qs[i].position = p; qs[i].localScale = new Vector3(2.2f, Mathf.Lerp(0.4f, 1.3f, k) * (0.6f + 0.4f * w), 1);
+                    if (cam != null) { var d = p - cam.transform.position; d.y = 0; if (d.sqrMagnitude > 0.01f) qs[i].rotation = Quaternion.LookRotation(d); }
+                }
+                mat.SetColor("_BaseColor", new Color(1, 1, 1, 0.9f * fade));
+                yield return null;
+            }
+            Destroy(root.gameObject); Destroy(mat);
+        }
+
+        // near a rail = near the gunwale (the rail objects' origins sit mid-boat): a hand on it (systems §1.6.5)
+        public bool NearRail(Vector3 at) { var lp = transform.InverseTransformPoint(at); return Mathf.Abs(lp.x) > Hull.extents.x - 0.5f || Mathf.Abs(lp.z) > Hull.extents.z - 0.6f; }
+
+        // footing (systems §1.6.5): a deck tilted over 14° slides you slowly to the low side, unless you're at a rail or braced
+        public Vector3 Slide(Vector3 at)
+        {
+            float tilt = Vector3.Angle(transform.up, Vector3.up);
+            if (tilt <= 14 || NearRail(at)) return Vector3.zero;
+            var down = Vector3.ProjectOnPlane(Vector3.down, transform.up); down.y = 0;
+            return down.normalized * 0.7f * Mathf.Clamp01((tilt - 14) / 8);
+        }
+        public static bool Wet => Sky.I != null && Sky.I.Wx_.Rain > 0.3f;   // rain or storm spray: a wet deck (stops +0.15 s)
 
         void Rogue(double at)
         {
@@ -107,16 +152,17 @@ namespace PortBoss.M1
                 var me = Angler.I;
                 if (me != null && me.OnBoat) Alerts.Push(Name, "Rogue wave! Hold C to brace!", Alerts.Kind.Warning);
                 Snd.Play(Synth.Roar, transform.position + transform.right * 6, 1f);
+                StartCoroutine(Crest(at));
             }
             if (lead > 0 || lead < -1 || rogueHit == at) return;
             rogueHit = at; if (at == forcedRogue) forcedRogue = double.NaN;
             if (!Remote) vr += 38f;                                  // the lurch (riders see it through the pose)
             Snd.Play(M1Assets.I.Splash, transform.position + transform.right * 1.5f, 1f, 0.7f); CameraRig.Shake(0.5f);
+            PortBoss.M1.Fx.Splash(transform.position + transform.right * 1.1f + Vector3.up * 0.4f, 3.5f, 40); // (the crest breaks over her side)
             var p = Angler.I;
             if (p == null || !p.OnBoat || p.Swimming || p.Down) return;
             if (p.Braced) { Debug.Log("[PB] rogue: braced, safe"); OnRogue?.Invoke(false, false); return; }
-            var lp = transform.InverseTransformPoint(p.transform.position);  // near a rail = near the gunwale (the rail objects' origins sit mid-boat)
-            bool rail = Mathf.Abs(lp.x) > Hull.extents.x - 0.5f || Mathf.Abs(lp.z) > Hull.extents.z - 0.6f;
+            bool rail = NearRail(p.transform.position);
             bool over = rail && (TestOver || Weather.U(Sky.Seed, (int)at, 900 + (int)Coop.Me) < 0.25);
             var side = -transform.right;                               // the wave hits from starboard: you go to port
             p.Knock(over ? side * 4.5f + Vector3.up * 3.5f : side * 1.6f + Vector3.up * 1f);
@@ -124,21 +170,26 @@ namespace PortBoss.M1
             OnRogue?.Invoke(true, over);
         }
 
-        // every copy: the water inside, a flat sheet of sea that rises up to 22 cm over the deck
+        // every copy: the water inside, a sheet of sea that rises up to 22 cm over the deck. Shallow, it's a narrow, clear
+        // puddle down the keel line that runs to her low side; deep, a darker sheet wall to wall. Under ~1 cm: dry.
         void WaterVisual()
         {
-            if (Water < 0.01f) { if (waterQ != null) waterQ.gameObject.SetActive(false); return; }
+            if (Water < 0.04f) { if (waterQ != null) waterQ.gameObject.SetActive(false); return; }
             if (waterQ == null)
             {
                 FindDeck();
                 var q = GameObject.CreatePrimitive(PrimitiveType.Quad); q.name = "bilge"; Destroy(q.GetComponent<Collider>());
-                q.GetComponent<Renderer>().sharedMaterial = Util.Soft(new Color(0.36f, 0.8f, 0.82f, 0.8f), Texture2D.whiteTexture);
+                q.GetComponent<Renderer>().sharedMaterial = waterM = Util.Soft(new Color(0.36f, 0.8f, 0.82f, 0.8f), Texture2D.whiteTexture);
                 q.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                waterQ = q.transform; waterQ.SetParent(transform, false); waterQ.localRotation = Quaternion.Euler(90, 0, 0);
-                waterQ.localScale = new Vector3(1.3f, 3.2f, 1);
+                waterQ = q.transform; waterQ.SetParent(transform, false);
             }
             waterQ.gameObject.SetActive(true);
-            waterQ.localPosition = new Vector3(0, HoleLocal.y + 0.02f + 0.2f * Water, -0.3f);
+            float k = Mathf.SmoothStep(0, 1, Mathf.InverseLerp(0.04f, 0.6f, Water));
+            float roll = Mathf.DeltaAngle(0, transform.localEulerAngles.z);
+            waterQ.localRotation = Quaternion.Euler(90, 0, 0);                              // (tilted to stay level, it poked through the gunwale)
+            waterQ.localScale = new Vector3(Mathf.Lerp(0.55f, 1.15f, k), Mathf.Lerp(2.4f, 3.1f, k), 1);
+            waterQ.localPosition = new Vector3(-roll * 0.012f * (1 - k), HoleLocal.y + 0.02f + 0.2f * Water, -0.3f); // (a puddle runs to the low side)
+            waterM.SetColor("_BaseColor", Color.Lerp(new Color(0.55f, 0.86f, 0.86f, 0.35f), new Color(0.22f, 0.6f, 0.66f, 0.72f), k));
         }
     }
 }

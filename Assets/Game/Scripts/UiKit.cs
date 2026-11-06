@@ -14,6 +14,10 @@ namespace PortBoss.M1
         // (warmer at golden/dusk, dimmer and cooler at night) so a night HUD doesn't glare. UI/Default multiplies by _Color.
         public static Material Lit => lit ??= new Material(Shader.Find("UI/Default")) { name = "PB_UiLit" };
         static Material lit;
+        // a card's printed edge (systems §2.7, Night: "a lamp-orange rim on cards"): Lit's tint, warmed toward lamp-orange
+        // #FFB060 with the night (x2 on the brown line #805C52 is about the lamp)
+        public static Material Rim => rim ??= new Material(Shader.Find("UI/Default")) { name = "PB_UiRim" };
+        static Material rim;
         public const float BaseR = 28f;
 
         public static void Init(M1Assets a)
@@ -131,7 +135,7 @@ namespace PortBoss.M1
                 var o = Img(root, fill, line ?? Ponyo.Line, "printed"); o.rectTransform.Stretch(); o.rectTransform.anchoredPosition = new Vector2(lift * 0.4f, -lift); o.pixelsPerUnitMultiplier = ppu;
             }
             var f = Img(root, fill, paper ?? Ponyo.Paper, "fill"); f.rectTransform.Stretch(); f.pixelsPerUnitMultiplier = ppu;
-            var e = Img(root, edge, line ?? Ponyo.Line, "edge"); e.rectTransform.Stretch(); e.pixelsPerUnitMultiplier = ppu;
+            var e = Img(root, edge, line ?? Ponyo.Line, "edge"); e.rectTransform.Stretch(); e.pixelsPerUnitMultiplier = ppu; e.material = Rim;
             return root;
         }
 

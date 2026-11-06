@@ -200,6 +200,7 @@ namespace PortBoss.M1
             Lobby?.Leave(); Lobby = null;
             if (c.nm != null && c.nm.IsListening) c.nm.Shutdown();
             Destroy(c.gameObject); I = null;
+            Sleep.I?.HostGone();                               // (left mid heads-up: the host's skip would never reach me)
         }
 
         void MakeTransport(Plan p, out bool ok)
