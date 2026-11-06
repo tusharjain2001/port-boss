@@ -49,7 +49,8 @@ namespace PortBoss.M1
 
         bool cut;
         public void Cut() => cut = true; // the next frame jumps straight to the target (a join, under the cover: JoinView)
-        public static void Shake(float a) => shake = Mathf.Max(shake, a);
+        public static float ShakeNow => shake;   // (tests)
+        public static void Shake(float a) => shake = Mathf.Max(shake, a * (Settings.ReduceMotion ? 0 : Settings.ShakeK / 0.7f));   // 70%: the tuned amount
         public static void Dip(float m) { dipT = 0; dipA = m; } // a big landing: down and back up in 0.3 s
 
         void LateUpdate()
@@ -147,7 +148,7 @@ namespace PortBoss.M1
             var fwd = M == Mode.Reveal ? (aimAt - p) : Vector3.Lerp(rot * Vector3.forward, (aimAt - p).normalized, Mathf.Clamp01(focusW / 0.05f));
             if (M == Mode.Reveal) fwd = (Target.position + Vector3.up * 1.3f + Target.forward * 0.25f) - p;
             // a little roll with the deck (systems §1.6.1: roll follow is a setting; calm default)
-            float tRoll = OnDeck && Skiff.I != null ? -Mathf.DeltaAngle(0, Skiff.I.transform.eulerAngles.z) * 0.25f : 0;
+            float tRoll = OnDeck && Skiff.I != null ? -Mathf.DeltaAngle(0, Skiff.I.transform.eulerAngles.z) * 0.25f * Settings.RollK / 0.4f : 0;   // 40%: the tuned roll
             roll = Mathf.Lerp(roll, tRoll, 1 - Mathf.Exp(-3f * dt));
             var q = Quaternion.LookRotation(fwd.normalized, Vector3.up) * Quaternion.Euler(0, 0, roll);
 
@@ -159,7 +160,8 @@ namespace PortBoss.M1
             }
             FovPunch = Mathf.MoveTowards(FovPunch, 0, dt * 6f);
             transform.SetPositionAndRotation(p, q);
-            Cam.fieldOfView = fov - FovPunch;
+            if (Settings.ReduceMotion) FovPunch = 0;
+            Cam.fieldOfView = fov + (Settings.Fov - 55) - FovPunch;   // the setting moves every framing's FOV by the same amount
             if (UiCam != Cam) UiCam.fieldOfView = Cam.fieldOfView;
         }
 

@@ -47,7 +47,7 @@ namespace PortBoss.M1
         void Build()
         {
             var hud = (RectTransform)Hud.I.transform; cam = CameraRig.I != null ? CameraRig.I.UiCam : null;
-            root = UiKit.Rect("phone", hud).Place(new Vector2(1, 0.5f), new Vector2(-48, -1100), new Vector2(W, H), new Vector2(1, 0.5f));
+            root = UiKit.Rect("phone", hud).Place(new Vector2(1, 0.5f), new Vector2(-48, -1100), new Vector2(W, H), new Vector2(1, 0.5f)); UiKit.Fit(root, W + 96, H + 140, 80);
             phone = root;
             // the rugged case: red rubber, a darker lip, two side buttons
             var shell = UiKit.Card(root, "case", 60, Case, true, CaseDk, 5); shell.Stretch();
@@ -205,6 +205,9 @@ namespace PortBoss.M1
             }
         }
         // (tests) press the button whose label starts with this text
+        public void ScrollBy(float d) { scroll = Mathf.Clamp(scroll + d, 0, Mathf.Max(0, contentH - (H - 2 * Inset - Bar))); list.anchoredPosition = new Vector2(Pad, scroll); }   // (tests)
+        public RectTransform Root => root;
+        public float Slide => slide;   // 0 put away .. 1 up (the hotbar steps aside from it at a big UI scale)
         public bool Tap(string label)
         {
             for (int i = 0; i < btns.Count; i++) if (btns[i].r != null && btns[i].r.name.StartsWith("btn " + label)) { Press(i); return true; }
@@ -842,10 +845,31 @@ namespace PortBoss.M1
                 else if (plus != null) Button(r, name, plus);
                 y += 66;
             }
+            void Group(string t) { Caps(list, t, 2, y + 4); y += 26; }
+            string Pct(float v) => $"{Mathf.RoundToInt(v * 100)}%"; string On(bool v) => v ? "On" : "Off";
+            // M7 · settings + accessibility (systems §1.12)
+            Group("Display");
+            Row("UI scale", Pct(Settings.UiScale), () => SetF("m7.ui", ref Settings.UiScale, -0.1f, 0.8f, 1.5f), () => SetF("m7.ui", ref Settings.UiScale, 0.1f, 0.8f, 1.5f));
+            Row("Field of view", $"{Settings.Fov:0}°", () => SetF("m7.fov", ref Settings.Fov, -5, 50, 80), () => SetF("m7.fov", ref Settings.Fov, 5, 50, 80));
+            Row("Camera shake", Pct(Settings.ShakeK), () => SetF("m7.shake", ref Settings.ShakeK, -0.1f, 0, 1), () => SetF("m7.shake", ref Settings.ShakeK, 0.1f, 0, 1));
+            Row("Boat roll", Pct(Settings.RollK), () => SetF("m7.roll", ref Settings.RollK, -0.1f, 0, 1), () => SetF("m7.roll", ref Settings.RollK, 0.1f, 0, 1));
+            Row("Reduce motion", On(Settings.ReduceMotion), null, () => Settings.Flip("m7.calm", ref Settings.ReduceMotion));
+            Group("Sound");
+            Row("Master", Pct(Settings.Master), () => SetF("m7.vol", ref Settings.Master, -0.1f, 0, 1), () => SetF("m7.vol", ref Settings.Master, 0.1f, 0, 1));
+            Row("Effects", Pct(Settings.Sfx), () => SetF("m7.sfx", ref Settings.Sfx, -0.1f, 0, 1), () => SetF("m7.sfx", ref Settings.Sfx, 0.1f, 0, 1));
+            Row("Sea & birds", Pct(Settings.Ambience), () => SetF("m7.amb", ref Settings.Ambience, -0.1f, 0, 1), () => SetF("m7.amb", ref Settings.Ambience, 0.1f, 0, 1));
+            Row("Mono audio", On(Settings.Mono), null, () => { Settings.Flip("m7.mono", ref Settings.Mono); Settings.ApplyMono(); });
+            Group("Fishing");
+            Row("Easy fishing", On(Settings.EasyFishing), null, () => Settings.Flip("m7.easy", ref Settings.EasyFishing));
+            Row("Bite captions", On(Settings.Captions), null, () => Settings.Flip("m7.cap", ref Settings.Captions));
+            Row("Bar speed", Pct(Settings.BarSpeed), () => SetF("m7.bar", ref Settings.BarSpeed, -0.05f, 0.7f, 1f), () => SetF("m7.bar", ref Settings.BarSpeed, 0.05f, 0.7f, 1f));
+            Row("Bar timing", $"{(Settings.TimingOffsetMs >= 0 ? "+" : "")}{Settings.TimingOffsetMs:0} ms", () => SetF("m1.offset", ref Settings.TimingOffsetMs, -10, -100, 100), () => SetF("m1.offset", ref Settings.TimingOffsetMs, 10, -100, 100));
+            Group("Controls");
+            Row("Hold actions", Settings.SprintToggle ? "Tap" : "Hold", null, () => Settings.Flip("m7.sprint", ref Settings.SprintToggle));
             Row("Mouse look", $"{Settings.MouseSens:0.0}×", () => SetF("m1.mouse", ref Settings.MouseSens, -0.1f, 0.2f, 3f), () => SetF("m1.mouse", ref Settings.MouseSens, 0.1f, 0.2f, 3f));
             Row("Pad look", $"{Settings.PadSens:0.0}×", () => SetF("m1.pad", ref Settings.PadSens, -0.1f, 0.2f, 3f), () => SetF("m1.pad", ref Settings.PadSens, 0.1f, 0.2f, 3f));
             Row("Invert look", Settings.Invert ? "On" : "Off", null, () => Settings.Invert = !Settings.Invert);
-            Row("Bar timing", $"{(Settings.TimingOffsetMs >= 0 ? "+" : "")}{Settings.TimingOffsetMs:0} ms", () => SetF("m1.offset", ref Settings.TimingOffsetMs, -10, -100, 100), () => SetF("m1.offset", ref Settings.TimingOffsetMs, 10, -100, 100));
+            Group("Co-op & phone");
             Row("Voice chat", Settings.Voice == Settings.VoiceMode.Open ? "Open mic" : Settings.Voice == Settings.VoiceMode.PushToTalk ? "Hold V" : "Off", null, () =>
             {
                 Settings.Voice = (Settings.VoiceMode)(((int)Settings.Voice + 1) % 3);
@@ -853,8 +877,8 @@ namespace PortBoss.M1
             });
             Row("Phone clock", H24 ? "24-hour" : "12-hour", null, () => { H24 = !H24; try { PlayerPrefs.SetInt("m4.h24", H24 ? 1 : 0); } catch { } });
             y += 6;
-            T(list, "Bar timing nudges the fishing bar if your screen or pad lags. Esc pauses; F3 shows the debug overlay.", UiKit.Body, 14, SubInk, 2, y, CW - 4, 60);
-            return y + 60;
+            T(list, "Bar timing nudges the fishing bar if your screen or pad lags. Easy fishing widens the green by 30%; Bar speed slows the pointer. Hold actions: Tap starts sprint, brace and the cast charge on a tap, and the next tap ends them. Reduce motion stops the shake and the bouncy slides. Mouse only: LMB casts, strikes, stops the bar and fights a heavy fish; RMB lets one go (hold it to reel in). Esc pauses; F3 shows the debug overlay.", UiKit.Body, 14, SubInk, 2, y, CW - 4, 190);
+            return y + 190;
         }
         static void SetF(string k, ref float v, float d, float lo, float hi)
         {

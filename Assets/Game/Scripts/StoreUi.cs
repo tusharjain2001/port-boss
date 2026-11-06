@@ -25,7 +25,7 @@ namespace PortBoss.M1
         void Build()
         {
             var hud = (RectTransform)Hud.I.transform; cam = CameraRig.I != null ? CameraRig.I.UiCam : null;
-            root = UiKit.Card(hud, "warehouse", 32, Ponyo.Paper, true, Ponyo.Line, 6); root.Place(new Vector2(0.5f, 0.5f), new Vector2(0, -10), new Vector2(W, H));
+            root = UiKit.Card(hud, "warehouse", 32, Ponyo.Paper, true, Ponyo.Line, 6); root.Place(new Vector2(0.5f, 0.5f), new Vector2(0, -10), new Vector2(W, H)); UiKit.Fit(root, W, H + 20);
             // above the HUD's toasts (they sat over the warehouse header, as they once did over the shops)
             var oc = root.gameObject.AddComponent<Canvas>(); oc.overrideSorting = true; oc.sortingOrder = 20; root.gameObject.AddComponent<UnityEngine.UI.GraphicRaycaster>();
             var ic = UiKit.Card(root, "icon", 38, Ponyo.Hex("E4F1DC"), false, Ponyo.Line, 0); ic.Place(new Vector2(0, 1), new Vector2(Pad, -30), new Vector2(76, 76), new Vector2(0, 1));

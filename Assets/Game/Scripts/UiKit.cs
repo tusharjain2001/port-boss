@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -121,6 +122,23 @@ namespace PortBoss.M1
         }
 
         // A paper card: soft violet shadow, printed line-colour offset, paper fill, 2 px line. Returns the card root.
+        // UI scale (settings): the HUD canvas's reference shrinks by k (everything grows by k); a fixed-size panel grows
+        // only while it still fits the screen, and a full-screen layout (w = 0) keeps its 100% layout above 100%
+        // m: the screen margin it keeps (the phone keeps 80 so it clears the bank pill above it at 120-150%)
+        static readonly List<(RectTransform r, Vector2 size, float m)> fits = new();
+        public static void Fit(RectTransform r, float w, float h, float m = 40) { fits.Add((r, new Vector2(w, h), m)); Scaled(r, w, h, m); }
+        static float scaleK = 1; static Vector2 canvasSize = new(1920, 1080);
+        public static void ApplyScale(CanvasScaler cs, RectTransform canvas, float k)
+        {
+            scaleK = k; cs.referenceResolution = new Vector2(1920, 1080) / k; Canvas.ForceUpdateCanvases(); canvasSize = canvas.rect.size;
+            fits.RemoveAll(f => f.r == null); foreach (var f in fits) Scaled(f.r, f.size.x, f.size.y, f.m);
+        }
+        static void Scaled(RectTransform r, float w, float h, float m)
+        {
+            if (w <= 0) { float s = Mathf.Max(1, scaleK); r.anchorMin = r.anchorMax = new Vector2(0.5f, 0.5f); r.pivot = new Vector2(0.5f, 0.5f); r.anchoredPosition = Vector2.zero; r.sizeDelta = canvasSize * s; r.localScale = Vector3.one / s; return; }
+            r.localScale = Vector3.one * Mathf.Min(1, (canvasSize.x - m) / w, (canvasSize.y - m) / h);
+        }
+
         public static RectTransform Card(Transform parent, string name, float radius = 20, Color? paper = null, bool shadow = true, Color? line = null, float lift = 3)
         {
             var root = Rect(name, parent);

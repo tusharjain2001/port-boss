@@ -135,8 +135,8 @@ namespace PortBoss.M1
             if (Paused && Coop.On && Ctl.Key_(UnityEngine.InputSystem.Key.L)) { Coop.Leave(); SetPaused(false); Alerts.Push("Crew", "You left the crew. Biscuit's all yours.", Alerts.Kind.Info); }
             if (!Paused && Ctl.Ui == 0 && !Application.isBatchMode && Cursor.lockState != CursorLockMode.Locked && UnityEngine.InputSystem.Mouse.current != null && UnityEngine.InputSystem.Mouse.current.leftButton.wasPressedThisFrame) Cursor.lockState = CursorLockMode.Locked;
             // gulls now and then
-            gullT -= Time.deltaTime;
-            if (gullT <= 0 && M1Assets.I.Gull != null) { gullT = Random.Range(9f, 22f); var c = Camera.main; if (c != null) Snd.Play(M1Assets.I.Gull, c.transform.position + Random.onUnitSphere * 40 + Vector3.up * 20, Random.Range(0.25f, 0.45f), Random.Range(0.9f, 1.15f), 0.9f); }
+            gullT -= Time.deltaTime; if (sea != null) sea.volume = 0.32f * Settings.Ambience;   // the ambience bus: the sea and the gulls
+            if (gullT <= 0 && M1Assets.I.Gull != null) { gullT = Random.Range(9f, 22f); var c = Camera.main; float gv = Random.Range(0.25f, 0.45f); if (c != null) { var gs = Snd.Play(M1Assets.I.Gull, c.transform.position + Random.onUnitSphere * 40 + Vector3.up * 20, gv, Random.Range(0.9f, 1.15f), 0.9f); if (gs != null) gs.volume = gv * Snd.Master * Settings.Ambience; } }
         }
     }
 }

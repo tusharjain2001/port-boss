@@ -149,6 +149,6 @@ namespace PortBoss.M1
 
         public static float Damp(float a, float b, float rate, float dt) => Mathf.Lerp(a, b, 1 - Mathf.Exp(-rate * dt));
         public static Vector3 Damp(Vector3 a, Vector3 b, float rate, float dt) => Vector3.Lerp(a, b, 1 - Mathf.Exp(-rate * dt));
-        public static float EaseOutBack(float t) { float c1 = 1.70158f, c3 = c1 + 1; return 1 + c3 * Mathf.Pow(t - 1, 3) + c1 * Mathf.Pow(t - 1, 2); }
+        public static float EaseOutBack(float t) { if (PortBoss.M1.Settings.ReduceMotion) return Mathf.SmoothStep(0, 1, t); float c1 = 1.70158f, c3 = c1 + 1; return 1 + c3 * Mathf.Pow(t - 1, 3) + c1 * Mathf.Pow(t - 1, 2); }
     }
 }

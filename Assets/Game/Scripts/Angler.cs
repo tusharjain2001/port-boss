@@ -357,10 +357,11 @@ namespace PortBoss.M1
             float load = Load;
             // Sprint ramps up over 0.6 s (a run-up, not a gear change) and drops back to a run in 0.2 s; never with 5
             // crates' worth, and every crate's worth is 8% slower (5: 2.5 m/s).
-            bool sprint = Ctl.Sprint && !OnBoat && !Swimming && !Ctl.Walk && load < 5 && wish.sqrMagnitude > 0.01f;
+            bool running = Ctl.Run(wish.sqrMagnitude > 0.01f);
+            bool sprint = running && !OnBoat && !Swimming && !Ctl.Walk && load < 5 && wish.sqrMagnitude > 0.01f;
             SprintW = Mathf.MoveTowards(SprintW, sprint ? 1 : 0, dt / (sprint ? 0.6f : 0.2f));
             float run = Mathf.Lerp(4.2f, 5.8f, Mathf.SmoothStep(0, 1, SprintW)) * (1 - 0.08f * load);
-            float max = Swimming ? (Ctl.Sprint ? 2.2f : 1.4f) : Ctl.Walk ? 1.4f : OnBoat ? 2.6f : run;
+            float max = Swimming ? (running ? 2.2f : 1.4f) : Ctl.Walk ? 1.4f : OnBoat ? 2.6f : run;
             if (Fish.Holding && !Swimming) max = Mathf.Min(max, OnBoat ? 2.2f : 3.6f); // careful with a rod out
             if (Phone.IsOpen) max = Mathf.Min(max, 1.4f);  // M4: walking with the phone out (systems §1.2.1)
             var target = wish * max * Sleep.WalkMul * (Braced ? 0.4f : 1); // (M3: -10% from 01:30, tired; braced: a slow shuffle)

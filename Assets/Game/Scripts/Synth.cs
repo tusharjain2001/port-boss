@@ -104,7 +104,7 @@ namespace PortBoss.M1
                 s = g.AddComponent<AudioSource>(); s.playOnAwake = false; s.minDistance = 3; s.maxDistance = 80; s.rolloffMode = AudioRolloffMode.Linear;
                 pool.Add(s);
             }
-            s.transform.position = at; s.clip = c; s.volume = vol * Master; s.pitch = pitch; s.spatialBlend = blend; s.Play();
+            s.transform.position = at; s.clip = c; s.volume = vol * Master * PortBoss.M1.Settings.Sfx; s.pitch = pitch; s.spatialBlend = blend; s.Play();
             return s;
         }
 

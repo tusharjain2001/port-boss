@@ -31,7 +31,7 @@ namespace PortBoss.M1
         void Build()
         {
             var hud = (RectTransform)Hud.I.transform; cam = CameraRig.I != null ? CameraRig.I.UiCam : null;
-            root = UiKit.Card(hud, "shop", 30, Ponyo.Paper, true, Ponyo.Line, 6); root.Place(new Vector2(0.5f, 0.5f), new Vector2(-60, 0), new Vector2(W, H));
+            root = UiKit.Card(hud, "shop", 30, Ponyo.Paper, true, Ponyo.Line, 6); root.Place(new Vector2(0.5f, 0.5f), new Vector2(-60, 0), new Vector2(W, H)); UiKit.Fit(root, W + 120, H);
             var head = UiKit.Rect("head", root).Place(new Vector2(0, 1), Vector2.zero, new Vector2(W, 118), new Vector2(0, 1));
             band = UiKit.Img(head, null, Ponyo.SeaC, "band"); band.rectTransform.Place(new Vector2(0, 1), new Vector2(Pad, -28), new Vector2(8, 64), new Vector2(0, 1));
             title = UiKit.Txt(head, "", UiKit.DisplayBold, 36, Ponyo.Ink, TextAnchor.UpperLeft); title.rectTransform.Place(new Vector2(0, 1), new Vector2(Pad + 24, -22), new Vector2(560, 46), new Vector2(0, 1));

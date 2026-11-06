@@ -218,9 +218,9 @@ namespace PortBoss.M1
             markerT.position = new Vector3(Marker.x, Sea.Height(Marker) + 0.04f, Marker.z);
             markerT.rotation = Quaternion.Euler(90, Time.time * 20f, 0);
             markerR.material.SetColor("_BaseColor", MarkerSnapped ? new Color(0.89f, 0.33f, 0.25f, 0.95f) : sweet ? new Color(0.97f, 0.77f, 0.28f, 1) : new Color(1, 1, 1, 0.9f));
-            if (!Ctl.Use)
+            // release: let go (or, with "Hold actions: Tap", the next click)
+            if (Settings.SprintToggle ? StateT > 0.12f && Ctl.UsePressed : !Ctl.Use)
             {
-                // release
                 creakVol = 0;
                 float sc = sweet ? 0.4f : 1.2f;
                 var scatter = new Vector3((float)(Rng.NextDouble() * 2 - 1), 0, (float)(Rng.NextDouble() * 2 - 1)) * sc;
@@ -368,7 +368,7 @@ namespace PortBoss.M1
         {
             Snd.Play(Synth.Bloop, bob.transform.position, 1f); Snd.Play(Synth.Ratchet, rod.Tip.position, 0.7f);
             Fx.Splash(bob.transform.position, 1.1f, 18);
-            if (mine) { Snd.Rumble(0.8f, 0.8f, 0.3f); if (CameraRig.I != null) CameraRig.I.FovPunch = 3f; }
+            if (mine) { Snd.Rumble(0.8f, 0.8f, 0.3f); if (CameraRig.I != null) CameraRig.I.FovPunch = 3f; if (Hud.I != null) Hud.I.Caption("[Splash] Bite!"); }
         }
 
         Vector3 yankDir;
@@ -443,7 +443,7 @@ namespace PortBoss.M1
             bob.Floating = false; bob.transform.position = p; bob.Spin += 900 * Time.deltaTime;
             bob.transform.rotation = Quaternion.Euler(0, bob.Spin, 0);
             line.B = p; line.Slack = 0.01f;
-            reelSnd.volume = 0.3f;
+            reelSnd.volume = 0.3f * Settings.Sfx;
         }
 
         // ---------------- the fight ----------------
@@ -463,8 +463,9 @@ namespace PortBoss.M1
         void HeavyAsk()
         {
             FightLine();
-            if (Ctl.Keep || Ctl.Bot && Bot.FightHeavy && StateT > 1.2f) { HeavyFight = true; StartMinigame(); return; } // the bot reads the prompt for 1.2 s
-            if (Ctl.LetGo || StateT > 4f || Ctl.Bot && !Bot.FightHeavy && StateT > 0.5f)
+            // (M7 mouse-only fishing: LMB fights it, RMB lets it go; not on the strike's own click)
+            if (Ctl.Keep || StateT > 0.3f && Ctl.UsePressed && !Ctl.Bot || Ctl.Bot && Bot.FightHeavy && StateT > 1.2f) { HeavyFight = true; StartMinigame(); return; } // the bot reads the prompt for 1.2 s
+            if (Ctl.LetGo || StateT > 0.3f && Ctl.CancelPressed || StateT > 4f || Ctl.Bot && !Bot.FightHeavy && StateT > 0.5f)
             {
                 LastOutcome = "letgo"; Alerts.Push("Let it go", "A stronger line would hold it (June's shop, later). Bait's still on.", Alerts.Kind.Info);
                 OnLog?.Invoke("heavy: let go"); Recover(); bob.gameObject.SetActive(true); bob.Pos = fishUnder;
@@ -480,8 +481,8 @@ namespace PortBoss.M1
         void NextStop(bool first)
         {
             int c = (int)Hooked.Class;
-            ZoneW = Mathf.Min(0.6f, FishDb.Green[c] * Rod.GreenMul * ZoneScale);
-            PtrSpeed = FishDb.Speed[c] * Rod.SpeedMul * SpeedScale * (first ? 1.00f : 1.08f);
+            ZoneW = Mathf.Min(0.6f, FishDb.Green[c] * Rod.GreenMul * ZoneScale * (Settings.EasyFishing ? 1.3f : 1));   // easy fishing: +30%
+            PtrSpeed = FishDb.Speed[c] * Rod.SpeedMul * SpeedScale * (first ? 1.00f : 1.08f) * Mathf.Clamp(Settings.BarSpeed, 0.7f, 1f); // M7 assist
             // the stop: the green in the middle (Manan); a heavy fish's retry: 50% ± 8–18% on a random side
             ZoneC = first ? 0.5f : 0.5f + (Rng.Next(2) == 0 ? -1 : 1) * (0.08f + 0.10f * (float)Rng.NextDouble());
             ZoneC = Mathf.Clamp(ZoneC, ZoneW / 2 + 0.02f, 1 - ZoneW / 2 - 0.02f);
@@ -605,7 +606,7 @@ namespace PortBoss.M1
         // in on the line (here, or a crewmate's), u = 0..1 of the reel
         void ReelMove(float u)
         {
-            reelSnd.volume = 0.35f; reelSnd.pitch = 0.8f + u * 0.8f;
+            reelSnd.volume = 0.35f * Settings.Sfx; reelSnd.pitch = 0.8f + u * 0.8f;
             var hand = HoldPoint();
             var start = fishUnder;
             Vector3 p;
@@ -672,7 +673,7 @@ namespace PortBoss.M1
             if (StateT >= RevealMin)
             {
                 bool keep = Ctl.Keep || Ctl.UsePressed || (!full && StateT >= RevealAuto);
-                bool let = Ctl.LetGo || letQueued; if (let && StateT < HandsFree && fishGo != null && Catch.Cm <= 140) { letQueued = true; let = false; } else letQueued = false;
+                bool let = Ctl.LetGo || Ctl.CancelPressed || letQueued;   // (RMB too: mouse-only fishing) if (let && StateT < HandsFree && fishGo != null && Catch.Cm <= 140) { letQueued = true; let = false; } else letQueued = false;
                 if (full && Ctl.Bot || Ctl.Bot && Bot.LetGo) { let = true; keep = false; }
                 if (keep && full) { DropOnDeck(); return; }
                 if (keep) { int slot = Coop.On && Catch.Id != 0 ? Coop.KeepCatch(Catch) : me.Bar.Add(Catch); Hud.I?.FlyIn(fishGo.transform.position, slot); Snd.Play2D(Synth.Thup, 0.7f); OnLog?.Invoke($"kept slot {slot + 1}"); EndReveal(); return; }
@@ -996,7 +997,7 @@ namespace PortBoss.M1
             Body(dt);
             PlaceRod(dt);
             Dangle(dt);
-            creak.volume = Mathf.MoveTowards(creak.volume, State == St.Charging ? creakVol : 0, dt * 4);
+            creak.volume = Mathf.MoveTowards(creak.volume, State == St.Charging ? creakVol * Settings.Sfx : 0, dt * 4);
             if (State != St.Reel && State != St.Recover) reelSnd.volume = Mathf.MoveTowards(reelSnd.volume, 0, dt * 3);
             // face the aim / the bobber / the fish
             // The aim marker while charging (it can snap off the camera line, round the boat or land) and in flight

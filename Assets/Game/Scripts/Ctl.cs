@@ -48,12 +48,31 @@ namespace PortBoss.M1
         }
 
         public static bool Sprint => Bot ? BotSprint : K_(Key.LeftShift) || (P != null && P.leftStickButton.isPressed);
+        // sprinting on foot: held, or (Settings.SprintToggle) a tap starts it and a tap or stopping ends it
+        static bool runOn, runWas;
+        public static bool Run(bool moving)
+        {
+            bool s = Sprint, edge = s && !runWas; runWas = s;
+            if (!Settings.SprintToggle) { runOn = false; return s; }
+            if (edge) runOn = !runOn; if (!moving) runOn = false; return runOn;
+        }
         public static bool Walk => !Bot && K_(Key.LeftCtrl);
         public static bool Jump => Bot ? BotJump : Ui < 2 && KD(Key.Space) || (P != null && P.buttonSouth.wasPressedThisFrame);
         public static bool JumpHeld => Bot ? BotJumpHeld : K_(Key.Space) || (P != null && P.buttonSouth.isPressed); // let go early: a lower hop
         public static bool Interact => Bot ? BotInteract : Ui < 2 && KD(Key.E) || (P != null && P.buttonWest.wasPressedThisFrame);
         public static bool Shove => Bot ? BotShove : Ui == 0 && (KD(Key.G) || (P != null && P.dpad.right.wasPressedThisFrame)); // M3.1: a friendly shove (pad: D-pad right; Y is the bait pouch only, Manan 5 Nov; on foot the D-pad's right is free, the phone/shop use it at Ui != 0)
-        public static bool Brace => Bot ? BotBrace : K_(Key.C) || (P != null && P.rightStickButton.isPressed); // M3: hold to brace on deck
+        static bool BraceHeld => Bot ? BotBrace : K_(Key.C) || (P != null && P.rightStickButton.isPressed);
+        static bool braceOn, braceWas; static int braceF = -1;
+        // M3: hold to brace on deck; M7 "Hold actions: Tap": a tap braces, the next tap lets go
+        public static bool Brace
+        {
+            get
+            {
+                if (!Settings.SprintToggle) { braceOn = false; braceWas = BraceHeld; return braceWas; }
+                if (Time.frameCount != braceF) { braceF = Time.frameCount; bool h = BraceHeld; if (h && !braceWas) braceOn = !braceOn; braceWas = h; }
+                return braceOn;
+            }
+        }
         public static bool InteractHeld => Bot ? BotInteractHeld : Ui < 2 && K_(Key.E) || (P != null && P.buttonWest.isPressed);
         public static bool PushToTalk => !Bot && K_(Key.V); // (when Settings.Voice is push-to-talk)
         public static bool DropHeld => Bot ? BotDropHeld : Ui == 0 && K_(Key.Q) || (P != null && P.dpad.down.isPressed); // tap: drop; hold: toss
@@ -148,5 +167,21 @@ namespace PortBoss.M1
             return v == "ptt" ? VoiceMode.PushToTalk : v == "off" ? VoiceMode.Off : VoiceMode.Open;
         }
         static float PlayerPrefsGet(string k, float d) { try { return PlayerPrefs.GetFloat(k, d); } catch { return d; } }
+
+        // M7 · settings + accessibility (systems §1.12). The defaults keep today's tuning: shake 70% and roll 40% are the
+        // amounts the game was tuned with (100% shake is stronger, 0 none).
+        public static float UiScale = PlayerPrefsGet("m7.ui", 1f);            // 0.8 - 1.5: the HUD; a panel grows only while it fits the screen
+        public static float Fov = PlayerPrefsGet("m7.fov", 55f);              // 50 - 80
+        public static float ShakeK = PlayerPrefsGet("m7.shake", 0.7f), RollK = PlayerPrefsGet("m7.roll", 0.4f);
+        public static bool ReduceMotion = PlayerPrefsGet("m7.calm", 0) > 0;  // no shake or FOV punch, no overshoot, softer lightning
+        public static float Master = PlayerPrefsGet("m7.vol", 1f), Sfx = PlayerPrefsGet("m7.sfx", 1f), Ambience = PlayerPrefsGet("m7.amb", 1f);
+        public static bool Mono = PlayerPrefsGet("m7.mono", 0) > 0;
+        public static bool EasyFishing = PlayerPrefsGet("m7.easy", 0) > 0;   // the green zone 30% wider
+        public static bool Captions = PlayerPrefsGet("m7.cap", 1) > 0;       // "[Splash] Bite!"
+        public static bool SprintToggle = PlayerPrefsGet("m7.sprint", 0) > 0;   // "Hold actions: Tap": sprint, brace and the cast charge
+        public static float BarSpeed = PlayerPrefsGet("m7.bar", 1f);         // the fishing assist: the pointer at 70 - 100% speed
+        public static void Put(string k, float v) { try { PlayerPrefs.SetFloat(k, v); PlayerPrefs.Save(); } catch { } }
+        public static void Flip(string k, ref bool v) { v = !v; Put(k, v ? 1 : 0); }
+        public static void ApplyMono() { var c = AudioSettings.GetConfiguration(); var want = Mono ? AudioSpeakerMode.Mono : AudioSpeakerMode.Stereo; if (c.speakerMode != want) { c.speakerMode = want; AudioSettings.Reset(c); } }
     }
 }

@@ -208,6 +208,7 @@ namespace PortBoss.M1
             if (flashT >= 0) { flashT += dt; flash = flashT < 0.08f ? 1 : flashT < 0.16f ? 0.2f : flashT < 0.24f ? 0.7f : 0; if (flashT > 0.3f) flashT = -1; }
 
             // ambient, fog
+            if (Settings.ReduceMotion) flash *= 0.35f;   // reduce motion: a soft glow, not a white flash
             Color amb(Color c) => c * (1 + flash * 1.5f);
             RenderSettings.ambientSkyColor = amb(L.AmbS); RenderSettings.ambientEquatorColor = amb(L.AmbE); RenderSettings.ambientGroundColor = amb(L.AmbG);
             Shader.SetGlobalColor("_LDAmbSky", amb(L.AmbS)); Shader.SetGlobalColor("_LDAmbEq", amb(L.AmbE)); Shader.SetGlobalColor("_LDAmbGround", amb(L.AmbG));

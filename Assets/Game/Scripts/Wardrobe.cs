@@ -223,7 +223,7 @@ namespace PortBoss.M1
         void Build()
         {
             var hud = (RectTransform)Hud.I.transform; cam = CameraRig.I != null ? CameraRig.I.UiCam : null;
-            root = UiKit.Rect("wardrobe", hud); root.Stretch();
+            root = UiKit.Rect("wardrobe", hud); root.Stretch(); UiKit.Fit(root, 0, 0);
             var oc = root.gameObject.AddComponent<Canvas>(); oc.overrideSorting = true; oc.sortingOrder = 20; root.gameObject.AddComponent<GraphicRaycaster>();   // above the toasts
             var sky = UiKit.Img(root, null, Ponyo.Hex("D7E6F2"), "sky"); sky.rectTransform.Stretch(); sky.raycastTarget = true;
             var low = UiKit.Img(root, null, Ponyo.Hex("F6EEDF"), "low"); low.rectTransform.Place(new Vector2(0.5f, 0), Vector2.zero, new Vector2(1920, 420), new Vector2(0.5f, 0)); low.color = new Color(0.965f, 0.933f, 0.875f, 0.85f);

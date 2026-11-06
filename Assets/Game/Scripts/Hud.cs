@@ -85,6 +85,10 @@ namespace PortBoss.M1
         Image fade; public float FadeA;
 
         const float W = 1920, H = 1080;
+        CanvasScaler scaler; float scaleOn = -1, screenW; Text caption; RectTransform captionCard; float captionT;
+        // a caption for a sound (settings: bite captions, systems §1.12): a paper strip above the prompts, 1.6 s
+        public void Caption(string s) { if (!Settings.Captions || caption == null) return; caption.text = s; captionT = 1.6f; captionCard.gameObject.SetActive(true); }
+        public bool CaptionShown(out string s) { s = caption != null ? caption.text : null; return captionCard != null && captionCard.gameObject.activeSelf; }   // (tests)
 
         public static Hud Create(Camera cam, Angler a)
         {
@@ -92,11 +96,12 @@ namespace PortBoss.M1
             var h = g.AddComponent<Hud>(); I = h; h.me = a; h.fish = a.Fish;
             h.canvas = g.AddComponent<Canvas>(); h.canvas.renderMode = RenderMode.ScreenSpaceCamera; h.canvas.worldCamera = cam; h.canvas.planeDistance = 0.5f;
             h.canvas.pixelPerfect = false; h.canvas.sortingOrder = 10;
-            var cs = g.AddComponent<CanvasScaler>(); cs.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize; cs.referenceResolution = new Vector2(W, H); cs.matchWidthOrHeight = 0.5f;
+            var cs = g.AddComponent<CanvasScaler>(); cs.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize; cs.referenceResolution = new Vector2(W, H); cs.matchWidthOrHeight = 0.5f; h.scaler = cs;
             h.root = (RectTransform)g.transform;
             h.Build();
             NameTags.Make(h.root, cam);
             Alerts.OnPush += h.OnAlert;
+            if (Settings.Mono) Settings.ApplyMono();
             return h;
         }
 
@@ -134,6 +139,8 @@ namespace PortBoss.M1
             nameShow = 3.5f;
 
             prompts = UiKit.Rect("prompts", root).Place(new Vector2(0.5f, 0), new Vector2(0, 26 + sw + 24 + 76), new Vector2(1200, 40), new Vector2(0.5f, 0));
+            captionCard = UiKit.Card(root, "caption", 14, Ponyo.Paper, true, Ponyo.Line, 2); captionCard.Place(new Vector2(0.5f, 0), new Vector2(0, 26 + sw + 24 + 76 + 54), new Vector2(260, 40), new Vector2(0.5f, 0));
+            caption = UiKit.Txt(captionCard, "", UiKit.Bold, 20, Ponyo.Ink, TextAnchor.MiddleCenter); caption.rectTransform.Stretch(); captionCard.gameObject.SetActive(false);
             var hl = prompts.gameObject.AddComponent<HorizontalLayoutGroup>(); hl.spacing = 10; hl.childAlignment = TextAnchor.MiddleCenter; hl.childControlWidth = hl.childControlHeight = false; hl.childForceExpandWidth = false;
 
             // the cast's power: an arc filling round the distance label over the landing ring, on a faint track (look audit
@@ -368,12 +375,23 @@ namespace PortBoss.M1
             if (Ctl.Key_(UnityEngine.InputSystem.Key.F3)) ShowDebug = !ShowDebug;
             bool title = Title.Shown; // the title card stands alone: no hotbar or hints under it (look audit 3 Nov)
             if (hotbarStrip.gameObject.activeSelf == title) { hotbarStrip.gameObject.SetActive(!title); prompts.gameObject.SetActive(!title); }
+            if (scaleOn != Settings.UiScale || screenW != Screen.width) { scaleOn = Settings.UiScale; screenW = Screen.width; UiKit.ApplyScale(scaler, root, scaleOn); }
+            AudioListener.volume = Settings.Master;
+            if (captionT > 0 && (captionT -= dt) <= 0) captionCard.gameObject.SetActive(false);
             Hotbar(dt); Prompts(); Cast(); Minigame(dt); Heavy(); Reveal(dt); Fly(dt); AlertsTick(dt); Debug_();
             fade.color = new Color(fade.color.r, fade.color.g, fade.color.b, FadeA);
         }
 
         void Hotbar(float dt)
         {
+            // M7: at a big UI scale the phone (right) would cover the hotbar's last slots: the strip slides left, clear of it
+            float aside = 0; var ph = Phone.I != null ? Phone.I.Root : null;
+            if (ph != null && Phone.I.Slide > 0)
+            {
+                float cw = ((RectTransform)transform).rect.width, phoneLeft = cw - 48 - ph.rect.width * ph.localScale.x;
+                aside = -Mathf.Max(0, cw / 2 + hotbarStrip.rect.width / 2 + 16 - phoneLeft) * (1 - (1 - Phone.I.Slide) * (1 - Phone.I.Slide));
+            }
+            hotbarStrip.anchoredPosition = new Vector2(aside, hotbarStrip.anchoredPosition.y);
             var b = me.Bar;
             for (int i = 0; i < 8; i++)
             {
