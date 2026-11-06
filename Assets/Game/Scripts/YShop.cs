@@ -167,7 +167,7 @@ namespace PortBoss.M1
                 {
                     var me = Angler.I; if (me == null) break; var f = me.transform.forward; f.y = 0; f.Normalize();
                     float a = Mathf.Sin(orbit * 0.05f) * 35 * Mathf.Deg2Rad; var d = Quaternion.Euler(0, a * Mathf.Rad2Deg, 0) * f;
-                    var c = me.transform.position + Vector3.up * 1.3f; var p = c + d * 2.7f + Vector3.up * 0.3f;   // chest and head: the counter stays low in the frame
+                    var c = me.transform.position + Vector3.up * 1.2f; var p = c + d * 2.1f + Vector3.up * 0.05f;   // eye level, head and chest: the counter low in the frame, the shop sign above it
                     pcam.transform.SetPositionAndRotation(p, Quaternion.LookRotation(c - p));
                     // a mirror behind the counter: the counter, the wall and Mabel stand between, so the near plane starts
                     // where the clear air in front of me starts
@@ -547,7 +547,7 @@ namespace PortBoss.M1
         // ---------------------------------------------------------------- buying
         void Buy()
         {
-            var w = Sel; if (w == null) return;
+            var w = Sel; if (w == null || shop == null) return;   // the shop shut (closing time) under the click
             int arg = Arg; bool instant = rush && w.Fit == Fit.Repair;
             string why = NeedsColour ? "Pick a colour first." : C.WhyNotM5(Firm.MyKey, w.Id, arg, Sky.Minutes, instant);
             if (why != "") { Snd.Play2D(Synth.Miss, 0.35f, 1); StartCoroutine(Shake(buyBtn)); Bark(Refuse(why)); return; }

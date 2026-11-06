@@ -79,11 +79,12 @@ namespace PortBoss.M1
             Firm.Box(root, "counter", new Vector3(0, 0.47f, 0.1f), new Vector3(1.9f, 0.94f, 0.62f), wood);
             Firm.Box(root, "counter top", new Vector3(0, 0.96f, 0.14f), new Vector3(2.02f, 0.06f, 0.74f), top);
             Firm.Box(root, "kick", new Vector3(0, 0.07f, 0.42f), new Vector3(1.86f, 0.14f, 0.02f), woodDk);
-            for (int i = -1; i <= 1; i += 2) Firm.Box(root, "sign post", new Vector3(0.72f * i, 1.4f, -0.15f), new Vector3(0.05f, 0.82f, 0.05f), woodDk);
-            Firm.Box(root, "board", new Vector3(0, 1.6f, -0.15f), new Vector3(1.6f, 0.34f, 0.05f), Ponyo.Hex("F3EBDD"));
-            Firm.Box(root, "board edge", new Vector3(0, 1.6f, -0.185f), new Vector3(1.68f, 0.42f, 0.02f), woodDk);
-            Firm.Box(root, "board stripe", new Vector3(0, 1.79f, -0.15f), new Vector3(1.68f, 0.05f, 0.06f), band);
-            Firm.Sign(root, name, new Vector3(0, 1.6f, -0.12f), Ponyo.Ink, 0.0098f);
+            // the shop board stands above the keeper's head (2.2 m), so you see their face over the counter
+            for (int i = -1; i <= 1; i += 2) Firm.Box(root, "sign post", new Vector3(0.72f * i, 1.7f, -0.15f), new Vector3(0.05f, 1.44f, 0.05f), woodDk);
+            Firm.Box(root, "board", new Vector3(0, 2.2f, -0.15f), new Vector3(1.6f, 0.34f, 0.05f), Ponyo.Hex("F3EBDD"));
+            Firm.Box(root, "board edge", new Vector3(0, 2.2f, -0.185f), new Vector3(1.68f, 0.42f, 0.02f), woodDk);
+            Firm.Box(root, "board stripe", new Vector3(0, 2.39f, -0.15f), new Vector3(1.68f, 0.05f, 0.06f), band);
+            Firm.Sign(root, name, new Vector3(0, 2.2f, -0.12f), Ponyo.Ink, 0.0098f);
             // the goods on it: a paint tin and brushes at Doyle's, a plank and a saw at Plank & Post, folded jumpers at Hartley's
             if (s == Store.Doyle) { Firm.Box(root, "tin", new Vector3(-0.55f, 1.07f, 0.12f), new Vector3(0.22f, 0.16f, 0.22f), Ponyo.Hex("3A86E0")); Firm.Box(root, "tin2", new Vector3(-0.25f, 1.05f, 0.18f), new Vector3(0.18f, 0.12f, 0.18f), Ponyo.Hex("F7C548")); Firm.Box(root, "brush", new Vector3(0.4f, 1.0f, 0.1f), new Vector3(0.5f, 0.04f, 0.08f), woodDk); }
             else if (s == Store.Plank) { Firm.Box(root, "plank", new Vector3(0, 1.02f, 0.14f), new Vector3(1.6f, 0.05f, 0.24f), Ponyo.Hex("D4B07A")); Firm.Box(root, "saw", new Vector3(0.5f, 1.06f, 0.0f), new Vector3(0.5f, 0.02f, 0.14f), Ponyo.Hex("B9B2A6")); }
@@ -119,9 +120,13 @@ namespace PortBoss.M1
             var l = Landing.I; if (l == null || l.Spawn == null || l.LadderTop == null) return p;
             return Sky.FromBlender(l.transform, l.Spawn, new Vector3(0.15f, -19.6f, 1.3f), l.LadderTop, new Vector3(1.2f, -20.6f, 1.3f), p);
         }
-        public static Vector3 Ground(Vector3 p)
+        // under: the point stands on a floor under an awning or a roof (a keeper behind the counter): the first surface
+        // below 1.5 m above it, not the roof; otherwise (and when that finds nothing) the top surface
+        public static Vector3 Ground(Vector3 p, bool under = false)
         {
-            float gy = p.y; if (Physics.Raycast(new Vector3(p.x, p.y + 30, p.z), Vector3.down, out var hit, 80, ~0, QueryTriggerInteraction.Ignore)) gy = hit.point.y;
+            float gy = p.y;
+            if (under && Physics.Raycast(new Vector3(p.x, p.y + 1.5f, p.z), Vector3.down, out var low, 6, ~0, QueryTriggerInteraction.Ignore) && !(low.collider is CharacterController)) gy = low.point.y;
+            else if (Physics.Raycast(new Vector3(p.x, p.y + 30, p.z), Vector3.down, out var hit, 80, ~0, QueryTriggerInteraction.Ignore)) gy = hit.point.y;
             return new Vector3(p.x, gy, p.z);
         }
 
@@ -350,7 +355,7 @@ namespace PortBoss.M1
         {
             if (n == null || at == null) return;
             double h = DayTime.OfDay(m); const double walk = 0.15 * 60 / 60;   // 9 game minutes each way (9 s)
-            var counter = Ground(at.position - at.forward * 0.55f); var door = Ground(at.position - at.forward * 3.2f + at.right * 0.6f);
+            var counter = Ground(at.position - at.forward * 0.55f, true); var door = Ground(at.position - at.forward * 3.2f + at.right * 0.6f, true);
             bool open_ = !closedDay && h >= open && h < close;
             double minutes = h * 1; // (OfDay is in minutes already)
             if (!closedDay && minutes >= open - 9 && minutes < open) { float k = (float)((minutes - (open - 9)) / 9); n.Hold(Vector3.Lerp(door, counter, k), (counter - door), true); n.Show(true); return; }

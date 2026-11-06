@@ -51,11 +51,21 @@ namespace PortBoss.M1
         static void JumpTo(int day, double hour) { var t = DayTime.At(day, hour * 60); if (t > Sky.Minutes) Sky.Jump(t); }
         static int Today => DayTime.Day(Sky.Minutes);
         // a shop that has shut (a long paint job ran past closing, a build landed on a Sunday): the next morning it's open
+        // an item inside the office: the camera stands inside the room (its origin is the floor's centre), across from the item
+        static Vector3 RoomView(Transform item, Transform room)
+        {
+            var d = room.position - item.position; d.y = 0; if (d.magnitude < 0.3f) d = -item.forward;
+            var p = room.position + d.normalized * 0.5f; p.y = room.position.y + 1.7f;
+            Debug.Log($"[PB] m5: room view: item {item.position} room {room.position} camera {p}");
+            return p;
+        }
+        static Vector3 ItemView(Transform item, Vector3 target) => Works.I.Office != null && item.IsChildOf(Works.I.Office) ? RoomView(item, Works.I.Office) : ClearView(target, item, Quaternion.LookRotation(item.forward).eulerAngles.y, 2.2f, 1.0f);
         static IEnumerator OpenNow(Store s) { while (!Catalog.IsOpen(s, Sky.Minutes)) { JumpTo(Today + 1, 10); yield return null; } }
 
         // stand at a counter, facing it
-        IEnumerator AtShop(Works.Counter5 s)
+        IEnumerator AtShop(Works.Counter5 s, bool shut = false)
         {
+            if (!shut) yield return OpenNow(s.S);   // never stand at a shut counter (the clock moves in the tests)
             var d = s.At.position - s.Front; d.y = 0; float yaw = Quaternion.LookRotation(d).eulerAngles.y;
             me.Teleport(s.Front + Vector3.up * 0.05f, yaw); CameraRig.I.Yaw = yaw; CameraRig.I.Pitch = 14; CameraRig.I.Cut();
             yield return new WaitForSeconds(0.6f);
@@ -131,7 +141,8 @@ namespace PortBoss.M1
                 yield return AtShop(s);
                 M5(W.Near == s, $"{s.Name}: standing at the counter ({(s.Real ? "map anchor" : "temporary spot")})");
                 M5(s.Keeper != null && s.Keeper.gameObject.activeInHierarchy, $"{s.Name}: {s.Owner} is at the counter at 10:00");
-                { var back = s.Front - s.At.position; back.y = 0; back = back.normalized; var tgt = s.At.position + Vector3.up * 1.4f; LookAt(tgt, ClearView(tgt, s.At, Quaternion.LookRotation(back).eulerAngles.y + 25, 6.5f, 1.8f)); yield return M5Shot($"world-{s.Id}", 1.0f); RigOn(); yield return null; }
+                if (s.Keeper != null) { float dy = s.Keeper.transform.position.y - s.At.position.y; M5(Mathf.Abs(dy) < 0.6f, $"{s.Owner} stands on the floor behind the counter (dy {dy:F2} m), not on the awning"); }
+                { var back = s.Front - s.At.position; back.y = 0; back = back.normalized; var tgt = s.At.position + Vector3.up * 1.4f; LookAt(tgt, ClearView(tgt, s.At, Quaternion.LookRotation(back).eulerAngles.y + 55, 6.5f, 1.8f)); yield return M5Shot($"world-{s.Id}", 1.0f); RigOn(); yield return null; }
                 YShop.Show(s); yield return null;
                 M5(YShop.Open, $"{s.Name}: E opens the shop");
                 var cats = new List<string>(); foreach (var w in Catalog.Of(s.S)) if (!cats.Contains(w.Cat)) cats.Add(w.Cat);
@@ -154,7 +165,7 @@ namespace PortBoss.M1
             }
             // closed: Plank & Post at 19:00, a closed sign, the keeper gone in
             JumpTo(1, 19.25); yield return new WaitForSeconds(0.3f);
-            var plank = W.Shops.Find(x => x.S == Store.Plank); yield return AtShop(plank);
+            var plank = W.Shops.Find(x => x.S == Store.Plank); yield return AtShop(plank, true);   // shut on purpose
             var pr = Works.Prompt(me); M5(pr != null && pr.Contains("·") && !YShop.Open && !plank.IsOpen(Sky.Minutes), $"Plank & Post after 18:00: \"{pr}\"");
             M5(plank.Keeper == null || !plank.Keeper.Visible, "Ingrid has gone in");
 
@@ -191,7 +202,7 @@ namespace PortBoss.M1
             yield return new WaitForSeconds(0.6f);
             int popped = now.Count(w => W.IsShown(w.Id));
             M5(popped == now.Count(w => Co.Has(w.Id)), $"furniture installs at once: {popped} shown of {now.Count(w => Co.Has(w.Id))} bought");
-            var chair = W.ShownOf("furn:chair"); if (chair != null) { { var cp = chair.transform.position + Vector3.up * 0.5f; LookAt(cp, ClearView(cp, chair.transform, Quaternion.LookRotation(chair.transform.forward).eulerAngles.y, 2.2f, 1.0f)); } yield return M5Shot("installed-chair-pop", 0.12f); yield return M5Shot("installed-chair-settled", 0.8f); RigOn(); }
+            var chair = W.ShownOf("furn:chair"); if (chair != null) { { var cp = chair.transform.position + Vector3.up * 0.5f; LookAt(cp, ItemView(chair.transform, cp)); } yield return M5Shot("installed-chair-pop", 0.12f); yield return M5Shot("installed-chair-settled", 0.8f); RigOn(); }
             // two rounds: B3 needs B2, the lamps need the one before
             for (int round = 0; round < 4; round++)
             {
@@ -544,7 +555,7 @@ namespace PortBoss.M1
             bst.Paint = new[] { -1, -1, -1, -1 }; bst.Pattern = 0; JumpTo(2, 10); RigOn();
             // 2. Doyle's counter, the shop: the hull swatches tried on her live (6-22 s)
             var doyle = W.Shops.Find(s => s.S == Store.Doyle); yield return AtShop(doyle);
-            { var back = doyle.Front - doyle.At.position; back.y = 0; var tgt = doyle.At.position + Vector3.up * 1.4f; LookAt(tgt, ClearView(tgt, doyle.At, Quaternion.LookRotation(back).eulerAngles.y + 25, 6.5f, 1.8f)); yield return new WaitForSeconds(2.5f); RigOn(); yield return new WaitForSeconds(0.8f); }
+            { var back = doyle.Front - doyle.At.position; back.y = 0; var tgt = doyle.At.position + Vector3.up * 1.4f; LookAt(tgt, ClearView(tgt, doyle.At, Quaternion.LookRotation(back).eulerAngles.y + 55, 6.5f, 1.8f)); yield return new WaitForSeconds(2.5f); RigOn(); yield return new WaitForSeconds(0.8f); }
             YShop.Show(doyle); yield return new WaitForSeconds(1.5f); YShop.I.Tab("Paint"); yield return new WaitForSeconds(1f);
             YShop.I.Pick(Catalog.Get("paint:biscuit:0")); yield return new WaitForSeconds(1f);
             foreach (var sw in new[] { 0, 5, 9, 3 }) { YShop.I.Swatch(sw); yield return new WaitForSeconds(1.3f); }
@@ -570,7 +581,7 @@ namespace PortBoss.M1
             YShop.I.BuyNow("furn:chair"); yield return new WaitForSeconds(2f); YShop.I.Tab("Storage"); yield return new WaitForSeconds(1.2f);
             YShop.I.BuyNow("wh:1"); yield return new WaitForSeconds(2f); YShop.I.Hide();
             var chair = W.ShownOf("furn:chair");
-            if (chair != null) { Co.Owned.Remove("furn:chair"); yield return new WaitForSeconds(0.3f); var tc = chair.transform; var at = tc.position; Co.Owned.Add("furn:chair"); Co.Fresh.Add("furn:chair"); var cf = ClearView(at + Vector3.up * 0.5f, tc, Quaternion.LookRotation(tc.forward).eulerAngles.y, 2.2f, 1.0f); for (float t = 0; t < 2.5f; t += Time.deltaTime) { LookAt(at + Vector3.up * 0.5f, cf); yield return null; } }
+            if (chair != null) { Co.Owned.Remove("furn:chair"); yield return new WaitForSeconds(0.3f); var tc = chair.transform; var at = tc.position; Co.Owned.Add("furn:chair"); Co.Fresh.Add("furn:chair"); var cf = ItemView(tc, at + Vector3.up * 0.5f); for (float t = 0; t < 2.5f; t += Time.deltaTime) { LookAt(at + Vector3.up * 0.5f, cf); yield return null; } }
             JumpTo(Today + 1, 6.95); yield return new WaitForSeconds(0.2f);
             var wh = W.Warehouse != null ? W.Warehouse.position : me.transform.position;
             var whc = ClearView(wh + Vector3.up * 2, W.Warehouse, 225, 13, 5);
