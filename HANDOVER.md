@@ -874,7 +874,7 @@ Differences now:
 - Logs go to `Logs/pb/m1/<name>/log.txt`, and every run prints its exception count: it must be 0.
 - Paths (Unity exe, project, logs) are in `tools/env.sh`; override them from the environment.
 - M1 composites its UI into batchmode screenshots (a two-pass black/white capture), so the HUD shows in `-pb-shots`; look at every PNG yourself.
-- In-game debug keys: F3 overlay (bite timer, window ms, stop errors, the clock and weather), F5 rod tier, F6 bait, F7 every fish heavy (on/off), F8 fall over, F9 next crew body, F10 +1 hour (Shift +6, host only), F11 hold the next weather (host only).
+- In-game debug keys: F3 overlay (bite timer, window ms, stop errors, the clock and weather), F5 rod tier, F6 bait, Shift+F7 every fish heavy (on/off; plain F7 = the M5 tester, next act + $5,000), F8 fall over, F9 next crew body, F10 +1 hour (Shift +6, host only), F11 hold the next weather (host only).
 - **`-pb-fps 60` for every still or film** (batch mode otherwise runs ~1000 fps and the standing deck hold never lands, so the jump tuck bends bodies over in the pictures). Toasts run on real time, so a test that waits for a toast waits with `WaitForSecondsRealtime`.
 - The old game's scripts (`ubuild.sh`, `reg2.sh`, `regress.sh`, `release.sh`, `morning.sh`, `capture.sh`) are in
   `tools/README.md`.

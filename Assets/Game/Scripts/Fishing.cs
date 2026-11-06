@@ -194,8 +194,9 @@ namespace PortBoss.M1
         {
             if (Ctl.Key_(UnityEngine.InputSystem.Key.F5) && !Locked) SetRod(RodTier % 5 + 1);
             if (Ctl.Key_(UnityEngine.InputSystem.Key.F6) && !Locked) { BaitI = (BaitI + 1) % FishDb.Baits.Length; Alerts.Push("Debug", "Bait: " + FishDb.Baits[BaitI].Name, Alerts.Kind.Info); }
-            // F7: every hook is a heavy fish (to try Fight it / Let it go without hunting a big conger)
-            if (Ctl.Key_(UnityEngine.InputSystem.Key.F7) && !Locked) { Bot.ForceHeavy = !Bot.ForceHeavy; Alerts.Push("Debug", Bot.ForceHeavy ? "Every fish is HEAVY (F7 to stop)" : "Heavy fish: normal again", Alerts.Kind.Info); }
+            // Shift+F7: every hook is a heavy fish (to try Fight it / Let it go without hunting a big conger). (Plain F7 is M5's tester)
+            bool shift = UnityEngine.InputSystem.Keyboard.current != null && UnityEngine.InputSystem.Keyboard.current.shiftKey.isPressed;
+            if (shift && Ctl.Key_(UnityEngine.InputSystem.Key.F7) && !Locked) { Bot.ForceHeavy = !Bot.ForceHeavy; Alerts.Push("Debug", Bot.ForceHeavy ? "Every fish is HEAVY (Shift+F7 to stop)" : "Heavy fish: normal again", Alerts.Kind.Info); }
         }
 
         // ---------------- cast ----------------
