@@ -23,6 +23,7 @@ namespace PortBoss.M1
         static Company C => Firm.C;
         const float View = 548, W = 1724, H = 936, L = 40, GridW = 1172, RX = 1288, RW = 402;   // card, left pad, grid width, right pane x / width
 
+        readonly List<Bounds> mirrorNear = new();   // small props round Hartley's counter (no colliders), for the mirror's near plane
         Works.Counter5 shop; string cat; public Ware Sel; int sw = -1, pat, slot; bool rush;
         RectTransform root, left, grid, right, opts, quote, buyBtn; Text title, caption, quoteWho, quoteTxt, nameT, descT, totalL, totalT, bankT, buyT, footL, footR, footLC, footRC;
         Image avatar, avatarIco, buyFill; RawImage preview; Camera cam, pcam; RenderTexture rt; Transform stage, stageItem; string stageFor;
@@ -102,7 +103,15 @@ namespace PortBoss.M1
         {
             var w = Sel; pmode = PMode.None; pBoat = null; pSpot = null; Works.TryPaint = null; Wardrobe.TryOn = null; Wardrobe.TryDye = null;
             if (shop == null) return;
-            if (shop.S == Store.Hartley) pmode = PMode.Mirror;
+            if (shop.S == Store.Hartley)
+            {
+                pmode = PMode.Mirror; mirrorNear.Clear(); var me = Angler.I;
+                if (me != null) foreach (var r in FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None))
+                {
+                    var b = r.bounds; if (b.extents.magnitude > 2.5f || r.transform.IsChildOf(me.transform)) continue;
+                    if ((b.ClosestPoint(me.transform.position) - me.transform.position).magnitude < 4f) mirrorNear.Add(b);
+                }
+            }
             else if (w != null && w.At == Store.Doyle && w.Lock == null) { pBoat = Skiff.Of(w.Boat ?? (w.Id == "boat:kestrel" ? "kestrel" : "biscuit")); pmode = pBoat != null ? PMode.Boat : PMode.None; }
             else if (w != null && w.At == Store.Plank)
             {
@@ -173,6 +182,9 @@ namespace PortBoss.M1
                     // where the clear air in front of me starts
                     float clear = Vector3.Distance(c, p);
                     foreach (var h in Physics.RaycastAll(c, p - c, clear)) if (!h.collider.transform.IsChildOf(me.transform) && h.distance < clear) clear = h.distance;
+                    // the counter's sign posts and awning have no colliders: their bounds stand on the line too
+                    var ray = new Ray(c, (p - c).normalized);
+                    foreach (var b in mirrorNear) if (!b.Contains(c) && b.IntersectRay(ray, out float hd) && hd < clear) clear = Mathf.Max(0.3f, hd);
                     // Mabel (no collider) behind her counter stands on that line too: the near plane starts in front of her
                     if (Works.I != null) foreach (var k in Works.I.Keepers) if (k != null && k.Visible)
                     {

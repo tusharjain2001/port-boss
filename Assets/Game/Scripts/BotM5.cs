@@ -112,6 +112,22 @@ namespace PortBoss.M1
                 }
             return At(bearing, dist);
         }
+        // a clear camera spot whose view runs on past the target into open space (not a dark doorway right behind it)
+        static Vector3 DeepView(Vector3 target, Transform own, float bearing, float dist, float up)
+        {
+            Vector3 best = ClearView(target, own, bearing, dist, up); float bestDeep = -1;
+            for (int k = -6; k <= 6; k++)
+            {
+                var from = target + Quaternion.Euler(0, bearing + k * 20, 0) * Vector3.forward * dist + Vector3.up * up;
+                if (Physics.CheckSphere(from, 0.3f)) continue;
+                bool blocked = false; foreach (var h in Physics.RaycastAll(from, target - from, Vector3.Distance(from, target) - 0.05f)) if ((own == null || !h.collider.transform.IsChildOf(own)) && !(h.collider is CharacterController)) { blocked = true; break; }
+                if (blocked) continue;
+                var dir = (target - from).normalized; float deep = 60;   // how far the eye travels past the target
+                foreach (var h in Physics.RaycastAll(target + dir * 0.8f, dir, 60)) if (!(h.collider is CharacterController) && h.distance < deep) deep = h.distance;
+                if (deep > bestDeep + 0.5f) { bestDeep = deep; best = from; }
+            }
+            return best;
+        }
         static List<Renderer> PaintedParts(Skiff b) { var l = new List<Renderer>(); foreach (var r in b.GetComponentsInChildren<Renderer>(true)) if (r is MeshRenderer && Channels.Has(r)) l.Add(r); return l; }
         static Bounds BoundsOf(GameObject g)
         {
@@ -571,7 +587,7 @@ namespace PortBoss.M1
             bst.Paint = new[] { -1, -1, -1, -1 }; bst.Pattern = 0; JumpTo(2, 10); RigOn();
             // 2. Doyle's counter, the shop: the hull swatches tried on her live (6-22 s)
             var doyle = W.Shops.Find(s => s.S == Store.Doyle); yield return AtShop(doyle);
-            { var back = doyle.Front - doyle.At.position; back.y = 0; var tgt = doyle.At.position + Vector3.up * 1.4f; LookAt(tgt, ClearView(tgt, doyle.At, Quaternion.LookRotation(back).eulerAngles.y + 55, 6.5f, 1.8f)); yield return new WaitForSeconds(2.5f); RigOn(); yield return new WaitForSeconds(0.8f); }
+            { var back = doyle.Front - doyle.At.position; back.y = 0; var tgt = doyle.At.position + Vector3.up * 1.4f; LookAt(tgt, DeepView(tgt, doyle.At, Quaternion.LookRotation(back).eulerAngles.y, 6.5f, 1.8f)); /* not into the dark boatshed behind the counter */ yield return new WaitForSeconds(2.5f); RigOn(); yield return new WaitForSeconds(0.8f); }
             YShop.Show(doyle); yield return new WaitForSeconds(1.5f); YShop.I.Tab("Paint"); yield return new WaitForSeconds(1f);
             YShop.I.Pick(Catalog.Get("paint:biscuit:0")); yield return new WaitForSeconds(1f);
             foreach (var sw in new[] { 0, 5, 9, 3 }) { YShop.I.Swatch(sw); yield return new WaitForSeconds(1.3f); }
