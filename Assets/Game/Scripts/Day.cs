@@ -279,6 +279,15 @@ namespace PortBoss.M1
         // storm; the evening before (18:00, with tomorrow's forecast) for a morning one.
         public static double StormCall(int day, int b) => b == 0 ? DayTime.At(day - 1, 1080) : StartOf(day, b) - 240;
 
+        // a forecast block's wind (kn) and waves (Hs, m) for the phone: seeded inside the shown state's range (systems §1.5.1)
+        static readonly float[] WindLo = { 0, 5, 12, 0, 10, 25 }, WindHi = { 8, 12, 20, 6, 18, 40 },
+                                HsLo = { .2f, .3f, .6f, .2f, .5f, 1.6f }, HsHi = { .4f, .6f, 1f, .4f, .9f, 2.5f };
+        public (int kn, float hs) Sea(int day, int b, Wx shown)
+        {
+            int s = (int)shown; double u = U(Seed, day, 300 + b);
+            return ((int)Math.Round(WindLo[s] + u * (WindHi[s] - WindLo[s])), (float)Math.Round(HsLo[s] + u * (HsHi[s] - HsLo[s]), 1));
+        }
+
         // what the phone's Forecast screen will list at a moment (M4 draws it): today's 3 blocks, and from 18:00 tomorrow's
         public struct Line { public int Day, Block, Dots; public Wx Shown; }
         public List<Line> Forecast(double m)

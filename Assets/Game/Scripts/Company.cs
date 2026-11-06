@@ -249,9 +249,10 @@ namespace PortBoss.M1
             }
             return true;
         }
+        public bool Haggled { get { int o = Msgs.FindLastIndex(x => x.From == MariName && x.Offer != null); return o >= 0 && Msgs.FindIndex(o, x => x.From == MariName && x.Me && x.Text == "Can you pay more?") >= 0; } }
         public void HaggleMari(double m)
         {
-            if (Mari != DealSt.Offered) return;
+            if (Mari != DealSt.Offered || Haggled) return;   // once per offer: her answer doesn't change
             Text(MariName, "Can you pay more?", m, me: true);
             Text(MariName, $"Ha! ${MariPrice} is what the tacos earn. Free lunch every day though.", m);
         }
@@ -382,6 +383,8 @@ namespace PortBoss.M1
             c.Spend("s", "Pip", "engine", 200, d2 - 30);
             c.Earn("b", "Pip", "sales", 1, d2); if (c.Mari != DealSt.Offered) return "no text at $250 earned (spending must not delay it)";
             if (c.Unread(MariName) != 2) return $"expected 2 unread texts, got {c.Unread(MariName)}";
+            c.HaggleMari(d2 + 1); c.HaggleMari(d2 + 2);
+            if (c.Msgs.FindAll(x => x.Me && x.Text == "Can you pay more?").Count != 1 || !c.Haggled) return "haggling again repeated the texts";
             if (!c.AnswerMari(true, "Pip", d2 + 5)) return "accept refused";
             if (c.AnswerMari(false, "Rani", d2 + 6)) return "a second answer was taken";
             if (c.MariHere(d2 + 30) || !c.MariHere(d2 + 66)) return "she should tie up within the hour";

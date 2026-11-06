@@ -216,6 +216,13 @@ namespace PortBoss.M1
         RectTransform At(RectTransform p, float x, float y, float w, float h, string n = "r") => UiKit.Rect(n, p).Place(new Vector2(0, 1), new Vector2(x, -y), new Vector2(w, h), new Vector2(0, 1));
         RectTransform Card(RectTransform p, float x, float y, float w, float h, Color? fill = null, float rad = 18, bool shadow = false, Color? line = null)
         { var c = UiKit.Card(p, "card", rad, fill ?? Ponyo.Paper, shadow, line ?? Ponyo.Hex("D9C9B0"), 2); c.Place(new Vector2(0, 1), new Vector2(x, -y), new Vector2(w, h), new Vector2(0, 1)); return c; }
+        // one line, cut with an ellipsis at a word if it is wider than its box (uGUI has no ellipsis of its own)
+        static Text OneLine(Text t)
+        {
+            float w = t.rectTransform.sizeDelta.x; string s = t.text; t.horizontalOverflow = HorizontalWrapMode.Overflow;
+            while (t.preferredWidth > w && s.Length > 6) { int cut = s.LastIndexOf(' ', s.Length - 2); s = (cut > s.Length / 2 ? s.Substring(0, cut) : s.Substring(0, s.Length - 2)).TrimEnd(' ', ',', '.', '·', ':'); t.text = s + "…"; }
+            return t;
+        }
         static Text Fit(Text t, int min) { t.resizeTextForBestFit = true; t.resizeTextMinSize = min; t.resizeTextMaxSize = t.fontSize; t.horizontalOverflow = HorizontalWrapMode.Wrap; t.verticalOverflow = VerticalWrapMode.Truncate; return t; }
         Text T(RectTransform p, string s, Font f, int size, Color c, float x, float y, float w, float h, TextAnchor a = TextAnchor.UpperLeft)
         { var t = UiKit.Txt(p, s, f, size, c, a); t.rectTransform.Place(new Vector2(0, 1), new Vector2(x, -y), new Vector2(w, h), new Vector2(0, 1)); return t; }
@@ -294,26 +301,29 @@ namespace PortBoss.M1
             if (!H24) T(list, hh < 12 ? "AM" : "PM", UiKit.Bold, 22, Ponyo.Hex("C98A1A"), big.preferredWidth + 6, y + 44, 60, 30);
             y += 86;
             // Dot's forecast: the three blocks of today (tomorrow's from 6 PM: the Forecast app)
-            var fc = Card(list, 0, y, CW, 182);
+            // (from 6 PM: tomorrow's three; the Forecast app has both)
+            var fc = Card(list, 0, y, CW, 190);
             Caps(fc, "Dot's forecast", 16, 14);
-            var (bNow, _) = (Weather.BlockAt(m).b, 0);
-            var lines = Sky.W.Forecast(m);
-            Caps(fc, DayTime.OfDay(m) >= 1080 || DayTime.OfDay(m) < 420 ? "Tomorrow at 6 PM" : "Today", 140, 14, CW - 156, SubInk, TextAnchor.UpperRight);
+            int bNow = Weather.BlockAt(m).b;
+            var all = Sky.W.Forecast(m); bool tmw = all.Count > 3; var lines = all.GetRange(tmw ? 3 : 0, 3);
+            int sure = tmw ? 0 : Mathf.Min(bNow, 2);
+            Caps(fc, $"{(tmw ? "Tomorrow" : "Today")} · swell {Sky.W.Sea(lines[sure].Day, sure, lines[sure].Shown).hs:0.0} m", 140, 14, CW - 156, SubInk, TextAnchor.UpperRight);
             float tw = (CW - 32 - 12) / 3f;
             for (int b = 0; b < 3; b++)
             {
-                var ln = lines[b]; bool now = b == Mathf.Min(bNow, 2) && DayTime.OfDay(m) >= 420;
-                var tile = Card(fc, 16 + b * (tw + 6), 38, tw, 104, now ? Ponyo.Night : Ponyo.Paper2, 14, false, now ? Ponyo.Night : Ponyo.Hex("E5D8C2"));
-                Color ink = now ? Ponyo.Paper : Ponyo.Ink;
+                var ln = lines[b]; bool now = !tmw && b == Mathf.Min(bNow, 2) && DayTime.OfDay(m) >= 420;
+                var tile = Card(fc, 16 + b * (tw + 6), 38, tw, 112, now ? Ponyo.Night : Ponyo.Paper2, 14, false, now ? Ponyo.Night : Ponyo.Hex("E5D8C2"));
+                Color ink = now ? Ponyo.Paper : ln.Shown == Wx.Storm ? Ponyo.Poppy : Ponyo.Ink;
                 Caps(tile, Weather.BlockName[b], 0, 10, tw, now ? Ponyo.Hex("C9D2F0") : SubInk, TextAnchor.UpperCenter, 12);
-                Ico(tile, ln.Shown.ToString(), ink, tw / 2 - 18, 30, 36);
-                T(tile, ln.Shown.ToString(), UiKit.DisplayBold, 19, ink, 0, 70, tw, 26, TextAnchor.UpperCenter);
+                Ico(tile, ln.Shown.ToString(), ink, tw / 2 - 17, 28, 34);
+                T(tile, ln.Shown.ToString(), UiKit.DisplayBold, 19, ink, 0, 64, tw, 26, TextAnchor.UpperCenter);
+                T(tile, $"{Sky.W.Sea(ln.Day, b, ln.Shown).kn} kn", UiKit.Body, 13, now ? Ponyo.Hex("C9D2F0") : SubInk, 0, 88, tw, 18, TextAnchor.UpperCenter);
                 if (ln.Shown == Wx.Storm) UiKit.Edge(tile).color = Ponyo.Poppy;
             }
-            T(fc, "How sure Dot is", UiKit.Body, 14, SubInk, 16, 152, 200, 20);
-            Dots(fc, lines[Mathf.Clamp(bNow, 0, 2)].Dots, CW - 16 - 48, 157, Ponyo.SeaC);
+            T(fc, "How sure Dot is", UiKit.Body, 14, SubInk, 16, 160, 200, 20);
+            Dots(fc, lines[sure].Dots, CW - 16 - 48, 165, Ponyo.SeaC);
             var fb = Button(fc, "Forecast card", () => Go(Scr.Forecast));
-            y += 194;
+            y += 202;
             // next up: an unanswered request, else what Mari's up to, else the next thing worth buying
             var nx = Card(list, 0, y, CW, 76);
             UiKit.Img(nx, null, Ponyo.SeaC, "accent").rectTransform.Place(new Vector2(0, 0.5f), new Vector2(2, 0), new Vector2(5, 52), new Vector2(0, 0.5f));
@@ -341,7 +351,8 @@ namespace PortBoss.M1
             if (due.Count > 0) T(bk, Signed(due[0].amount), UiKit.Bold, 16, due[0].amount >= 0 ? Ponyo.Hex("3E9A4E") : Ponyo.Poppy, 150, 36, CW - 166, 22, TextAnchor.UpperRight);
             Button(bk, "Bank strip", () => Go(Scr.Bank));
             y += 86;
-            // the app grid: 4 x 2, unread badges
+            // the app grid: 4 x 2, unread badges, at the bottom of the screen (mockup 03)
+            y = Mathf.Max(y, H - 2 * Inset - Bar - 20 - 196);
             var apps = new (string name, string g, Color col, Scr s, int badge, bool locked)[]
             {
                 ("Messages", "msg", Ponyo.Hex("2FB5A3"), Scr.Messages, Unread(), false), ("Contracts", "contract", Ponyo.Hex("E39A4C"), Scr.Contracts, c.Mari == DealSt.Offered ? 1 : 0, false),
@@ -387,8 +398,7 @@ namespace PortBoss.M1
                 Avatar(row, w, 14, 15, 48);
                 T(row, w, UiKit.Bold, 18, Ponyo.Ink, 74, 13, 180, 24);
                 Caps(row, When(last.At), 160, 16, CW - 176, SubInk, TextAnchor.UpperRight, 12);
-                var line = (last.Me ? "You: " : "") + last.Text; if (line.Length > 38) line = line.Substring(0, 37) + "…";
-                T(row, line, un > 0 ? UiKit.Bold : UiKit.Body, 14, un > 0 ? Ponyo.Ink : SubInk, 74, 42, CW - 110, 22);
+                OneLine(T(row, (last.Me ? "You: " : "") + last.Text, un > 0 ? UiKit.Bold : UiKit.Body, 14, un > 0 ? Ponyo.Ink : SubInk, 74, 42, CW - 110, 22));
                 Badge(row, un, new Vector2(-22, -54));
                 string ww = w; Button(row, w, () => Go(Scr.Thread, ww));
                 y += 88;
@@ -397,8 +407,7 @@ namespace PortBoss.M1
             Avatar(nr, "Notifications", 14, 15, 48);
             T(nr, "Notifications", UiKit.Bold, 18, Ponyo.Ink, 74, 13, 200, 24);
             var lastA = Alerts.Queue.Count > 0 ? Alerts.Queue[^1] : default;
-            var nl = Alerts.Queue.Count > 0 ? $"{lastA.Sender}: {lastA.Text}" : "Nothing yet"; if (nl.Length > 38) nl = nl.Substring(0, 37) + "…";
-            T(nr, nl, UiKit.Body, 14, SubInk, 74, 42, CW - 96, 22);
+            OneLine(T(nr, Alerts.Queue.Count > 0 ? $"{lastA.Sender}: {lastA.Text}" : "Nothing yet", UiKit.Body, 14, SubInk, 74, 42, CW - 96, 22));
             Button(nr, "Notifications", () => Go(Scr.Thread, "Notifications"));
             y += 88;
             if (who.Count == 0) { T(list, "No texts yet. Folks around the harbour text when they want something from the new owner.", UiKit.Body, 15, SubInk, 4, y + 6, CW - 8, 60); y += 70; }
@@ -420,7 +429,7 @@ namespace PortBoss.M1
                 {
                     var a = Alerts.Queue[i];
                     var st = UiKit.Img(list, UiKit.Circle, Alerts.Col(a.K), "stamp"); st.rectTransform.Place(new Vector2(0, 1), new Vector2(0, -y - 2), new Vector2(26, 26), new Vector2(0, 1));
-                    var g = UiKit.Txt(st.transform, Alerts.Glyph(a.K), UiKit.Black, 13, a.K == Alerts.Kind.Info ? Ponyo.Ink : Ponyo.Paper, TextAnchor.MiddleCenter); g.rectTransform.Stretch();
+                    Alerts.Stamp(st.transform, a.K, 13);
                     Caps(list, a.Sender, 36, y, CW - 36, SubInk, TextAnchor.UpperLeft, 12);
                     var t = T(list, a.Text, UiKit.Body, 15, Ponyo.Ink, 36, y + 16, CW - 36, 20); float th = Mathf.Max(20, t.preferredHeight); t.rectTransform.sizeDelta = new Vector2(CW - 36, th);
                     y += 26 + th;
@@ -451,6 +460,7 @@ namespace PortBoss.M1
                 y += 6; float x = 0;
                 foreach (var (label, act) in new (string, Action)[] { ("Sounds good!", () => Firm.I.AnswerMari(true)), ("Can you pay more?", () => Firm.I.HaggleMari()), ("Not now", () => Firm.I.AnswerMari(false)) })
                 {
+                    if (act != null && label == "Can you pay more?" && c.Haggled) continue;   // asked once already
                     float w = label.Length * 8.6f + 30; if (x + w > CW) { x = 0; y += 46; }
                     Pill(list, label, x, y, w, 38, Ponyo.Paper, Ponyo.Ink, act, UiKit.Body, 15); x += w + 8;
                 }
@@ -463,7 +473,8 @@ namespace PortBoss.M1
         float OfferCard(Company c, float y)
         {
             bool live = c.Mari == DealSt.Offered;
-            var card = Card(list, 0, y, CW, live ? 236 : 186, Ponyo.Paper, 18, true, Ponyo.Hex("2C4F9E"));
+            float ch = live ? 236 : 204;
+            var card = Card(list, 0, y, CW, ch, Ponyo.Paper, 18, true, Ponyo.Hex("2C4F9E"));
             var head = UiKit.Card(card, "head", 16, Ponyo.Hex("3A72D6"), false, Ponyo.Hex("2C4F9E")); head.Place(new Vector2(0, 1), Vector2.zero, new Vector2(CW, 48), new Vector2(0, 1));
             Ico(head, "anchor", Ponyo.Paper, 16, 12, 24);
             T(head, "Mooring request", UiKit.DisplayBold, 20, Ponyo.Paper, 48, 10, 260, 30);
@@ -488,9 +499,10 @@ namespace PortBoss.M1
                     DealSt.GaveUp => "Declined · she found another spot",
                     _ => "",
                 };
-                T(card, s, UiKit.Bold, 14, c.Mari == DealSt.Active ? Ponyo.Hex("3E9A4E") : SubInk, 16, ry - 4, CW - 32, 22);
+                UiKit.Img(card, null, Ponyo.Hex("EADFCC"), "rule").rectTransform.Place(new Vector2(0, 1), new Vector2(14, -ry + 2), new Vector2(CW - 28, 1.5f), new Vector2(0, 1));
+                OneLine(T(card, s, UiKit.Bold, 14, c.Mari == DealSt.Active ? Ponyo.Hex("3E9A4E") : SubInk, 16, ry + 10, CW - 32, 22));
             }
-            return y + (live ? 236 : 186);
+            return y + ch;
         }
 
         // M5: a crewmate asks to spend over the limit (economy §8): one OK from anyone else buys it; the asker can't answer
@@ -753,7 +765,7 @@ namespace PortBoss.M1
             for (int i = c.Ledger.Count - 1; i >= 0 && i >= c.Ledger.Count - 40; i--)
             {
                 var e = c.Ledger[i];
-                Fit(T(list, e.What, UiKit.Bold, 15, Ponyo.Ink, 2, y, CW - 100, 22), 13);   // one line: a long one shrinks a little
+                OneLine(T(list, e.What, UiKit.Bold, 15, Ponyo.Ink, 2, y, CW - 116, 22));
                 T(list, $"{e.Who} · {When(e.At)}", UiKit.Body, 14, SubInk, 2, y + 21, CW - 100, 18);
                 T(list, Signed(e.Amount), UiKit.Bold, 16, e.Amount >= 0 ? Ponyo.Hex("3E9A4E") : Ponyo.Poppy, CW - 110, y + 6, 108, 22, TextAnchor.UpperRight);
                 UiKit.Img(list, null, Ponyo.Hex("EADFCC"), "rule").rectTransform.Place(new Vector2(0, 1), new Vector2(0, -y - 46), new Vector2(CW, 1.5f), new Vector2(0, 1));
@@ -789,14 +801,14 @@ namespace PortBoss.M1
                     var l = ls[i]; float ry = 8 + i * 62; Color ink = l.Shown == Wx.Storm ? Ponyo.Poppy : Ponyo.Ink;
                     Ico(card, l.Shown.ToString(), ink, 14, ry + 8, 40);
                     T(card, Weather.BlockName[l.Block], UiKit.Bold, 17, Ponyo.Ink, 66, ry + 8, 150, 22);
-                    T(card, l.Shown.ToString(), UiKit.Body, 14, ink, 66, ry + 30, 150, 20);
-                    T(card, "how sure", UiKit.Body, 14, SubInk, CW - 120, ry + 12, 64, 18);
-                    Dots(card, l.Dots, CW - 70, ry + 16, Ponyo.SeaC);
+                    var (kn, hs) = Sky.W.Sea(l.Day, l.Block, l.Shown);
+                    T(card, $"{l.Shown} · wind {kn} kn · waves {hs:0.0} m", UiKit.Body, 14, ink, 66, ry + 30, CW - 130, 20);
+                    Dots(card, l.Dots, CW - 16 - 48, ry + 20, Ponyo.SeaC);
                     if (i < ls.Count - 1) UiKit.Img(card, null, Ponyo.Hex("EADFCC"), "rule").rectTransform.Place(new Vector2(0, 1), new Vector2(14, -ry - 60), new Vector2(CW - 28, 1.5f), new Vector2(0, 1));
                 }
                 y += ls.Count * 62 + 20;
             }
-            T(list, "Four dots: Dot's sure of it. One: she's guessing.", UiKit.Body, 14, SubInk, 2, y, CW, 20);
+            T(list, "The dots are how sure Dot is. Four: she's sure of it. One: she's guessing.", UiKit.Body, 14, SubInk, 2, y, CW, 40);
             return y + 26;
         }
 
@@ -844,7 +856,7 @@ namespace PortBoss.M1
             }
             Row("Mouse look", $"{Settings.MouseSens:0.0}×", () => SetF("m1.mouse", ref Settings.MouseSens, -0.1f, 0.2f, 3f), () => SetF("m1.mouse", ref Settings.MouseSens, 0.1f, 0.2f, 3f));
             Row("Pad look", $"{Settings.PadSens:0.0}×", () => SetF("m1.pad", ref Settings.PadSens, -0.1f, 0.2f, 3f), () => SetF("m1.pad", ref Settings.PadSens, 0.1f, 0.2f, 3f));
-            Row("Invert look", Settings.Invert ? "On" : "Off", null, () => Settings.Invert = !Settings.Invert);
+            Row("Invert look", Settings.Invert ? "On" : "Off", null, () => { Settings.Invert = !Settings.Invert; try { PlayerPrefs.SetInt("m1.invert", Settings.Invert ? 1 : 0); PlayerPrefs.Save(); } catch { } });
             Row("Bar timing", $"{(Settings.TimingOffsetMs >= 0 ? "+" : "")}{Settings.TimingOffsetMs:0} ms", () => SetF("m1.offset", ref Settings.TimingOffsetMs, -10, -100, 100), () => SetF("m1.offset", ref Settings.TimingOffsetMs, 10, -100, 100));
             Row("Voice chat", Settings.Voice == Settings.VoiceMode.Open ? "Open mic" : Settings.Voice == Settings.VoiceMode.PushToTalk ? "Hold V" : "Off", null, () =>
             {
@@ -853,7 +865,7 @@ namespace PortBoss.M1
             });
             Row("Phone clock", H24 ? "24-hour" : "12-hour", null, () => { H24 = !H24; try { PlayerPrefs.SetInt("m4.h24", H24 ? 1 : 0); } catch { } });
             y += 6;
-            T(list, "Bar timing nudges the fishing bar if your screen or pad lags. Esc pauses; F3 shows the debug overlay.", UiKit.Body, 14, SubInk, 2, y, CW - 4, 60);
+            T(list, "Bar timing nudges the fishing bar if your screen or pad lags. Esc pauses the game.", UiKit.Body, 14, SubInk, 2, y, CW - 4, 60);
             return y + 60;
         }
         static void SetF(string k, ref float v, float d, float lo, float hi)
@@ -928,7 +940,7 @@ namespace PortBoss.M1
             }
             Color ink = Ponyo.Hex("2F5D62"), land = Ponyo.Hex("5E5035");
             Label("Hale's Landing", 2640, 2400, 11, Ponyo.Hex("C2552D")); Label("Old Saltmouth", 3330, 2330, 11, land);
-            Label("Crescent Isle", 3380, 2950, 16, land, false, true); Label("Voss Harbour", 3950, 3030, 10, Ponyo.Hex("B03A2E"));
+            Label("Saltmouth Island", 3380, 2950, 16, land, false, true); Label("Voss Harbour", 3950, 3030, 10, Ponyo.Hex("B03A2E"));
             Label("Gullrock", 2250, 2420, 10, ink); Label("Lantern Key", 1100, 2420, 10, ink); Label("Sorrel Isle", 4100, 1050, 10, ink);
             Label("Mango Cay", 4300, 4120, 10, ink); Label("Breaker Point", 2800, 4000, 10, ink);
             Label("Wreck of the Margaret", 1000, 1600, 10, ink);

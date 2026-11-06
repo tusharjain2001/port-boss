@@ -11,7 +11,7 @@ namespace PortBoss.M1
         static readonly Dictionary<string, Sprite> cache = new();
 
         // distance helpers (negative inside)
-        static float Seg(Vector2 p, Vector2 a, Vector2 b) { var ab = b - a; float t = Mathf.Clamp01(Vector2.Dot(p - a, ab) / ab.sqrMagnitude); return (p - (a + ab * t)).magnitude; }
+        static float Seg(Vector2 p, Vector2 a, Vector2 b) { var ab = b - a; if (ab.sqrMagnitude < 1e-12f) return (p - a).magnitude; float t = Mathf.Clamp01(Vector2.Dot(p - a, ab) / ab.sqrMagnitude); return (p - (a + ab * t)).magnitude; }
         static float Ring(Vector2 p, Vector2 c, float r) => Mathf.Abs((p - c).magnitude - r);
         static float Disc(Vector2 p, Vector2 c, float r) => (p - c).magnitude - r;
         static float RBox(Vector2 p, Vector2 c, Vector2 h, float r) { var q = new Vector2(Mathf.Abs(p.x - c.x), Mathf.Abs(p.y - c.y)) - h + Vector2.one * r; return new Vector2(Mathf.Max(q.x, 0), Mathf.Max(q.y, 0)).magnitude + Mathf.Min(Mathf.Max(q.x, q.y), 0) - r; }

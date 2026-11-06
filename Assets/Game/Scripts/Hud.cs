@@ -49,6 +49,14 @@ namespace PortBoss.M1
             if (rest.Length > 24) rest = many;   // (about one line of the toast)
             return $"{(sum >= 0 ? "+" : "−")}${Mathf.Abs(sum)} · {rest}";
         }
+        // a drawn icon in the stamp (mockup 01: a chat bubble for texts, sun-and-cloud for the weather), else the letter
+        public static string Icon(Kind k) => k == Kind.Message ? "msg" : k == Kind.Weather ? "forecast" : null;
+        public static void Stamp(Transform st, Kind k, int size)
+        {
+            Color ink = k == Kind.Info ? Ponyo.Ink : Ponyo.Paper;
+            if (Icon(k) != null) UiKit.Img(st, Glyphs.Get(Icon(k)), ink, "glyph").rectTransform.Stretch(size * 0.4f);
+            else UiKit.Txt(st, Glyph(k), UiKit.Black, size, ink, TextAnchor.MiddleCenter).rectTransform.Stretch();
+        }
         public static string Glyph(Kind k) => k switch { Kind.Message => "…", Kind.Money => "$", Kind.Warning => "!", Kind.Crew => "★", Kind.Story => "W", Kind.Weather => "~", _ => "i" };
     }
 
@@ -351,7 +359,7 @@ namespace PortBoss.M1
                     UiKit.Img(d.transform, UiKit.RingSprite, Ponyo.Line, "edge").rectTransform.Stretch(-1);
                 }
             }
-            var gl = UiKit.Txt(st.transform, Alerts.Glyph(a.K), UiKit.Black, 20, a.K == Alerts.Kind.Info ? Ponyo.Ink : Ponyo.Paper, TextAnchor.MiddleCenter); gl.rectTransform.Stretch();
+            Alerts.Stamp(st.transform, a.K, 20);
             var s = UiKit.Txt(c, UiKit.Caps(a.Sender), UiKit.Bold, 14, Ponyo.InkSoft, TextAnchor.UpperLeft); s.rectTransform.Stretch(); s.rectTransform.offsetMin = new Vector2(72, 0); s.rectTransform.offsetMax = new Vector2(-16, -16);
             var t = UiKit.Txt(c, a.Text, UiKit.Body, 20, Ponyo.Ink, TextAnchor.UpperLeft); t.name = "body"; t.rectTransform.Stretch(); t.rectTransform.offsetMin = new Vector2(72, 18); t.rectTransform.offsetMax = new Vector2(-18, -38);
             var life = UiKit.Img(c, null, Alerts.Col(a.K == Alerts.Kind.Info ? Alerts.Kind.Crew : a.K), "life"); life.rectTransform.anchorMin = new Vector2(0, 0); life.rectTransform.anchorMax = new Vector2(1, 0); life.rectTransform.pivot = new Vector2(0, 0);

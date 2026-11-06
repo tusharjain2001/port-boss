@@ -18,7 +18,7 @@ if [ -z "$SKIP_EDIT" ]; then
   grep -E '\[PB\] m4test' "$D/edit.txt"; echo "== edit: compile errors $(grep -c 'error CS' "$D/edit.txt")"
 fi
 
-hidden "$EXE" -batchmode -pb-seed 7 -pb-firstday "$(W "$PROOF/phone")" -pb-quit 400 -logFile "$(W "$D/firstday.txt")"
+mkdir -p "$D/fd-saves"; hidden "$EXE" -batchmode -pb-seed 7 -pb-firstday "$(W "$PROOF/phone")" -pb-savedir "$(W "$D/fd-saves")" -pb-quit 400 -logFile "$(W "$D/firstday.txt")"
 sum firstday "$D/firstday.txt"
 # the check: the table's own assumptions ($16 a fish, no saturation), the mean of 4 different three days (one is ~15
 # random fish a sale, about ±$12 on a row), every row within ±10% (or $10 on the small rows)
