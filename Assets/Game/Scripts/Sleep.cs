@@ -8,7 +8,7 @@ namespace PortBoss.M1
 {
     // M3 sleep (gdd systems §1.4, MUST): one sleeper skips the night to 07:00 for everyone and the weather moves on.
     // - Walt's old cot stands by the shack. Hold E 1 s on it from 20:00 to 05:00, or any time you're tired; before that
-    //   "Too early. Back after 8 PM." You lie down (1 s), then the skip.
+    //   "Tap: wardrobe · too early to sleep, back after 8 PM" (M5: a tap opens the wardrobe). You lie down (1 s), then the skip.
     // - Tired from 23:00 (a toast); from 01:30 the edges darken and you walk 10% slower; at 02:00 you pass out where you
     //   stand, which counts as one player sleeping.
     // - Co-op: the host runs the skip. Everyone else gets "Pip is going to sleep · night skips in 5 s"; a crewmate in a
