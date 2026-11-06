@@ -59,6 +59,7 @@ namespace PortBoss.M1
         float sq, sqV;                            // squash (-) and stretch (+) of the body on take-off and landing
         float standT;                             // how long she has stood still aboard
         byte hop;                                 // counts her jumps to a new place (Teleport): co-op never blends across one
+        public byte Hop => hop;                   // (a crewmate's copy: the count as last received; tests skip the moments after a jump)
 
         public static Angler Create(M1Assets a, Vector3 at, float yaw)
         {
@@ -259,6 +260,7 @@ namespace PortBoss.M1
             // boarding, leaving, the tiller, into or out of the sea, a jump to a new place, going down or getting up: no
             // blend between two places
             if (a.OnBoat != b.OnBoat || a.Helm != b.Helm || a.Swim != b.Swim || a.Hop != b.Hop || a.State != b.State) a = b;
+            hop = b.Hop;
             if (b.State != 4) RepairT = -1;
             if (Fish != null) { Fish.NetA = a.F; Fish.NetB = b.F; Fish.NetK = k; } // their fishing plays from the same moment
             Vector3 p = Vector3.Lerp(a.P, b.P, k); float yaw = Mathf.LerpAngle(a.Yaw, b.Yaw, k);

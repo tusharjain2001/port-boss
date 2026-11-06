@@ -350,8 +350,15 @@ def build_rocks(coll):
     rocks += [(x + R.uniform(-6, 6), y + R.uniform(-6, 6), R.uniform(3, 5)) for x, y in bwp[::2]]
     for mx, my, s in ((1780, 1560, 9), (1700, 1440, 7), (1610, 1370, 6), (1840, 1500, 5), (2190, 2470, 6), (2320, 2640, 5)):
         x, y = S.W(mx, my); rocks.append((x, y, s))
+    # Walt's Landing stays clear (INTEGRATED-3): a rock poked through the pier root and sat by the cot. The footprint: the
+    # 32 m pier out west from the root, the shack and the yard behind it. R is still drawn for a skipped rock, so every
+    # other rock keeps its exact shape and place.
+    px, py = S.PIER_ROOT; bx0, bx1, by0, by1 = px - 36, px + 18, py - 10, py + 16
+    def on_landing(x, y, s): return math.hypot(max(bx0 - x, 0, x - bx1), max(by0 - y, 0, y - by1)) < s + 1.0
     for k, (x, y, s) in enumerate(rocks):
         rz = s * R.uniform(0.55, 0.95); z = H(x, y)
+        if on_landing(x, y, s):
+            R.uniform(0.7, 1.0); R.uniform(-8, 8); R.uniform(-8, 8); R.uniform(0, 360); log('rock off the landing', round(x, 1), round(y, 1), s); continue
         mb.add(blob(1, (s, s * R.uniform(0.7, 1.0), rz), k + 3, 0.2, 0.9), 'rock' if k % 3 else 'rock2',
                M((x, y, min(z, 0.6) - 0.2 * rz + (0.4 * rz if z > 0 else 0)), (D(R.uniform(-8, 8)), D(R.uniform(-8, 8)), D(R.uniform(0, 360)))))
     log('rocks', len(rocks)); finish(mb, 'Rocks', coll, 45); return rocks
@@ -501,7 +508,9 @@ def lm_boatworks(mb, x, y, z, yaw):
     mb.add(gable(d + 0.04, w, 5.0), 'weath', m @ M((0, 0, z + h), (0, 0, D(90))))        # (the gable walls under it)
     mb.add(box(w + 0.3, d + 0.3, 0.3), 'paper', m @ M((0, 0, z + h)))                    # the eaves band
     mb.add(box(10.8, 0.25, 6.0), 'paper', m @ M((0, -d / 2 - 0.05, z + 3.0)))             # the big doors: frame, the dark shed, leaves
-    mb.add(box(10, 0.3, 5.6), 'ink', m @ M((0, -d / 2 - 0.1, z + 2.8)))
+    # (INTEGRATED-3: the doorway was 'ink', a black slab behind Doyle's counter: now the shed's warm inside, planked)
+    mb.add(box(10, 0.3, 5.6), 'dark', m @ M((0, -d / 2 - 0.1, z + 2.8)))
+    for k in range(6): mb.add(box(10, 0.04, 0.07), 'midwood', m @ M((0, -d / 2 - 0.27, z + 0.5 + 0.9 * k)))
     for sx in (-1, 1): mb.add(box(2.6, 0.22, 5.4), 'blue', m @ M((sx * 6.6, -d / 2 - 0.12, z + 2.75)))
     mb.add(box(8, 0.35, 1.5), 'blue', m @ M((0, -d / 2 - 0.3, z + h + 1.3)))             # the sign board, a boat painted on it
     mb.add(blob(1, (2.2, 0.12, 0.42), 36, 0.03, 0.6), 'red', m @ M((0, -d / 2 - 0.5, z + h + 1.15)))

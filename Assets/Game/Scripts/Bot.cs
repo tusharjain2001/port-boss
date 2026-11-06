@@ -232,6 +232,7 @@ namespace PortBoss.M1
                 if (m != null) { if (e == swimmer) hadSw = true; if (e == knocked) hadKn = true; }
                 return m;
             }
+            byte swHop = 0; float sinceHop = 9;
             bool sawSwim = false, sawAboard = false, sawDown = false, sawUp = false; float floatOff = 0, floatOffAt = 0, swimT = 0, downT = 0; Vector3 rest = default;
             bool shotSwim = false, shotDown = false; (string what, Vector3 at)? shotNow = null; // a picture to take this frame
             void Seen()
@@ -242,7 +243,10 @@ namespace PortBoss.M1
                     sawSwim = true; swimT += Time.deltaTime;
                     // off the float line on my own sea, once settled (past the drop in and the dunk); when the worst came is logged
                     // (3 Nov: always ~5.9 s in, at 150 ms 21-31 cm, M2.1 28 cm: near the 30 cm limit; cause not found yet)
-                    if (swimT > 1f) { float off = Mathf.Abs(sw.transform.position.y - (Sea.Height(sw.transform.position) - Angler.SwimDepth)); if (off > floatOff) { floatOff = off; floatOffAt = swimT; } }
+                    // (INTEGRATED-3: and past the 1 s after a jump to a new place: the test drops the swimmer at the ladder foot, and
+                    // the body settling against the hull there is the owner's own motion, not sync: M5 SUGGESTIONS C, 36 cm vs 30)
+                    if (sw.Hop != swHop) { swHop = sw.Hop; sinceHop = 0; } sinceHop += Time.deltaTime;
+                    if (swimT > 1f && sinceHop > 1f) { float off = Mathf.Abs(sw.transform.position.y - (Sea.Height(sw.transform.position) - Angler.SwimDepth)); if (off > floatOff) { floatOff = off; floatOffAt = swimT; } }
                     if (swimT > 1.5f && !shotSwim) { shotSwim = true; shotNow = ("crewmate-swims", sw.transform.position + Vector3.up * 0.5f); }
                 }
                 else if (sw != null && sawSwim && sw.OnBoat) sawAboard = true;
@@ -284,7 +288,8 @@ namespace PortBoss.M1
                 yield return new WaitForSeconds(2.5f); // treading water
                 Ctl.BotMove = Vector2.up; yield return new WaitForSeconds(2f); Ctl.BotMove = Vector2.zero;
                 var lb = s.LadderBottom.position; me.Teleport(new Vector3(lb.x, Sea.Height(lb) - Angler.SwimDepth, lb.z), me.transform.eulerAngles.y);
-                yield return new WaitForSeconds(1f);
+                float ownOff = 0; for (float w = 0; w < 1f; w += Time.deltaTime) { if (me.Swimming) ownOff = Mathf.Max(ownOff, Mathf.Abs(me.transform.position.y - (Sea.Height(me.transform.position) - Angler.SwimDepth))); yield return null; }
+                Debug.Log($"[PB] coop: at the ladder foot: my own body at most {ownOff * 100:F0} cm off my float line in the 1 s after the drop");
                 Ctl.BotInteract = true; yield return null; Ctl.BotInteract = false;
                 yield return new WaitForSeconds(1.5f);
                 Debug.Log($"[PB] coop: up the ladder: aboard {(me.OnBoat ? "yes" : "NO")}");
