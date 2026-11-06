@@ -14,9 +14,14 @@ namespace PortBoss.M1
         IEnumerator CrowdTest(string role, string dir)
         {
             shots = dir; Directory.CreateDirectory(dir); Ctl.Bot = true; bool host = role == "host";
-            yield return Until(() => Coop.On && Coop.I.Roster.Count >= 2 && (Coop.IsHost || JoinView.Lifted && JoinView.Cover <= 0), 40); // (a joiner: its join cover gone: under -pb-fps the game clock races the real-time fade)
+            Application.targetFrameRate = 60;           // (as CoopTest: with -pb-fps, game time = real time on both machines)
+            // both count from the moment the roster shows two (the same instant on both, give or take the ping), not from the
+            // joiner's cover lifting: that comes 0.5-2.4 s later, and a rider that late met the host a round behind
+            float met = -1;
+            yield return Until(() => { if (met < 0 && Coop.On && Coop.I.Roster.Count >= 2) met = Time.time; return Coop.On && Coop.I.Roster.Count >= 2 && (Coop.IsHost || JoinView.Lifted && JoinView.Cover <= 0); }, 40); // (a joiner: its join cover gone: under -pb-fps the game clock races the real-time fade)
             if (!Coop.On || Coop.I.Roster.Count < 2) { Debug.Log("[PB] RESULT crowdtest: FAIL (never connected)"); Application.Quit(); yield break; }
-            float t0 = Time.time + 3f; var s = Skiff.I; var c = Coop.I;
+            float t0 = Mathf.Max(met + 6f, Time.time + 0.5f); var s = Skiff.I; var c = Coop.I;
+            Debug.Log($"[PB] crowd: met {Time.time - met:F2} s ago, round 1 in {t0 - Time.time:F2} s");
             Angler Mate() { foreach (var m in c.Mates.Values) if (m != null) return m; return null; }
             var land = FindAnyObjectByType<Landing>(); var S = (land.Spawn != null ? land.Spawn : land.transform).position;
             // the jetty's own line from the spawn: of 24 ways, the one with the longest run of solid floor at the spawn's
@@ -90,7 +95,8 @@ namespace PortBoss.M1
                 }
             }
             Debug.Log($"[PB] RESULT crowdtest {role}: {(dayFails == 0 ? "PASS" : "FAIL")}");
-            yield return new WaitForSeconds(host ? 3f : 1f);
+            if (host) { float q = Time.time + 15f; while (Mate() != null && Time.time < q) yield return null; } // (the rider finishes first)
+            yield return new WaitForSeconds(1f);
             Application.Quit();
         }
 
@@ -98,6 +104,7 @@ namespace PortBoss.M1
         IEnumerator Bump(string what, Angler m)
         {
             yield return new WaitForEndOfFrame();
+            if (m == null) yield break;                 // (they left this frame)
             var ct = CameraRig.I.Cam.transform; var keep = (ct.position, ct.rotation);
             var mid = (me.transform.position + m.transform.position) / 2 + Vector3.up * 0.9f;
             var across = me.transform.position - m.transform.position; across.y = 0;

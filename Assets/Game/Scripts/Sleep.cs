@@ -109,7 +109,25 @@ namespace PortBoss.M1
 
         // where you stand to get in or out: beside the cot, on the sea side, facing it
         public static Vector3 BedSide => Cot.position + Cot.right * 0.75f * Side + Vector3.up * 0.05f;
-        public static Vector3 FarSide => Cot.position - Cot.right * 0.75f * Side + Vector3.up * 0.05f;
+        // the second sleeper's spot: the far side, else (M5 moves the cot into office0, its far side in the wall) the foot or
+        // head end, else beside the near side: the first with room for a body, in sight of the cot (not through a wall)
+        public static Vector3 FarSide
+        {
+            get
+            {
+                Vector3 r = Cot.right * 0.75f * Side, f = Cot.forward, up = Vector3.up;
+                foreach (var d in new[] { -r, f * 1.4f, -f * 1.4f, r + f * 0.7f, r - f * 0.7f })
+                {
+                    var p = Cot.position + d + up * 0.05f; bool ok = true;
+                    foreach (var h in Physics.RaycastAll(Cot.position + up, d, d.magnitude, ~0, QueryTriggerInteraction.Ignore))
+                        if (h.collider.GetComponentInParent<Angler>() == null) { ok = false; break; }
+                    if (ok) foreach (var c in Physics.OverlapCapsule(p + up * 0.42f, p + up * 1.45f, 0.32f, ~0, QueryTriggerInteraction.Ignore))
+                        if (c.GetComponentInParent<Angler>() == null) { ok = false; break; }
+                    if (ok) return p;
+                }
+                return Cot.position - r + up * 0.05f;
+            }
+        }
         static Vector3 Flat(Vector3 v) { v.y = 0; return v; }
         static float Side => Landing.I != null && Vector3.Dot(Landing.I.Spawn.position - Cot.position, Cot.right) < 0 ? -1 : 1;
 
