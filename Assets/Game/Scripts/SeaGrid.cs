@@ -4,8 +4,8 @@ using UnityEngine;
 namespace PortBoss.M1
 {
     // M6 · the workers' sea grid (systems §1.6.8): 32 m cells over the seabed sheet; a cell is open when the sea is at
-    // least 1.5 m deep at its centre and its four quarter points (land and shallows blocked), and no step may cross the
-    // Voss no-dock buoy line. A* with 8 neighbours, then the path is pulled straight where the water allows.
+    // least 1.5 m deep at 25 points across it, 8 m apart, edges included (land and shallows blocked; a step between two
+    // open cells is then deep at every 8 m), and no step may cross the Voss no-dock buoy line. A* with 8 neighbours, then the path is pulled straight where the water allows.
     public static class SeaGrid
     {
         public const float Cell = 32, MinDepth = 1.5f;
@@ -21,8 +21,8 @@ namespace PortBoss.M1
             for (int j = 0; j < nz; j++)
                 for (int i = 0; i < nx; i++)
                 {
-                    var c = Centre(i, j); bool ok = Deep(c.x, c.y);
-                    for (int k = 0; k < 4 && ok; k++) ok = Deep(c.x + (k % 2 == 0 ? -0.35f : 0.35f) * Cell, c.y + (k < 2 ? -0.35f : 0.35f) * Cell);
+                    var c = Centre(i, j); bool ok = true;
+                    for (int k = 0; k < 25 && ok; k++) ok = Deep(c.x + (k % 5 - 2) * 0.25f * Cell, c.y + (k / 5 - 2) * 0.25f * Cell);
                     open[j * nx + i] = ok; if (ok) n++;
                 }
             Debug.Log($"[PB] seagrid: {nx}x{nz} cells of {Cell} m, {n} open (seabed {(Seabed.On ? "on" : "off")})");
@@ -76,6 +76,7 @@ namespace PortBoss.M1
             var s = Nearest(a); var g = Nearest(b);
             if (s.Item1 < 0 || g.Item1 < 0) { res.Add(a); res.Add(b); return res; }
             int S = s.Item2 * nx + s.Item1, G = g.Item2 * nx + g.Item1;
+            if (!Clear(Centre(g.Item1, g.Item2), b) || !Deep(b.x, b.y)) b = Centre(g.Item1, g.Item2);   // a spot in (or behind) shallows: anchor just off it, in the nearest deep cell
             var gScore = new Dictionary<int, float> { [S] = 0 }; var from = new Dictionary<int, int>();
             var heap = new SortedSet<(float f, int id)>(); heap.Add((H(S, G), S)); var closed = new HashSet<int>();
             while (heap.Count > 0)

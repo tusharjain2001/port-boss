@@ -20,6 +20,7 @@ namespace PortBoss.M1
         IEnumerator M6Tests() => Arg("-pb-workertest") != null ? WorkerTest(Arg("-pb-workertest")) : Arg("-pb-m6coop") != null ? M6Coop(Arg("-pb-m6coop")) : null;
         IEnumerator UntilM6(System.Func<bool> c, float secs) { for (float t = 0; t < secs && !c(); t += Time.unscaledDeltaTime) yield return null; }
         int m6Fails;
+        static Vector3 OnPier(Vector3 berth) => Landing.I != null && Landing.I.Spawn != null ? Landing.I.Spawn.position : Works.Ground(berth + Vector3.up);   // the pier, not the boat's deck
         void M6(bool ok, string what) { Debug.Log($"[PB] m6: {(ok ? "ok" : "FAIL")} {what}"); if (!ok) m6Fails++; }
         IEnumerator Frames(int n) { for (int i = 0; i < n; i++) yield return null; }
 
@@ -83,9 +84,10 @@ namespace PortBoss.M1
             else M6(false, "no warehouse door");
 
             // ---------------- 3. a live shift near the player: walk down, cast off, sail out, fish, home, warehouse
-            int day = w.StartDay; me.Teleport(Works.Ground(berth + Vector3.up), 0); CameraRig.I.Cut();
+            int day = w.StartDay; me.Teleport(OnPier(berth), 0); CameraRig.I.Cut();
             JumpTo(day, 7.95); yield return UntilM6(() => w.Run != null && w.Run.Day == day, 30);
             M6(w.Run != null && w.Run.Day == day, $"day {day} 08:00: the shift started ({w.Run?.Fail ?? "no fail"})");
+            if (w.Run == null || w.Run.Day != day) { Debug.Log($"[PB] RESULT workertest: {m6Fails} FAILED (the shift never started; last text: {(Co.Msgs.Count > 0 ? Co.Msgs[^1].Text : "-")})"); Application.Quit(); yield break; }
             bool noShow = w.Run != null && w.Run.St == WSt.NoShow;
             if (!noShow)
             {
@@ -164,7 +166,7 @@ namespace PortBoss.M1
             yield return new WaitForSeconds(3f);
             Coop.Entry Other() => Coop.I.Roster.Find(e => e.Id != Coop.Me);
             var bis = Skiff.At(0); var berth = bis.MoorAt != null ? bis.MoorAt.position : bis.transform.position;
-            me.Teleport(Works.Ground(berth + Vector3.up), 0); CameraRig.I.Cut();   // both on the pier: she drives for real
+            me.Teleport(OnPier(berth), 0); CameraRig.I.Cut();   // both on the pier: she drives for real
             if (role == "host")
             {
                 string rn = Other().Name;
@@ -245,7 +247,7 @@ namespace PortBoss.M1
                     yield return UntilM6(() => Co.BaitStore[0] > w0, 20); StoreUi.I.Hide();
                     M6(tapped && Co.BaitStore[0] == w0 + Mathf.Min(10, p0) && Firm.I.MyKit.Bait[0] == p0 - Mathf.Min(10, p0), $"moved worms to the crew's bait shelf from my warehouse (shelf {w0} -> {Co.BaitStore[0]} on the host, my pouch {p0} -> {Firm.I.MyKit.Bait[0]})");
                 }
-                me.Teleport(Works.Ground(berth + Vector3.up), 0); CameraRig.I.Cut();
+                me.Teleport(OnPier(berth), 0); CameraRig.I.Cut();
                 // the host's clock: the shift starts, Biscuit leaves here too
                 yield return UntilM6(() => W()?.Run != null && !W().Run.Landed && W().Run.St != WSt.NoShow, 200);
                 var start = bis.transform.position;
