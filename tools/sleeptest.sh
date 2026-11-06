@@ -16,7 +16,7 @@ hidden "$EXE" -batchmode -pb-join 127.0.0.1:$PORT -pb-name Rider1 -pb-sleeptest 
 wait
 for f in "$D"/host.txt "$D"/rider1.txt; do
   echo "== $(basename "$f" .txt): exceptions $(grep -c Exception "$f")"
-  grep -E "\[PB\] (m3|sleep|RESULT|coop: day)" "$f" | head -60
+  grep -E "\[PB\] (m3|sleep|RESULT|coop: day)" "$f" | head -120
 done
 # both machines' clocks after each round (in-game minutes; within 1 minute)
 paste <(grep -ho "clock after round [0-9]: Day [0-9]* [0-9.]*" "$D/host.txt" | awk '{print $7}') <(grep -ho "clock after round [0-9]: Day [0-9]* [0-9.]*" "$D/rider1.txt" | awk '{print $7}') | awk '{ d = $1 - $2; if (d < 0) d = -d; if (d > m) m = d; n++ } END { printf "== clocks: %d rounds, host and rider within %.2f in-game min: %s\n", n, m, (n == 6 && m < 1 ? "PASS" : "FAIL") }'
