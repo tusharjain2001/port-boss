@@ -195,8 +195,8 @@ namespace PortBoss.M1
             heavyT = UiKit.Txt(heavy, "", UiKit.Bold, 16, Ponyo.InkSoft, TextAnchor.UpperRight); heavyT.rectTransform.Stretch(18); heavyT.rectTransform.offsetMax = new Vector2(-18, -20);
             var kh = UiKit.Rect("keys", heavy).Place(new Vector2(0, 0), new Vector2(18, 14), new Vector2(400, 32), new Vector2(0, 0));
             var hl = kh.gameObject.AddComponent<HorizontalLayoutGroup>(); hl.spacing = 8; hl.childAlignment = TextAnchor.MiddleLeft; hl.childControlWidth = hl.childControlHeight = false; hl.childForceExpandWidth = false;
-            UiKit.Key(kh, "E", 30); UiKit.Txt(kh, "Fight it", UiKit.Bold, 18, Ponyo.Ink).rectTransform.sizeDelta = new Vector2(96, 30);
-            UiKit.Key(kh, "Q", 30); UiKit.Txt(kh, "Let it go", UiKit.Bold, 18, Ponyo.Ink).rectTransform.sizeDelta = new Vector2(100, 30);
+            UiKit.Key(kh, "E", 30, "A"); UiKit.Txt(kh, "Fight it", UiKit.Bold, 18, Ponyo.Ink).rectTransform.sizeDelta = new Vector2(96, 30);
+            UiKit.Key(kh, "Q", 30, "X"); UiKit.Txt(kh, "Let it go", UiKit.Bold, 18, Ponyo.Ink).rectTransform.sizeDelta = new Vector2(100, 30);
             heavy.gameObject.SetActive(false);
         }
 
@@ -228,8 +228,8 @@ namespace PortBoss.M1
             var top = UiKit.Img(statsBox, null, Ponyo.Paper3, "top"); top.rectTransform.anchorMin = new Vector2(0, 1); top.rectTransform.anchorMax = new Vector2(1, 1); top.rectTransform.sizeDelta = new Vector2(0, 2);
             var bot = UiKit.Img(statsBox, null, Ponyo.Paper3, "bot"); bot.rectTransform.anchorMin = new Vector2(0, 0); bot.rectTransform.anchorMax = new Vector2(1, 0); bot.rectTransform.sizeDelta = new Vector2(0, 2);
             rvHits = UiKit.Txt(rv, "", UiKit.Body, 18, Ponyo.InkSoft, TextAnchor.MiddleCenter); rvHits.rectTransform.Place(new Vector2(0.5f, 1), new Vector2(0, -672), new Vector2(780, 26), new Vector2(0.5f, 0.5f));
-            rvKeep = Button(rv, "E", "Keep", Ponyo.Sunflower, new Vector2(-120, 48));
-            rvLet = Button(rv, "Q", "Let it go", Ponyo.Paper, new Vector2(120, 48));
+            rvKeep = Button(rv, "E", "Keep", Ponyo.Sunflower, new Vector2(-120, 48), "A");
+            rvLet = Button(rv, "Q", "Let it go", Ponyo.Paper, new Vector2(120, 48), "X");
             rvFoot = UiKit.Txt(root, "", UiKit.Bold, 18, Ponyo.Paper, TextAnchor.MiddleCenter); rvFoot.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0, -374), new Vector2(900, 30));
             UiKit.Shade(rvFoot, new Color(0.25f, 0.17f, 0.15f, 0.8f), new Vector2(1.5f, -1.5f));
             SetReveal(false);
@@ -243,11 +243,11 @@ namespace PortBoss.M1
             return s;
         }
 
-        RectTransform Button(RectTransform parent, string key, string label, Color c, Vector2 pos)
+        RectTransform Button(RectTransform parent, string key, string label, Color c, Vector2 pos, string pad = null)
         {
             var b = UiKit.Card(parent, "btn " + label, 18, c, true, null, 4);
             b.Place(new Vector2(0.5f, 0), pos, new Vector2(216, 58), new Vector2(0.5f, 0.5f));
-            var k = UiKit.Key(b, key, 30); k.Place(new Vector2(0, 0.5f), new Vector2(26, 0), k.sizeDelta, new Vector2(0, 0.5f));
+            var k = UiKit.Key(b, key, 30, pad); k.Place(new Vector2(0, 0.5f), new Vector2(26, 0), k.sizeDelta, new Vector2(0, 0.5f));
             var t = UiKit.Txt(b, label, UiKit.Bold, 21, Ponyo.Ink, TextAnchor.MiddleLeft); t.rectTransform.Stretch(); t.rectTransform.offsetMin = new Vector2(70, 0);
             return b;
         }
@@ -376,7 +376,7 @@ namespace PortBoss.M1
             bool title = Title.Shown; // the title card stands alone: no hotbar or hints under it (look audit 3 Nov)
             if (hotbarStrip.gameObject.activeSelf == title) { hotbarStrip.gameObject.SetActive(!title); prompts.gameObject.SetActive(!title); }
             if (scaleOn != Settings.UiScale || screenW != Screen.width) { scaleOn = Settings.UiScale; screenW = Screen.width; UiKit.ApplyScale(scaler, root, scaleOn); }
-            AudioListener.volume = Settings.Master;
+            AudioListener.volume = Settings.Master; Ctl.TrackDevice(); UiKit.KeysFollow(Ctl.PadLast);
             if (captionT > 0 && (captionT -= dt) <= 0) captionCard.gameObject.SetActive(false);
             Hotbar(dt); Prompts(); Cast(); Minigame(dt); Heavy(); Reveal(dt); Fly(dt); AlertsTick(dt); Debug_();
             fade.color = new Color(fade.color.r, fade.color.g, fade.color.b, FadeA);
@@ -425,7 +425,7 @@ namespace PortBoss.M1
             namePill.sizeDelta = new Vector2(Mathf.Max(460, nameT.preferredWidth + nameSub.preferredWidth + 70), 50);
             baitTag.text = sl.Rod && !me.AtHelm ? (fish.BaitCount[fish.BaitI] > 0 ? BaitText() : "<color=#E2553F>No bait: sprats only</color>") : "";
             baitChip.gameObject.SetActive(baitTag.text != "");
-            baitKey.text = Ctl.PadLast ? "Y" : "R"; baitDot.color = Shop.BaitCol(fish.BaitI); baitChip.sizeDelta = new Vector2(baitTag.preferredWidth + 84, 38);
+            baitDot.color = Shop.BaitCol(fish.BaitI); baitChip.sizeDelta = new Vector2(baitTag.preferredWidth + 84, 38);
         }
 
         static readonly Color[] FreshCol = { Ponyo.Leaf, Ponyo.Hex("B5C95A"), Ponyo.Sunflower, Ponyo.Peach, Ponyo.Hex("8A6A4E") };
@@ -455,7 +455,7 @@ namespace PortBoss.M1
                         }
                         break;
                 }
-            string key = string.Join("|", list.ConvertAll(x => x.k + x.v));
+            string key = Ctl.PadLast + string.Join("|", list.ConvertAll(x => x.k + x.v));
             if (key == lastPrompt) return;
             lastPrompt = key;
             foreach (Transform c in prompts) Destroy(c.gameObject);

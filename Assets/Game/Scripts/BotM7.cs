@@ -155,6 +155,23 @@ namespace PortBoss.M1
             yield return new WaitForSecondsRealtime(1.8f);   // (the bite's caption times out)
             Settings.Captions = false; Hud.I.Caption("[Splash] Bite!"); M7(!Hud.I.CaptionShown(out _), "Bite captions off: none shown"); Settings.Captions = true;
 
+            // ---------------- controller glyphs: the keycaps follow the last device (the rod's prompt, the reveal's buttons, the wardrobe)
+            while (fish.State != Fishing.St.Ready) yield return null;
+            var hud = Hud.I.transform; yield return Frames(3);
+            string kb0 = KeyText(hud, "LMB"); Ctl.PadLast = true; yield return Frames(3);
+            string padCast = KeyText(hud, "LMB"), padKeep = KeyText(hud, "E", "btn Keep"), padLet = KeyText(hud, "Q", "btn Let it go");
+            M7(kb0 == "LMB" && padCast == "RT", $"the cast prompt: keyboard {kb0}, pad {padCast}");
+            M7(padKeep == "A" && padLet == "X", $"the catch card's buttons on a pad: Keep {padKeep}, Let it go {padLet}");
+            if (shots != null) yield return Shot("m7-pad-prompts");
+            Wardrobe.Show(); yield return new WaitForSeconds(0.8f);
+            string wWear = KeyText(hud.Find("wardrobe"), "E"), wEsc = KeyText(hud.Find("wardrobe"), "Esc"), wReset = KeyText(hud.Find("wardrobe"), "R");
+            if (Wardrobe.Open && shots != null) yield return M5Shot("m7-pad-wardrobe", 0.6f);
+            M7(Wardrobe.Open && wWear == "A" && wEsc == "B" && wReset == "Y", $"the wardrobe on a pad: wear {wWear}, close {wEsc}, reset {wReset}");
+            Ctl.PadLast = false; yield return Frames(3);
+            string kbWear = KeyText(hud.Find("wardrobe"), "E");
+            if (Wardrobe.Open) Wardrobe.I.Hide(); yield return Frames(3);
+            M7(KeyText(hud, "LMB") == "LMB" && kbWear == "E", $"back on the keyboard: the keycaps say LMB / E again ({KeyText(hud, "LMB")} / {kbWear})");
+
             // ---------------- put this PC's settings back
             (Settings.UiScale, Settings.Fov, Settings.ShakeK, Settings.RollK, Settings.ReduceMotion, Settings.Master, Settings.Sfx, Settings.Ambience, Settings.Mono, Settings.EasyFishing, Settings.Captions, Settings.SprintToggle, Settings.BarSpeed) = keep;
             Settings.Put("m7.ui", Settings.UiScale); Settings.Put("m7.fov", Settings.Fov); Settings.Put("m7.shake", Settings.ShakeK); Settings.Put("m7.roll", Settings.RollK); Settings.Put("m7.calm", Settings.ReduceMotion ? 1 : 0);
@@ -162,6 +179,18 @@ namespace PortBoss.M1
             Settings.Put("m7.easy", Settings.EasyFishing ? 1 : 0); Settings.Put("m7.cap", Settings.Captions ? 1 : 0); Settings.Put("m7.sprint", Settings.SprintToggle ? 1 : 0); Settings.Put("m7.bar", Settings.BarSpeed);
             Debug.Log($"[PB] RESULT settingstest: {(m7Fails == 0 ? "PASS" : m7Fails + " FAILED")}");
             Application.Quit();
+        }
+
+        // the text on a live keycap made for keyboard key kb (under the object named under, if given)
+        static string KeyText(Transform root, string kb, string under = null)
+        {
+            if (root == null) return null; return KeyText_(root, kb, under);
+        }
+        static string KeyText_(Transform root, string kb, string under)
+        {
+            foreach (var t in root.GetComponentsInChildren<RectTransform>(true))
+                if (t.name == "key " + kb && (under == null || t.parent != null && t.parent.name == under) && (t.gameObject.activeInHierarchy || under != null)) return t.GetComponentInChildren<UnityEngine.UI.Text>(true)?.text;
+            return null;
         }
 
         // the phone overlaps neither the bank pill (when it shows) nor the hotbar: "" when clear, else what overlaps

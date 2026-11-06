@@ -73,7 +73,7 @@ namespace PortBoss.M1
             totalT = T(right, "", UiKit.DisplayBold, 38, Ponyo.Ink, RW - 200, 772, 200, 46); totalT.alignment = TextAnchor.LowerRight;
             buyBtn = UiKit.Card(right, "buy", 18, Ponyo.Sunflower, true, Ponyo.Hex("B88A1E"), 5); buyBtn.Place(new Vector2(0, 1), new Vector2(0, -826), new Vector2(RW, 62), new Vector2(0, 1));
             buyFill = UiKit.Fill(buyBtn);
-            var hk = UiKit.Key(buyBtn, "E", 34); hk.Place(new Vector2(0.5f, 0.5f), new Vector2(-62, 0), hk.sizeDelta);
+            var hk = UiKit.Key(buyBtn, "E", 34, "A"); hk.Place(new Vector2(0.5f, 0.5f), new Vector2(-62, 0), hk.sizeDelta);
             buyT = UiKit.Txt(buyBtn, "Buy", UiKit.DisplayBold, 24, Ponyo.Ink, TextAnchor.MiddleLeft); buyT.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(-38, 0), new Vector2(260, 40), new Vector2(0, 0.5f));
             bankT = T(right, "", UiKit.Body, 15, Ponyo.InkSoft, 0, 900, RW, 22); bankT.alignment = TextAnchor.UpperCenter;
             Btn(buyBtn, "Buy", Buy, true);
@@ -372,7 +372,7 @@ namespace PortBoss.M1
                 if (on) UiKit.Edge((RectTransform)tabs.GetChild(tabs.childCount - 1)).color = Ponyo.Ink;
                 x += w + 10;
             }
-            var q = UiKit.Key(tabs, "Q", 30); q.Place(new Vector2(1, 1), new Vector2(-96, -12), q.sizeDelta, new Vector2(1, 1));
+            var q = UiKit.Key(tabs, "Q", 30, "LB RB"); q.Place(new Vector2(1, 1), new Vector2(-96, -12), q.sizeDelta, new Vector2(1, 1));
             T(tabs, "switch tab", UiKit.Body, 15, Ponyo.InkSoft, GridW - 88, 16, 90, 24);
         }
         static string CatGlyph(string c) => c switch

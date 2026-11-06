@@ -46,7 +46,7 @@ namespace PortBoss.M1
             var foot = UiKit.Rect("foot", root).Place(new Vector2(0, 0), new Vector2(0, 0), new Vector2(W, 64), new Vector2(0, 0));
             var k1 = UiKit.Key(foot, "Esc", 30); k1.Place(new Vector2(1, 0.5f), new Vector2(-Pad - 64, 0), new Vector2(48, 30), new Vector2(1, 0.5f));
             var t1 = UiKit.Txt(foot, "Leave", UiKit.Body, 15, Ponyo.InkSoft, TextAnchor.MiddleRight); t1.rectTransform.Place(new Vector2(1, 0.5f), new Vector2(-Pad, 0), new Vector2(56, 30), new Vector2(1, 0.5f));
-            var k2 = UiKit.Key(foot, "E", 30); k2.Place(new Vector2(0, 0.5f), new Vector2(Pad, 0), new Vector2(34, 30), new Vector2(0, 0.5f));
+            var k2 = UiKit.Key(foot, "E", 30, "A"); k2.Place(new Vector2(0, 0.5f), new Vector2(Pad, 0), new Vector2(34, 30), new Vector2(0, 0.5f));
             var t2 = UiKit.Txt(foot, "Hold on a row to buy or sell · or click", UiKit.Body, 15, Ponyo.InkSoft, TextAnchor.MiddleLeft); t2.rectTransform.Place(new Vector2(0, 0.5f), new Vector2(Pad + 44, 0), new Vector2(420, 30), new Vector2(0, 0.5f));
             root.gameObject.SetActive(false);
         }

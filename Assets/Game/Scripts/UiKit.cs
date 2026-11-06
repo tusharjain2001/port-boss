@@ -171,14 +171,37 @@ namespace PortBoss.M1
         public static Shadow Shade(Graphic g, Color c, Vector2 d) { var s = g.gameObject.AddComponent<Shadow>(); s.effectColor = c; s.effectDistance = d; return s; }
 
         // A paper key cap ("E", "LMB", "Space") as in the mockups.
-        public static RectTransform Key(Transform parent, string label, float h = 30)
+        // pad: the gamepad button for this keycap (null: the usual one for that key, PadOf); keycaps follow Ctl.PadLast
+        public static RectTransform Key(Transform parent, string label, float h = 30, string pad = null)
         {
-            float w = Mathf.Max(h, 14 + label.Length * (h * 0.42f));
+            pad ??= PadOf(label); string shown = Ctl.PadLast ? pad : label;
+            float w = Mathf.Max(h, 14 + shown.Length * (h * 0.42f));
             var k = Card(parent, "key " + label, 7, Ponyo.Paper, false);
             k.sizeDelta = new Vector2(w, h);
             var under = Img(k, fill, Ponyo.Line, "under"); under.rectTransform.Stretch(); under.rectTransform.anchoredPosition = new Vector2(0, -2.5f); under.pixelsPerUnitMultiplier = BaseR / 7; under.transform.SetAsFirstSibling();
-            var t = Txt(k, label, Bold, Mathf.RoundToInt(h * 0.5f), Ponyo.Ink, TextAnchor.MiddleCenter); t.rectTransform.Stretch();
+            var t = Txt(k, shown, Bold, Mathf.RoundToInt(h * 0.5f), Ponyo.Ink, TextAnchor.MiddleCenter); t.rectTransform.Stretch();
+            keys.Add((k, t, label, pad, h));
             return k;
+        }
+        // the usual pad button for a key (Ctl's bindings): E interacts (X), Space / Enter confirm (A), Esc / RMB back (B),
+        // R the bait pouch and the wardrobe's reset (Y), LMB the rod (RT), Q drops (D-pad down), 1-8 / the wheel (RB), Tab (View)
+        public static string PadOf(string k) => k switch
+        {
+            "E" => "X", "Space" => "A", "Enter" => "A", "Esc" => "B", "RMB" => "B", "R" => "Y", "LMB" => "RT", "Q" => "↓",
+            "Tab" => "View", "1" or "2" or "3" or "4" or "5" or "6" or "7" or "8" => "RB", "I" => "", _ => k,
+        };
+        static readonly List<(RectTransform k, Text t, string kb, string pad, float h)> keys = new();
+        static bool keysPad;
+        // (Hud.LateUpdate) swap every live keycap when the last device changes; a key with no pad button hides
+        public static void KeysFollow(bool pad)
+        {
+            if (pad == keysPad) return; keysPad = pad;
+            keys.RemoveAll(x => x.k == null);
+            foreach (var (k, t, kb, pd, h) in keys)
+            {
+                string s = pad ? pd : kb; t.text = s; k.gameObject.SetActive(s != "");
+                k.sizeDelta = new Vector2(Mathf.Max(h, 14 + s.Length * (h * 0.42f)), h);
+            }
         }
 
         // The hotbar's rod icon, painted (Manan 1 Nov: the baked 3D rod read as a toothpick at slot size): a slightly

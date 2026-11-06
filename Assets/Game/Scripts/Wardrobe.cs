@@ -257,7 +257,7 @@ namespace PortBoss.M1
             resetT = UiKit.Txt(reset, "Reset", UiKit.Bold, 19, Ponyo.Ink, TextAnchor.MiddleLeft); resetT.rectTransform.Stretch(); resetT.rectTransform.offsetMin = new Vector2(60, 0);
             Btn(reset, "reset", ResetClothes);
             var wear = UiKit.Card(right, "wear", 18, Ponyo.Sunflower, true, Ponyo.Hex("B88A1E"), 5); wear.Place(new Vector2(0, 0), new Vector2(222, 24), new Vector2(312, 56), new Vector2(0, 0));
-            var ek = UiKit.Key(wear, "E", 30); ek.Place(new Vector2(0.5f, 0.5f), new Vector2(-50, 0), ek.sizeDelta);
+            var ek = UiKit.Key(wear, "E", 30, "A"); ek.Place(new Vector2(0.5f, 0.5f), new Vector2(-50, 0), ek.sizeDelta);
             var wt = UiKit.Txt(wear, "Wear it", UiKit.DisplayBold, 22, Ponyo.Ink, TextAnchor.MiddleLeft); wt.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(-26, 0), new Vector2(200, 40), new Vector2(0, 0.5f));
             Btn(wear, "wear", WearIt);
             var esc = UiKit.Key(root, "Esc", 34); esc.Place(new Vector2(1, 1), new Vector2(-170, -40), esc.sizeDelta, new Vector2(1, 1));

@@ -10,6 +10,16 @@ namespace PortBoss.M1
         static Mouse M => Mouse.current;
         static Gamepad P => Gamepad.current;
         public static bool PadLast;                       // the last device used (prompt glyphs follow it)
+        // M7: any pad button / stick / trigger makes the pad the last device; a key, a click or a mouse move the keyboard
+        public static void TrackDevice()
+        {
+            if (Bot) return;
+            if (P != null && (P.buttonSouth.wasPressedThisFrame || P.buttonEast.wasPressedThisFrame || P.buttonWest.wasPressedThisFrame || P.buttonNorth.wasPressedThisFrame
+                || P.startButton.wasPressedThisFrame || P.selectButton.wasPressedThisFrame || P.leftShoulder.wasPressedThisFrame || P.rightShoulder.wasPressedThisFrame
+                || P.rightTrigger.ReadValue() > 0.5f || P.leftTrigger.ReadValue() > 0.5f || P.dpad.ReadValue().sqrMagnitude > 0.5f
+                || P.leftStick.ReadValue().sqrMagnitude > 0.09f || P.rightStick.ReadValue().sqrMagnitude > 0.09f)) PadLast = true;
+            if (K != null && K.anyKey.wasPressedThisFrame || M != null && (M.leftButton.wasPressedThisFrame || M.rightButton.wasPressedThisFrame || M.delta.ReadValue().sqrMagnitude > 9)) PadLast = false;
+        }
 
         // bot overrides (the -pb-* scenarios)
         public static bool Bot; public static Vector2 BotMove; public static bool BotShove, BotUse, BotUsePressed, BotStrike, BotInteract, BotInteractHeld, BotDropHeld, BotCancel, BotJump, BotSprint, BotJumpHeld = true, BotBrace; public static int BotSlot = -1;
