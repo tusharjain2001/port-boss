@@ -578,10 +578,10 @@ namespace PortBoss.M1
             YShop.I.BuyNow("paint:biscuit:0", 3); yield return new WaitForSeconds(2.5f); YShop.I.Hide();
             // 3. Doyle's lads walk over and paint her, the brush line stern to bow (22-40 s, time sped up)
             var job = bst.Job; Time.timeScale = 3; Vector3 off = new Vector3(4, 3, 4); float pickT = -9;
-            var bc = bis.transform.position + Vector3.up * 0.8f; var boatCam = ClearView(bc, bis.transform, Quaternion.LookRotation(bis.transform.right * 6 + bis.transform.forward * 3).eulerAngles.y, 7, 2.4f, true);
+            var bc = bis.transform.position + Vector3.up * 0.7f; var boatCam = bc + Quaternion.Euler(0, OpenBearing(bc, bis.transform, 7, 1.8f), 0) * new Vector3(0, 1.8f, 7);   // from the open water: her hull, the sweep, the lads above
             for (float t = 0; job != null && t < 200 && Sky.Minutes < job.End; t += Time.deltaTime)
             {
-                bool walking = Sky.Minutes < job.Start + job.Walk; var lad = W.Crew.Count > 0 ? W.Crew[0].transform.position : bis.transform.position;
+                bool walking = Sky.Minutes < job.Start + job.Walk; Time.timeScale = walking ? 6 : 3; var lad = W.Crew.Count > 0 ? W.Crew[0].transform.position : bis.transform.position;
                 if (walking)
                 {   // a chase camera that re-picks a clear side every 2 s (a wall or a house between it and the lads)
                     if (t - pickT > 2) { pickT = t; off = ClearView(lad + Vector3.up, W.Crew.Count > 0 ? W.Crew[0].transform : null, Quaternion.LookRotation(off).eulerAngles.y, 5.5f, 3) - (lad + Vector3.up); }
@@ -597,7 +597,12 @@ namespace PortBoss.M1
             YShop.I.BuyNow("furn:chair"); yield return new WaitForSeconds(2f); YShop.I.Tab("Storage"); yield return new WaitForSeconds(1.2f);
             YShop.I.BuyNow("wh:1"); yield return new WaitForSeconds(2f); YShop.I.Hide();
             var chair = W.ShownOf("furn:chair");
-            if (chair != null) { Co.Owned.Remove("furn:chair"); yield return new WaitForSeconds(0.3f); var tc = chair.transform; var at = tc.position; Co.Owned.Add("furn:chair"); Co.Fresh.Add("furn:chair"); var cf = ItemView(tc, at + Vector3.up * 0.5f); for (float t = 0; t < 2.5f; t += Time.deltaTime) { LookAt(at + Vector3.up * 0.5f, cf); yield return null; } }
+            if (chair != null)
+            {   // the camera first (the chair is destroyed when it leaves Owned), then the chair pops in again in front of it
+                var at = chair.transform.position; var cf = ItemView(chair.transform, at + Vector3.up * 0.5f); LookAt(at + Vector3.up * 0.5f, cf);
+                Co.Owned.Remove("furn:chair"); yield return new WaitForSeconds(0.3f); Co.Owned.Add("furn:chair"); Co.Fresh.Add("furn:chair");
+                for (float t = 0; t < 2.5f; t += Time.deltaTime) { LookAt(at + Vector3.up * 0.5f, cf); yield return null; }
+            }
             JumpTo(Today + 1, 6.95); yield return new WaitForSeconds(0.2f);
             var wh = W.Warehouse != null ? W.Warehouse.position : me.transform.position;
             var whc = ClearView(wh + Vector3.up * 2, W.Warehouse, 225, 13, 5);

@@ -1272,8 +1272,8 @@ namespace PortBoss.M1
         IEnumerator Film(string dir, float secs, int w = 1920, int h = 1080)
         {
             Directory.CreateDirectory(dir); int fps0 = Time.captureFramerate; Time.captureFramerate = 30; int i = 0; Debug.Log($"[PB] film start {Time.time:F3}");
-            float end = Time.time + secs;
-            while (Time.time < end)
+            int frames = Mathf.RoundToInt(secs * 30);   // counted in frames, not game time: a Time.timeScale timelapse would end it early
+            while (i < frames)
             {
                 yield return new WaitForEndOfFrame();
                 var ct = CameraRig.I.Cam.transform; var keep = (ct.position, ct.rotation);
