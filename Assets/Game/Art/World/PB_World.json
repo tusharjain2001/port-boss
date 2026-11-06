@@ -625,9 +625,9 @@
     "c0_-1_Terrain_LOD0": 33762,
     "c0_-1_Terrain_LOD1": 4252,
     "c0_-1_Terrain_LOD2": 1178,
-    "c0_-1_Rocks": 727,
+    "c0_-1_Rocks": 720,
     "c0_-1_Trees": 4669,
-    "c0_-1_Town": 215714,
+    "c0_-1_Town": 215786,
     "c0_-1_Windows": 14934,
     "c0_-1_Garden": 18428
    }
@@ -640,7 +640,7 @@
     "c0_0_Terrain_LOD0": 34458,
     "c0_0_Terrain_LOD1": 4350,
     "c0_0_Terrain_LOD2": 1214,
-    "c0_0_Rocks": 513,
+    "c0_0_Rocks": 500,
     "c0_0_Trees": 4616,
     "c0_0_Town": 143198,
     "c0_0_Windows": 10054,
