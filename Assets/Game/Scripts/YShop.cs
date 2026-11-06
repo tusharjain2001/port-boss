@@ -126,7 +126,8 @@ namespace PortBoss.M1
             string id = item.Substring(item.IndexOf(':') + 1);
             var pf = Works.PropOf(item);
             GameObject g;
-            if (pf != null) { g = Instantiate(pf); Util.Toon(g, Game.ToonMat); foreach (var c in g.GetComponentsInChildren<Collider>()) Destroy(c); }
+            if (pf != null) { g = Instantiate(pf); Util.Colliders(g); Util.Toon(g, Game.ToonMat);   // Colliders: hides the _colBox meshes (they showed as a white box)
+                foreach (var c in g.GetComponentsInChildren<Collider>()) Destroy(c); }
             else { g = new GameObject(item); Firm.Box(g.transform, "stand-in", new Vector3(0, 0.4f, 0), new Vector3(0.8f, 0.8f, 0.8f), Ponyo.Hex("C9A27A")); }
             stageItem = g.transform; stageItem.SetParent(stage, false); stageItem.localPosition = Vector3.zero;
             StartCoroutine(Works.Pop(g));
@@ -134,7 +135,7 @@ namespace PortBoss.M1
         void LateUpdate()
         {
             if (shop == null || !pcam.enabled) return;
-            orbit += Time.unscaledDeltaTime * 14;
+            orbit += Time.unscaledDeltaTime * 14; pcam.nearClipPlane = 0.05f;
             switch (pmode)
             {
                 case PMode.Boat:
@@ -166,8 +167,13 @@ namespace PortBoss.M1
                 {
                     var me = Angler.I; if (me == null) break; var f = me.transform.forward; f.y = 0; f.Normalize();
                     float a = Mathf.Sin(orbit * 0.05f) * 35 * Mathf.Deg2Rad; var d = Quaternion.Euler(0, a * Mathf.Rad2Deg, 0) * f;
-                    var c = me.transform.position + Vector3.up * 1.0f; var p = c + d * 3.1f + Vector3.up * 0.25f;
+                    var c = me.transform.position + Vector3.up * 1.3f; var p = c + d * 2.7f + Vector3.up * 0.3f;   // chest and head: the counter stays low in the frame
                     pcam.transform.SetPositionAndRotation(p, Quaternion.LookRotation(c - p));
+                    // a mirror behind the counter: the counter, the wall and Mabel stand between, so the near plane starts
+                    // where the clear air in front of me starts
+                    float clear = Vector3.Distance(c, p);
+                    foreach (var h in Physics.RaycastAll(c, p - c, clear)) if (!h.collider.transform.IsChildOf(me.transform) && h.distance < clear) clear = h.distance;
+                    pcam.nearClipPlane = Mathf.Max(0.05f, Vector3.Distance(c, p) - clear + 0.02f);
                     break;
                 }
             }

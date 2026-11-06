@@ -1426,8 +1426,8 @@ def site_spots():
     wx, wy = 2.5, 15.0
     wz = round(max(terrain_h(wx + a, wy + b) for a in (-3, 0, 3) for b in (-2.25, 0, 2.25)) + 0.15, 3)
     return dict(
-        spot_planks=(0.0, 5.25, DECK, 0, 'planks_fixed'),
-        spot_bench_planks=(-0.96, 5.25, DECK, 90, None),
+        spot_planks=(0.0, 1.0, DECK, 0, 'planks_fixed'),   # y 5.25 lay under map B's rock at the pier root
+        spot_bench_planks=(-0.96, 1.0, DECK, 90, None),
         spot_b2=(1.30, -11.25, DECK, 90, 'berth_fixed'),
         spot_b3=(1.30, -3.75, DECK, 90, 'berth_fixed'),
         spot_lamp1=(-1.0, -12.25, DECK, 90, 'docklamp'),

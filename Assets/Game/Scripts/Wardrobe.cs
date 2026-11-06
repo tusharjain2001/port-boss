@@ -164,7 +164,7 @@ namespace PortBoss.M1
             var anim = body.GetComponentInChildren<Animator>(); var head = anim != null && anim.isHuman ? anim.GetBoneTransform(HumanBodyBones.Head) : null;
             var at = bone != null ? bone : head; if (at == null) return null;
             GameObject g;
-            if (pf != null) { g = Instantiate(pf); Util.Toon(g, Game.ToonMat); foreach (var c in g.GetComponentsInChildren<Collider>()) Destroy(c); }
+            if (pf != null) { g = Instantiate(pf); Util.Colliders(g); Util.Toon(g, Game.ToonMat); foreach (var c in g.GetComponentsInChildren<Collider>()) Destroy(c); }
             else { g = new GameObject(item); var b = Firm.Box(g.transform, "crown", new Vector3(0, 0.07f, 0), new Vector3(0.24f, 0.12f, 0.26f), Colour(item)); Firm.Box(g.transform, "brim", new Vector3(0, 0.01f, 0.04f), new Vector3(0.3f, 0.02f, 0.34f), Colour(item)); }
             foreach (var mf in g.GetComponentsInChildren<MeshFilter>()) TagMain(mf);
             g.name = item; g.transform.SetParent(at, false);
@@ -224,6 +224,7 @@ namespace PortBoss.M1
         {
             var hud = (RectTransform)Hud.I.transform; cam = CameraRig.I != null ? CameraRig.I.UiCam : null;
             root = UiKit.Rect("wardrobe", hud); root.Stretch();
+            var oc = root.gameObject.AddComponent<Canvas>(); oc.overrideSorting = true; oc.sortingOrder = 20; root.gameObject.AddComponent<GraphicRaycaster>();   // above the toasts
             var sky = UiKit.Img(root, null, Ponyo.Hex("D7E6F2"), "sky"); sky.rectTransform.Stretch(); sky.raycastTarget = true;
             var low = UiKit.Img(root, null, Ponyo.Hex("F6EEDF"), "low"); low.rectTransform.Place(new Vector2(0.5f, 0), Vector2.zero, new Vector2(1920, 420), new Vector2(0.5f, 0)); low.color = new Color(0.965f, 0.933f, 0.875f, 0.85f);
             T(root, "Wardrobe", UiKit.DisplayBold, 46, Ponyo.Ink, 64, 46, 600, 60);
@@ -285,7 +286,7 @@ namespace PortBoss.M1
         void ShowI()
         {
             if (Open) return;
-            preset = Mathf.Clamp(Mine.Preset >= 0 ? Mine.Preset : Angler.Body, 0, 5); tab = 0; sel = -1; key = null; focus = -1;
+            preset = Mathf.Clamp(Mine.Preset >= 0 ? Mine.Preset : Angler.Body, 0, 5); tab = 0; sel = -1; key = null; focus = -1; yaw = 180; yawV = 0;
             root.gameObject.SetActive(true); stage.gameObject.SetActive(true); tcam.enabled = true; Ctl.Ui = 2;
             if (!Application.isBatchMode) { Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }
             Snd.Play2D(Synth.Creak, 0.25f, 1.4f); Snd.Play2D(Synth.Tik, 0.3f, 0.9f);
@@ -353,8 +354,9 @@ namespace PortBoss.M1
             // the turntable: a slow drift, arrows / mouse drag spin it
             var mouse = Mouse.current;
             if (mouse != null && mouse.leftButton.isPressed && RectTransformUtility.RectangleContainsScreenPoint(turnImg.rectTransform, mouse.position.ReadValue(), cam)) yawV = -mouse.delta.ReadValue().x * 25;
-            yaw += (yawV + 8) * Time.unscaledDeltaTime; yawV = Mathf.Lerp(yawV, 0, 1 - Mathf.Exp(-3 * Time.unscaledDeltaTime));
-            if (turn != null) { turn.transform.localRotation = Quaternion.Euler(0, yaw, 0); var ca = turn.GetComponentInChildren<CharAnim>(); if (ca != null) ca.Tick(CharAnim.Slot.Idle, 0); }
+            // they face you and sway a little (a slow full spin showed their backs half the time); drag or the arrows turn them
+            yaw += yawV * Time.unscaledDeltaTime; yawV = Mathf.Lerp(yawV, 0, 1 - Mathf.Exp(-3 * Time.unscaledDeltaTime));
+            if (turn != null) { turn.transform.localRotation = Quaternion.Euler(0, yaw + 18 * Mathf.Sin(Time.unscaledTime * 0.7f), 0); var ca = turn.GetComponentInChildren<CharAnim>(); if (ca != null) ca.Tick(CharAnim.Slot.Idle, 0); }
             string k = $"{preset}|{tab}|{sel}|{string.Join(",", Mine.Wear)}|{string.Join(",", Mine.Dye)}|{Mine.Owned.Count}|{Mine.Preset}|{(Coop.On ? Coop.I.Roster.Count + string.Join(",", Coop.I.Roster.ConvertAll(e => e.Crew)) : "")}|{Angler.Body}";
             if (k != key) { key = k; Draw(); }
             Nav(kb, pad);

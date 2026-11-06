@@ -172,7 +172,10 @@ namespace PortBoss.M1
                 var src = new List<NavMeshBuildSource>();
                 NavMeshBuilder.CollectSources(b, ~0, NavMeshCollectGeometry.PhysicsColliders, 0, new List<NavMeshBuildMarkup>(), src);
                 src.RemoveAll(s => s.component != null && (s.component.GetComponentInParent<Skiff>() != null || s.component.GetComponentInParent<Angler>() != null));
-                var set = NavMesh.GetSettingsByID(0); set.agentRadius = 0.3f; set.agentHeight = 1.8f; set.agentClimb = 0.45f; set.agentSlope = 40;
+                // the terrain mesh runs on under the sea: nobody walks the seabed (a path from Doyle's went under the pier)
+                float sea = Sea.Level - 0.2f;
+                src.Add(new NavMeshBuildSource { shape = NavMeshBuildSourceShape.ModifierBox, area = 1, size = new Vector3(b.size.x + 20, 80, b.size.z + 20), transform = Matrix4x4.TRS(new Vector3(b.center.x, sea - 40, b.center.z), Quaternion.identity, Vector3.one) });
+                var set = NavMesh.GetSettingsByID(0); set.agentRadius = 0.3f; set.agentHeight = 1.8f; set.agentClimb = 0.75f; set.agentSlope = 52;   // as the player walks (slope 50): the map rock over the pier root (up to 1.7 m above the deck) is climbed, not a wall
                 var data = NavMeshBuilder.BuildNavMeshData(set, src, b, Vector3.zero, Quaternion.identity);
                 if (navInst.valid) navInst.Remove();
                 if (data != null) { navInst = NavMesh.AddNavMeshData(data); NavOk = true; Log($"navmesh: {src.Count} sources over the town"); }
@@ -180,6 +183,8 @@ namespace PortBoss.M1
             catch (Exception e) { Log("navmesh: " + e.Message); NavOk = false; }
         }
         NavMeshDataInstance navInst;
+        static int probes; public static bool LastWalkOk;   // did the last Path() find a walk on the navmesh (tests)
+        public float CrewWalkTo(Skiff b) => CrewWalk(b);
         public void RebuildNav() { BuildNav(); paths.Clear(); }   // (the set-spot validator: with every item installed)
         // a walk from a to b on the navmesh (straight if there's none)
         public static List<Vector3> Path(Vector3 a, Vector3 b)
@@ -192,10 +197,21 @@ namespace PortBoss.M1
                 var p = new NavMeshPath();
                 if (NavMesh.CalculatePath(ha.position, hb.position, NavMesh.AllAreas, p) && p.status != NavMeshPathStatus.PathInvalid && p.corners.Length > 0
                     && (p.status == NavMeshPathStatus.PathComplete || Vector3.Distance(p.corners[p.corners.Length - 1], hb.position) < 2))
-                { if (Vector3.Distance(a, ha.position) > 0.3f) l.Add(a); l.AddRange(p.corners); if (Vector3.Distance(b, hb.position) > 0.3f) l.Add(b); return l; }
-                Log($"no walk from {a} to {b} ({p.status})");
+                { LastWalkOk = true; if (Vector3.Distance(a, ha.position) > 0.3f) l.Add(a); l.AddRange(p.corners); if (Vector3.Distance(b, hb.position) > 0.3f) l.Add(b); return l; }
+                Log($"no walk from {a} to {b} ({p.status}, got to {(p.corners.Length > 0 ? p.corners[p.corners.Length - 1].ToString() : "nowhere")})");
+                if (p.corners.Length > 0 && probes++ < 2)
+                {   // what's beyond where the walk stops (every 0.5 m toward the goal, 14 m): ground hit + the navmesh there
+                    var e = p.corners[p.corners.Length - 1]; var d = b - e; d.y = 0; d.Normalize(); var sb = new System.Text.StringBuilder("probe:");
+                    for (float k = 0; k <= 14; k += 0.5f)
+                    {
+                        var q = e + d * k; string g = Physics.Raycast(q + Vector3.up * 6, Vector3.down, out var gh, 20) ? $"{gh.collider.name}@{gh.point.y:F2}" : "-";
+                        string nv = NavMesh.SamplePosition(q, out var nh, 1.5f, NavMesh.AllAreas) ? $"nav@{nh.position.y:F2}/{Vector3.Distance(nh.position, q):F1}" : "nonav";
+                        sb.Append($" [{k:F1} {g} {nv}]");
+                    }
+                    Log(sb.ToString());
+                }
             }
-            l.Add(a); l.Add(b); return l;
+            LastWalkOk = false; l.Add(a); l.Add(b); return l;
         }
         public static float Length(List<Vector3> p) { float d = 0; for (int i = 1; i < p.Count; i++) d += Vector3.Distance(p[i - 1], p[i]); return d; }
         public static Vector3 Along(List<Vector3> p, float d, out Vector3 dir)
@@ -474,7 +490,7 @@ namespace PortBoss.M1
         public static GameObject PropOf(string item)
         {
             string id = item.Substring(item.IndexOf(':') + 1);
-            string m = id == "planks" ? "planks_fixed" : id == "b2" || id == "b3" ? "berth_fixed" : id.StartsWith("lamp") && item.StartsWith("dock:") ? "docklamp" : id == "power" ? "powerpost" : id;
+            string m = id == "planks" ? "planks_fixed" : id == "cot" ? "cot_fixed" : id == "hammock" ? "hammock_kestrel" : id == "b2" || id == "b3" ? "berth_fixed" : id.StartsWith("lamp") && item.StartsWith("dock:") ? "docklamp" : id == "power" ? "powerpost" : id;
             return M1Assets.I.M5Prefab("Prop_" + m) ?? M1Assets.I.M5Prefab("Prop_" + item.Replace(':', '_'));
         }
         // the before state at a dock spot: the rotten planks / berth models, hidden by Broken() once fixed
@@ -519,7 +535,7 @@ namespace PortBoss.M1
             if (u == "engine1" || u == "engine2" || u == "tank" || u == "autopilot") return null;   // inside the engine / tank: no new prop, the stat changes
             var pf = M1Assets.I.M5Prefab("Prop_up_" + u);
             var g = pf != null ? Instantiate(pf) : new GameObject(item);
-            if (pf != null) Util.Toon(g, Game.ToonMat);
+            if (pf != null) { Util.Colliders(g); foreach (var c in g.GetComponentsInChildren<Collider>()) Destroy(c); Util.Toon(g, Game.ToonMat); }
             g.name = item; g.transform.SetParent(b.transform, false);
             var h = b.Hull; float top = h.max.y + 0.02f;
             switch (u)

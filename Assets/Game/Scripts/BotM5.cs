@@ -22,7 +22,27 @@ namespace PortBoss.M1
             if (Arg("-pb-m5test") != null) return M5Test(Arg("-pb-m5test"));
             if (Arg("-pb-m5coop") != null) return M5Coop(Arg("-pb-m5coop"));
             if (Arg("-pb-m5film") != null) return M5Film();
+            if (Arg("-pb-navprobe") != null) return NavProbe();
             return null;
+        }
+        // -pb-navprobe: along Walt's pier (landing local z) and across its root: every collider under each point, the navmesh
+        IEnumerator NavProbe()
+        {
+            yield return new WaitForSeconds(2f); var lt = Landing.I.transform;
+            for (float x = -4; x <= 4; x += 2)
+            {
+                var sb = new System.Text.StringBuilder($"[PB] navprobe x{x}:");
+                for (float z = -22; z <= 26; z += 1)
+                {
+                    var q = lt.TransformPoint(new Vector3(x, 0, z)); var hs = Physics.RaycastAll(q + Vector3.up * 8, Vector3.down, 20);
+                    System.Array.Sort(hs, (a, b) => a.distance.CompareTo(b.distance));
+                    string g = hs.Length > 0 ? $"{hs[0].collider.name}@{hs[0].point.y:F2}" : "-";
+                    string nv = UnityEngine.AI.NavMesh.SamplePosition(q + Vector3.up * (hs.Length > 0 ? hs[0].point.y : 0), out var nh, 0.6f, UnityEngine.AI.NavMesh.AllAreas) ? $"nav{nh.position.y:F2}" : "NO";
+                    sb.Append($" [z{z} ({q.x:F1},{q.z:F1}) {g} {nv}]");
+                }
+                Debug.Log(sb.ToString());
+            }
+            Application.Quit();
         }
         int m5Fails;
         void M5(bool ok, string what) { Debug.Log($"[PB] m5: {(ok ? "ok" : "FAIL")} {what}"); if (!ok) m5Fails++; }
@@ -30,6 +50,8 @@ namespace PortBoss.M1
         static Company Co => Firm.C;
         static void JumpTo(int day, double hour) { var t = DayTime.At(day, hour * 60); if (t > Sky.Minutes) Sky.Jump(t); }
         static int Today => DayTime.Day(Sky.Minutes);
+        // a shop that has shut (a long paint job ran past closing, a build landed on a Sunday): the next morning it's open
+        static IEnumerator OpenNow(Store s) { while (!Catalog.IsOpen(s, Sky.Minutes)) { JumpTo(Today + 1, 10); yield return null; } }
 
         // stand at a counter, facing it
         IEnumerator AtShop(Works.Counter5 s)
@@ -44,15 +66,25 @@ namespace PortBoss.M1
         IEnumerator BoatShot(Skiff b, string n, float side = 1, float dist = 9, float up = 3.2f)
         {
             var t = b.transform; var c = t.position + Vector3.up * 0.9f;
-            // the asked-for side first, then the others: the first view with nothing (pier, lamp, shed) between it and the boat
-            Vector3 pick = c + t.right * side * dist * 0.8f + t.forward * dist * 0.55f + Vector3.up * up;
-            foreach (var (sx, fz) in new[] { (side, 0.55f), (-side, 0.55f), (side, -0.55f), (-side, -0.55f) })
-            {
-                var from = c + t.right * sx * dist * 0.8f + t.forward * dist * fz + Vector3.up * up; bool clear = true;
-                foreach (var h in Physics.RaycastAll(from, c - from, Vector3.Distance(from, c))) if (!h.collider.transform.IsChildOf(t)) { clear = false; break; }
-                if (clear) { pick = from; break; }
-            }
-            LookAt(c, pick); yield return M5Shot(n, 0.6f);
+            var first = Quaternion.LookRotation(t.right * side * 0.8f + t.forward * 0.55f).eulerAngles.y;
+            LookAt(c, ClearView(c, t, first, dist, up, true)); yield return M5Shot(n, 0.6f);
+        }
+        // a camera spot looking at `target` from `dist` m away and `up` m higher: the asked-for bearing first, then every
+        // 30 degrees round, the first with nothing (a pier, a lamp, a wall, a hill) between it and the target, and not inside
+        // anything itself
+        // (overWater: the camera also stands over open sea, where no roof or rock without a collider can be in the way)
+        static Vector3 ClearView(Vector3 target, Transform own, float bearing, float dist, float up, bool overWater = false)
+        {
+            Vector3 At(float deg, float r) => target + Quaternion.Euler(0, deg, 0) * Vector3.forward * r + Vector3.up * up;
+            foreach (float r in new[] { dist, dist * 0.7f, dist * 0.5f })   // a small room: closer
+                for (int k = 0; k < 12; k++)
+                {
+                    float deg = bearing + (k % 2 == 0 ? 1 : -1) * ((k + 1) / 2) * 30; var from = At(deg, r); bool clear = !Physics.CheckSphere(from, 0.3f);
+                    if (clear && overWater && Physics.Raycast(from, Vector3.down, out var g, 40) && g.point.y > Sea.Level + 0.1f) clear = false;
+                    if (clear) foreach (var h in Physics.RaycastAll(from, target - from, Vector3.Distance(from, target) - 0.05f)) if ((own == null || !h.collider.transform.IsChildOf(own)) && !(h.collider is CharacterController)) { clear = false; break; }   // people don't count
+                    if (clear) return from;
+                }
+            return At(bearing, dist);
         }
         static List<Renderer> PaintedParts(Skiff b) { var l = new List<Renderer>(); foreach (var r in b.GetComponentsInChildren<Renderer>(true)) if (r is MeshRenderer && Channels.Has(r)) l.Add(r); return l; }
         static Bounds BoundsOf(GameObject g)
@@ -72,6 +104,7 @@ namespace PortBoss.M1
             var W = Works.I; M5(W != null && W.Shops.Count == 3, $"three shops ({W?.Shops.Count})");
             if (W == null) { Debug.Log("[PB] RESULT m5test: FAIL (no Works)"); Application.Quit(); yield break; }
             M5(Works.NavOk, "the town navmesh is built");
+            { float wt = W.CrewWalkTo(Skiff.At(0)); M5(Works.LastWalkOk, $"Doyle's lads walk to Biscuit on land ({wt:F0} s), never over the water"); }
             JumpTo(1, 10); yield return null;
 
             // ---------------- 1. the shop transaction suite (solo half; the co-op half is -pb-m5coop)
@@ -98,7 +131,7 @@ namespace PortBoss.M1
                 yield return AtShop(s);
                 M5(W.Near == s, $"{s.Name}: standing at the counter ({(s.Real ? "map anchor" : "temporary spot")})");
                 M5(s.Keeper != null && s.Keeper.gameObject.activeInHierarchy, $"{s.Name}: {s.Owner} is at the counter at 10:00");
-                { var back = s.Front - s.At.position; back.y = 0; back = back.normalized; var side = Vector3.Cross(Vector3.up, back); LookAt(s.At.position + Vector3.up * 1.4f, s.Front + back * 4.5f + side * 2.2f + Vector3.up * 2.6f); yield return M5Shot($"world-{s.Id}", 1.0f); RigOn(); yield return null; }
+                { var back = s.Front - s.At.position; back.y = 0; back = back.normalized; var tgt = s.At.position + Vector3.up * 1.4f; LookAt(tgt, ClearView(tgt, s.At, Quaternion.LookRotation(back).eulerAngles.y + 25, 6.5f, 1.8f)); yield return M5Shot($"world-{s.Id}", 1.0f); RigOn(); yield return null; }
                 YShop.Show(s); yield return null;
                 M5(YShop.Open, $"{s.Name}: E opens the shop");
                 var cats = new List<string>(); foreach (var w in Catalog.Of(s.S)) if (!cats.Contains(w.Cat)) cats.Add(w.Cat);
@@ -158,7 +191,7 @@ namespace PortBoss.M1
             yield return new WaitForSeconds(0.6f);
             int popped = now.Count(w => W.IsShown(w.Id));
             M5(popped == now.Count(w => Co.Has(w.Id)), $"furniture installs at once: {popped} shown of {now.Count(w => Co.Has(w.Id))} bought");
-            var chair = W.ShownOf("furn:chair"); if (chair != null) { { var cp = chair.transform.position; var mid = W.Office != null ? BoundsOf(W.Office.gameObject).center : cp + chair.transform.forward; var inw = mid - cp; inw.y = 0; inw = inw.sqrMagnitude > 0.01f ? inw.normalized : chair.transform.forward; LookAt(cp + Vector3.up * 0.5f, cp + inw * 2.6f + Vector3.up * 1.7f); } yield return M5Shot("installed-chair-pop", 0.12f); yield return M5Shot("installed-chair-settled", 0.8f); RigOn(); }
+            var chair = W.ShownOf("furn:chair"); if (chair != null) { { var cp = chair.transform.position + Vector3.up * 0.5f; LookAt(cp, ClearView(cp, chair.transform, Quaternion.LookRotation(chair.transform.forward).eulerAngles.y, 2.2f, 1.0f)); } yield return M5Shot("installed-chair-pop", 0.12f); yield return M5Shot("installed-chair-settled", 0.8f); RigOn(); }
             // two rounds: B3 needs B2, the lamps need the one before
             for (int round = 0; round < 4; round++)
             {
@@ -167,7 +200,7 @@ namespace PortBoss.M1
                 yield return null;
                 // the morning: overnight builds land and play their timelapse
                 JumpTo(Today + 1, 7.0); yield return new WaitForSeconds(0.35f);
-                if (round == 0 && W.ShownOf("dock:planks") is { } pl) { LookAt(pl.transform.position + Vector3.up * 0.3f, pl.transform.position + new Vector3(3, 3, 3)); yield return M5Shot("installed-planks-timelapse", 0.1f); yield return M5Shot("installed-planks", 2.0f); RigOn(); }
+                if (round == 0 && W.ShownOf("dock:planks") is { } pl) { { var pc = pl.transform.position + Vector3.up * 0.3f; LookAt(pc, ClearView(pc, pl.transform, 45, 6, 3.5f, true)); } yield return M5Shot("installed-planks-timelapse", 0.1f); yield return M5Shot("installed-planks", 2.0f); RigOn(); }
                 yield return new WaitForSeconds(1.0f); JumpTo(Today, 10);
             }
             var stillOrdered = night.Where(w => !Co.Has(w.Id)).Select(w => w.Id).ToList();
@@ -178,6 +211,7 @@ namespace PortBoss.M1
             M5(Co.OfficeTier == 1, $"the office T1 is built overnight ({(wo == "" ? "ordered" : wo)})");
             // what needs the patched office (the bunk, the double bed, the map table): now it fits
             var later = now.Where(w => w.Needs == "office:1").ToList();
+            yield return OpenNow(Store.Plank);   // the office can land on a Sunday
             foreach (var w in later) { bool ok = Works.HostBuy(Firm.I.NewTx("m5"), Works.MyKey, Works.MyName, w.Id, 0, false, out var wy); if (!ok) M5(false, $"buy {w.Id}: {wy}"); }
             yield return new WaitForSeconds(0.6f);
             M5(later.Count == 3 && later.All(w => W.ShownOf(w.Id) != null), $"with the office T1: {string.Join(", ", later.Select(w => w.Id + (W.ShownOf(w.Id) != null ? " in its spot" : " MISSING")))}");
@@ -193,6 +227,15 @@ namespace PortBoss.M1
                     if (a.size.sqrMagnitude > 0 && b.size.sqrMagnitude > 0 && a.Intersects(b)) bad.Add(items[i].Key + "/" + items[j].Key);
                 }
             M5(bad.Count == 0, $"no two installed items overlap ({items.Count} items){(bad.Count > 0 ? ": " + string.Join(", ", bad) : "")}");
+            // buried: nothing of the map (a rock, the terrain, a house) stands over an item's middle
+            var buried = new List<string>();
+            foreach (var kv in items)
+            {
+                var bb = BoundsOf(kv.Value); var top = new Vector3(bb.center.x, bb.max.y + 6, bb.center.z);
+                foreach (var h in Physics.RaycastAll(top, Vector3.down, 6 + bb.size.y * 0.5f))
+                    if (h.collider.transform.root != kv.Value.transform.root && Map.Root != null && h.collider.transform.IsChildOf(Map.Root)) { buried.Add($"{kv.Key} under {h.collider.name}"); break; }
+            }
+            M5(buried.Count == 0, $"no item is buried in the map{(buried.Count > 0 ? ": " + string.Join(", ", buried) : "")}");
             // walkways: the old walks don't run through anything standing; berths stay clear
             var blocks = new List<string>();
             foreach (var kv in basePaths)
@@ -247,7 +290,7 @@ namespace PortBoss.M1
             var crew = W.Crew; var home = crew.Select(n => n.transform.position).ToList();
             foreach (var (ch, arg, label) in new[] { (0, 3, "hull"), (1, 3 * 100 + 0, "stripe"), (2, 6, "trim"), (3, 1, "deck") })
             {
-                Time.timeScale = ch == 0 ? 1 : 4;
+                yield return OpenNow(Store.Doyle); Time.timeScale = ch == 0 ? 1 : 4;
                 double t0 = Sky.Minutes;
                 bool ok = Works.HostBuy(Firm.I.NewTx("m5"), Works.MyKey, Works.MyName, $"paint:biscuit:{ch}", arg, false, out var pw);
                 var job = bst.Job; M5(ok && job != null && job.Ch == ch, $"paint the {label}: the job is on ({pw}), walk {job?.Walk:F0} + paint {job?.Paint:F0} min");
@@ -271,6 +314,7 @@ namespace PortBoss.M1
             Time.timeScale = 4;
             foreach (var (sw, free) in new[] { (10, false), (6, true) })
             {
+                yield return OpenNow(Store.Doyle);
                 int cb = Co.Cash; bool okb = Works.HostBuy(Firm.I.NewTx("m5"), Works.MyKey, Works.MyName, "paint:biscuit:2", sw, false, out var fw);
                 M5(okb && (cb - Co.Cash == (free ? 0 : Catalog.TrimPrice)), $"the trim {Catalog.SwatchName[sw]}: ${cb - Co.Cash}{(free ? " (the one before: free)" : "")} {fw}");
                 for (float k = 0; k < 300 && bst.Job != null && Sky.Minutes < bst.Job.End + bst.Job.Walk; k += Time.unscaledDeltaTime) yield return null;
@@ -400,6 +444,7 @@ namespace PortBoss.M1
                 Works.Buy("furn:desk", 0);
                 yield return new WaitForSeconds(6f);
                 M5(Lines("Walt's desk, mended") == 1 && Co.Owned.Contains("furn:desk"), $"the desk, bought by both at once: one ledger line ({Lines("Walt's desk, mended")})");
+                yield return Until(() => Lines("Shelves") >= 1, 30); yield return new WaitForSeconds(2f);   // a retry that lands late must still be one line
                 M5(Lines("Shelves") == 1, $"{rn}'s shelves sent twice with one id: one line ({Lines("Shelves")})");
                 // ---- 4. Ask the crew: OK on my phone
                 yield return Until(() => Co.Asks.Exists(a => a.Key == rk && a.Item == "boat:kestrel" && a.St == AskSt.Open), 40);
