@@ -17,12 +17,13 @@ namespace PortBoss.M1
         public static bool Up => I != null && I.root.gameObject.activeSelf; // ... or the invite list (M3.1: the world runs on)
         public static event Action Closed;                      // (Game holds its welcome tips until play starts)
         public static int ClosedFrame = -1;                     // (Game: the Esc that closed the invite list doesn't also pause)
-        enum Page { Main, Friends, Address, Code, Waiting, Invite, Worlds }
+        enum Page { Main, Friends, Address, Code, Waiting, Invite, Worlds, HostWorld }
         class Row { public string Label, Sub; public Action Go; public bool On = true; public RectTransform R; public Image Fill; }
 
         RectTransform root, card, list; Text status, foot, head, sub; Image dim;
         Page page; readonly List<Row> rows = new(); int sel;
         string address, code = ""; float waitT; string waitWhat;
+        Action hostGo; string hostWhat;   // the crew being hosted, once its world is picked (Page.HostWorld)
         Camera cam;
 
         public static void Open()
@@ -97,14 +98,15 @@ namespace PortBoss.M1
             switch (p)
             {
                 case Page.Main:
-                    // M4: Continue the last world, or a new one; hosting a crew hosts the world you're in (Continue first)
+                    // M4: Continue the last world, or a new one; hosting asks which world the crew plays (a save, a crew copy or a
+                    // new one: systems §1 "every player keeps a world copy, so anyone can host", §3.5, §4.5)
                     var worlds = Save.Worlds(); var last = worlds.Count > 0 ? worlds[0] : null;
                     if (last != null) rows.Add(new Row { Label = "Continue", Sub = $"{last.Name} · Day {last.Day} · ${last.Cash:N0} · saved {Save.Ago(last.Saved)}", Go = () => { if (Save.Load(last.Id)) Close(); } });
                     rows.Add(new Row { Label = last != null ? "New game" : "Play solo", Sub = "Walt's dock, Biscuit, $40 and a bag of worms", Go = () => { Save.NewWorld(); Close(); } });
                     if (worlds.Count > 1) rows.Add(new Row { Label = "Your worlds", Sub = $"{worlds.Count} saved, crew copies too", Go = () => Show(Page.Worlds) });
-                    rows.Add(new Row { Label = "Host a crew on Steam", Sub = steam ? "Then press I in the game to invite friends" : "Steam isn't running", On = steam, Go = () => { Coop.HostSteam(); Wait("Making a crew on Steam…"); } });
+                    rows.Add(new Row { Label = "Host a crew on Steam", Sub = steam ? "Then press I in the game to invite friends" : "Steam isn't running", On = steam, Go = () => Host(Coop.HostSteam, "Making a crew on Steam…") });
                     rows.Add(new Row { Label = "Join a friend on Steam", Sub = steam ? "Friends hosting right now, or accept their invite" : "Steam isn't running", On = steam, Go = () => Show(Page.Friends) });
-                    rows.Add(new Row { Label = "Host on this network", Sub = $"Friends on the same network join {LocalAddress()}", Go = () => { Coop.HostLan(); Wait("Hosting on this network…"); } });
+                    rows.Add(new Row { Label = "Host on this network", Sub = $"Friends on the same network join {LocalAddress()}", Go = () => Host(() => Coop.HostLan(), "Hosting on this network…") });
                     rows.Add(new Row { Label = "Join on this network", Sub = "Type the host's address", Go = () => Show(Page.Address) });
                     break;
                 case Page.Friends:
@@ -122,6 +124,13 @@ namespace PortBoss.M1
                 case Page.Worlds:
                     var ws = Save.Worlds(); if (ws.Count > 6) ws.RemoveRange(6, ws.Count - 6);
                     foreach (var w in ws) { var id = w.Id; rows.Add(new Row { Label = w.Name, Sub = $"Day {w.Day} · ${w.Cash:N0} · saved {Save.Ago(w.Saved)}{(w.Copy ? " · a crew copy" : "")}", Go = () => { if (Save.Load(id)) Close(); } }); }
+                    rows.Add(new Row { Label = "Back", Sub = "", Go = () => Show(Page.Main) });
+                    break;
+                case Page.HostWorld:
+                    head.text = "Which world?"; sub.text = "Your crew plays the world you host";
+                    var hw = Save.Worlds(); if (hw.Count > 5) hw.RemoveRange(5, hw.Count - 5);
+                    foreach (var w in hw) { var id = w.Id; rows.Add(new Row { Label = w.Name, Sub = $"Day {w.Day} · ${w.Cash:N0} · saved {Save.Ago(w.Saved)}{(w.Copy ? " · a crew copy" : "")}", Go = () => { if (Save.Load(id)) StartHost(); } }); }
+                    rows.Add(new Row { Label = "A new world", Sub = "Walt's dock, Biscuit, $40 and a bag of worms", Go = () => { Save.NewWorld(); StartHost(); } });
                     rows.Add(new Row { Label = "Back", Sub = "", Go = () => Show(Page.Main) });
                     break;
                 case Page.Code:
@@ -163,6 +172,9 @@ namespace PortBoss.M1
             Coop.JoinCode(code.Trim()); Wait($"Joining crew {code}…");
         }
 
+        // host a crew: straight away with no saved world, else ask which one first
+        void Host(Action go, string what) { hostGo = go; hostWhat = what; if (Save.Worlds().Count == 0) StartHost(); else Show(Page.HostWorld); }
+        void StartHost() { hostGo(); Wait(hostWhat); }
         void Wait(string what) { Coop.Status = ""; waitWhat = what; waitT = 0; Show(Page.Waiting); }
 
         void Draw()
