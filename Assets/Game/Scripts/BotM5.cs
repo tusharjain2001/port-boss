@@ -539,21 +539,28 @@ namespace PortBoss.M1
             var bis = Skiff.At(0); var bst = Co.BoatOf("biscuit");
             // 1. open on the payoff: Biscuit freshly painted at golden hour, the Kestrel behind (0-6 s)
             JumpTo(1, 17.2); bst.Paint = new[] { 9, 0, 22, 4 }; bst.Pattern = 5; yield return null;
-            for (float t = 0; t < 6; t += Time.deltaTime) { var c = bis.transform.position + Vector3.up; float a = t * 0.12f; LookAt(c, c + Quaternion.Euler(0, 40 + a * 57, 0) * new Vector3(0, 2.6f, 8)); yield return null; }
+            { var c = bis.transform.position + Vector3.up; var v0 = ClearView(c, bis.transform, bis.transform.eulerAngles.y + 60, 8, 2.6f, true) - c; float b0 = Mathf.Atan2(v0.x, v0.z) * Mathf.Rad2Deg;
+              for (float t = 0; t < 6; t += Time.deltaTime) { LookAt(c, c + Quaternion.Euler(0, b0 - 10 + t * 3.5f, 0) * new Vector3(0, 2.6f, 8)); yield return null; } }
             bst.Paint = new[] { -1, -1, -1, -1 }; bst.Pattern = 0; JumpTo(2, 10); RigOn();
             // 2. Doyle's counter, the shop: the hull swatches tried on her live (6-22 s)
             var doyle = W.Shops.Find(s => s.S == Store.Doyle); yield return AtShop(doyle);
-            CameraRig.I.Yaw += 160; yield return new WaitForSeconds(2.5f); CameraRig.I.Yaw -= 160; yield return new WaitForSeconds(0.8f);
+            { var back = doyle.Front - doyle.At.position; back.y = 0; var tgt = doyle.At.position + Vector3.up * 1.4f; LookAt(tgt, ClearView(tgt, doyle.At, Quaternion.LookRotation(back).eulerAngles.y + 25, 6.5f, 1.8f)); yield return new WaitForSeconds(2.5f); RigOn(); yield return new WaitForSeconds(0.8f); }
             YShop.Show(doyle); yield return new WaitForSeconds(1.5f); YShop.I.Tab("Paint"); yield return new WaitForSeconds(1f);
             YShop.I.Pick(Catalog.Get("paint:biscuit:0")); yield return new WaitForSeconds(1f);
             foreach (var sw in new[] { 0, 5, 9, 3 }) { YShop.I.Swatch(sw); yield return new WaitForSeconds(1.3f); }
             YShop.I.BuyNow("paint:biscuit:0", 3); yield return new WaitForSeconds(2.5f); YShop.I.Hide();
             // 3. Doyle's lads walk over and paint her, the brush line stern to bow (22-40 s, time sped up)
-            var job = bst.Job; Time.timeScale = 3;
+            var job = bst.Job; Time.timeScale = 3; Vector3 off = new Vector3(4, 3, 4); float pickT = -9;
+            var bc = bis.transform.position + Vector3.up * 0.8f; var boatCam = ClearView(bc, bis.transform, Quaternion.LookRotation(bis.transform.right * 6 + bis.transform.forward * 3).eulerAngles.y, 7, 2.4f, true);
             for (float t = 0; job != null && t < 200 && Sky.Minutes < job.End; t += Time.deltaTime)
             {
                 bool walking = Sky.Minutes < job.Start + job.Walk; var lad = W.Crew.Count > 0 ? W.Crew[0].transform.position : bis.transform.position;
-                if (walking) LookAt(lad + Vector3.up, lad + new Vector3(4, 3, 4)); else { var c = bis.transform.position + Vector3.up * 0.8f; LookAt(c, c + bis.transform.right * 6 + bis.transform.forward * 3 + Vector3.up * 2.4f); }
+                if (walking)
+                {   // a chase camera that re-picks a clear side every 2 s (a wall or a house between it and the lads)
+                    if (t - pickT > 2) { pickT = t; off = ClearView(lad + Vector3.up, W.Crew.Count > 0 ? W.Crew[0].transform : null, Quaternion.LookRotation(off).eulerAngles.y, 5.5f, 3) - (lad + Vector3.up); }
+                    LookAt(lad + Vector3.up, lad + Vector3.up + off);
+                }
+                else LookAt(bc, boatCam);
                 yield return null;
             }
             Time.timeScale = 1; yield return new WaitForSeconds(1.5f); RigOn();
@@ -563,10 +570,11 @@ namespace PortBoss.M1
             YShop.I.BuyNow("furn:chair"); yield return new WaitForSeconds(2f); YShop.I.Tab("Storage"); yield return new WaitForSeconds(1.2f);
             YShop.I.BuyNow("wh:1"); yield return new WaitForSeconds(2f); YShop.I.Hide();
             var chair = W.ShownOf("furn:chair");
-            if (chair != null) { Co.Owned.Remove("furn:chair"); yield return new WaitForSeconds(0.3f); var tc = chair.transform; var at = tc.position; Co.Owned.Add("furn:chair"); Co.Fresh.Add("furn:chair"); for (float t = 0; t < 2.5f; t += Time.deltaTime) { LookAt(at + Vector3.up * 0.5f, at + new Vector3(2, 1.6f, 2)); yield return null; } }
+            if (chair != null) { Co.Owned.Remove("furn:chair"); yield return new WaitForSeconds(0.3f); var tc = chair.transform; var at = tc.position; Co.Owned.Add("furn:chair"); Co.Fresh.Add("furn:chair"); var cf = ClearView(at + Vector3.up * 0.5f, tc, Quaternion.LookRotation(tc.forward).eulerAngles.y, 2.2f, 1.0f); for (float t = 0; t < 2.5f; t += Time.deltaTime) { LookAt(at + Vector3.up * 0.5f, cf); yield return null; } }
             JumpTo(Today + 1, 6.95); yield return new WaitForSeconds(0.2f);
             var wh = W.Warehouse != null ? W.Warehouse.position : me.transform.position;
-            for (float t = 0; t < 7; t += Time.deltaTime) { LookAt(wh + Vector3.up * 2, wh + new Vector3(-9, 6, -9) + new Vector3(t * 0.3f, 0, 0)); yield return null; }
+            var whc = ClearView(wh + Vector3.up * 2, W.Warehouse, 225, 13, 5);
+            for (float t = 0; t < 7; t += Time.deltaTime) { LookAt(wh + Vector3.up * 2, whc + new Vector3(t * 0.3f, 0, 0)); yield return null; }
             RigOn(); JumpTo(Today, 10);
             // 5. Hartley's mirror and the wardrobe: hats tried on, the six crew (62-82 s)
             var har = W.Shops.Find(s => s.S == Store.Hartley); yield return AtShop(har);
