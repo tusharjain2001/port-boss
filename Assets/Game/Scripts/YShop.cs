@@ -122,7 +122,7 @@ namespace PortBoss.M1
             if (stageFor == item) return; stageFor = item;
             if (stageItem != null) Destroy(stageItem.gameObject);
             string id = item.Substring(item.IndexOf(':') + 1);
-            var pf = M1Assets.I.M5Prefab("Prop_" + id) ?? M1Assets.I.M5Prefab("Prop_" + item.Replace(':', '_'));
+            var pf = Works.PropOf(item);
             GameObject g;
             if (pf != null) { g = Instantiate(pf); Util.Toon(g, Game.ToonMat); foreach (var c in g.GetComponentsInChildren<Collider>()) Destroy(c); }
             else { g = new GameObject(item); Firm.Box(g.transform, "stand-in", new Vector3(0, 0.4f, 0), new Vector3(0.8f, 0.8f, 0.8f), Ponyo.Hex("C9A27A")); }

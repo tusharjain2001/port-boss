@@ -152,6 +152,7 @@ namespace PortBoss.M1
             }
             // the cot is Walt's (Sleep built it); the office's and warehouse's empties come with their buildings (ShowBuildings)
             if (Sleep.Cot != null) Spots["spot_cot"] = Sleep.Cot;
+            BrokenModels();
         }
         // the office's / warehouse's spot_* empties (a new tier: the furniture moves to the new building's spots)
         void TakeSpots(Transform building)
@@ -390,7 +391,7 @@ namespace PortBoss.M1
                 {
                     bool pop = officeShown >= 0;
                     if (office != null) Destroy(office.gameObject);
-                    var at = shack != null ? shack : Spots.TryGetValue("office", out var so) ? so : null;
+                    var at = Spots.TryGetValue("spot_office", out var so) ? so : shack;   // the office's origin is the shack's footprint centre
                     if (at != null)
                     {
                         office = Instantiate(pf).transform; office.name = "Office T" + ot; Util.Colliders(office.gameObject); Util.Toon(office.gameObject, Game.ToonMat);
@@ -448,16 +449,33 @@ namespace PortBoss.M1
             {
                 var spot = SpotOf(item); if (spot == null || !Spots.TryGetValue(spot, out var at)) { shown[item] = null; Log($"{item}: no spot {spot} yet"); return; }
                 string id = item.Substring(item.IndexOf(':') + 1);
-                var pf = M1Assets.I.M5Prefab("Prop_" + id) ?? M1Assets.I.M5Prefab("Prop_" + item.Replace(':', '_'));
+                var pf = PropOf(item);
                 if (pf != null) { g = Instantiate(pf); Util.Colliders(g); Util.Toon(g, Game.ToonMat); }
                 else g = Stand(item);
                 g.name = item; g.transform.SetParent(at, false); g.transform.localPosition = Vector3.zero; g.transform.localRotation = Quaternion.identity;
                 if (item.StartsWith("bed:") && item != "bed:hammock") Sleep.AddBed(g.transform, item);
                 if (item.StartsWith("dock:")) Broken(item, false);
+                if (item == "furn:balcony" && office != null) foreach (var n in new[] { "LandingGate", "LandingGate_colBox" }) { var t = Util.Find(office, n); if (t != null) t.gameObject.SetActive(false); }   // office2: the gate onto the balcony opens
             }
             shown[item] = g;
             if (pop && g != null) StartCoroutine(item.StartsWith("dock:") ? Timelapse(g) : Pop(g));
             if (pop) Fx(item);
+        }
+        // an item's model (art-src/m5/build_props.py names): the dock pieces share models
+        public static GameObject PropOf(string item)
+        {
+            string id = item.Substring(item.IndexOf(':') + 1);
+            string m = id == "planks" ? "planks_fixed" : id == "b2" || id == "b3" ? "berth_fixed" : id.StartsWith("lamp") && item.StartsWith("dock:") ? "docklamp" : id == "power" ? "powerpost" : id;
+            return M1Assets.I.M5Prefab("Prop_" + m) ?? M1Assets.I.M5Prefab("Prop_" + item.Replace(':', '_'));
+        }
+        // the before state at a dock spot: the rotten planks / berth models, hidden by Broken() once fixed
+        void BrokenModels()
+        {
+            foreach (var (spot, m) in new[] { ("spot_planks", "planks_broken"), ("spot_b2", "berth_broken"), ("spot_b3", "berth_broken") })
+            {
+                var pf = M1Assets.I.M5Prefab("Prop_" + m); if (pf == null || !Spots.TryGetValue(spot, out var at)) continue;
+                var g = Instantiate(pf, at, false); g.name = "broken " + m; Util.Colliders(g); Util.Toon(g, Game.ToonMat);
+            }
         }
         // the landing's broken bits (the three planks, the berths' rotten boards) hide once fixed
         void Broken(string item, bool show)
