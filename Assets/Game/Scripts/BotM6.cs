@@ -25,8 +25,14 @@ namespace PortBoss.M1
         {
             var np = Workers.I != null ? Workers.I.NpcOf(w) : null;
             if (np == null) { yield return M5Shot(n); yield break; }
-            var tgt = np.transform.position + Vector3.up * 1.1f;
-            LookAt(tgt, ClearView(tgt, np.transform, np.transform.eulerAngles.y + 25, 4.5f, 1.4f)); yield return M5Shot(n, 0.3f); RigOn();
+            var tgt = np.transform.position + Vector3.up * 1.1f; var fp = np.transform.position;
+            string under = Physics.Raycast(fp + Vector3.up * 30, Vector3.down, out var gh, 80, ~0, QueryTriggerInteraction.Ignore) ? $"{gh.collider.name}@{gh.point.y:F2}" : "nothing";
+            Debug.Log($"[PB] m6: workershot {n}: {w.Name} at {fp.x:F1} {fp.y:F2} {fp.z:F1}, visible {np.Visible}, top surface {under}, navmesh walk {Works.LastWalkOk}, player at {Angler.I.transform.position}");
+            var from = ClearView(tgt, np.transform, np.transform.eulerAngles.y + 25, 4.5f, 1.4f); LookAt(tgt, from);
+            var bb = new Bounds(fp, Vector3.zero); int on = 0; foreach (var r in np.GetComponentsInChildren<Renderer>()) if (r.enabled && r.gameObject.activeInHierarchy) { if (on++ == 0) bb = r.bounds; else bb.Encapsulate(r.bounds); }
+            var cam = CameraRig.I.Cam.transform; Debug.Log($"[PB] m6: workershot {n}: camera {cam.position} looking {cam.forward}, from {from}, body {on} renderers centre {bb.center} size {bb.size}");
+            float ts = Time.timeScale; Time.timeScale = 0; yield return M5Shot(n, 0.3f); Time.timeScale = ts;
+            Debug.Log($"[PB] m6: workershot {n} after: camera {cam.position}, worker {np.transform.position}"); RigOn();
         }
         static Vector3 OnPier(Vector3 berth) => Landing.I != null && Landing.I.Spawn != null ? Landing.I.Spawn.position : Works.Ground(berth + Vector3.up);   // the pier, not the boat's deck
         void M6(bool ok, string what) { Debug.Log($"[PB] m6: {(ok ? "ok" : "FAIL")} {what}"); if (!ok) m6Fails++; }
@@ -105,7 +111,7 @@ namespace PortBoss.M1
                 float shallow = 99;
                 while (Time.time - t0 < 90) { if (Workers.Live.TryGetValue("biscuit", out var mode) && mode == "driving") drove = true; if (Vector3.Distance(start, biscuit.transform.position) > 40) break; yield return null; }
                 // drive on for 40 s near the player: the water under her never gets shallow (worker boats never beach)
-                for (float t1 = 0; t1 < 40; t1 += Time.deltaTime) { var bp = biscuit.transform.position; if (Seabed.On && Vector3.Distance(berth, bp) > 30) shallow = Mathf.Min(shallow, Seabed.Depth(bp.x, bp.z)); yield return null; }
+                for (float t1 = 0; t1 < 40; t1 += Time.deltaTime) { if (Workers.Live.TryGetValue("biscuit", out var md) && md == "driving") drove = true; var bp = biscuit.transform.position; if (Seabed.On && Vector3.Distance(berth, bp) > 30) shallow = Mathf.Min(shallow, Seabed.Depth(bp.x, bp.z)); yield return null; }
                 M6(shallow >= 1.0f, $"driving herself out, the shallowest water under her: {(shallow > 98 ? "deep all the way" : shallow.ToString("F1") + " m")}");
                 M6(!biscuit.Moored && Vector3.Distance(start, biscuit.transform.position) > 20, $"Biscuit cast off and sailed {Vector3.Distance(start, biscuit.transform.position):F0} m ({(drove ? "driven for real" : "by the clock")})");
                 M6(drove, "near the player she drives herself (rudder and throttle)");

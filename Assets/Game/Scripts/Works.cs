@@ -829,6 +829,18 @@ namespace PortBoss.M1
             roller.gameObject.SetActive(false);
         }
         public void Paint(bool on) { painting = on; if (roller != null) roller.gameObject.SetActive(on); }
+        // a fish crate held at the chest (M6: a worker carrying the catch up the pier)
+        Transform crate;
+        public void Carry(bool on)
+        {
+            if (crate == null && on)
+            {
+                crate = new GameObject("crate").transform; crate.SetParent(transform, false); crate.localPosition = new Vector3(0, 1.0f, 0.34f);
+                Firm.Box(crate, "crate", Vector3.zero, new Vector3(0.5f, 0.22f, 0.34f), Ponyo.Hex("B98552")); Firm.Box(crate, "rim", new Vector3(0, 0.1f, 0), new Vector3(0.52f, 0.03f, 0.36f), Ponyo.Hex("8C6440"));
+                for (int i = 0; i < 3; i++) Firm.Box(crate, "fish", new Vector3(-0.14f + i * 0.14f, 0.12f, (i % 2) * 0.06f - 0.03f), new Vector3(0.1f, 0.05f, 0.24f), i == 1 ? Ponyo.Hex("9FB4C8") : Ponyo.Hex("C9D3DC"));
+            }
+            if (crate != null && crate.gameObject.activeSelf != on) crate.gameObject.SetActive(on);
+        }
         public void Show(bool on) { if (body != null && body.activeSelf != on) body.SetActive(on); }
         public bool Visible => body != null && body.activeSelf;
         // a wave (M6: a crew skipper passing you): the right arm up, the forearm swinging, for secs

@@ -96,7 +96,7 @@ namespace PortBoss.M1
             var from = ClearView(c, t, first, dist, up, true); LookAt(c, from);
             bool seen = false; foreach (var r in b.GetComponentsInChildren<Renderer>()) seen |= r.enabled && r.gameObject.activeInHierarchy;
             Debug.Log($"[PB] boatshot {n}: {b.Name} at {t.position.x:F0} {t.position.y:F1} {t.position.z:F0}, camera {Vector3.Distance(from, c):F1} m off, renderers on {seen}");
-            yield return M5Shot(n, 0.6f);
+            float ts = Time.timeScale; Time.timeScale = 0; yield return M5Shot(n, 0.6f); Time.timeScale = ts;
         }
         // a camera spot looking at `target` from `dist` m away and `up` m higher: the asked-for bearing first, then every
         // 30 degrees round, the first with nothing (a pier, a lamp, a wall, a hill) between it and the target, and not inside

@@ -41,7 +41,14 @@ namespace PortBoss.M1
             for (int i = -1; i <= 1; i += 2) Firm.Box(root, "leg", new Vector3(0.62f * i, 0.8f, 0), new Vector3(0.08f, 1.6f, 0.08f), wood);
             Firm.Box(root, "frame", new Vector3(0, 1.45f, 0), new Vector3(1.42f, 0.92f, 0.07f), wood);
             Firm.Box(root, "cork", new Vector3(0, 1.45f, 0.03f), new Vector3(1.3f, 0.8f, 0.03f), cork);
-            for (int i = 0; i < 3; i++) { Firm.Box(root, "card", new Vector3(-0.42f + i * 0.42f, 1.5f, 0.05f), new Vector3(0.32f, 0.42f, 0.01f), paper); Firm.Box(root, "pin", new Vector3(-0.42f + i * 0.42f, 1.68f, 0.06f), new Vector3(0.04f, 0.04f, 0.02f), Ponyo.Hex("E2553F")); }
+            for (int i = 0; i < 3; i++)
+            {
+                float x = -0.42f + i * 0.42f; cards[i] = new GameObject("card " + i); cards[i].transform.SetParent(root, false);
+                var ct = cards[i].transform; Firm.Box(ct, "card", new Vector3(x, 1.5f, 0.05f), new Vector3(0.32f, 0.42f, 0.01f), paper); Firm.Box(ct, "pin", new Vector3(x, 1.68f, 0.06f), new Vector3(0.04f, 0.04f, 0.02f), Ponyo.Poppy);
+                cardText[i, 0] = Line(ct, new Vector3(x, 1.55f, 0.058f), Ponyo.Ink, 0.011f);       // initials
+                cardText[i, 1] = Line(ct, new Vector3(x, 1.42f, 0.058f), Ponyo.Ink, 0.0042f);  // first name
+                cardText[i, 2] = Line(ct, new Vector3(x, 1.35f, 0.058f), Ponyo.Ink, 0.0042f);      // the wage
+            }
             Firm.Box(root, "header", new Vector3(0, 2.0f, 0), new Vector3(1.5f, 0.2f, 0.06f), Ponyo.Hex("2E3F5C"));
             Firm.Sign(root, "HANDS WANTED · ROSIE'S", new Vector3(0, 2.0f, 0.035f), Ponyo.Paper, 0.0062f);
             var col = root.gameObject.AddComponent<BoxCollider>(); col.center = new Vector3(0, 1.1f, 0); col.size = new Vector3(1.5f, 2.2f, 0.2f);
@@ -50,6 +57,21 @@ namespace PortBoss.M1
             SeaGrid.Build();
             Log($"Rosie's board at {(Places.Get("pub") != null ? "The Mooring Line" : "a temporary spot")} {at.position.x:F0} {at.position.z:F0}");
         }
+
+        readonly GameObject[] cards = new GameObject[3]; readonly TextMesh[,] cardText = new TextMesh[3, 3]; string cardKey;
+        static TextMesh Line(Transform root, Vector3 p, Color col, float size) { Firm.Sign(root, "", p, col, size); return root.GetChild(root.childCount - 1).GetComponent<TextMesh>(); }
+        void Cards()
+        {
+            string key = string.Join(",", C.Board.ConvertAll(x => x.Id + ":" + x.Wage)); if (key == cardKey) return; cardKey = key;
+            for (int i = 0; i < 3; i++)
+            {
+                var w = i < C.Board.Count ? C.Board[i] : null; if (cards[i] != null) cards[i].SetActive(w != null); if (w == null) continue;
+                var parts = w.Name.Split(' '); cardText[i, 0].text = string.Concat(Array.ConvertAll(parts, x => x.Length > 0 ? x.Substring(0, 1) : ""));
+                cardText[i, 1].text = parts[0].ToUpperInvariant(); cardText[i, 2].text = $"${w.Wage}/day";
+            }
+        }
+        // a walk point on the planks: a navmesh corner, or a straight leg down to the ladder, can sit under the pier's deck
+        static Vector3 Feet(Vector3 p) => Physics.Raycast(p + Vector3.up * 2.5f, Vector3.down, out var h, 4, ~0, QueryTriggerInteraction.Ignore) && !(h.collider is CharacterController) ? h.point : p;
 
         public static bool PubOpenAt(double m) { double h = DayTime.OfDay(m); return h >= PubOpen || h < PubClose - 24 * 60; }
 
@@ -103,6 +125,7 @@ namespace PortBoss.M1
             foreach (var k in new List<int>(npcs.Keys)) if (!C.Staff.Exists(x => x.Id == k)) { if (npcs[k] != null) Destroy(npcs[k].gameObject); npcs.Remove(k); }
             // Rosie: at her board while the pub's open
             if (Rosie != null) Rosie.Show(PubOpenAt(m));
+            Cards();
             foreach (var w in C.Staff.ToArray())   // (a copy: landing can take a quitter off the crew)
             {
                 var b = w.Boat != null ? Skiff.Of(w.Boat) : null;
@@ -196,17 +219,19 @@ namespace PortBoss.M1
         {
             var r = w.Run; var n = NpcOf(w); if (n == null) return;
             var home = HomeSpot(w);
-            if (r == null || r.Day != DayTime.Day(m) && r.Landed || b == null) { n.Hold(home, Vector3.forward, false); n.Show(OnDuty(w, m)); return; }
+            if (r == null || r.Day != DayTime.Day(m) && r.Landed || b == null) { n.Carry(false); n.Hold(home, Vector3.forward, false); n.Show(OnDuty(w, m)); return; }
+            if (!r.Landed) n.Carry(false);
             var st = Company.StateAt(r, m); var ladder = b.LadderTop != null ? b.LadderTop.position : b.transform.position;
             n.Show(true);
             if (st == WSt.NoShow) { n.Show(false); return; }
             if (r.Landed)
             {   // carrying the catch to the warehouse: 4 minutes up the pier
                 double k = (m - r.HomeAt) / 4; var door = Works.I != null && Works.I.WarehouseDoor is { } d ? d : home;
-                if (k < 1) { var p = Works.Path(ladder, door); var at = Works.Along(p, Works.Length(p) * (float)k, out var dir); n.Hold(at, dir, true); } else n.Hold(home, Vector3.forward, false);
+                n.Carry(k < 1 && r.Catch > 0);
+                if (k < 1) { var p = Works.Path(ladder, door); var at = Works.Along(p, Works.Length(p) * (float)k, out var dir); n.Hold(Feet(at), dir, true); } else n.Hold(home, Vector3.forward, false);
                 return;
             }
-            if (st == WSt.Leaving) { double k = (m - r.Start) / Math.Max(1, r.OutAt - r.Start); var p = Works.Path(home, ladder); var at = Works.Along(p, Works.Length(p) * (float)k, out var dir); n.Hold(at, dir, true); return; }
+            if (st == WSt.Leaving) { double k = (m - r.Start) / Math.Max(1, r.OutAt - r.Start); var p = Works.Path(home, ladder); var at = Works.Along(p, Works.Length(p) * (float)k, out var dir); n.Hold(Feet(at), dir, true); return; }
             // aboard: at the helm (or the stern), riding the boat
             var helm = b.Helm != null ? b.Helm.position : b.transform.TransformPoint(new Vector3(0, 0.6f, -1.6f));
             n.Hold(helm, b.transform.forward, false);
