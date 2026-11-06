@@ -423,10 +423,10 @@ namespace PortBoss.M1
         public const float Apart = 0.6f;
         Vector3 Crowd(Vector3 step, float dt, bool pressing)
         {
-            var c = Coop.I; if (c == null) return step;
+            var c = Coop.I; if (c == null || InBed) return step;  // (M3: two in the one cot lie on one spot: no pushing apart, it slid the sleeper off)
             foreach (var m in c.Mates.Values)
             {
-                if (m == null || m.AtHelm || m.Down || helm) continue;
+                if (m == null || m.AtHelm || m.Down || m.Lie > 0 || helm) continue;
                 var d = transform.position - m.transform.position; float dy = Mathf.Abs(d.y); d.y = 0; float r = d.magnitude;
                 if (dy > 1.6f || r > Apart + step.magnitude + 0.05f) continue;
                 var n = r > 1e-3f ? d / r : -transform.forward;
