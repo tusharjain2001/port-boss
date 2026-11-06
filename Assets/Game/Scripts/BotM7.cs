@@ -9,9 +9,11 @@ namespace PortBoss.M1
     //     UI scale 80-150% (the HUD canvas; the phone grows only while it fits the screen), FOV, camera shake, reduce
     //     motion (no shake, no FOV punch, no overshoot), the master and effects volumes, sprint hold / tap, easy fishing
     //     (+30% green on a real fish) and the bite caption (on a real bite). The PC's own settings are put back after.
+    //   -pb-beatstest <dir|none>  the first hour's text beats (Beats.cs, world §9.1): each at its moment, once, with the
+    //     script's words; Fergus's Pay card buys the hull patch; the beats survive a save. Stills: the phone's threads.
     public partial class Bot
     {
-        IEnumerator M7Tests() => Arg("-pb-settingstest") != null ? SettingsTest(Arg("-pb-settingstest")) : null;
+        IEnumerator M7Tests() => Arg("-pb-settingstest") != null ? SettingsTest(Arg("-pb-settingstest")) : Arg("-pb-beatstest") != null ? BeatsTest(Arg("-pb-beatstest")) : null;
         int m7Fails;
         void M7(bool ok, string what) { Debug.Log($"[PB] m7: {(ok ? "ok" : "FAIL")} {what}"); if (!ok) m7Fails++; }
 
@@ -178,6 +180,66 @@ namespace PortBoss.M1
             Settings.Put("m7.vol", Settings.Master); Settings.Put("m7.sfx", Settings.Sfx); Settings.Put("m7.amb", Settings.Ambience); Settings.Put("m7.mono", Settings.Mono ? 1 : 0);
             Settings.Put("m7.easy", Settings.EasyFishing ? 1 : 0); Settings.Put("m7.cap", Settings.Captions ? 1 : 0); Settings.Put("m7.sprint", Settings.SprintToggle ? 1 : 0); Settings.Put("m7.bar", Settings.BarSpeed);
             Debug.Log($"[PB] RESULT settingstest: {(m7Fails == 0 ? "PASS" : m7Fails + " FAILED")}");
+            Application.Quit();
+        }
+
+        IEnumerator BeatsTest(string dir)
+        {
+            Ctl.Bot = true; Sleep.Off = true; shots = dir == "none" ? null : dir; if (shots != null) Directory.CreateDirectory(shots);
+            yield return new WaitForSeconds(1.5f);
+            var c = Firm.C;
+            M7(c != null && c.Beats.Count == 0 && DayTime.Day(Sky.Minutes) == 1, $"a new world, Day 1 {DayTime.Clock(Sky.Minutes)}, no beats yet ({c?.Beats.Count})");
+            int Count(string from, string text) { int n = 0; foreach (var x in Firm.C.Msgs) if (x.From == from && x.Text == text) n++; return n; }
+            Company.Msg Last() => Firm.C.Msgs.Count > 0 ? Firm.C.Msgs[Firm.C.Msgs.Count - 1] : null;
+            IEnumerator To(int day, int hour) { Sky.Jump(DayTime.At(day, hour * 60)); yield return Frames(3); }
+
+            // Biscuit's engine first runs: Walt
+            yield return SailOut(false);
+            M7(Count(Company.Walt, "Is that my Biscuit") == 1, $"Biscuit under way: Walt \"Is that my Biscuit\" ({Last()?.From}: {Last()?.Text})");
+            Skiff.I.Moor(true); yield return new WaitForSeconds(2f);   // (back at the landing: Doyle patches her there)
+            yield return To(1, 12);
+            M7(Count(Company.Walt, "Pratt'll lowball you. Sell a few anyway, the engine won't fix itself.") == 0, "Day 1 12:00: not yet");
+            yield return To(1, 13);
+            M7(Count(Company.Walt, "Pratt'll lowball you. Sell a few anyway, the engine won't fix itself.") == 1, $"Day 1 13:00: Walt on Pratt ({Last()?.Text})");
+            yield return To(1, 21);
+            M7(Count(Company.Walt, "lights out here. Dont stay up") == 1, $"Day 1 21:00: Walt \"lights out here\" ({Last()?.Text})");
+            if (shots != null) { Phone.I.Show(Phone.Scr.Messages); Phone.I.Go(Phone.Scr.Thread, Company.Walt); yield return new WaitForSecondsRealtime(0.6f); yield return M5Shot("m7-beat-walt"); Phone.I.Hide(); yield return new WaitForSecondsRealtime(0.4f); }
+
+            // Day 2: Fergus at 11:00 (with the Pay card), June at 20:00
+            yield return To(2, 10);
+            M7(Count(Company.FergusName, "Hull's still weeping. $120") == 0, "Day 2 10:00: Fergus not yet");
+            yield return To(2, 11);
+            var fm = Firm.C.Msgs.FindLast(x => x.From == Company.FergusName);
+            M7(fm != null && fm.Text == "Hull's still weeping. $120" && fm.Offer == Company.HullOffer, $"Day 2 11:00: Fergus \"{fm?.Text}\" with a pay prompt ({fm?.Offer})");
+            Phone.I.Show(Phone.Scr.Messages); Phone.I.Go(Phone.Scr.Thread, Company.FergusName); yield return new WaitForSecondsRealtime(0.6f);
+            if (shots != null) yield return M5Shot("m7-beat-fergus-short");   // (the bank under $120: "Need $… more")
+            Firm.C.Earn("test:m7", "Port Boss", "Test cash", 200, Sky.Minutes); yield return Frames(3);
+            int cash0 = Firm.C.Cash; Phone.I.Tap("Pay $120"); yield return new WaitForSecondsRealtime(0.6f);
+            M7(Firm.C.Cash == cash0 - 120 && Firm.C.Ordered(Company.HullOffer.Substring(4)), $"Pay $120 on Fergus's card: ${cash0} -> ${Firm.C.Cash}, the patch on Doyle's slipway ({Firm.C.Ordered(Company.HullOffer.Substring(4))})");
+            if (shots != null) yield return M5Shot("m7-beat-fergus-paid");
+            Phone.I.Hide(); yield return new WaitForSecondsRealtime(0.4f);
+            yield return To(2, 20);
+            M7(Count(Company.JuneName, "Not on Walt's bamboo, love. Fibreglass.") == 1, $"Day 2 20:00 on Walt's bamboo: June ({Last()?.Text})");
+
+            // the first rain from Day 2: Dot (the seed's first rainy hour)
+            double rainAt = -1; for (double m = Sky.Minutes; m < DayTime.At(9, 0); m += 30) { var (d, b) = Weather.BlockAt(m); var w = Sky.W.Block(d, b); if (w == Wx.Rain || w == Wx.Storm) { rainAt = m + 1; break; } }
+            if (rainAt > 0 && Firm.C.Beats.Contains("dot-rain")) M7(Count(Company.DotName, "Some fish like the rain") == 1, "Dot's rain text came already (a jump landed in rain)");
+            else if (rainAt > 0) { Sky.Jump(rainAt); yield return Frames(3); M7(Count(Company.DotName, "Some fish like the rain") == 1, $"the first rain ({DayTime.Clock(rainAt)} Day {DayTime.Day(rainAt)}): Dot \"Some fish like the rain\""); }
+            else M7(false, "no rain in this seed's first week (pick another seed)");
+
+            // near Breaker Point: Kai
+            var bp = new Vector3(-40, 120, -1450); var ground = Physics.Raycast(bp, Vector3.down, out var hit, 300) ? hit.point : new Vector3(-40, 0.5f, -1450);
+            me.Teleport(ground + Vector3.up * 0.2f, 0); yield return new WaitForSecondsRealtime(2.5f);   // (the check runs once a real second; batch game time runs ~10x faster)
+            M7(Count(Company.KaiName, "come surf sometime") == 1, $"a player near Breaker Point: Kai \"come surf sometime\" ({Last()?.From}: {Last()?.Text})");
+            if (shots != null) { Phone.I.Show(Phone.Scr.Messages); yield return new WaitForSecondsRealtime(0.6f); yield return M5Shot("m7-beat-messages"); Phone.I.Hide(); }
+
+            // once each (a second pass at the same moments sends nothing), and the save keeps them
+            int n0 = Firm.C.Msgs.Count; yield return To(DayTime.Day(Sky.Minutes) + 1, 13); yield return Frames(3);
+            int extra = 0; foreach (var x in Firm.C.Msgs.GetRange(n0, Firm.C.Msgs.Count - n0)) if (x.From == Company.Walt || x.From == Company.FergusName || x.From == Company.JuneName || x.From == Company.KaiName) extra++;
+            M7(extra == 0, $"no beat twice ({extra} again)");
+            var back = Company.Read((System.Collections.Generic.Dictionary<string, object>)Json.Parse(Firm.C.ToJson()));
+            M7(back.Beats.SetEquals(Firm.C.Beats) && back.Beats.Count == 7, $"the save keeps the beats ({back.Beats.Count}: {string.Join(", ", back.Beats)})");
+            Debug.Log($"[PB] RESULT beatstest: {(m7Fails == 0 ? "PASS" : m7Fails + " FAILED")}");
             Application.Quit();
         }
 

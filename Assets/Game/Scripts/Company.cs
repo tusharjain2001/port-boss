@@ -207,7 +207,10 @@ namespace PortBoss.M1
             while (Morning < today) { Morning++; RunMorning(Morning, DayTime.At(Morning, DayTime.Wake)); }
             if (BoardDay == 0) RefreshBoard(Math.Max(1, today));   // M6: Rosie's first board (a new game, or a save from before M6)
             if (Mari == DealSt.None && (Earned >= MariEarned || m >= DayTime.At(MariDay, DayTime.Wake))) OfferMari(m);
+            BeatsTick(m);   // M7: the first hour's texts (Beats.cs)
         }
+        // M7 (Beats.cs; partial, so tools/companycheck builds without the Unity side)
+        partial void BeatsTick(double m); partial void WriteM7(Json.W w); partial void ReadM7(Dictionary<string, object> o);
 
         void RunMorning(int day, double at)
         {
@@ -297,7 +300,7 @@ namespace PortBoss.M1
             w.K("msgs").Arr(); foreach (var m in Msgs) w.Obj().K("id").V(m.Id).K("from").V(m.From).K("text").V(m.Text).K("at").V(m.At).K("me").V(m.Me).K("offer").V(m.Offer).K("read").V(m.Read).End(); w.End();
             var kk = new List<string>(Kits.Keys); kk.Sort(StringComparer.Ordinal);
             w.K("kits").Obj(); foreach (var k in kk) WriteKit(w.K(k), Kits[k]); w.End();
-            WriteM5(w); WriteM6(w);
+            WriteM5(w); WriteM6(w); WriteM7(w);
             w.End();
         }
         public static void WriteKit(Json.W w, Kit k)
@@ -329,7 +332,7 @@ namespace PortBoss.M1
             if (o.TryGetValue("msgs", out var ms) && ms is List<object> ml)
                 foreach (Dictionary<string, object> e in ml) c.Msgs.Add(new Msg { Id = Json.I(e, "id"), From = Json.S(e, "from"), Text = Json.S(e, "text"), At = Json.D(e, "at"), Me = Json.B(e, "me"), Offer = Json.S(e, "offer"), Read = Json.B(e, "read") });
             if (o.TryGetValue("kits", out var ko) && ko is Dictionary<string, object> kd) foreach (var kv in kd) c.Kits[kv.Key] = ReadKit((Dictionary<string, object>)kv.Value);
-            c.ReadM5(o); c.ReadM6(o);
+            c.ReadM5(o); c.ReadM6(o); c.ReadM7(o);
             return c;
         }
         public string ToJson() { var w = new Json.W(); Write(w); return w.ToString(); }

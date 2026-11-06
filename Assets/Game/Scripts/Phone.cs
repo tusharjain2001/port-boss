@@ -155,7 +155,7 @@ namespace PortBoss.M1
         string Key()
         {
             var c = Firm.C; int minute = (int)Sky.Minutes;
-            return $"{Screen}|{Thread}|{minute}|{c?.Cash}|{c?.Msgs.Count}|{c?.Mari}|{c?.Ledger.Count}|{c?.MariTracked}|{Unread()}|{Alerts.Queue.Count}|{mapFilter}|{(int)scroll}|{Settings.MouseSens:F2}|{Settings.Invert}|{Settings.TimingOffsetMs}|{Settings.Voice}|{H24}|{Firm.I?.MyKit.Rod}|{CrewTab}|{crewEdit}|{eWho}|{eSpot}|{eBait}|{eSh}|{eBack}|{c?.Staff.Count}|{c?.Board.Count}|{c?.BoardSeen}|{CrewLive(c)}";
+            return $"{Screen}|{Thread}|{minute}|{c?.Cash}|{c?.Msgs.Count}|{c?.Mari}|{c?.Ledger.Count}|{c?.MariTracked}|{Unread()}|{Alerts.Queue.Count}|{mapFilter}|{(int)scroll}|{Settings.MouseSens:F2}|{Settings.Invert}|{Settings.TimingOffsetMs}|{Settings.Voice}|{H24}|{Firm.I?.MyKit.Rod}|{CrewTab}|{crewEdit}|{eWho}|{eSpot}|{eBait}|{eSh}|{eBack}|{c?.Staff.Count}|{c?.Beats.Count}|{c?.BoatOf("biscuit").Hull}|{c?.Orders.Count}|{c?.Board.Count}|{c?.BoardSeen}|{CrewLive(c)}";
         }
 
         // ---------------------------------------------------------------- input: mouse, keys, pad
@@ -447,6 +447,7 @@ namespace PortBoss.M1
                 y += th + 30;
                 if (msg.Offer == "mari" && i == lastOffer) y = OfferCard(c, y) + 10;
                 if (msg.Offer != null && msg.Offer.StartsWith("ask:") && int.TryParse(msg.Offer.Substring(4), out int askId)) y = AskCard(c, askId, y) + 10;   // M5: Ask the crew
+                if (msg.Offer != null && msg.Offer.StartsWith("buy:")) y = PayCard(c, msg.Offer.Substring(4), y) + 10;   // M7: Fergus's hull prompt
             }
             // quick replies (never free text)
             if (Thread == Company.MariName && c.Mari == DealSt.Offered)
@@ -460,6 +461,29 @@ namespace PortBoss.M1
                 y += 46;
             }
             return y;
+        }
+
+        // M7: a shop's offer in a text (Fergus: "Hull's still weeping. $120"): what, the price, and Pay (the shop's own buy:
+        // its hours, the money, Ask the crew in co-op) until it's done
+        float PayCard(Company c, string item, float y)
+        {
+            var w = Catalog.Get(item); if (w == null) return y;
+            bool done = w.Fit == PortBoss.M1.Fit.Repair && w.Boat != null && c.BoatOf(w.Boat).Hull, ordered = !done && c.Ordered(item);
+            var card = Card(list, 0, y, CW, done || ordered ? 144 : 172, Ponyo.Paper, 18, true, Ponyo.Hex("805C52"));
+            var head = UiKit.Card(card, "head", 16, Ponyo.Hex("E39A4C"), false, Ponyo.Hex("B5703A")); head.Place(new Vector2(0, 1), Vector2.zero, new Vector2(CW, 48), new Vector2(0, 1));
+            Ico(head, "wrench", Ponyo.Paper, 16, 12, 24);
+            T(head, "Doyle Boatworks", UiKit.DisplayBold, 20, Ponyo.Paper, 48, 10, 260, 30);
+            T(card, w.Name, UiKit.Body, 15, Ponyo.Ink, 16, 62, CW - 140, 22);
+            T(card, $"${w.Price}", UiKit.DisplayBold, 24, Ponyo.Hex("C98A1A"), CW - 136, 56, 120, 32, TextAnchor.UpperRight);
+            T(card, w.Sub, UiKit.Body, 14, SubInk, 16, 86, CW - 32, 20);
+            if (ordered) { done = true; T(card, "Paid · on Doyle's slipway, ready 7 AM", UiKit.Bold, 14, Ponyo.Hex("3E9A4E"), 16, 112, CW - 32, 22); }   // (under the subtitle)
+            else if (done) T(card, "Paid · she's dry now", UiKit.Bold, 14, Ponyo.Hex("3E9A4E"), 16, 112, CW - 32, 22);
+            else
+            {
+                bool can = c.Cash >= w.Price;
+                Pill(card, can ? $"Pay ${w.Price}" : $"Need ${w.Price - c.Cash} more", 16, 116, CW - 32, 46, can ? Ponyo.Sunflower : Ponyo.Paper2, Ponyo.Ink, () => { if (Firm.C.Cash >= w.Price) Works.Buy(item, 0); });
+            }
+            return y + (done ? 144 : 172);
         }
 
         // the mooring request, embedded in Mari's thread (and the same card in Contracts)
