@@ -224,7 +224,7 @@ namespace PortBoss.M1
             var o = Works.I != null && Works.I.Office != null ? Works.I.Office : Board; int k = C.Staff.IndexOf(w);
             return Works.Ground(o.position + o.forward * (2.2f + 0.8f * (k % 3)) + o.right * (1.2f * (k / 3) - 1));
         }
-        Npc NpcOf(Worker w)
+        public Npc NpcOf(Worker w)
         {
             if (npcs.TryGetValue(w.Id, out var n) && n != null) return n;
             var r = new System.Random(w.Id * 7 + 3);

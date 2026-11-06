@@ -26,14 +26,16 @@ namespace PortBoss.M1
         {
             var hud = (RectTransform)Hud.I.transform; cam = CameraRig.I != null ? CameraRig.I.UiCam : null;
             root = UiKit.Card(hud, "warehouse", 32, Ponyo.Paper, true, Ponyo.Line, 6); root.Place(new Vector2(0.5f, 0.5f), new Vector2(0, -10), new Vector2(W, H));
+            // above the HUD's toasts (they sat over the warehouse header, as they once did over the shops)
+            var oc = root.gameObject.AddComponent<Canvas>(); oc.overrideSorting = true; oc.sortingOrder = 20; root.gameObject.AddComponent<UnityEngine.UI.GraphicRaycaster>();
             var ic = UiKit.Card(root, "icon", 38, Ponyo.Hex("E4F1DC"), false, Ponyo.Line, 0); ic.Place(new Vector2(0, 1), new Vector2(Pad, -30), new Vector2(76, 76), new Vector2(0, 1));
             UiKit.Img(ic, Glyphs.Get("crate"), Ponyo.Ink, "g").rectTransform.Place(new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(44, 44));
             title = T(root, "", UiKit.DisplayBold, 40, Ponyo.Ink, Pad + 96, 30, 800, 50); sub = T(root, "", UiKit.Body, 17, Ponyo.InkSoft, Pad + 98, 82, 900, 24);
             var esc = UiKit.Key(root, "Esc", 30); esc.Place(new Vector2(1, 1), new Vector2(-Pad - 64, -40), esc.sizeDelta, new Vector2(1, 1));
             T(root, "Leave", UiKit.Body, 16, Ponyo.InkSoft, W - Pad - 56, 44, 60, 24);
-            left = UiKit.Rect("on you", root).Place(new Vector2(0, 1), new Vector2(Pad, -130), new Vector2(420, H - 240), new Vector2(0, 1));
-            rack = UiKit.Rect("racks", root).Place(new Vector2(0, 1), new Vector2(Pad + 450, -130), new Vector2(W - 2 * Pad - 450, H - 240), new Vector2(0, 1));
-            shelf = UiKit.Rect("bait shelf", root).Place(new Vector2(0, 1), new Vector2(Pad, -(H - 104)), new Vector2(W - 2 * Pad, 80), new Vector2(0, 1));
+            left = UiKit.Rect("on you", root).Place(new Vector2(0, 1), new Vector2(Pad, -130), new Vector2(420, H - 252), new Vector2(0, 1));
+            rack = UiKit.Rect("racks", root).Place(new Vector2(0, 1), new Vector2(Pad + 450, -130), new Vector2(W - 2 * Pad - 450, H - 252), new Vector2(0, 1));
+            shelf = UiKit.Rect("bait shelf", root).Place(new Vector2(0, 1), new Vector2(Pad, -(H - 118)), new Vector2(W - 2 * Pad, 80), new Vector2(0, 1));
             root.gameObject.SetActive(false);
         }
         public static void Show() => I?.ShowI();

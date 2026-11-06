@@ -20,6 +20,14 @@ namespace PortBoss.M1
         IEnumerator M6Tests() => Arg("-pb-workertest") != null ? WorkerTest(Arg("-pb-workertest")) : Arg("-pb-m6coop") != null ? M6Coop(Arg("-pb-m6coop")) : null;
         IEnumerator UntilM6(System.Func<bool> c, float secs) { for (float t = 0; t < secs && !c(); t += Time.unscaledDeltaTime) yield return null; }
         int m6Fails;
+        // a still of a worker himself, from in front of him (he walks: a short settle)
+        IEnumerator WorkerShot(Worker w, string n)
+        {
+            var np = Workers.I != null ? Workers.I.NpcOf(w) : null;
+            if (np == null) { yield return M5Shot(n); yield break; }
+            var tgt = np.transform.position + Vector3.up * 1.1f;
+            LookAt(tgt, ClearView(tgt, np.transform, np.transform.eulerAngles.y + 25, 4.5f, 1.4f)); yield return M5Shot(n, 0.3f); RigOn();
+        }
         static Vector3 OnPier(Vector3 berth) => Landing.I != null && Landing.I.Spawn != null ? Landing.I.Spawn.position : Works.Ground(berth + Vector3.up);   // the pier, not the boat's deck
         void M6(bool ok, string what) { Debug.Log($"[PB] m6: {(ok ? "ok" : "FAIL")} {what}"); if (!ok) m6Fails++; }
         IEnumerator Frames(int n) { for (int i = 0; i < n; i++) yield return null; }
@@ -58,8 +66,9 @@ namespace PortBoss.M1
             M6(Co.Staff.Count == 0, "Act 1: can't hire");
             Co.Act = 2; Workers.Hire(Co.Board[0].Id, true); yield return Frames(2);
             M6(Co.Staff.Count == 0, "the phone can't hire before the board is seen");
-            var front = Wk.BoardFront; me.Teleport(front, Quaternion.LookRotation(Wk.Board.position - front).eulerAngles.y); CameraRig.I.Cut(); yield return Frames(10);
+            var front = Wk.BoardFront; float faceYaw = Quaternion.LookRotation(Wk.Board.position - front).eulerAngles.y; me.Teleport(front, faceYaw); CameraRig.I.Yaw = faceYaw; CameraRig.I.Cut(); yield return Frames(10);
             M6(Wk.NearBoard, "standing at the board: the prompt shows"); yield return M5Shot("m6-rosies-board");
+            { var bc = Wk.Board.position + Vector3.up * 1.4f; LookAt(bc, ClearView(bc, Wk.Board, Wk.Board.eulerAngles.y, 3.4f, 0.3f)); yield return M5Shot("m6-rosies-board-front", 0.4f); RigOn(); }
             Workers.See(); M6(Co.BoardSeen, "board seen");
             // the strongest face (the test wants a full hold)
             var best = Co.Board[0]; foreach (var x in Co.Board) if (x.Fishing + x.Sea > best.Fishing + best.Sea) best = x;
@@ -91,7 +100,7 @@ namespace PortBoss.M1
             bool noShow = w.Run != null && w.Run.St == WSt.NoShow;
             if (!noShow)
             {
-                yield return M5Shot("m6-worker-walks", 1.5f);
+                { var r0 = w.Run; double half = r0.Start + 0.6 * (r0.OutAt - r0.Start); if (half > Sky.Minutes) Sky.Jump(half); yield return Frames(6); yield return WorkerShot(w, "m6-worker-walks"); }
                 var start = biscuit.transform.position; float t0 = Time.time; bool drove = false;
                 float shallow = 99;
                 while (Time.time - t0 < 90) { if (Workers.Live.TryGetValue("biscuit", out var mode) && mode == "driving") drove = true; if (Vector3.Distance(start, biscuit.transform.position) > 40) break; yield return null; }
@@ -111,13 +120,13 @@ namespace PortBoss.M1
             var buy = Co.Ledger.FindLast(e => e.Tx == $"shift:{w.Id}:{day}");
             M6(noShow ? Co.BaitStore[1] == 10 : Co.BaitStore[1] < 10 && buy != null && buy.What.Contains("June's"), $"bait: shelf {Co.BaitStore[1]} after the start, \"{buy?.What}\" ${-(buy?.Amount ?? 0)}");
             int wh0 = Co.WhFish; int msgs0 = Co.Msgs.Count;
+            if (!noShow && w.Run.HomeAt + 1.5 > Sky.Minutes) { Sky.Jump(w.Run.HomeAt + 1.5); yield return Frames(10); yield return WorkerShot(w, "m6-catch-carried"); }
             JumpTo(day, 17.2); yield return Frames(30);
             M6(w.Run.Landed, $"home: {w.Run.Catch} fish ({w.Run.Rare} rare), fail {w.Run.Fail ?? "none"}");
             M6(biscuit.Moored || noShow, "Biscuit back at her berth");
             M6(noShow || w.Run.Catch == 0 || Co.WhFish > wh0, $"the catch is in the warehouse ({wh0} -> {Co.WhFish})");
             M6(Co.Msgs.Exists(x => x.From == w.Name && x.Text.StartsWith("Leaving for")) || noShow, "texted \"Leaving for…\"");
             M6(Co.Msgs.Count > msgs0 || noShow, "texted when home");
-            JumpTo(day, 17.3); yield return Frames(10); yield return M5Shot("m6-catch-carried");
 
             // ---------------- 4. wages at 07:00
             int cash1 = Co.Cash; JumpTo(day + 1, 7.05); yield return Frames(5);
@@ -143,11 +152,11 @@ namespace PortBoss.M1
             M6(clock > 20, $"far from the player the boat goes by the clock ({clock} checks)");
 
             // ---------------- 6. the IOU rule
-            int dd = Today; Co.Cash = 0; Firm.I.Dirty = true; JumpTo(dd, 18); yield return Frames(3);
+            int dd = Today; Co.Spend(Firm.I.NewTx("tester"), Works.MyName, "Tester: empty the bank (M6 IOU test)", Co.Cash, Sky.Minutes); Firm.I.Dirty = true; JumpTo(dd, 18); yield return Frames(3);
             JumpTo(dd + 1, 7.05); yield return Frames(5);
             M6(w.Iou >= 0 && Co.Staff.Contains(w) && Co.Cash >= 0, $"the bank's empty at 07:00: {w.Name} works on an IOU (owed ${w.Owed})");
             M6(Co.Msgs.Exists(x => x.From == w.Name && x.Text.Contains("on trust")), "the IOU text");
-            JumpTo(dd + 1, 18); yield return Frames(3); Co.Cash = 0; JumpTo(dd + 2, 7.05); yield return Frames(5);
+            JumpTo(dd + 1, 18); yield return Frames(3); Co.Spend(Firm.I.NewTx("tester"), Works.MyName, "Tester: empty the bank (M6 IOU test)", Co.Cash, Sky.Minutes); JumpTo(dd + 2, 7.05); yield return Frames(5);
             M6(!Co.Staff.Contains(w) || w.Run?.St == WSt.NoShow && w.Owed == 0, $"unpaid again: {(Co.Staff.Contains(w) ? "still here" : "quit")}");
             M6(Co.Rehire.ContainsKey(w.Name) || Co.Staff.Contains(w), "rehiring costs double for 7 days");
             M6(Co.CheckM6() == "" && Co.Check() == "", $"company checks: {Co.CheckM6()}{Co.Check()}");
@@ -170,7 +179,7 @@ namespace PortBoss.M1
             if (role == "host")
             {
                 string rn = Other().Name;
-                Co.Earn(Firm.I.NewTx("tester"), Works.MyName, "Tester cash (M6 co-op)", 20000, Sky.Minutes); Co.Act = 2; Firm.I.Dirty = true;
+                Co.Earn(Firm.I.NewTx("tester"), Works.MyName, "Tester cash (M6 co-op)", 20000, Sky.Minutes); Co.Act = 2; Firm.I.Dirty = true; JumpTo(Today, 12);   /* the Mooring Line opens at 11 AM: Rosie's board needs her in */
                 yield return UntilM6(() => Co.BoardSeen, 60);
                 M6(Co.BoardSeen, $"{rn} saw Rosie's board (asked me)");
                 yield return UntilM6(() => Co.Staff.Count == 1, 60);

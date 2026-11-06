@@ -388,9 +388,13 @@ namespace PortBoss.M1
         // transport a receive buffer (CoopSession.MakeTransport). A rejoin gets its hotbar and place back as after any leave.
         const float Silence = 8f;
         readonly Dictionary<ulong, float> heard = new();
+        float lastDropCheck;
         void DropSilent()
         {
             float now = Time.realtimeSinceStartup; ulong gone = ulong.MaxValue;
+            // the host itself stalled (a long frame: a big time jump, a load): its own pause is nobody's silence
+            if (lastDropCheck > 0 && now - lastDropCheck > 2f) foreach (var k in new List<ulong>(heard.Keys)) heard[k] = now;
+            lastDropCheck = now;
             foreach (var kv in heard) if (now - kv.Value > Silence) { gone = kv.Key; break; }
             if (gone == ulong.MaxValue) return;
             heard.Remove(gone);
@@ -402,6 +406,7 @@ namespace PortBoss.M1
         void Update()
         {
             if (nm == null || !nm.IsListening) return;
+            if (Time.unscaledDeltaTime > 1f) Log($"a {Time.unscaledDeltaTime:F1} s frame here");   // a stall (shows which machine froze)
             // the lag simulator's inbox
             for (int i = 0; i < inbox.Count; i++) if (inbox[i].at <= Now) { var a = inbox[i].a; inbox.RemoveAt(i--); a(); }
             clockT -= Time.unscaledDeltaTime;
