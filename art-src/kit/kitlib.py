@@ -14,6 +14,16 @@ os.makedirs(OUT, exist_ok=True)
 PIP_H = 1.47              # Pip space: every body is modelled at this height
 HEAD_AT = 0.82            # Head joint height / full height (editor-kit §2b)
 PAL = {}                  # the palette of the character being built (set by build_kit.py)
+# Clothes channels (PB_Toon M5 dye: 1 Hat, 2 Top, 3 Over, 4 Legs, 5 Boots, 6 Gloves), the character's CLOTHES by part name
+# (set by build_kit.py): an int, a {palette key: ch} dict or f(centre, normal) -> ch. Written as Col alpha = 255 - 16*ch;
+# untagged faces (skin, hair, face) are 0 = alpha 255, and the player colour is always 0 (the game recolours it itself).
+CH = {}
+
+
+def chan(name, key, c, n):
+    t = CH.get(name, 0)
+    if key == 'player': return 0
+    return t.get(key, 0) if isinstance(t, dict) else t(c, n) if callable(t) else t
 COMMON = dict(white='#FFFBF2', ink='#3F2C27', metal='#B4B8BD', mouth='#6E2A2A', tongue='#D9645A',
               player='#E8752A')  # slot 0 orange (the HUD's): armband + back patch, never on the outfit
 
@@ -124,7 +134,7 @@ class Part:
         col = me.color_attributes.new('Col', 'BYTE_COLOR', 'CORNER')
         for p in me.polygons:
             key = self.colour if isinstance(self.colour, str) else self.colour(p.center, p.normal)
-            c = srgb(PAL[key]) + (1.0,)
+            c = srgb(PAL[key]) + ((255 - 16 * chan(self.name, key, p.center, p.normal)) / 255,)
             for li in p.loop_indices: col.data[li].color_srgb = c
         groups = {}
         for v in me.vertices:
@@ -269,8 +279,8 @@ def decal_obj(P):
     bm.to_mesh(me); bm.free()
     for p in me.polygons: p.use_smooth = True
     col = me.color_attributes.new('Col', 'BYTE_COLOR', 'CORNER')
-    c = srgb(PAL[P.colour]) + (1.0,)
     for p in me.polygons:
+        c = srgb(PAL[P.colour]) + ((255 - 16 * chan(P.name, P.colour, p.center, p.normal)) / 255,)
         for li in p.loop_indices: col.data[li].color_srgb = c
     g = {}
     for v in me.vertices:

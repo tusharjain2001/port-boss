@@ -7,6 +7,9 @@ ARM_DOWN = -25            # the Humanoid's lowest upper arm (default -60): her b
 HAT = ((0, -0.004, 1.372), (0, -0.004, 1.53))
 PALETTE = dict(skin='#A86E4B', skin_dk='#93603F', cheek='#D9796A', hair='#2B2220', iris='#6B3F26', yellow='#E9A634',
                yellow_dk='#C98A2C', red='#D9483B', glove='#F0883A', glove_dk='#D8702A', boot='#2E3F66', sole='#1F2638')
+# clothes channels by part (kitlib.CH): 1 Hat, 2 Top, 3 Over, 4 Legs, 5 Boots, 6 Gloves; the bib overalls are her Legs
+STRIPES = dict(red=2, white=2)
+CLOTHES = dict(Hat=1, Torso=dict(STRIPES, yellow=4), Arm=STRIPES, Shoulder=STRIPES, Pocket=4, PocketIn=4, Leg=4, Boot=5, Glove=6)
 
 # ---------------------------------------------------------------- Pip ----------------------------------------------------------
 HEAD_C = Vector((0, -0.005, 1.29)); HEAD_R = Vector((0.168, 0.158, 0.172))

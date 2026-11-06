@@ -11,6 +11,8 @@ FACE_Z = 1.26
 PALETTE = dict(skin='#E8B9A0', skin_dk='#D69C84', nose='#E0675A', cheek='#E8907E', white_h='#F2EFEA', white_d='#D9D5CE',
                iris='#4A5A6A', knit='#E6DCC4', knit_d='#D3C6A8', patch='#7A5236', wader='#4E5A3A', wader_d='#414B30',
                buckle='#B4B8BD', cap='#7A6448', cap_d='#68543B', boot='#6E4A30', sole='#3A2618')
+# clothes channels by part (kitlib.CH): 1 Hat, 2 Top, 3 Over, 4 Legs, 5 Boots, 6 Gloves; the chest waders are his Legs
+CLOTHES = dict(Cap=1, Torso=dict(knit=2, knit_d=2, wader=4), Arm=2, Shoulder=2, Braces=4, Leg=4, Boot=5)
 
 HEAD_C = Vector((0, -0.07, 1.25)); HEAD_R = Vector((0.138, 0.134, 0.15))
 LEG_X = 0.095
