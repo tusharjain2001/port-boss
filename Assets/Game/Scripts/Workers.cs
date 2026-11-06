@@ -239,7 +239,7 @@ namespace PortBoss.M1
             if ((st == WSt.Out || st == WSt.Coming) && Angler.I != null)
             {
                 float d = Vector3.Distance(Angler.I.transform.position, b.transform.position); string key = $"{w.Id}:{r.Day}:{st}";
-                if (d < 45 && d > 6 && hooted.Add(key)) { Snd.Play(Synth.Horn, b.transform.position, 0.9f); n.Wave(2.6f); Log($"{w.Name} toots and waves ({d:F0} m)"); }
+                if (d < 45 && d > 6 && hooted.Add(key)) { Snd.Play(Synth.Toot, b.transform.position, 0.9f); n.Wave(2.6f); Log($"{w.Name} toots and waves ({d:F0} m)"); }
             }
             if (Authority) Sail(w, b, r, st, m);
         }

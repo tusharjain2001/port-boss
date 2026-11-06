@@ -93,7 +93,7 @@ namespace PortBoss.M1
         }); });
 
         public static AudioClip Roar => C("roar", () => { var lp = LP(500); return Make("roar", 3.2f, t => 1.1f * lp(t) * Mathf.Pow(Mathf.Clamp01(t / 3f), 2) * (t > 3f ? (3.2f - t) / 0.2f : 1)); }); // a rogue wave coming
-        public static AudioClip Horn => C("horn", () => Make("horn", 1.1f, t => Mathf.Clamp01(t / 0.05f) * Mathf.Clamp01((1.05f - t) / 0.18f) * (0.34f * Sin(196, t) + 0.2f * Sin(247, t) + 0.12f * Sin(392, t) + 0.06f * Sin(494, t)))); // a boat horn: two low notes together (M6 crew)
+        public static AudioClip Toot => C("toot", () => Make("toot", 1.1f, t => Mathf.Clamp01(t / 0.05f) * Mathf.Clamp01((1.05f - t) / 0.18f) * (0.34f * Sin(196, t) + 0.2f * Sin(247, t) + 0.12f * Sin(392, t) + 0.06f * Sin(494, t)))); // a boat horn: two low notes together (M6 crew)
         public static AudioClip Splash => C("splash", () => { var lp = LP(2800); return Make("splashS", 0.8f, t => 0.7f * lp(t) * Env(t, 0.01f, 0.2f)); });
     }
 
