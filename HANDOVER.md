@@ -40,7 +40,7 @@ Glossary:
 
 ---
 
-## 0a. Tushar's playtest of INTEGRATED-3 (2026-11-07, branch `playtest-7nov`; test guide `docs/PLAYTEST-7NOV-HOW-TO-TEST.md`)
+## 0a. Tushar's playtest of INTEGRATED-3 (2026-11-07, branch `playtest-7nov`, merged to `main` 8 Nov on Tushar's OK; test guide `docs/PLAYTEST-7NOV-HOW-TO-TEST.md`)
 
 Tushar played INTEGRATED-3 and asked for 6 changes. His picks are final (equal footing):
 - **Walt's Landing is a port** (his plan A):
