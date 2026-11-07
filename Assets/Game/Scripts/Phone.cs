@@ -893,7 +893,7 @@ namespace PortBoss.M1
         {
             float y = 0;
             float x = 0;
-            foreach (var f in new[] { "All", "Fish", "Shops", "Crew" })
+            foreach (var f in new[] { "All", "Shops", "Crew" })   // (Tushar 7 Nov: no Fish tab; the fishing spots show on All)
             {
                 float w = f.Length * 9 + 34; var ff = f;
                 Pill(list, f, x, y + 4, w, 32, mapFilter == f ? Ponyo.Night : Ponyo.Paper, mapFilter == f ? Ponyo.Paper : Ponyo.Ink, () => mapFilter = ff, UiKit.Bold, 14);
@@ -909,7 +909,6 @@ namespace PortBoss.M1
             foreach (var pl in Places)
             {
                 if (mapFilter == "Crew") continue;
-                if (mapFilter == "Fish" && pl.kind != "fish") continue;
                 if (mapFilter == "Shops" && pl.kind != "shop") continue;
                 var a = Firm.Anchor(pl.id); var w = a != null ? a.position : FromSvg(pl.sx, pl.sy);
                 if (pl.id == "tackle" || pl.id == "pratts") { var st = Firm.I.Stalls.Find(s => s.Id == pl.id); if (st != null && st.Real) w = st.At.position; }
@@ -961,7 +960,7 @@ namespace PortBoss.M1
             float lx = 16;
             foreach (var (lab, col) in Legend())
             {
-                UiKit.Img(info, UiKit.Circle, col, "key").rectTransform.Place(new Vector2(0, 1), new Vector2(lx, -76), new Vector2(10, 10), new Vector2(0, 1));
+                UiKit.Img(info, lab == "Fishing" ? UiKit.RingSprite : UiKit.Circle, col, "key").rectTransform.Place(new Vector2(0, 1), new Vector2(lx, -76), new Vector2(10, 10), new Vector2(0, 1));
                 var lt = Caps(info, lab, lx + 14, 72, 120, Ponyo.Ink, TextAnchor.UpperLeft, 11); lt.horizontalOverflow = HorizontalWrapMode.Overflow;
                 lx += 24 + lab.Length * 8;
             }
@@ -973,6 +972,7 @@ namespace PortBoss.M1
             if (Coop.On && Coop.I != null) foreach (var kv in Coop.I.Mates) if (kv.Value != null && l.Count < 4) l.Add((kv.Value.NetName ?? "Crew", kv.Value.Colour));
             if (CrewAtSea().Count > 0) l.Insert(2, ("Crew at sea", CrewBlue));
             if (l.Count < 4) l.Add(("Shops", Ponyo.Hex("E39A4C")));
+            if (l.Count < 4) l.Add(("Fishing", Ponyo.SeaDeep));   // (the rings: no Fish tab of their own since Tushar 7 Nov)
             return l;
         }
         void Dot(Color c, float s, Func<Vector3?> at, bool ring = false)

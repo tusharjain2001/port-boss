@@ -9,7 +9,7 @@ namespace PortBoss.M1
     public static class UiKit
     {
         public static Font Display, DisplayBold, Body, Bold, Black;
-        static Sprite fill, edge, blur, circle, ringS, star, diamond, dotS, ringThin;
+        static Sprite fill, edge, blur, circle, ringS, star, diamond, dotS, ringThin, ringFat;
         // The UI follows the light (systems §2.7): every HUD image and text shares this material; Sky sets its tint
         // (warmer at golden/dusk, dimmer and cooler at night) so a night HUD doesn't glare. UI/Default multiplies by _Color.
         public static Material Lit => lit ??= new Material(Shader.Find("UI/Default")) { name = "PB_UiLit" };
@@ -29,6 +29,7 @@ namespace PortBoss.M1
             circle = Shape(64, (x, y) => Disc(x, y, 0.94f));
             ringS = Shape(64, (x, y) => Mathf.Clamp01(Disc(x, y, 0.94f) - Disc(x, y, 0.80f)));
             ringThin = Shape(128, (x, y) => Mathf.Clamp01(Disc(x, y, 0.96f) - Disc(x, y, 0.90f)));
+            ringFat = Shape(128, (x, y) => Mathf.Clamp01(Disc(x, y, 0.94f) - Disc(x, y, 0.62f)));   // (the stamina ring)
             dotS = Shape(32, (x, y) => Disc(x, y, 0.9f));
             diamond = Shape(32, (x, y) => Mathf.Clamp01((0.92f - (Mathf.Abs(x) + Mathf.Abs(y))) * 16f));
             star = Shape(64, (x, y) =>
@@ -97,7 +98,7 @@ namespace PortBoss.M1
             float d = Mathf.Min(Seg(-0.55f, 0f, -0.15f, -0.4f), Seg(-0.15f, -0.4f, 0.55f, 0.45f));
             return Mathf.Clamp01((0.16f - d) * 24f);
         });
-        public static Sprite Circle => circle; public static Sprite RingSprite => ringS; public static Sprite RingThin => ringThin;
+        public static Sprite Circle => circle; public static Sprite RingSprite => ringS; public static Sprite RingThin => ringThin; public static Sprite RingFat => ringFat;
         public static Sprite GradeShape(int g) => g == 0 ? dotS : star;
 
         // ---- builders ----

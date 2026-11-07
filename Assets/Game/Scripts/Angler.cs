@@ -40,6 +40,14 @@ namespace PortBoss.M1
 
         // feel (replan/feel spec): the sprint's run-up, where the camera follows height from, the carried load
         public float SprintW { get; private set; }  // 0..1: run 4.2 -> sprint 5.8 m/s over 0.6 s, back in 0.2 s
+        // Stamina (Tushar 7 Nov; systems §1.6.7): one bar for a sprint on land and for swimming. A sprint empties it in 12 s,
+        // a fast swim (Shift) in 25 s, plain swimming or treading water in 90 s; out of the water and not sprinting it fills
+        // in 5 s after a 0.8 s breather. Dry on land: no sprint until it's back to 35% (winded). Dry in the water: Dot
+        // fishes you out (systems §1.1.5).
+        public float Stamina { get; internal set; } = 1;
+        public bool Winded { get; private set; }
+        public const float SprintSecs = 12, FastSwimSecs = 25, SwimSecs = 90, RefillSecs = 5, Breather = 0.8f, WindedTill = 0.35f;
+        float breathT; bool fishingOut;
         public float CamY { get; private set; }     // the ground we last stood on (a jump doesn't lift the camera)
         public bool Skidding => skidT > 0;
         // Fish carried, as the feel spec's crates: every 10 kg is one (M1's tier-1 fish weigh grams; a big conger counts).
@@ -339,7 +347,7 @@ namespace PortBoss.M1
                 else { Fish.Stow(); Wear(M1Assets.I, Body + 1, Colour); Alerts.Push("Debug", "Body: " + M1Assets.I.CrewNames[Body] + " (F9 for the next)", Alerts.Kind.Info); }
             }
 
-            if (helm) { Helm(dt); Track(); CamY = transform.position.y; Animate(dt); return; }
+            if (helm) { Breathe(dt, 0); Helm(dt); Track(); CamY = transform.position.y; Animate(dt); return; }
 
             // hotbar
             if (!Busy && !Fish.BarLocked)
@@ -362,10 +370,12 @@ namespace PortBoss.M1
             float load = Load;
             // Sprint ramps up over 0.6 s (a run-up, not a gear change) and drops back to a run in 0.2 s; never with 5
             // crates' worth, and every crate's worth is 8% slower (5: 2.5 m/s).
-            bool sprint = Ctl.Sprint && !OnBoat && !Swimming && !Ctl.Walk && load < 5 && wish.sqrMagnitude > 0.01f;
+            bool sprint = Ctl.Sprint && !Winded && !OnBoat && !Swimming && !Ctl.Walk && load < 5 && wish.sqrMagnitude > 0.01f;
+            bool fastSwim = Swimming && Ctl.Sprint && !Winded && wish.sqrMagnitude > 0.01f;
             SprintW = Mathf.MoveTowards(SprintW, sprint ? 1 : 0, dt / (sprint ? 0.6f : 0.2f));
+            Breathe(dt, sprint ? 1 / SprintSecs : !Swimming ? 0 : fastSwim ? 1 / FastSwimSecs : 1 / SwimSecs);
             float run = Mathf.Lerp(4.2f, 5.8f, Mathf.SmoothStep(0, 1, SprintW)) * (1 - 0.08f * load);
-            float max = Swimming ? (Ctl.Sprint ? 2.2f : 1.4f) : Ctl.Walk ? 1.4f : OnBoat ? 2.6f : run;
+            float max = Swimming ? (fastSwim ? 2.2f : 1.4f) : Ctl.Walk ? 1.4f : OnBoat ? 2.6f : run;
             if (Fish.Holding && !Swimming) max = Mathf.Min(max, OnBoat ? 2.2f : 3.6f); // careful with a rod out
             if (Phone.IsOpen) max = Mathf.Min(max, 1.4f);  // M4: walking with the phone out (systems §1.2.1)
             var target = wish * max * Sleep.WalkMul * (Braced ? 0.4f : 1); // (M3: -10% from 01:30, tired; braced: a slow shuffle)
@@ -889,6 +899,38 @@ namespace PortBoss.M1
             Teleport(p + Vector3.up * 0.02f, Mathf.Atan2(dir.x, dir.z) * Mathf.Rad2Deg);
             vy = -2f; Swimming = false; wasSwim = false; lastGround = Time.time; Prompt = null;
             Snd.Play(M1Assets.I.Splash, transform.position, 0.3f, 1.4f);
+        }
+
+        // this frame's stamina: drain (per second) while sprinting or swimming, else the refill after a breather
+        void Breathe(float dt, float drain)
+        {
+            if (drain > 0) { Stamina = Mathf.Max(0, Stamina - drain * dt); breathT = 0; }
+            else if ((breathT += dt) > Breather) Stamina = Mathf.Min(1, Stamina + dt / RefillSecs);
+            if (Stamina <= 0 && !Winded) { Winded = true; Debug.Log($"[PB] stamina: out of puff ({(Swimming ? "swimming" : "sprinting")})"); }
+            else if (Winded && Stamina >= WindedTill) { Winded = false; Debug.Log("[PB] stamina: got my breath back"); }
+            if (Swimming && Stamina <= 0 && !fishingOut) StartCoroutine(FishOut());
+        }
+
+        // Out of puff in the water: Dot fishes you out (systems §1.1.5). The screen dips, and you're up the nearest ladder
+        // (your boat's or the pier's, as a swimmer waking at 02:00), with a word from Dot. No fee, nothing lost.
+        System.Collections.IEnumerator FishOut()
+        {
+            fishingOut = true;
+            for (float t = 0; t < 0.5f; t += Time.unscaledDeltaTime) { if (Hud.I != null) Hud.I.FadeA = t / 0.5f; yield return null; }
+            if (Swimming && downT < 0 && getUpT < 0)
+            {
+                var s = Skiff.I; var l = Landing.I;
+                bool boat = s != null && s.LadderBottom != null && (l == null || l.LadderBottom == null
+                    || (s.LadderBottom.position - transform.position).sqrMagnitude < (l.LadderBottom.position - transform.position).sqrMagnitude);
+                if (boat) StartClimb(s.LadderBottom, s.LadderTop, s.transform);
+                else if (l != null && l.LadderBottom != null) StartClimb(l.LadderBottom, l.LadderTop, l.transform);
+                Debug.Log($"[PB] stamina: Dot fished me out onto {(boat ? "the boat" : "the pier")}");
+                Alerts.Push("Dot", "Fished you out, kid. Again?", Alerts.Kind.Info);
+            }
+            yield return new WaitForSecondsRealtime(0.3f);
+            for (float t = 0; t < 0.6f; t += Time.unscaledDeltaTime) { if (Hud.I != null) Hud.I.FadeA = 1 - t / 0.6f; yield return null; }
+            if (Hud.I != null) Hud.I.FadeA = 0;
+            fishingOut = false;
         }
 
         void Splash(float surface, float size)

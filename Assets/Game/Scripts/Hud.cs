@@ -79,6 +79,8 @@ namespace PortBoss.M1
         readonly List<Alerts.A> held = new();
         // cast
         Image arc, arcTrack; Text distLabel;
+        // stamina (Tushar 7 Nov): a ring beside her while it isn't full
+        RectTransform stam; Image stamFill, stamTrack; CanvasGroup stamCg; float stamShow;
         // minigame
         RectTransform mg;
         RectTransform bar, zone, pointer;
@@ -154,9 +156,18 @@ namespace PortBoss.M1
             distLabel = UiKit.Txt(root, "", UiKit.Bold, 20, Color.white, TextAnchor.MiddleCenter); distLabel.rectTransform.Place(new Vector2(0, 0), Vector2.zero, new Vector2(160, 30));
             UiKit.Shade(distLabel, new Color(0.25f, 0.17f, 0.15f, 0.8f), new Vector2(1.5f, -1.5f));
 
+            // stamina: a paper disc with a ring that empties anticlockwise from the top, beside her head
+            stam = UiKit.Rect("stamina", root).Place(new Vector2(0, 0), Vector2.zero, new Vector2(58, 58)); stamCg = stam.gameObject.AddComponent<CanvasGroup>(); stamCg.alpha = 0;
+            UiKit.Img(stam, UiKit.Circle, new Color(1, 0.984f, 0.949f, 0.92f), "disc").rectTransform.Stretch();
+            stamTrack = UiKit.Img(stam, UiKit.RingFat, Ponyo.Paper3, "track"); stamTrack.rectTransform.Stretch(3);
+            stamFill = UiKit.Img(stam, UiKit.RingFat, Ponyo.Leaf, "fill"); stamFill.rectTransform.Stretch(3);
+            stamFill.type = Image.Type.Filled; stamFill.fillMethod = Image.FillMethod.Radial360; stamFill.fillOrigin = (int)Image.Origin360.Top; stamFill.fillClockwise = true;
+            UiKit.Img(stam, UiKit.RingThin, new Color(Ponyo.Line.r, Ponyo.Line.g, Ponyo.Line.b, 0.5f), "edge").rectTransform.Stretch();
+            stam.gameObject.SetActive(false);
+
             BuildMinigame(); BuildHeavy(); BuildReveal();
 
-            fly = UiKit.Rect("fly", root).gameObject.AddComponent<RawImage>(); fly.raycastTarget = false; fly.enabled = false; fly.rectTransform.sizeDelta = new Vector2(96, 54);
+            fly =UiKit.Rect("fly", root).gameObject.AddComponent<RawImage>(); fly.raycastTarget = false; fly.enabled = false; fly.rectTransform.sizeDelta = new Vector2(96, 54);
             fly.rectTransform.anchorMin = fly.rectTransform.anchorMax = Vector2.zero;
 
             dbg = UiKit.Txt(root, "", UiKit.Bold, 15, Ponyo.Paper, TextAnchor.UpperRight); dbg.rectTransform.Place(new Vector2(1, 1), new Vector2(-30, -26), new Vector2(560, 400), new Vector2(1, 1));
@@ -399,7 +410,7 @@ namespace PortBoss.M1
             if (Ctl.Key_(UnityEngine.InputSystem.Key.F3)) ShowDebug = !ShowDebug;
             bool title = Title.Shown; // the title card stands alone: no hotbar or hints under it (look audit 3 Nov)
             if (hotbarStrip.gameObject.activeSelf == title) { hotbarStrip.gameObject.SetActive(!title); prompts.gameObject.SetActive(!title); }
-            Hotbar(dt); Prompts(); Cast(); Minigame(dt); Heavy(); Reveal(dt); Fly(dt); AlertsTick(dt); Debug_();
+            Hotbar(dt); Prompts(); Cast(); Stamina(dt); Minigame(dt); Heavy(); Reveal(dt); Fly(dt); AlertsTick(dt); Debug_();
             fade.color = new Color(fade.color.r, fade.color.g, fade.color.b, FadeA);
         }
 
@@ -481,6 +492,24 @@ namespace PortBoss.M1
             }
         }
         static string Notch(int n) => n switch { -1 => "· reverse", 0 => "· stop", 1 => "· 1/3", 2 => "· 2/3", _ => "· full" };
+
+        // Shown while it isn't full (and 1.2 s after it fills), fading in and out: green, peach under 30%, a poppy pulse
+        // while winded. Not at the tiller, nor over the fight or the reveal.
+        void Stamina(float dt)
+        {
+            bool want = !Title.Shown && !me.AtHelm && (me.Stamina < 0.995f || me.Winded) && fish.State is not (Fishing.St.Minigame or Fishing.St.Reveal or Fishing.St.Heavy);
+            stamShow = want ? 1.2f : stamShow - dt;
+            stamCg.alpha = Mathf.MoveTowards(stamCg.alpha, stamShow > 0 ? 1 : 0, dt * 4);
+            stam.gameObject.SetActive(stamCg.alpha > 0.001f);
+            if (!stam.gameObject.activeSelf) return;
+            stamFill.fillAmount = me.Stamina;
+            stamFill.color = me.Winded ? Color.Lerp(Ponyo.Poppy, Ponyo.Peach, 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 10)) : me.Stamina < 0.3f ? Ponyo.Peach : Ponyo.Leaf;
+            stamTrack.color = me.Winded ? Color.Lerp(Ponyo.Paper3, Ponyo.Poppy, 0.35f + 0.25f * Mathf.Sin(Time.unscaledTime * 10)) : Ponyo.Paper3;   // (empty and winded: the whole ring blushes)
+            var cam = canvas.worldCamera; var sp = cam.WorldToScreenPoint(me.transform.position + Vector3.up * 1.15f * me.Size);
+            if (sp.z < 0) return;
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(root, sp, cam, out var lp);
+            stam.anchoredPosition = lp + root.rect.size * 0.5f + new Vector2(70, 10);
+        }
 
         void Cast()
         {
