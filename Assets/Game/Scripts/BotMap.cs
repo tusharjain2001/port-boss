@@ -105,6 +105,7 @@ namespace PortBoss.M1
         IEnumerator MapWalk()
         {
             var lt = Landing.I.transform;
+            Town.ForceOpen(); yield return null; yield return null;   // (the ropes down: this walk visits every shop on Day 1)
             var goals = new List<(string id, Vector3 p)>();
             foreach (var id in new[] { "office", "tackle", "pub", "hartleys", "post", "pratts", "plank", "doyle", "office" })
             { var a = Places.Get(id); if (a != null) goals.Add((id, a.position + a.forward * 1.5f)); else MapCheck(false, "no anchor " + id); }
@@ -221,7 +222,7 @@ namespace PortBoss.M1
         // -pb-mapview <dir> -pb-views "name:x,y,z>lx,ly,lz;..." (noon, fair): look at any spot (debugging the map); -pb-hour h, -pb-mari: Mari moored
         IEnumerator MapView(string views)
         {
-            Ctl.Bot = true; Sleep.Off = true; Sky.ForceWx = 1; Sky.Jump(DayTime.At(2, ArgF("-pb-hour", 12) * 60)); Time.captureFramerate = 60;
+            Ctl.Bot = true; Sleep.Off = true; Sky.ForceWx = 1; Sky.Jump(DayTime.At((int)ArgF("-pb-mapday", 2), ArgF("-pb-hour", 12) * 60)); Time.captureFramerate = 60;   // (-pb-mapday 1: the roped-off town)
             if (Arg("-pb-mari") != null && Firm.C != null) { Firm.C.Mari = DealSt.Active; Firm.C.MariAccepted = Sky.Minutes - 120; } // her boat moored (the counter shots)
             if (Arg("-pb-nohud") != null) HudShown(false);   // (plans drawn over the picture: no toasts in the way)
             yield return new WaitForSeconds(0.5f);

@@ -698,6 +698,8 @@ namespace PortBoss.M1
             var s = I.Near;
             if (s != null)
             {
+                var lk = Town.Lock(s.S == Store.Doyle ? "doyle" : s.S == Store.Plank ? "plank" : "hartleys");   // (the town opens step by step, Tushar 7 Nov)
+                if (lk != null) return $"{s.Name} · {lk}";
                 if (!s.IsOpen(Sky.Minutes)) return $"{s.Name} · {Catalog.ClosedSign(s.S, Sky.Minutes)}";
                 if (Ctl.Interact) YShop.Show(s);
                 return $"{s.Name} · {(s.S == Store.Doyle ? "boats, repairs, paint" : s.S == Store.Plank ? "builds, beds, furniture" : "clothes and dyes")}";

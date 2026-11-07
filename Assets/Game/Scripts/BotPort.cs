@@ -46,10 +46,11 @@ namespace PortBoss.M1
             yield return Walk(-4, 3, 14); yield return Walk(-4, 10, 4); yield return Walk(4, 10, 4); yield return Walk(4, 3, 4); yield return Walk(32, 3, 14);
             Ok(To(32, 3) < 1 && dry, $"across the root and along to the south end ({To(32, 3):F1} m off, dry {dry})");
             // 2) across the yard to the gate, out into the lane, and back in
-            yield return Walk(-19, 40, 16); yield return Walk(-19, 46, 5);
-            Ok(To(-19, 46) < 1 && dry, $"out through the gate into the lane ({To(-19, 46):F1} m off)");
+            // (the Market gate: open on Day 1, the town gate has its barrier till the town opens: Town.cs)
+            yield return Walk(17, 40, 16); yield return Walk(17, 46, 5);
+            Ok(To(17, 46) < 1 && dry, $"out through the Market gate onto the Market Lane ({To(17, 46):F1} m off)");
             if (shots != null) { CameraRig.I.Yaw += 180; yield return new WaitForSeconds(0.6f); yield return Shot("port-gate-from-town"); }
-            yield return Walk(-19, 38, 5); Ok(To(-19, 38) < 1, "back in through the gate");
+            yield return Walk(17, 38, 5); Ok(To(17, 38) < 1, "back in through the Market gate");
             // 3) the fence holds: push at it inland (away from the gate) and at the north side for 3 s each
             foreach (var (fx, fy, tx, ty, what) in new[] { (10f, 40f, 10f, 48f, "the inland fence"), (-30f, 26f, -40f, 26f, "the north fence") })
             {

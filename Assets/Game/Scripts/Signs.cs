@@ -31,7 +31,7 @@ namespace PortBoss.M1
         {
             var g = new GameObject("Signs"); I = g.AddComponent<Signs>();
             foreach (var s in Shops) { var a = Firm.Anchor(s.Id); if (a != null) I.Boards[s.Id] = I.DoorSign(s, a); }
-            I.BuildPost();
+            I.BuildPost(); I.Refresh(); Town.Opened += I.Refresh;
             Debug.Log($"[PB] signs: {I.Boards.Count} shop boards, signpost {(I.Post != null ? "up" : "missing")} with {I.Arrows.Count} arrows");
         }
 
@@ -70,6 +70,19 @@ namespace PortBoss.M1
             var back = new GameObject("back").transform; back.SetParent(blade, false); back.localRotation = Quaternion.Euler(0, 180, 0);
             Icon(back, s.Glyph, new Vector3(0, 0, 0.05f), 0.6f, s.Col);
             return root;
+        }
+
+        // a shop that isn't open yet reads "closed for now" on the board, its name greyed (the town opens step by step)
+        public void Refresh()
+        {
+            foreach (var (id, row) in Arrows)
+            {
+                if (row == null) continue; var t = row.GetComponentsInChildren<TextMesh>(); if (t.Length < 2) continue;
+                bool shut = Town.Lock(id) != null || (!Town.Open && id != "tackle" && id != "pratts");
+                var a = Firm.Anchor(id); float dist = a != null && Post != null ? Vector3.Distance(new Vector3(a.position.x, 0, a.position.z), new Vector3(Post.position.x, 0, Post.position.z)) : 0;
+                t[0].color = shut ? Ponyo.Hex("A89A8A") : Deep;
+                t[1].text = shut ? "closed" : $"{Mathf.RoundToInt(dist / 10f) * 10} m"; t[1].color = shut ? Ponyo.Poppy : Ponyo.Hex("5E4A44");
+            }
         }
 
         // The way-to-town board at the pier's head, facing down the pier (Tushar 7 Nov: a signpost with arrows). One row a

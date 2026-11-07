@@ -40,6 +40,33 @@ Glossary:
 
 ---
 
+## 0a. Tushar's playtest of INTEGRATED-3 (2026-11-07, branch `playtest-7nov`; test guide `docs/PLAYTEST-7NOV-HOW-TO-TEST.md`)
+
+Tushar played INTEGRATED-3 and asked for 6 changes. His picks are final (equal footing):
+- **Walt's Landing is a port** (his plan A):
+  - Map B now has a level 35 x 68 m **port yard** behind the landing (`island_shape.YARD`), and the town keeps out of it.
+  - `art-src/port/build_port.py` builds `Art/Port/PB_Port.fbx` (placed under the landing by `World.cs`): a 68 m timber quay on piles, the packed-earth yard, a fence with a north opening (to June's lane), a south opening (to Doyle's waterfront), the town gate and the **Market gate**, two lots and props.
+  - The **Market Lane** is a new cobbled street from the Market gate to Pratt's forecourt (`build_island.py`, laid after the houses so none moved).
+- **Walk-in office, Walt's cot inside.**
+  - The old shack's `Shack_colBox` was blocking the doorway.
+  - The office tiers' roofs are a separate `Roof` object and fade out while you're inside (`Works.InOffice`). Indoors the camera tilts to a 56° view.
+- **The town opens step by step** (`Town.cs`; his picks: gates + fenced lanes, opening with the story):
+  - On Day 1, ropes with bunting and "Closed for now" barriers keep the player to the lane up to June's and the Market Lane to Pratt's.
+  - The ropes come down when Doyle's opens: $90 in the bank, $50 made, Day 2, or Act 2.
+  - Plank & Post opens on Day 2. The pub, Hartley's and the post office open in Act 2 **or on Day 5**: nothing advances the act yet except F7. Until then they have a door board, and their counter prompt says when they open.
+- **Shop signs and a "To the town" board** (`Signs.cs`): a big board and a hanging sign at every shop; at the pier head, an arrow, distance and "closed" state for each shop.
+- **Phone map tabs:** All / Shops / Crew (no Fish tab).
+- **Stamina** (`Angler.Stamina`, systems §1.6.7): sprinting 12 s, fast swimming 25 s, swimming or treading water 90 s, refills in 5 s. Run dry on land: no sprint until 35%. Run dry in the water: Dot's fish-out up the nearest ladder.
+
+New test switches: `-pb-staminatest`, `-pb-phonemap`, `-pb-officewalk`, `-pb-porttest`, `-pb-towntest`, `-pb-townopen`, `-pb-mapday`, `-pb-nohud`.
+
+Open questions for Manan:
+- Is the port look right? It's still blockout-level art.
+- Should anything advance the story act by itself?
+- Should the town's later stages get their own ropes too? At the moment it all opens with Doyle's.
+
+---
+
 ## 0. To Tushar's Claude (2026-11-03)
 
 **What Manan's side did since M1b** (all on `main` once Kufu pushes this merge; details in §4):

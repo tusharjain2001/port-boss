@@ -25,9 +25,10 @@ YY0, YY1 = 8.6, 43.6                 # yard: from the quay inland to the fence
 ZT = 1.30                            # deck / yard top (= Walt's pier deck)
 PIER = 1.38                          # Walt's pier runs up the middle (|x| < 1.38): the quay leaves it its own deck
 GATE_X, GATE_W = -19.0, 4.2          # the gate in the inland fence (world dy +19)
-GAP_N, GAP_S = (8.0, 4.0), (2.6, 4.0)   # the openings in the north / south fences: centre (m along from the quay end), width
-                                     # (north: 8 m in, on the grass bank where the waterfront path starts; at 2.6 it opened onto the shore rocks)
-LOTS = dict(lot1=(-30.0, -8.0, 20.6, 41.6), lot2=(8.0, 30.0, 20.6, 41.6))   # x0, x1, y0, y1
+GAP_N, GAP_S = (27.8, 5.0), (2.6, 4.0)  # the openings in the north / south fences: centre (m along from the quay end), width
+                                     # (north: onto the town's lane up to June's, world x 46.5-51.6; south: onto the waterfront path to Doyle's)
+MARKET_X = 17.0                      # the Market gate in the inland fence (world dy -17): the lane to Pratt's (Town.cs)
+LOTS = dict(lot1=(-33.0, -23.0, 18.0, 41.0), lot2=(23.0, 33.0, 18.0, 41.0))   # x0, x1, y0, y1 (clear of both gates' ways in)
 R = random.Random(711)
 
 
@@ -79,7 +80,7 @@ def yard(mb, coll):
         x, y = R.uniform(X0 + 2, X1 - 2), R.uniform(YY0 + 2, YY1 - 2); r = R.uniform(1.2, 4.2)
         col = 'fresh' if k % 3 else 'greyw'
         put(mb, blob(1, (r, r * R.uniform(0.5, 0.9), 0.02), 900 + k, 0.3, 0.7), col, (x, y, ZT + 0.004 + 0.0015 * (k % 5)), (0, 0, R.uniform(0, 6.3)))
-    for x in (GATE_X - 0.7, GATE_X + 0.7):                                                # the cart tracks from the gate to the quay
+    for x in (GATE_X - 0.7, GATE_X + 0.7, MARKET_X - 0.7, MARKET_X + 0.7):               # the cart tracks from the gates to the quay
         for y in [YY0 + 0.6 + 1.2 * k for k in range(int((YY1 - YY0 - 1.2) / 1.2))]:
             put(mb, box(0.32, 1.1, 0.012, 0.0), 'midwood', (x + 0.15 * math.sin(y / 5), y, ZT + 0.012))
     col_box('Yard_colDeck', (X0, YY0, ZT - 0.4), (X1, YY1, ZT), coll)
@@ -110,32 +111,37 @@ def rail_run(mb, coll, a, b, name, gaps=()):
         col_box('%s%d_colBox' % (name, k), (min(v.x for v in c), min(v.y for v in c), ZT), (max(v.x for v in c), max(v.y for v in c), ZT + 1.3), coll)
 
 
-def fence_and_gate(mb, coll):
-    # the north and south sides, each with an opening at the quay end onto the waterfront path (north to June's, south
-    # to Doyle's slipway); the town lane's gate inland
-    rail_run(mb, coll, (X0, YY0 + 0.3), (X0, YY1), 'FenceN', gaps=(GAP_N,))
-    rail_run(mb, coll, (X1, YY0 + 0.3), (X1, YY1), 'FenceS', gaps=(GAP_S,))
-    rail_run(mb, coll, (X0, YY1), (X1, YY1), 'FenceE', gaps=((GATE_X - X0, GATE_W),))        # inland, the gate's gap
-    # the gate: two tall posts, a cross-beam with a blank sign board (socket_gate_sign: its face, for the name later),
-    # two teal leaves swung open against the fence (Walt's door colours)
+def gate(coll, name, gx, sign=True):
+    """A gate in the inland fence at x = gx: two tall posts, a cross-beam with a blank sign board (socket_<name>_sign: its
+    face, for a name), two teal leaves swung open inward against the fence (Walt's door colours)."""
     gm = MB()
     for s in (-1, 1):
-        x = GATE_X + s * (GATE_W / 2 + 0.12)
+        x = gx + s * (GATE_W / 2 + 0.12)
         put(gm, box(0.26, 0.26, 3.0, 0.03), 'midwood', (x, YY1, ZT + 1.25))
         put(gm, box(0.36, 0.36, 0.12, 0.02), 'dark', (x, YY1, ZT + 2.8))
-    put(gm, box(GATE_W + 0.9, 0.22, 0.24, 0.03), 'midwood', (GATE_X, YY1, ZT + 2.62))
-    put(gm, box(GATE_W - 0.6, 0.08, 0.62, 0.03), 'cream2', (GATE_X, YY1 + 0.16, ZT + 2.22))
-    put(gm, box(GATE_W - 0.4, 0.06, 0.74, 0.02), 'teal2', (GATE_X, YY1 + 0.12, ZT + 2.22))
+    put(gm, box(GATE_W + 0.9, 0.22, 0.24, 0.03), 'midwood', (gx, YY1, ZT + 2.62))
+    if sign:
+        put(gm, box(GATE_W - 0.6, 0.08, 0.62, 0.03), 'cream2', (gx, YY1 + 0.16, ZT + 2.22))
+        put(gm, box(GATE_W - 0.4, 0.06, 0.74, 0.02), 'teal2', (gx, YY1 + 0.12, ZT + 2.22))
     for s in (-1, 1):                                                                        # the leaves, open 100° inward
-        hx = GATE_X + s * (GATE_W / 2); lw = GATE_W / 2 - 0.08
+        hx = gx + s * (GATE_W / 2); lw = GATE_W / 2 - 0.08
         cx, cy = hx - s * lw / 2 * math.cos(math.radians(80)), YY1 - lw / 2 * math.sin(math.radians(80))
         rot = (0, 0, s * math.radians(80))
         for k in range(4): put(gm, box(lw / 4 - 0.02, 0.06, 1.15, 0.015), 'teal', (cx + (k - 1.5) * (lw / 4) * math.cos(math.radians(s * 80)), cy + (k - 1.5) * (lw / 4) * math.sin(math.radians(s * 80)), ZT + 0.68), rot)
         put(gm, box(lw, 0.07, 0.12, 0.015), 'cream2', (cx, cy, ZT + 0.42), rot); put(gm, box(lw, 0.07, 0.12, 0.015), 'cream2', (cx, cy, ZT + 1.0), rot)
-    finish(gm, 'YardGate', coll)
-    for s in (-1, 1): col_box('GatePost%d_colBox' % (s + 1), (GATE_X + s * (GATE_W / 2 + 0.12) - 0.15, YY1 - 0.15, ZT), (GATE_X + s * (GATE_W / 2 + 0.12) + 0.15, YY1 + 0.15, ZT + 3.0), coll)
-    empty('socket_gate', (GATE_X, YY1 + 1.2, ZT), coll, 180)                                  # outside the gate, facing in
-    empty('socket_gate_sign', (GATE_X, YY1 + 0.2, ZT + 2.22), coll, 180)
+    finish(gm, name, coll)
+    for s in (-1, 1): col_box('%sPost%d_colBox' % (name, s + 1), (gx + s * (GATE_W / 2 + 0.12) - 0.15, YY1 - 0.15, ZT), (gx + s * (GATE_W / 2 + 0.12) + 0.15, YY1 + 0.15, ZT + 3.0), coll)
+    empty('socket_%s' % name, (gx, YY1 + 1.2, ZT), coll, 180)                                 # outside the gate, facing in
+    if sign: empty('socket_%s_sign' % name, (gx, YY1 + 0.2, ZT + 2.22), coll, 180)
+
+
+def fence_and_gate(mb, coll):
+    # the north side opens onto the town's lane up to June's, the south side onto the waterfront path to Doyle's; inland
+    # the town gate (the lane into town) and the Market gate (the lane to Pratt's)
+    rail_run(mb, coll, (X0, YY0 + 0.3), (X0, YY1), 'FenceN', gaps=(GAP_N,))
+    rail_run(mb, coll, (X1, YY0 + 0.3), (X1, YY1), 'FenceS', gaps=(GAP_S,))
+    rail_run(mb, coll, (X0, YY1), (X1, YY1), 'FenceE', gaps=((GATE_X - X0, GATE_W), (MARKET_X - X0, GATE_W)))
+    gate(coll, 'YardGate', GATE_X); gate(coll, 'MarketGate', MARKET_X)
 
 
 def lots(mb, coll):
@@ -173,10 +179,10 @@ def clutter(mb, coll):
         for k in range(2): put(mb, box(0.7, 0.45, 0.22, 0.02), 'cblue', (x, y, ZT + 0.11 + 0.23 * k), (0, 0, J(0.1)))
     put(mb, cyl(0.42, 0.14, 14, r2=0.42, bevel=0.03), 'rope', (5.5, 6.6, ZT + 0.07)); put(mb, cyl(0.24, 0.15, 14, bevel=0.02), 'sand', (5.5, 6.6, ZT + 0.08))
     # a net rack: two A-frames and a pole with a hanging net, on the north side of the yard
-    for x in (-25.0, -21.0):
+    for x in (-15.0, -11.0):
         for s in (-1, 1): put(mb, box(0.09, 0.09, 2.0, 0.01), 'midwood', (x, 30.0 + s * 0.35, ZT + 0.95), (s * 0.18, 0, 0))
-    put(mb, cyl(0.05, 4.4, 6), 'midwood', (-23.0, 30.0, ZT + 1.85), (0, math.radians(90), 0))
-    put(mb, box(3.8, 0.04, 1.3, 0.0), 'rope', (-23.0, 30.0, ZT + 1.2)); col_box('NetRack_colBox', (-25.3, 29.5, ZT), (-20.7, 30.5, ZT + 2.0), coll)
+    put(mb, cyl(0.05, 4.4, 6), 'midwood', (-13.0, 30.0, ZT + 1.85), (0, math.radians(90), 0))
+    put(mb, box(3.8, 0.04, 1.3, 0.0), 'rope', (-13.0, 30.0, ZT + 1.2)); col_box('NetRack_colBox', (-15.3, 29.5, ZT), (-10.7, 30.5, ZT + 2.0), coll)
     # a hand cart by the warehouse side
     put(mb, box(1.2, 0.8, 0.3, 0.02), 'wood', (8.5, 19.5, ZT + 0.55)); put(mb, cyl(0.3, 0.08, 12, bevel=0.01), 'iron', (8.5, 19.0, ZT + 0.3), (math.radians(90), 0, 0))
     put(mb, cyl(0.3, 0.08, 12, bevel=0.01), 'iron', (8.5, 20.0, ZT + 0.3), (math.radians(90), 0, 0)); put(mb, box(0.06, 0.06, 1.3, 0.01), 'midwood', (9.4, 19.5, ZT + 0.5), (0, math.radians(65), 0))

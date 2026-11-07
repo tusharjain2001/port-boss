@@ -814,11 +814,15 @@ def build_streets(mb, shore, px, py, tx, ty, rr):
     for n, name, x, y, z, yaw in SHOP_SPOTS:
         dd = {2: 11.0, 3: 5.6, 5: DOOR5[0]}.get(n, 5.2) + 2.0
         doors.append((x + math.sin(yaw) * dd, y - math.cos(yaw) * dd))
-    doors.append((px + S.YARD_GATE[0] + 3, py + S.YARD_GATE[1]))                           # the port yard's gate (Tushar 7 Nov)
+    # the port yard's town gate (Tushar 7 Nov): its lane runs north outside the fence first (straight to the nearest street
+    # it cut across the yard's corner), then on to the street
+    gx_, gy_ = px + S.YARD_GATE[0] + 3, py + S.YARD_GATE[1]; gn_ = (gx_, py + S.YARD[3] + 5)
+    doors.append(gn_)
     for d in sorted(doors, key=lambda d: nearest(*d)[1]):
         at, dist = nearest(*d)
         if at is None or dist < 3 or dist > 260: continue
         STREETS.append(([d, at], 3.6))
+    STREETS.append(([(gx_, gy_), gn_], 3.6))
     for n, name, x, y, z, yaw in SHOP_SPOTS:                                            # a cobbled forecourt before each door (M4's counter stands on it)
         fx, fy = math.sin(yaw), -math.cos(yaw); d0 = {2: 11.0, 3: 5.6, 5: DOOR5[0]}.get(n, 5.2) - 1.0
         STREETS.append(([(x + fx * d0, y + fy * d0), (x + fx * (d0 + 9), y + fy * (d0 + 9))], 4.9))
@@ -952,6 +956,13 @@ def build_town(coll):
         paths.append(([F, at], 1.5))
     for P, wd in paths: ribbon(mb, P, wd, rr, earth=True)
     STREETS.extend(paths); log('door paths', len(paths))
+    # the Market Lane (Tushar 7 Nov): from the port yard's Market gate east to Pratt's forecourt, the Day-1 way to the fish
+    # market (Town.cs ropes it in). Laid after the houses, so no house moves for it (it runs between two, 3 m clear)
+    for n, name, x, y, z, yaw in SHOP_SPOTS:
+        if n != 5: continue
+        fx, fy = math.sin(yaw), -math.cos(yaw); d0 = DOOR5[0] - 1.0; ex, ey = x + fx * (d0 + 8), y + fy * (d0 + 8)
+        lane = [(px + S.YARD[1] + 1.5, py - 17.0), (ex - 6, py - 17.0), (ex, ey)]
+        ribbon(mb, lane, 3.6, random.Random(97)); STREETS.append((lane, 3.6)); log("market lane", [tuple(round(v, 1) for v in q) for q in lane])
     gm = MB(); rg = random.Random(31); nt = 0
     def clear(x, y, r):
         if street_d(x, y) < r + 0.6 or H(x, y) < 1.2 or SDF(x, y) < 6 or S.in_yard(x, y, r + 1): return False   # (the port yard: Tushar 7 Nov)
