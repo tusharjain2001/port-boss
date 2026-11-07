@@ -33,7 +33,7 @@ namespace PortBoss.EditorTools
             var a = ScriptableObject.CreateInstance<M1Assets>();
             a.FishCsv = AssetDatabase.LoadAssetAtPath<TextAsset>(csvPath);
             a.Toon = Shader.Find("PortBoss/M1/Toon"); a.Water = Shader.Find("PortBoss/M1/Water"); a.Sky = Shader.Find("PortBoss/M1/Sky");
-            a.Particle = Shader.Find("Universal Render Pipeline/Particles/Unlit");
+            a.Particle = Shader.Find("Universal Render Pipeline/Particles/Unlit"); a.Text = Shader.Find("PortBoss/M1/Text");
             Font F(string n) => AssetDatabase.LoadAssetAtPath<Font>(Root + "/Fonts/" + n);
             a.Display = F("Fraunces-SemiBold.ttf"); a.DisplayBold = F("Fraunces-Bold.ttf"); a.Ui = F("ZenMaruGothic-Medium.ttf"); a.UiBold = F("ZenMaruGothic-Bold.ttf"); a.UiBlack = F("ZenMaruGothic-Black.ttf");
 
@@ -42,6 +42,7 @@ namespace PortBoss.EditorTools
             a.FishIds = ids.Select(p => Path.GetFileNameWithoutExtension(p).Substring("PB_Fish_".Length)).ToArray();
             a.Fish = ids.Select(Model).ToArray();
             a.Kestrel = Model(Root + "/Art/PB_Boat_Kestrel_T2.fbx");
+            a.Port = Model(Root + "/Art/Port/PB_Port.fbx");   // (Walt's Landing port, Tushar 7 Nov)
             var m5 = Directory.Exists(Root + "/Art/M5") ? Directory.GetFiles(Root + "/Art/M5", "PB_*.fbx").Select(p => p.Replace('\\', '/')).OrderBy(p => p).ToArray() : new string[0];
             a.M5Ids = m5.Select(p => Path.GetFileNameWithoutExtension(p).Substring(3)).ToArray(); a.M5 = m5.Select(Model).ToArray();
             a.M5Spots = AssetDatabase.LoadAssetAtPath<TextAsset>(Root + "/Art/M5/PB_M5_Spots.json");

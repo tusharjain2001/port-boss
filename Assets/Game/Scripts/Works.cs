@@ -330,6 +330,7 @@ namespace PortBoss.M1
             double m = Sky.Minutes;
             // the counter I'm at
             var me = Angler.I; Near = null;
+            RoofTick(me);
             if (me != null && !me.Remote) foreach (var s in Shops) { var d = s.Front - me.transform.position; d.y *= 0.5f; if (d.magnitude < 2.0f) { Near = s; break; } }
             // the keepers: at the counter while open, indoors otherwise (a short walk each way)
             foreach (var s in Shops) KeeperTick(s.Keeper, s.At, Catalog.Opens[(int)s.S], Catalog.Closes[(int)s.S], Catalog.ClosedDay(s.S, DayTime.Day(m)), m);
@@ -428,7 +429,15 @@ namespace PortBoss.M1
                         office.SetPositionAndRotation(at.position, at.rotation);
                         if (shack != null) foreach (var r in shack.GetComponentsInChildren<Renderer>()) r.enabled = false;
                         if (shack != null) foreach (var c in shack.GetComponentsInChildren<Collider>()) c.enabled = false;
-                        TakeSpots(office); RespotAll("furn:", "bed:");
+                        // (and the old shack's own box beside it, "Shack_colBox": it stood in the office's doorway, Tushar 7 Nov)
+                        if (Landing.I != null) foreach (var c in Landing.I.GetComponentsInChildren<Collider>()) if (c.name.StartsWith("Shack")) c.enabled = false;
+                        // (and the shack window's night glow, Sky.cs: the 6 x 5 office's front wall stands elsewhere; its room light glows instead)
+                        if (Landing.I != null) { var wg = Util.Find(Landing.I.transform, "window glow"); if (wg != null) wg.gameObject.SetActive(false); }
+                        TakeSpots(office); RespotAll("furn:", "bed:"); CotInside();
+                        // the map's "office" anchor: in front of this tier's door (map B put it on the old shack's doorstep,
+                        // inside the walk-in office's frame: a body placed there popped into the room)
+                        var ao = Places.Get("office"); var sd = Util.Find(office, "socket_door");
+                        if (ao != null && sd != null) { var o = sd.position - office.position; o.y = 0; ao.SetPositionAndRotation(Ground(sd.position), Quaternion.LookRotation(o.sqrMagnitude > 0.01f ? o.normalized : ao.forward)); }
                         if (pop) StartCoroutine(Timelapse(office.gameObject));
                         Log($"office tier {ot} shown");
                     }
@@ -449,6 +458,46 @@ namespace PortBoss.M1
                 }
                 whShown = wt;
             }
+        }
+        // Am I inside the office? Over its room's floor ("Floor_colDeck", not the porch or the landing), below the eaves.
+        // The roof stays on and the camera comes in after me (CameraRig; Tushar 7 Nov, take 2); a warm lamp under the ridge
+        // lights the room while I'm in it, and every evening (the roof shades the whole floor at midday).
+        public bool InOffice { get; private set; }
+        Light roomLight; float roomA;
+        void RoofTick(Angler me)
+        {
+            if (office == null) return;
+            InOffice = false;
+            if (me != null && !me.Remote)
+                foreach (var c in office.GetComponentsInChildren<BoxCollider>())
+                {
+                    if (!c.name.StartsWith("Floor_colDeck")) continue;
+                    var b = c.bounds; var p = me.transform.position;
+                    if (p.x > b.min.x && p.x < b.max.x && p.z > b.min.z && p.z < b.max.z && p.y > b.max.y - 0.4f && p.y < b.max.y + 2.2f) { InOffice = true; break; }
+                }
+            if (roomLight == null || !roomLight.transform.IsChildOf(office))
+            {
+                BoxCollider fl = null; foreach (var c in office.GetComponentsInChildren<BoxCollider>()) if (c.name.StartsWith("Floor_colDeck")) { fl = c; break; }
+                if (fl == null) return;
+                var b = fl.bounds;
+                roomLight = new GameObject("room light").AddComponent<Light>(); roomLight.transform.SetParent(office, false);
+                roomLight.transform.position = new Vector3(b.center.x, b.max.y + 2.05f, b.center.z);
+                roomLight.type = LightType.Point; roomLight.color = Ponyo.Hex("FFE2B8"); roomLight.shadows = LightShadows.None;
+                roomLight.range = Mathf.Max(b.size.x, b.size.z) * 0.95f; roomLight.intensity = 0;
+            }
+            bool night = DayTime.SunElevation(Sky.Minutes) < 2;
+            roomA = Mathf.MoveTowards(roomA, InOffice ? 1 : night ? 0.7f : 0, Time.unscaledDeltaTime * 2.5f);
+            roomLight.intensity = 1.6f * roomA; roomLight.enabled = roomA > 0.001f;
+        }
+
+        // Walt's cot sleeps inside the office, on its spot_cot, whatever the tier (Tushar 7 Nov: "why is the bed outside?")
+        void CotInside()
+        {
+            var cot = Sleep.Walts; var sc = office != null ? Util.Find(office, "spot_cot") : null;
+            if (cot == null || sc == null) return;
+            cot.SetParent(sc, false); cot.localPosition = Vector3.zero; cot.localRotation = Quaternion.identity;
+            Spots["spot_cot"] = cot;
+            Log($"Walt's cot inside {office.name} at {cot.position}");
         }
         void RespotAll(params string[] pre)
         {
@@ -655,12 +704,15 @@ namespace PortBoss.M1
             var s = I.Near;
             if (s != null)
             {
+                var lk = Town.Lock(s.S == Store.Doyle ? "doyle" : s.S == Store.Plank ? "plank" : "hartleys");   // (the town opens step by step, Tushar 7 Nov)
+                if (lk != null) return $"{s.Name} · {lk}";
                 if (!s.IsOpen(Sky.Minutes)) return $"{s.Name} · {Catalog.ClosedSign(s.S, Sky.Minutes)}";
                 if (Ctl.Interact) YShop.Show(s);
                 return $"{s.Name} · {(s.S == Store.Doyle ? "boats, repairs, paint" : s.S == Store.Plank ? "builds, beds, furniture" : "clothes and dyes")}";
             }
-            // the wardrobe: any bed, or the office's wardrobe / locker
-            var wpt = I.WardrobePoint(me.transform.position);
+            // the wardrobe: any bed, or the office's wardrobe / locker (at a bed the bed's own prompt has it: a tap = the
+            // wardrobe, a hold = sleep; Walt's cot stands by the locker since it moved indoors, Tushar 7 Nov)
+            var wpt = AtBed(me) ? null : I.WardrobePoint(me.transform.position);
             if (wpt != null) { if (Ctl.Interact) Wardrobe.Show(); return "Wardrobe · change clothes"; }
             // the warehouse's door
             var door = I.WarehouseDoor;
@@ -781,11 +833,17 @@ namespace PortBoss.M1
             return n;
         }
 
-        // ---------------------------------------------------------------- testers: F7 raises the story act and adds $5,000
+        // ---------------------------------------------------------------- testers: F7 raises the story act and adds $5,000;
+        // Ctrl+F7 adds $100,000 and leaves the act alone (Tushar 7 Nov: money to buy everything and look at it)
         void Tester()
         {
             var kb = Keyboard.current; if (kb == null || !kb.f7Key.wasPressedThisFrame || kb.shiftKey.isPressed || Title.Shown) return; // (Shift+F7 = every fish heavy)
             if (Coop.On && !Coop.IsHost) { Alerts.Push("Tester", "F7 is the host's.", Alerts.Kind.Info); return; }
+            if (kb.ctrlKey.isPressed)
+            {
+                C.Earn(Firm.I.NewTx("tester"), MyName, "Tester cash (Ctrl+F7)", 100000, Sky.Minutes); Firm.I.Dirty = true;
+                Alerts.Push("Tester", $"+$100,000 · bank ${C.Cash:N0} (Ctrl+F7 again: more)", Alerts.Kind.Info); Log($"Ctrl+F7: bank ${C.Cash}"); return;
+            }
             C.Act = C.Act >= 4 ? 1 : C.Act + 1; C.Earn(Firm.I.NewTx("tester"), MyName, "Tester cash (F7)", 5000, Sky.Minutes); Firm.I.Dirty = true;
             Alerts.Push("Tester", $"Act {C.Act} · +$5,000 (F7 again: next act)", Alerts.Kind.Info); Log($"F7: act {C.Act}, bank ${C.Cash}");
         }

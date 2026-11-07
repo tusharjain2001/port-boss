@@ -7,7 +7,7 @@ namespace PortBoss.M1
     public class M1Assets : ScriptableObject
     {
         public UniversalRenderPipelineAsset Pipeline;     // copy of the PC pipeline + the Ponyo outline pass
-        public Shader Toon, Water, Sky, Particle;
+        public Shader Toon, Water, Sky, Particle, Text;   // (Text: the 3D sign words, depth-tested: PB_Text)
         public Material SoftParticle;   // a transparent particle material ASSET, so the build keeps its shader variant
         public Font Display, DisplayBold, Ui, UiBold, UiBlack; // Fraunces 600 / 700, Zen Maru Gothic 500 / 700 / 900
         public GameObject Boat, Landing, Worker, Pip;    // Pip: the character kit's first body (replaces the placeholder Worker when present)
@@ -17,6 +17,7 @@ namespace PortBoss.M1
         public GameObject[] Cells; public GameObject WorldProps; public TextAsset WorldJson; public Texture2D Seabed; // map B (Art/World, Map.cs)
         public TextAsset FishCsv;
         public GameObject Kestrel;                           // M5: the T2 launch (art-src/m5/build_kestrel.py)
+        public GameObject Port;                              // Walt's Landing port: quay, yard, fence + gate, lots (art-src/port/build_port.py, Tushar 7 Nov)
         public string[] M5Ids; public GameObject[] M5;       // M5 props, buildings and hats (Art/M5/PB_<Prop|Bld|Hat>_<id>.fbx), id = "Prop_desk"
         public TextAsset M5Spots;                            // the set spots on Walt's Landing (art-src/m5/spots.json)
         public AnimationClip Idle, Walk, Run, Sprint, Jump, Land, SwimIdle, Swim, Climb, Drive;

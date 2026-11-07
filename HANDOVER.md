@@ -40,6 +40,50 @@ Glossary:
 
 ---
 
+## 0a. Tushar's playtest of INTEGRATED-3 (2026-11-07, branch `playtest-7nov`, merged to `main` 8 Nov on Tushar's OK; test guide `docs/PLAYTEST-7NOV-HOW-TO-TEST.md`)
+
+Tushar played INTEGRATED-3 and asked for 6 changes. His picks are final (equal footing):
+- **Walt's Landing is a port** (his plan A):
+  - Map B now has a level 35 x 68 m **port yard** behind the landing (`island_shape.YARD`), and the town keeps out of it.
+  - `art-src/port/build_port.py` builds `Art/Port/PB_Port.fbx` (placed under the landing by `World.cs`): a 68 m timber quay on piles, the packed-earth yard, a fence with a north opening (to June's lane), a south opening (to Doyle's waterfront), the town gate and the **Market gate**, two lots and props.
+  - The **Market Lane** is a new cobbled street from the Market gate to Pratt's forecourt (`build_island.py`, laid after the houses so none moved).
+- **Walk-in office, Walt's cot inside.**
+  - The old shack's `Shack_colBox` was blocking the doorway.
+  - The office tiers' roofs are a separate `Roof` object and fade out while you're inside (`Works.InOffice`). Indoors the camera tilts to a 56° view.
+- **The town opens step by step** (`Town.cs`; his picks: gates + fenced lanes, opening with the story):
+  - On Day 1, ropes with bunting and "Closed for now" barriers keep the player to the lane up to June's and the Market Lane to Pratt's.
+  - The ropes come down when Doyle's opens: $90 in the bank, $50 made, Day 2, or Act 2.
+  - Plank & Post opens on Day 2. The pub, Hartley's and the post office open in Act 2 **or on Day 5**: nothing advances the act yet except F7. Until then they have a door board, and their counter prompt says when they open.
+- **Shop signs and a "To the town" board** (`Signs.cs`): a big board and a hanging sign at every shop; at the pier head, an arrow, distance and "closed" state for each shop.
+- **Phone map tabs:** All / Shops / Crew (no Fish tab).
+- **Stamina** (`Angler.Stamina`, systems §1.6.7): sprinting 12 s, fast swimming 25 s, swimming or treading water 90 s, refills in 5 s. Run dry on land: no sprint until 35%. Run dry in the water: Dot's fish-out up the nearest ladder.
+
+New test switches: `-pb-staminatest`, `-pb-phonemap`, `-pb-officewalk`, `-pb-porttest`, `-pb-towntest`, `-pb-townopen`, `-pb-mapday`, `-pb-nohud`, `-pb-testerkeys`.
+
+Tester keys (host only): **Ctrl+F7** +$100,000 (act unchanged), **Ctrl+F10** the next morning 7:00, as well as F7 (next act +$5,000) and F10/Shift+F10.
+
+**Round 2 (Tushar, the same evening; his picks):**
+- **Stamina** is a slim bar under the feet (`Hud.Stamina`), no longer a ring beside the head.
+- **The gate leaves are solid:** colliders on each open leaf (`build_port.py gate()`).
+- **The office is bigger**, and the camera comes inside:
+  - Sizes: office0 is 6x5 (was 4x3.5), office1 7.6x5.6, office2 9.2x6.8 (`build_props.py`, `layout.py`; all three layouts pass the checker).
+  - `spot_office` moved to landing (-7, 15, 1.57), growing away from the pier. Copy `art-src/m5/spots.json` to `Art/M5/PB_M5_Spots.json` after a spots run.
+  - Walt's own things are fixed in office0: sea chest + tackle box (`fix_chest`), rods over the door, his oilskin, a lifebuoy, a lantern.
+  - **The roof stays on.** Indoors the follow camera comes in after her: 2.7 m, pitch 10-20, FOV 64, under 2.25 m. The office walls pull it in rather than fading (`CameraRig.OfficeWall`). A warm room light is on while you're in and every evening (`Works.RoofTick`).
+- **No casting without water in the rod's reach** (`Fishing.WaterNear`, `ValidPoint` capped at RangeMax + 2 m). The hint reads "Too far from the water to cast".
+- **The town quay joins the port at both ends** (`build_island.py` JOIN, to dx 1.5). It used to end in mid-air 5 m short of the yard.
+  - It runs into the south opening and into a new north quay opening (`GAP_NQ`).
+  - Every street end is now closed down to the ground (`ribbon` end caps).
+  - On Day 1 there are barriers at both joins (`Town.Barriers`).
+- **Sign words** (`Firm.Sign`) use a new depth-tested `PortBoss/M1/Text` shader (`M1Assets.Text`). The font's GUI shader drew through walls, so the town barriers showed inside the office. Long barrier text now shrinks to fit the board.
+
+Open questions for Manan:
+- Is the port look right? It's still blockout-level art.
+- Should anything advance the story act by itself?
+- Should the town's later stages get their own ropes too? At the moment it all opens with Doyle's.
+
+---
+
 ## 0. To Tushar's Claude (2026-11-03)
 
 **What Manan's side did since M1b** (all on `main` once Kufu pushes this merge; details in §4):

@@ -77,6 +77,11 @@ namespace PortBoss.M1
                     if (s != null && Time.time - lastLook > 2f) Yaw = Mathf.LerpAngle(Yaw, s.transform.eulerAngles.y, 1 - Mathf.Exp(-1.2f * dt)); // recentre
                     break;
             }
+            // Indoors (the office): the roof stays on and the camera comes in after her, close and low under the beams, a
+            // little wider, so the room and its things are in view (Tushar 7 Nov, take 2: "when we enter the room the camera
+            // angle should change so we can see the items inside"); its walls hold the camera in (below)
+            bool inside = M == Mode.Follow && Works.I != null && Works.I.InOffice && Works.I.Office != null;
+            if (inside) { tDist = 2.7f * (a != null ? a.Size : 1); tPitchOff = Mathf.Clamp(Pitch, 10, 20) - Pitch; tFov = 64; }
             // The bobber / the fish pulls the view only while it's in front of the camera: orbit round to her face and the
             // camera looks at her, not back over its own shoulder down into the water (Tushar 2 Nov: stuck looking at the sea).
             if (tFocus > 0)
@@ -129,12 +134,15 @@ namespace PortBoss.M1
                 var bs = hit.collider.bounds.size;
                 if (hit.distance <= 0 || bs.x < 0.5f && bs.z < 0.5f) continue; // (SphereCast never saw start overlaps either)
                 if (Skiff.I != null && hit.transform.IsChildOf(Skiff.I.transform) || hit.collider.GetComponentInParent<Angler>() != null) continue;
-                if (Fadeable(hit.collider).Count > 0) continue;
-                if (hit.distance < room) { room = Mathf.Max(0.6f, hit.distance); Blocker = hit.collider.name; }
+                bool wall = inside && OfficeWall(hit.collider);                  // (indoors its walls hold the camera in, not fade)
+                if (!wall && Fadeable(hit.collider).Count > 0) continue;
+                if (hit.distance < room) { room = Mathf.Max(wall ? 0.35f : 0.6f, hit.distance - (wall ? 0.05f : 0)); Blocker = hit.collider.name; }
             }
             reach = Mathf.Min(reach, len);
             reach = Mathf.Lerp(reach, room, 1 - Mathf.Exp(-dt / (room < reach ? 0.05f : 0.35f)));
             p = piv + dir / len * reach;
+            // and under its beams: never above 2.25 m over the floor she stands on
+            if (inside) p.y = Mathf.Min(p.y, groundY + 2.25f);
             // never under the water
             float wy = Sea.Height(p) + 0.35f; if (p.y < wy) p.y = wy;
 
@@ -214,6 +222,17 @@ namespace PortBoss.M1
                 r.GetPropertyBlock(fadeMpb); fadeMpb.SetFloat("_Fade", f); r.SetPropertyBlock(fadeMpb);
                 if (f <= 0 && !on) fading.Remove(r); else fading[r] = f;
             }
+        }
+
+        // the office's walls and the floor over the ground floor (art-src/m5/build_props.py walls_cols: Back/Left/Right/
+        // FrontL/FrontR/FrontTop, Upper) - not its furniture, which fades as everywhere
+        static readonly string[] Walls = { "Back_col", "Left_col", "Right_col", "FrontL_col", "FrontR_col", "FrontTop_col", "Upper_col" };
+        static bool OfficeWall(Collider c)
+        {
+            var o = Works.I != null ? Works.I.Office : null;
+            if (o == null || !c.transform.IsChildOf(o)) return false;
+            foreach (var w in Walls) if (c.name.StartsWith(w)) return true;
+            return false;
         }
 
         // Where the aim ray from the screen centre meets the sea (for the cast marker), flattened to the player's yaw.

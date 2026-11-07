@@ -105,6 +105,7 @@ namespace PortBoss.M1
         IEnumerator MapWalk()
         {
             var lt = Landing.I.transform;
+            Town.ForceOpen(); yield return null; yield return null;   // (the ropes down: this walk visits every shop on Day 1)
             var goals = new List<(string id, Vector3 p)>();
             foreach (var id in new[] { "office", "tackle", "pub", "hartleys", "post", "pratts", "plank", "doyle", "office" })
             { var a = Places.Get(id); if (a != null) goals.Add((id, a.position + a.forward * 1.5f)); else MapCheck(false, "no anchor " + id); }
@@ -164,9 +165,22 @@ namespace PortBoss.M1
             int Cell(Vector3 p) => Mathf.Clamp(Mathf.RoundToInt((p.z - z0) / C), 0, nz - 1) * nx + Mathf.Clamp(Mathf.RoundToInt((p.x - x0) / C), 0, nx - 1);
             int s = Cell(from), goal = Cell(to);
             // start and goal: the nearest walkable cell (a door step, the pier edge)
-            int Near(int c, float y) { if (!float.IsNaN(h[c]) && Mathf.Abs(h[c] - y) < 1.2f) return c; int best = -1; float bd = 9; for (int k = 0; k < h.Length; k++) if (!float.IsNaN(h[k]) && Mathf.Abs(h[k] - y) < 1.2f) { float d = Mathf.Abs(k % nx - c % nx) + Mathf.Abs(k / nx - c / nx); if (d < bd) { bd = d; best = k; } } return best; }
+            // (first the nearest cell at the point's own level, 25 cm: an anchor outside a walk-in room's door can round into the room)
+            int NearAt(int c, float y, float tol) { if (!float.IsNaN(h[c]) && Mathf.Abs(h[c] - y) < tol) return c; int best = -1; float bd = 9; for (int k = 0; k < h.Length; k++) if (!float.IsNaN(h[k]) && Mathf.Abs(h[k] - y) < tol) { float d = Mathf.Abs(k % nx - c % nx) + Mathf.Abs(k / nx - c / nx); if (d < bd) { bd = d; best = k; } } return best; }
+            int Near(int c, float y) { int k = NearAt(c, y, 0.25f); return k >= 0 ? k : NearAt(c, y, 1.2f); }
             s = Near(s, from.y); goal = Near(goal, to.y); if (s < 0 || goal < 0) return null;
             var g = new float[h.Length]; var from_ = new int[h.Length]; for (int k = 0; k < g.Length; k++) { g[k] = float.MaxValue; from_[k] = -1; }
+            Vector3 At(int c, float up) => new(x0 + c % nx * C, Mathf.Max(h[c], 0) + up, z0 + c / nx * C);
+            bool Wall(int c, int n)
+            {
+                float y = Mathf.Max(h[c], h[n]);
+                foreach (var up in new[] { 0.55f, 1.3f })
+                {
+                    var a = At(c, 0); a.y = y + up; var b = At(n, 0); b.y = y + up;
+                    if (Physics.Linecast(a, b, out var hit, ~0, QueryTriggerInteraction.Ignore) && hit.collider.GetComponentInParent<Angler>() == null) return true;
+                }
+                return false;
+            }
             var open = new SortedSet<(float f, int c)>(); g[s] = 0; open.Add((0, s));
             float Hx(int c) => Mathf.Sqrt(Mathf.Pow(c % nx - goal % nx, 2) + Mathf.Pow(c / nx - goal / nx, 2));
             while (open.Count > 0)
@@ -178,6 +192,7 @@ namespace PortBoss.M1
                         int i = ci + di, j = cj + dj; if ((di == 0 && dj == 0) || i < 0 || j < 0 || i >= nx || j >= nz) continue;
                         int n = j * nx + i; if (float.IsNaN(h[n]) || Mathf.Abs(h[n] - h[c]) > 0.9f) continue;
                         if (di != 0 && dj != 0 && (float.IsNaN(h[cj * nx + i]) || float.IsNaN(h[j * nx + ci]))) continue; // no corner cutting
+                        if (c != s && n != goal && Wall(c, n)) continue;   // a thin wall between the two cells (the walk-in office's 6 cm boards: the 1 m grid steps over them); not off the start / onto the goal (door steps)
                         float ng = g[c] + (di != 0 && dj != 0 ? 1.414f : 1f);
                         if (ng >= g[n]) continue;
                         if (g[n] < float.MaxValue) open.Remove((g[n] + Hx(n), n));
@@ -207,8 +222,9 @@ namespace PortBoss.M1
         // -pb-mapview <dir> -pb-views "name:x,y,z>lx,ly,lz;..." (noon, fair): look at any spot (debugging the map); -pb-hour h, -pb-mari: Mari moored
         IEnumerator MapView(string views)
         {
-            Ctl.Bot = true; Sleep.Off = true; Sky.ForceWx = 1; Sky.Jump(DayTime.At(2, ArgF("-pb-hour", 12) * 60)); Time.captureFramerate = 60;
+            Ctl.Bot = true; Sleep.Off = true; Sky.ForceWx = 1; Sky.Jump(DayTime.At((int)ArgF("-pb-mapday", 2), ArgF("-pb-hour", 12) * 60)); Time.captureFramerate = 60;   // (-pb-mapday 1: the roped-off town)
             if (Arg("-pb-mari") != null && Firm.C != null) { Firm.C.Mari = DealSt.Active; Firm.C.MariAccepted = Sky.Minutes - 120; } // her boat moored (the counter shots)
+            if (Arg("-pb-nohud") != null) HudShown(false);   // (plans drawn over the picture: no toasts in the way)
             yield return new WaitForSeconds(0.5f);
             static Vector3 V(string s) { var f = s.Split(','); return new Vector3(float.Parse(f[0], CultureInfo.InvariantCulture), float.Parse(f[1], CultureInfo.InvariantCulture), float.Parse(f[2], CultureInfo.InvariantCulture)); }
             foreach (var v in views.Split(';'))

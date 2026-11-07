@@ -353,7 +353,7 @@ def build_rocks(coll):
     # Walt's Landing stays clear (INTEGRATED-3): a rock poked through the pier root and sat by the cot. The footprint: the
     # 32 m pier out west from the root, the shack and the yard behind it. R is still drawn for a skipped rock, so every
     # other rock keeps its exact shape and place.
-    px, py = S.PIER_ROOT; bx0, bx1, by0, by1 = px - 36, px + 18, py - 10, py + 16
+    px, py = S.PIER_ROOT; bx0, bx1, by0, by1 = px - 36, px + S.YARD[1] + 4, py + S.YARD[2] - 4, py + S.YARD[3] + 4   # (+ the port yard, Tushar 7 Nov)
     def on_landing(x, y, s): return math.hypot(max(bx0 - x, 0, x - bx1), max(by0 - y, 0, y - by1)) < s + 1.0
     for k, (x, y, s) in enumerate(rocks):
         rz = s * R.uniform(0.55, 0.95); z = H(x, y)
@@ -688,6 +688,11 @@ def ribbon(mb, P, wd, rs, quay=False, earth=False):
             bm.faces.new((a[c], b[c], b[c + 1], a[c + 1])); cols.append(top(c))
         bm.faces.new((a[5], b[5], b[0], a[0])); cols.append('quay' if walls[k] == 0 else 'earth2' if earth else 'stone2')
         bm.faces.new((a[4], b[4], b[6], a[6])); cols.append('quay' if walls[k] == 4 else 'earth2' if earth else 'stone2')
+    # both ends closed down to the lip (Tushar 7 Nov: an open end showed as a slab hanging in the air where the ground fell away)
+    for k, sg in ((0, -1.0), (n - 1, 1.0)):
+        r = rows[k]; f = bm.faces.new((r[5], r[0], r[1], r[2], r[3], r[4], r[6])); f.normal_update()
+        if f.normal.x * T[k][0] * sg + f.normal.y * T[k][1] * sg < 0: f.normal_flip()
+        cols.append('earth2' if earth else 'stone2')
     it = iter(cols); mb.add(bm, lambda c_, n_: next(it))
     return P, N_, np.array(Zr)
 
@@ -745,7 +750,7 @@ def quay_lamp(mb, x, y, z):
 
 def build_streets(mb, shore, px, py, tx, ty, rr):
     """The quay along the town's waterline and a lane from every shop door to it (or to a lane already built)."""
-    def clear_of_shops(x, y): return math.hypot(x - px - 12, y - py - 3) > 24 and all(math.hypot(x - sx, y - sy) > {2: 21}.get(n, 14) for n, _, sx, sy, _, _ in SHOP_SPOTS)
+    def clear_of_shops(x, y): return math.hypot(x - px - 12, y - py - 3) > 24 and not S.in_yard(x, y, 3) and all(math.hypot(x - sx, y - sy) > {2: 21}.get(n, 14) for n, _, sx, sy, _, _ in SHOP_SPOTS)
     def along(off, wd, ok, tag):
         q = []
         for p, (nx, ny) in shore:
@@ -763,6 +768,23 @@ def build_streets(mb, shore, px, py, tx, ty, rr):
             out.append((list(map(tuple, resample(A, 2.0))), wd))
         log(tag, len(runs), [len(r) for r in runs]); return out
     quays = along(3.0, 5.0, lambda x, y: H(x, y) > -0.3, 'quay runs')           # its water side right at the waterline
+    # (Tushar 7 Nov: the town quay stopped 5 m short of both ends of the port yard, its end in mid-air over a grass bank)
+    # the end of a run nearest an end of the yard goes on, straight, to the yard's fence: through its south opening (dx 1.5,
+    # onto the waterfront to Doyle's) and its north quay opening (dx 1.5, art-src/port/build_port.py GAP_NQ)
+    JOIN = {-1: 1.5, 1: 1.5}   # (its water-side kerb flush with the port deck's corner, dx -1.4)
+    for qi, (P, wd) in enumerate(quays):
+        P = list(P)
+        for first in (True, False):
+            x, y = P[0] if first else P[-1]; ox, oy = x - px, y - py
+            x2, y2 = P[-1] if first else P[0]
+            for ey in (S.YARD[2], S.YARD[3]):
+                sg = 1 if ey > 0 else -1
+                if abs(ey) - 1 < sg * oy < abs(ey) + 12 and S.QUAY[0] - 8 < ox < S.YARD[0] + 12 and sg * oy < sg * (y2 - py):   # (the nearer end only)
+                    T = (px + JOIN[sg], py + ey + sg * 0.3); n = max(1, int(math.dist((x, y), T) / 2.0))
+                    ext = [(x + (T[0] - x) * k / n, y + (T[1] - y) * k / n) for k in range(1, n + 1)]
+                    P = ext[::-1] + P if first else P + ext
+                    log('quay run %d: its %s end (dx %.1f, dy %.1f) goes on to the yard fence at (dx %.1f, dy %.1f)' % (qi, 'first' if first else 'last', ox, oy, JOIN[sg], ey + sg * 0.3))
+        quays[qi] = (P, wd)
     STREETS.extend(quays)
     STREETS.extend(along(22.5, 4.0, lambda x, y: H(x, y) > 0.8 and slope(x, y) < 0.45 and street_d(x, y) > 6, 'back street runs'))
     def gS(x, y):
@@ -787,7 +809,7 @@ def build_streets(mb, shore, px, py, tx, ty, rr):
                     x, y = p[0] + nx * s_, p[1] + ny * s_
                     if H(x, y) >= hL:
                         if (KIND(x, y) == 1 and slope(x, y) < 0.5 and math.hypot((x - tx) * 0.85, y - ty) < 340
-                                and math.hypot(x - px - 12, y - py - 3) > 34 and all(math.dist((x, y), c) > 17 for c in lm)): v = (x, y)
+                                and math.hypot(x - px - 12, y - py - 3) > 34 and not S.in_yard(x, y, 8) and all(math.dist((x, y), c) > 17 for c in lm)): v = (x, y)
                         break
             q.append(v)
         runs, cur = [], []
@@ -814,11 +836,15 @@ def build_streets(mb, shore, px, py, tx, ty, rr):
     for n, name, x, y, z, yaw in SHOP_SPOTS:
         dd = {2: 11.0, 3: 5.6, 5: DOOR5[0]}.get(n, 5.2) + 2.0
         doors.append((x + math.sin(yaw) * dd, y - math.cos(yaw) * dd))
-    doors.append((px + 12 + 8, py + 3))                                                   # Walt's yard
+    # the port yard's town gate (Tushar 7 Nov): its lane runs north outside the fence first (straight to the nearest street
+    # it cut across the yard's corner), then on to the street
+    gx_, gy_ = px + S.YARD_GATE[0] + 3, py + S.YARD_GATE[1]; gn_ = (gx_, py + S.YARD[3] + 5)
+    doors.append(gn_)
     for d in sorted(doors, key=lambda d: nearest(*d)[1]):
         at, dist = nearest(*d)
         if at is None or dist < 3 or dist > 260: continue
         STREETS.append(([d, at], 3.6))
+    STREETS.append(([(gx_, gy_), gn_], 3.6))
     for n, name, x, y, z, yaw in SHOP_SPOTS:                                            # a cobbled forecourt before each door (M4's counter stands on it)
         fx, fy = math.sin(yaw), -math.cos(yaw); d0 = {2: 11.0, 3: 5.6, 5: DOOR5[0]}.get(n, 5.2) - 1.0
         STREETS.append(([(x + fx * d0, y + fy * d0), (x + fx * (d0 + 9), y + fy * (d0 + 9))], 4.9))
@@ -852,16 +878,7 @@ def build_streets(mb, shore, px, py, tx, ty, rr):
                     qx, qy = cx + sx_ * k2 * 1.5, cy + sy_ * k2 * 1.5; g = H(qx, qy)
                     mb.add(cyl(0.32, 0.5, 8, 0.4), 'rust', M((qx, qy, g + 0.25)))
                     mb.add(blob(1, (0.45,) * 3, 50 + n * 3 + k2, 0.2, 1.0), rr.choice(('hedge', 'flower', 'flower2')), M((qx, qy, g + 0.75)))
-    # Walt's yard: a packed-earth path from the pier root past the shack, his crates and a net rack behind it
-    yard = [(px + 1, py), (px + 8, py + 1.5), (px + 14, py + 2.5), (px + 20, py + 3)]
-    ribbon(mb, yard, 3.0, rr, earth=True); STREETS.append((yard, 3.0))
-    pad = [(px + 1, py + 5), (px + 16, py + 7)]                                         # the packed-earth yard round the shack
-    ribbon(mb, pad, 7.0, rr, earth=True); STREETS.append((pad, 7.0))
-    for cx, cy, a in ((px + 9.5, py + 13.5, 0.2), (px - 0.5, py + 10.5, -0.3)): crates(mb, cx, cy, H(cx, cy), a, rr)
-    for k2 in range(3):
-        cx, cy = px + 12 + k2 * 1.6, py + 9; g = H(cx, cy)
-        mb.add(cyl(0.07, 1.9, 6), 'midwood', M((cx, cy, g + 0.95)))
-    mb.add(box(3.6, 0.06, 1.3), 'rope', M((px + 13.6, py + 9, H(px + 13.6, py + 9) + 1.2)))
+    # (Walt's old packed-earth yard, crates and net rack: the port yard's own now, art-src/port/build_port.py, Tushar 7 Nov)
 
 
 def build_town(coll):
@@ -894,7 +911,7 @@ def build_town(coll):
         gx = SDF(p[0] + 3, p[1]) - SDF(p[0] - 3, p[1]); gy = SDF(p[0], p[1] + 3) - SDF(p[0], p[1] - 3); g = math.hypot(gx, gy) or 1
         nx, ny = gx / g, gy / g; qx, qy = p[0] + nx * 15, p[1] + ny * 15
         if KIND(qx, qy) != 1 or not (9 < SDF(qx, qy) < 24) or not (1.2 < H(qx, qy) < 14): continue
-        if math.hypot(qx - px - 12, qy - py - 3) < 36 or any(math.hypot(qx - a, qy - b) < 14 for a, b, _ in placed): continue
+        if math.hypot(qx - px - 12, qy - py - 3) < 36 or S.in_yard(qx, qy, 8) or any(math.hypot(qx - a, qy - b) < 14 for a, b, _ in placed): continue
         if any(math.hypot(qx - a, qy - b) < 5.6 for a, b in rows) or street_d(qx, qy) < 4.5 or before_shop(qx, qy): continue
         rows.append((qx, qy)); k += 1
         yaw = math.atan2(-ny, -nx) + math.pi / 2
@@ -937,7 +954,7 @@ def build_town(coll):
         if r > 380 or r_.random() > 1.15 - r / 380: return None
         z = H(x, y)
         if not (1.2 < z < 48) or SDF(x, y) < 9 or slope(x, y) > 0.42 or KIND(x, y) in (2, 3): return None
-        if math.hypot(x - px - 12, y - py - 3) < 34: return None                         # Walt's Landing yard
+        if math.hypot(x - px - 12, y - py - 3) < 34 or S.in_yard(x, y, 8): return None   # Walt's Landing + the port yard
         if any(math.hypot(x - a, y - b) < c + 7 for a, b, c in placed) or street_d(x, y) < 6.5 or before_shop(x, y): return None
         return 7.0
     hs = scatter(60, (tx - 420, tx + 420, ty - 380, ty + 380), t, 12.0, 13, 120000)
@@ -961,9 +978,16 @@ def build_town(coll):
         paths.append(([F, at], 1.5))
     for P, wd in paths: ribbon(mb, P, wd, rr, earth=True)
     STREETS.extend(paths); log('door paths', len(paths))
+    # the Market Lane (Tushar 7 Nov): from the port yard's Market gate east to Pratt's forecourt, the Day-1 way to the fish
+    # market (Town.cs ropes it in). Laid after the houses, so no house moves for it (it runs between two, 3 m clear)
+    for n, name, x, y, z, yaw in SHOP_SPOTS:
+        if n != 5: continue
+        fx, fy = math.sin(yaw), -math.cos(yaw); d0 = DOOR5[0] - 1.0; ex, ey = x + fx * (d0 + 8), y + fy * (d0 + 8)
+        lane = [(px + S.YARD[1] + 1.5, py - 17.0), (ex - 6, py - 17.0), (ex, ey)]
+        ribbon(mb, lane, 3.6, random.Random(97)); STREETS.append((lane, 3.6)); log("market lane", [tuple(round(v, 1) for v in q) for q in lane])
     gm = MB(); rg = random.Random(31); nt = 0
     def clear(x, y, r):
-        if street_d(x, y) < r + 0.6 or H(x, y) < 1.2 or SDF(x, y) < 6: return False
+        if street_d(x, y) < r + 0.6 or H(x, y) < 1.2 or SDF(x, y) < 6 or S.in_yard(x, y, r + 1): return False   # (the port yard: Tushar 7 Nov)
         return all(math.hypot(x - hx, y - hy) > max(hw, hd) / 2 + r + 0.8 for hx, hy, _, hw, hd, _ in HOUSES if abs(x - hx) < 20 and abs(y - hy) < 20) and \
                all(math.hypot(x - a, y - b) > c for a, b, c in placed[:len(LANDMARKS)])
     def tree(x, y):

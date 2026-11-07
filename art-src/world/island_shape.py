@@ -126,6 +126,21 @@ def bilinear(A, n):
 
 PIER_ROOT = None   # set by heightfield(): world (x, y) of Walt's pier root on the town shore
 
+# Walt's Landing port (Tushar 7 Nov, plan A): a fenced, level port yard behind a timber quay. Metres from the pier root
+# (world x east, y north): the yard runs inland from the shore, the quay (art-src/port/build_port.py) stands on piles
+# over the water in front of it. The town keeps out of it (houses, streets, rocks); its gate on the inland side.
+YARD = (-1.4, 33.6, -34.0, 34.0)        # dx0, dx1, dy0, dy1: the level yard (1.25 m), filled where it met the sea
+QUAY = (-11.4, -1.4)                    # dx: the quay's deck, over the water along the yard's whole length
+YARD_GATE = (33.6, 19.0)                # dx, dy: the gate onto the town lane
+YARD_Z = 1.25
+
+
+def in_yard(x, y, m=0.0):
+    """World (x, y) within m metres of the port yard or its quay (the town keeps out)."""
+    if PIER_ROOT is None: return False
+    dx, dy = x - PIER_ROOT[0], y - PIER_ROOT[1]
+    return QUAY[0] - m <= dx <= YARD[1] + m and YARD[2] - m <= dy <= YARD[3] + m
+
 # Knobs. RIDGE_H: Saltback Ridge's crest. HORN: metres the south horn's tip reaches further out (west, a little south),
 # which lengthens the way round to Voss; Walt's Cut and everything east stay put. Map B as drawn = 140, 0.
 # Defaults = Manan's pick (3 Nov): ridge 220 m, horn +400 m (Voss 4.48 km = 12.4 min at 6 m/s, the gdd's number).
@@ -194,6 +209,11 @@ def heightfield(n=N, cut_open=False, sdf_n=1024):
     lx, ly = PIER_ROOT[0] + 12.0, PIER_ROOT[1] + 3.0          # Walt's landing yard (M1: flat around the shack)
     yard = 1 - sstep(24, 46, np.hypot(X - lx, Y - ly))
     land = land + (1.25 - land) * yard * (sdf > 0)
+    # the port yard (plan A): level at YARD_Z out to its edges, a grassy bank up to the town over the next 9 m
+    px_, py_ = PIER_ROOT
+    ox = np.maximum(np.maximum(px_ + YARD[0] - X, X - px_ - YARD[1]), 0); oy = np.maximum(np.maximum(py_ + YARD[2] - Y, Y - py_ - YARD[3]), 0)
+    port = 1 - sstep(0, 9, np.hypot(ox, oy))                 # 1 in the yard, 0 from 9 m outside it
+    land = land + (YARD_Z - land) * port * (sdf > 0)
     # Voss quay: flat 3.0 m reclaimed concrete
     vq = d_voss > 0
     land = np.where(vq, 3.0, land); kind[vq] = 2
@@ -229,6 +249,9 @@ def heightfield(n=N, cut_open=False, sdf_n=1024):
     # Walt's yard reaches 3 m past the shoreline (dry ground at the shack's door and the pier's root, as in M1), then
     # slopes down to the berth's 2.6 m by 7 m out (the terrain's 4 m cells would otherwise smear the 1.25 m step under water)
     h = h + (1.25 - h) * yard * sstep(-7, -3, sdf) * (sdf <= 0)
+    # the port yard is filled out to its sea edge (a quay wall drops from it: build_port.py), the water in front kept
+    fill = (X - px_ >= YARD[0]) & (X - px_ <= YARD[1]) & (Y - py_ >= YARD[2]) & (Y - py_ <= YARD[3])
+    h = np.where(fill, YARD_Z, h)
     bw = 1 - sstep(10, 34, db)
     h = np.maximum(h, -depth + (3.5 + depth) * bw)
     kind[(db < 22) & (h > -1)] = 4

@@ -48,6 +48,12 @@ namespace PortBoss.M1
             else if (Arg("-pb-shots") != null) { shots = Arg("-pb-shots"); Directory.CreateDirectory(shots); yield return ShotTour(); }
             else if (Arg("-pb-boattest") != null) yield return BoatTest();
             else if (Arg("-pb-swimtest") != null) yield return SwimTest();
+            else if (Arg("-pb-phonemap") != null) yield return PhoneMapShots(Arg("-pb-phonemap"));
+            else if (Arg("-pb-officewalk") != null) yield return OfficeWalk(Arg("-pb-officewalk"));
+            else if (Arg("-pb-porttest") != null) yield return PortTest(Arg("-pb-porttest"));
+            else if (Arg("-pb-towntest") != null) yield return TownTest(Arg("-pb-towntest"));
+            else if (Arg("-pb-testerkeys") != null) yield return TesterKeys();
+            else if (Arg("-pb-staminatest") != null) yield return StaminaTest(Arg("-pb-staminatest") is string sd && sd != "" && !sd.StartsWith("-") ? sd : null);
             else if (Arg("-pb-laddertest") != null) yield return LadderTest(Arg("-pb-laddertest"));
             else if (Arg("-pb-camtest") != null) yield return CamTest((int)ArgF("-pb-camtest", 6));
             else if (Arg("-pb-helmshots") != null) { shots = Arg("-pb-helmshots"); Directory.CreateDirectory(shots); yield return HelmShots(); }
