@@ -25,6 +25,7 @@ namespace PortBoss.M1
         public static Transform Cot; public static float CotH = 0.5f;
         // (M5) beds bought at Plank & Post: the nearest one is "the cot" while you're at it (Walt's stays Cot0)
         public static Transform Cot0; public static readonly List<Transform> Beds = new();
+        public static Transform Walts;              // Walt's own cot (Works moves it into the office, Tushar 7 Nov)
         // the Rested buff (economy §2.3): slept in a fixed or bought bed -> the next awake day has no heavy eyes (01:30)
         public static int RestedDay = -1;
         public static bool GoodBed => Firm.C != null && (Cot != Cot0 || Firm.C.Owned.Contains("bed:cot"));
@@ -103,7 +104,7 @@ namespace PortBoss.M1
             Box("blanket", new Vector3(0, 0.425f, 0.45f), new Vector3(0.76f, 0.05f, 0.85f), blanket);
             var col = root.gameObject.AddComponent<BoxCollider>(); col.center = new Vector3(0, 0.25f, 0); col.size = new Vector3(0.8f, 0.5f, 1.95f);
             foreach (var r in root.GetComponentsInChildren<MeshRenderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
-            Cot = root;
+            Cot = Walts = root;
             Log($"cot at {root.position.x:F1} {root.position.y:F2} {root.position.z:F1}");
         }
 

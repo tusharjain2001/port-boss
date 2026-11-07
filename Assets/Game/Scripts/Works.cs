@@ -330,6 +330,7 @@ namespace PortBoss.M1
             double m = Sky.Minutes;
             // the counter I'm at
             var me = Angler.I; Near = null;
+            RoofTick(me);
             if (me != null && !me.Remote) foreach (var s in Shops) { var d = s.Front - me.transform.position; d.y *= 0.5f; if (d.magnitude < 2.0f) { Near = s; break; } }
             // the keepers: at the counter while open, indoors otherwise (a short walk each way)
             foreach (var s in Shops) KeeperTick(s.Keeper, s.At, Catalog.Opens[(int)s.S], Catalog.Closes[(int)s.S], Catalog.ClosedDay(s.S, DayTime.Day(m)), m);
@@ -428,7 +429,9 @@ namespace PortBoss.M1
                         office.SetPositionAndRotation(at.position, at.rotation);
                         if (shack != null) foreach (var r in shack.GetComponentsInChildren<Renderer>()) r.enabled = false;
                         if (shack != null) foreach (var c in shack.GetComponentsInChildren<Collider>()) c.enabled = false;
-                        TakeSpots(office); RespotAll("furn:", "bed:");
+                        // (and the old shack's own box beside it, "Shack_colBox": it stood in the office's doorway, Tushar 7 Nov)
+                        if (Landing.I != null) foreach (var c in Landing.I.GetComponentsInChildren<Collider>()) if (c.name.StartsWith("Shack")) c.enabled = false;
+                        TakeSpots(office); RespotAll("furn:", "bed:"); CotInside();
                         if (pop) StartCoroutine(Timelapse(office.gameObject));
                         Log($"office tier {ot} shown");
                     }
@@ -449,6 +452,42 @@ namespace PortBoss.M1
                 }
                 whShown = wt;
             }
+        }
+        // While I'm inside the office its roof lifts off (fades out in 0.25 s, back in 0.4 s), so the camera sees me and
+        // the room (Tushar 7 Nov). Inside = over one of its floors (the *_colDeck boxes), below the eaves of that floor.
+        Transform roof; float roofA; MaterialPropertyBlock roofMpb;
+        public bool InOffice { get; private set; }
+        void RoofTick(Angler me)
+        {
+            if (office == null) return;
+            if (roof == null || !roof.IsChildOf(office)) roof = Util.Find(office, "Roof");
+            InOffice = false;
+            if (me != null && !me.Remote)
+                foreach (var c in office.GetComponentsInChildren<BoxCollider>())
+                {
+                    if (!c.name.EndsWith("_colDeck")) continue;
+                    var b = c.bounds; var p = me.transform.position;
+                    if (p.x > b.min.x && p.x < b.max.x && p.z > b.min.z && p.z < b.max.z && p.y > b.max.y - 0.4f && p.y < b.max.y + 2.2f) { InOffice = true; break; }
+                }
+            float was = roofA;
+            roofA = Mathf.MoveTowards(roofA, InOffice ? 1 : 0, Time.unscaledDeltaTime / (InOffice ? 0.25f : 0.4f));
+            if (roof == null || (roofA == was && roofA == 0)) return;
+            roofMpb ??= new MaterialPropertyBlock();
+            foreach (var r in roof.GetComponentsInChildren<Renderer>())
+            {
+                r.enabled = roofA < 0.99f;
+                r.GetPropertyBlock(roofMpb); roofMpb.SetFloat("_Fade", roofA); r.SetPropertyBlock(roofMpb);
+            }
+        }
+
+        // Walt's cot sleeps inside the office, on its spot_cot, whatever the tier (Tushar 7 Nov: "why is the bed outside?")
+        void CotInside()
+        {
+            var cot = Sleep.Walts; var sc = office != null ? Util.Find(office, "spot_cot") : null;
+            if (cot == null || sc == null) return;
+            cot.SetParent(sc, false); cot.localPosition = Vector3.zero; cot.localRotation = Quaternion.identity;
+            Spots["spot_cot"] = cot;
+            Log($"Walt's cot inside {office.name} at {cot.position}");
         }
         void RespotAll(params string[] pre)
         {
@@ -659,8 +698,9 @@ namespace PortBoss.M1
                 if (Ctl.Interact) YShop.Show(s);
                 return $"{s.Name} · {(s.S == Store.Doyle ? "boats, repairs, paint" : s.S == Store.Plank ? "builds, beds, furniture" : "clothes and dyes")}";
             }
-            // the wardrobe: any bed, or the office's wardrobe / locker
-            var wpt = I.WardrobePoint(me.transform.position);
+            // the wardrobe: any bed, or the office's wardrobe / locker (at a bed the bed's own prompt has it: a tap = the
+            // wardrobe, a hold = sleep; Walt's cot stands by the locker since it moved indoors, Tushar 7 Nov)
+            var wpt = AtBed(me) ? null : I.WardrobePoint(me.transform.position);
             if (wpt != null) { if (Ctl.Interact) Wardrobe.Show(); return "Wardrobe · change clothes"; }
             // the warehouse's door
             var door = I.WarehouseDoor;

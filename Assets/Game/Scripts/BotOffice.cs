@@ -38,10 +38,25 @@ namespace PortBoss.M1
                 yield return null;
             }
             Ctl.BotMove = Vector2.zero; yield return new WaitForSeconds(0.6f);
-            yield return Shot("office-inside");
             bool inside = best < 0.8f;
-            Debug.Log($"[PB] RESULT officewalk: {(inside ? "PASS" : "FAIL")} (got within {best:F2} m of the room's middle)");
+            // the roof lifts off while I'm in (and the room reads from the follow camera all round)
+            var roof = Util.Find(off, "Roof");
+            if (roof != null) yield return Until(() => !roof.GetComponentInChildren<Renderer>().enabled, 3);   // (it fades on real time)
+            bool roofGone = roof != null && Works.I.InOffice && !roof.GetComponentInChildren<Renderer>().enabled;
+            Debug.Log($"[PB] officewalk: inside {Works.I.InOffice}, roof {(roof == null ? "MISSING" : roofGone ? "lifted off" : "still on")}");
+            for (int k = 0; k < 4; k++) { CameraRig.I.Yaw = yaw + 35 + k * 90; yield return new WaitForSeconds(0.5f); yield return Shot($"office-inside-{k * 90}"); }
+            // Walt's cot is in here: its get-in spot is inside too
+            var cot = Sleep.Walts; var bed = Sleep.BedSide; var lb = office0Floor(off);
+            bool cotIn = cot != null && cot.IsChildOf(off) && lb.HasValue && lb.Value.Contains(new Vector3(bed.x, lb.Value.center.y, bed.z));
+            Debug.Log($"[PB] officewalk: Walt's cot {(cot != null && cot.IsChildOf(off) ? "inside" : "OUTSIDE")}, get-in spot {bed} {(cotIn ? "in the room" : "NOT in the room")}");
+            // walk back out: the roof comes back
+            me.Teleport(door.position + Vector3.up * 0.1f - to.normalized * 1.5f, yaw); yield return new WaitForSeconds(0.3f);
+            if (roof != null) yield return Until(() => roof.GetComponentInChildren<Renderer>().enabled, 3);
+            bool back = roof != null && !Works.I.InOffice && roof.GetComponentInChildren<Renderer>().enabled;
+            Debug.Log($"[PB] officewalk: outside again, roof {(back ? "back on" : "STILL OFF")}");
+            Debug.Log($"[PB] RESULT officewalk: {(inside && roofGone && cotIn && back ? "PASS" : "FAIL")} (got within {best:F2} m of the room's middle)");
             Application.Quit();
+            static Bounds? office0Floor(Transform o) { foreach (var c in o.GetComponentsInChildren<BoxCollider>()) if (c.name.EndsWith("_colDeck")) { var b = c.bounds; b.Expand(new Vector3(0, 4, 0)); return b; } return null; }
             static string Path(Transform t) { var s = t.name; for (var p = t.parent; p != null; p = p.parent) s = p.name + "/" + s; return s; }
         }
     }

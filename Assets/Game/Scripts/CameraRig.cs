@@ -77,6 +77,9 @@ namespace PortBoss.M1
                     if (s != null && Time.time - lastLook > 2f) Yaw = Mathf.LerpAngle(Yaw, s.transform.eulerAngles.y, 1 - Mathf.Exp(-1.2f * dt)); // recentre
                     break;
             }
+            // Indoors (the office, its roof lifted off): a steeper, closer dollhouse view over the walls (Tushar 7 Nov: the
+            // walls hid her from the follow camera's 30°)
+            if (M == Mode.Follow && Works.I != null && Works.I.InOffice) { tDist = 6.5f * (a != null ? a.Size : 1); tPitchOff = Mathf.Max(0, 56 - Pitch); }
             // The bobber / the fish pulls the view only while it's in front of the camera: orbit round to her face and the
             // camera looks at her, not back over its own shoulder down into the water (Tushar 2 Nov: stuck looking at the sea).
             if (tFocus > 0)

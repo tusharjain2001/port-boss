@@ -1217,12 +1217,14 @@ def office0(mb, coll):
     leaf = door_leaf(mb, (dx1, -HD + 0.02), dx1 - dx0, DZ1 - 0.04, 100, 0.01)
     door_frame(mb, 'F', dx0, dx1, DZ1, -HD)
     window(mb, 'F', wx0, wx1, WZ0, WZ1, -HD)
-    for x in (-0.9, 0.9): put(mb, box(0.1, 2 * HD - 0.1, 0.12, 0.02), 'midwood', (x, 0, EAVE - 0.06))           # tie beams
-    gable_roof(mb, -HW, HW, HD, EAVE, RIDGE, 0.4, ['poppy', 'cream2', 'peach', 'poppy', 'cream2', 'peach', 'poppy', 'peach', 'cream2', 'poppy'],
+    rm = MB()   # the roof is its own object 'Roof': the game lifts it off while you're inside (Tushar 7 Nov)
+    for x in (-0.9, 0.9): put(rm, box(0.1, 2 * HD - 0.1, 0.12, 0.02), 'midwood', (x, 0, EAVE - 0.06))           # tie beams
+    gable_roof(rm, -HW, HW, HD, EAVE, RIDGE, 0.4, ['poppy', 'cream2', 'peach', 'poppy', 'cream2', 'peach', 'poppy', 'peach', 'cream2', 'poppy'],
                (2 * HW + 0.7) / 5, xov=0.35)
     th = math.atan2(RIDGE - EAVE, HD); ye = -(HD + 0.4); ze = EAVE - 0.4 * math.tan(th) + 0.05
-    mb.add(corr_sheet(0.66, 0.8, 3, 0.025), 'rust', Matrix.Translation((0.9, ye + 0.7 * math.cos(th), ze + 0.7 * math.sin(th) + 0.09)) @ Matrix.Rotation(th, 4, 'X') @ Matrix.Rotation(D(6), 4, 'Z'))
-    sx, sy = layout.LAYOUT['office0']['spots']['spot_stove'][:2]; stove_pipe(mb, sx, sy + 0.06, roof_z(sy + 0.06))
+    rm.add(corr_sheet(0.66, 0.8, 3, 0.025), 'rust', Matrix.Translation((0.9, ye + 0.7 * math.cos(th), ze + 0.7 * math.sin(th) + 0.09)) @ Matrix.Rotation(th, 4, 'X') @ Matrix.Rotation(D(6), 4, 'Z'))
+    sx, sy = layout.LAYOUT['office0']['spots']['spot_stove'][:2]; stove_pipe(rm, sx, sy + 0.06, roof_z(sy + 0.06))
+    finish(rm, 'Roof', coll)
     # bench outside under the window, nets + floats on the -X wall (as on Walt's shack)
     put(mb, box(1.45, 0.34, 0.06, 0.02, 2), 'wood', (wc + 0.05, -HD - 0.32, 0.45), (0, D(1.5), D(-1.5)))
     for dx in (-0.55, 0.6): put(mb, box(0.09, 0.28, 0.42 + 0.28, 0.02), 'midwood', (wc + dx, -HD - 0.32, 0.21 - 0.14))
@@ -1271,9 +1273,11 @@ def office1(mb, coll):
     corner_posts(mb, -X, X, -Y, Y, 0.0, EAVE, 'midwood')
     leaf = door_leaf(mb, (d1, -Y + 0.02), d1 - d0, 2.01, 100, 0.01)
     door_frame(mb, 'F', d0, d1, 2.05, -Y, 0.0, 'teal2')
-    for x in (-1.5, 1.5): put(mb, box(0.1, 2 * Y - 0.1, 0.12, 0.02), 'midwood', (x, 0, EAVE - 0.06))
-    gable_roof(mb, -X, X, Y, EAVE, RIDGE, 0.4, ['poppy', 'cream2', 'poppy', 'peach', 'cream2', 'poppy', 'sun', 'cream2', 'poppy', 'peach', 'cream2', 'poppy', 'cream2', 'peach'], 0.95, xov=0.35)
-    sx, sy = S['spot_stove'][:2]; stove_pipe(mb, sx, sy + 0.06, roof_z(sy + 0.06))
+    rm = MB()   # the roof: its own object 'Roof' (lifted off while you're inside)
+    for x in (-1.5, 1.5): put(rm, box(0.1, 2 * Y - 0.1, 0.12, 0.02), 'midwood', (x, 0, EAVE - 0.06))
+    gable_roof(rm, -X, X, Y, EAVE, RIDGE, 0.4, ['poppy', 'cream2', 'poppy', 'peach', 'cream2', 'poppy', 'sun', 'cream2', 'poppy', 'peach', 'cream2', 'poppy', 'cream2', 'peach'], 0.95, xov=0.35)
+    sx, sy = S['spot_stove'][:2]; stove_pipe(rm, sx, sy + 0.06, roof_z(sy + 0.06))
+    finish(rm, 'Roof', coll)
     # the porch: deck, posts, a lean-to roof, steps; runs on to x 4.3 so a bought balcony (spot_balcony) joins it
     PY0, PX1 = -3.45, 4.3
     floor_planks(mb, -X - 0.05, PX1, PY0, -Y, 0.0, (('fresh', 0.6), ('wood', 1.0)), 0.3)
@@ -1351,9 +1355,11 @@ def office2(mb, coll):
     put(mb, box(d1 - d0 + 0.3, 0.4, 0.14, 0.025, 2), 'rock2', ((d0 + d1) / 2, -Y - 0.2, -0.1))
     door_leaf(mb, (X + 0.02, UD[1]), UD[1] - UD[0], 1.98, 90, F1 + 0.01, 'teal', 'cream2', 1)     # the upstairs door, shut
     door_frame(mb, 'R', UD[0], UD[1], F1 + 2.0, X, F1, 'teal2')
-    gable_roof(mb, -X, X, Y, EAVE, RIDGE, 0.45, ['red', 'poppy', 'cream2', 'poppy', 'red', 'cream2', 'poppy', 'red'], 1.0, xov=0.4, waves=4)
-    cy = 1.9; put(mb, box(0.55, 0.55, RIDGE + 0.5 - roof_z(cy) + 0.3, 0.03, 2), 'terra', (0.0, cy, (roof_z(cy) - 0.3 + RIDGE + 0.5) / 2))
-    put(mb, box(0.65, 0.65, 0.1, 0.02), 'rock2', (0.0, cy, RIDGE + 0.5)); put(mb, cyl(0.12, 0.25, 8, bevel=0.01), 'iron', (0, cy, RIDGE + 0.67))
+    rm = MB()   # the roof + chimney: its own object 'Roof' (lifted off while you're inside)
+    gable_roof(rm, -X, X, Y, EAVE, RIDGE, 0.45, ['red', 'poppy', 'cream2', 'poppy', 'red', 'cream2', 'poppy', 'red'], 1.0, xov=0.4, waves=4)
+    cy = 1.9; put(rm, box(0.55, 0.55, RIDGE + 0.5 - roof_z(cy) + 0.3, 0.03, 2), 'terra', (0.0, cy, (roof_z(cy) - 0.3 + RIDGE + 0.5) / 2))
+    put(rm, box(0.65, 0.65, 0.1, 0.02), 'rock2', (0.0, cy, RIDGE + 0.5)); put(rm, cyl(0.12, 0.25, 8, bevel=0.01), 'iron', (0, cy, RIDGE + 0.67))
+    finish(rm, 'Roof', coll)
     tick(mb, 'band/posts/slab/doors/roof')
     # the sign over the door (text-free; socket_sign = its face) + a door lamp
     sc = (d0 + d1) / 2
