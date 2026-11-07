@@ -432,6 +432,10 @@ namespace PortBoss.M1
                         // (and the old shack's own box beside it, "Shack_colBox": it stood in the office's doorway, Tushar 7 Nov)
                         if (Landing.I != null) foreach (var c in Landing.I.GetComponentsInChildren<Collider>()) if (c.name.StartsWith("Shack")) c.enabled = false;
                         TakeSpots(office); RespotAll("furn:", "bed:"); CotInside();
+                        // the map's "office" anchor: in front of this tier's door (map B put it on the old shack's doorstep,
+                        // inside the walk-in office's frame: a body placed there popped into the room)
+                        var ao = Places.Get("office"); var sd = Util.Find(office, "socket_door");
+                        if (ao != null && sd != null) { var o = sd.position - office.position; o.y = 0; ao.SetPositionAndRotation(Ground(sd.position), Quaternion.LookRotation(o.sqrMagnitude > 0.01f ? o.normalized : ao.forward)); }
                         if (pop) StartCoroutine(Timelapse(office.gameObject));
                         Log($"office tier {ot} shown");
                     }

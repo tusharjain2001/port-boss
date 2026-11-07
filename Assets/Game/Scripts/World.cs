@@ -17,6 +17,10 @@ namespace PortBoss.M1
             // landing stands at its map spot on the town shore
             foreach (var t in Util.FindAll(g.transform, n => n == "Land" || n == "Ground_col" || (n.StartsWith("Rock") && n.EndsWith("_colBox")))) DestroyImmediate(t.gameObject);
             Map.PlaceLanding(g.transform);
+            // the port round it (Tushar 7 Nov): the quay, the yard, its fence and gate, the lots; modelled in the landing's
+            // own metres, so it sits under it as it is
+            var port = M1Assets.I != null ? M1Assets.I.Port : null;
+            if (port != null) { var p = Instantiate(port, g.transform, false); p.name = "Port"; }
             Util.Colliders(g); Util.Toon(g, toon);
             var l = g.AddComponent<Landing>(); I = l;
             l.Moor = Util.Find(g.transform, "socket_moor"); l.Spawn = Util.Find(g.transform, "socket_spawn");

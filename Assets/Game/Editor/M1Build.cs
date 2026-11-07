@@ -42,6 +42,7 @@ namespace PortBoss.EditorTools
             a.FishIds = ids.Select(p => Path.GetFileNameWithoutExtension(p).Substring("PB_Fish_".Length)).ToArray();
             a.Fish = ids.Select(Model).ToArray();
             a.Kestrel = Model(Root + "/Art/PB_Boat_Kestrel_T2.fbx");
+            a.Port = Model(Root + "/Art/Port/PB_Port.fbx");   // (Walt's Landing port, Tushar 7 Nov)
             var m5 = Directory.Exists(Root + "/Art/M5") ? Directory.GetFiles(Root + "/Art/M5", "PB_*.fbx").Select(p => p.Replace('\\', '/')).OrderBy(p => p).ToArray() : new string[0];
             a.M5Ids = m5.Select(p => Path.GetFileNameWithoutExtension(p).Substring(3)).ToArray(); a.M5 = m5.Select(Model).ToArray();
             a.M5Spots = AssetDatabase.LoadAssetAtPath<TextAsset>(Root + "/Art/M5/PB_M5_Spots.json");

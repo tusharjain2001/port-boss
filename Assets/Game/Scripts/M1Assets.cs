@@ -17,6 +17,7 @@ namespace PortBoss.M1
         public GameObject[] Cells; public GameObject WorldProps; public TextAsset WorldJson; public Texture2D Seabed; // map B (Art/World, Map.cs)
         public TextAsset FishCsv;
         public GameObject Kestrel;                           // M5: the T2 launch (art-src/m5/build_kestrel.py)
+        public GameObject Port;                              // Walt's Landing port: quay, yard, fence + gate, lots (art-src/port/build_port.py, Tushar 7 Nov)
         public string[] M5Ids; public GameObject[] M5;       // M5 props, buildings and hats (Art/M5/PB_<Prop|Bld|Hat>_<id>.fbx), id = "Prop_desk"
         public TextAsset M5Spots;                            // the set spots on Walt's Landing (art-src/m5/spots.json)
         public AnimationClip Idle, Walk, Run, Sprint, Jump, Land, SwimIdle, Swim, Climb, Drive;

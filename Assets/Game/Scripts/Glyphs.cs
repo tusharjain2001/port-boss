@@ -58,6 +58,17 @@ namespace PortBoss.M1
                 "check" => p => Poly(p, V(-0.5f, 0.02f), V(-0.14f, -0.36f), V(0.52f, 0.4f)) - w * 1.3f,
                 "plus" => p => Mathf.Min(Seg(p, V(-0.5f, 0), V(0.5f, 0)), Seg(p, V(0, -0.5f), V(0, 0.5f))) - w * 1.2f,
                 "minus" => p => Seg(p, V(-0.5f, 0), V(0.5f, 0)) - w * 1.2f,
+                // the shop signs (Tushar 7 Nov): June's hook, Plank & Post's saw, the pub's mug, the post's
+                // letter, the surf shop's board (Pratt's has the fish, Doyle's the boat, Hartley's the shirt)
+                "hook" => p => Mathf.Min(Mathf.Min(Ring(p, V(0.16f, 0.66f), 0.11f) - w, Seg(p, V(0.16f, 0.55f), V(0.16f, -0.22f)) - w),
+                                Mathf.Min(Arc(p, V(-0.12f, -0.22f), 0.28f, 180, 360) - w, Mathf.Min(Seg(p, V(-0.4f, -0.22f), V(-0.4f, 0.06f)) - w, Seg(p, V(-0.4f, 0.06f), V(-0.27f, -0.08f)) - w))),
+                "saw" => p => Mathf.Min(Poly(p, V(-0.72f, -0.12f), V(0.42f, -0.12f), V(0.42f, 0.26f), V(-0.6f, 0.08f), V(-0.72f, -0.12f)) - w,
+                                Mathf.Min(Poly(p, V(-0.66f, -0.12f), V(-0.57f, -0.26f), V(-0.48f, -0.12f), V(-0.39f, -0.26f), V(-0.3f, -0.12f), V(-0.21f, -0.26f), V(-0.12f, -0.12f), V(-0.03f, -0.26f), V(0.06f, -0.12f), V(0.15f, -0.26f), V(0.24f, -0.12f)) - w * 0.8f,
+                                Mathf.Abs(RBox(p, V(0.6f, 0.06f), V(0.16f, 0.24f), 0.08f)) - w)),
+                "mug" => p => Mathf.Min(Mathf.Abs(RBox(p, V(-0.12f, -0.1f), V(0.38f, 0.46f), 0.1f)) - w, Mathf.Min(Arc(p, V(0.28f, -0.06f), 0.22f, -80, 80) - w,
+                                Mathf.Min(Ring(p, V(-0.34f, 0.44f), 0.13f) - w, Mathf.Min(Ring(p, V(-0.06f, 0.5f), 0.15f) - w, Ring(p, V(0.2f, 0.44f), 0.12f) - w)))),
+                "letter" => p => Mathf.Min(Mathf.Abs(RBox(p, V(0, 0), V(0.66f, 0.44f), 0.06f)) - w, Poly(p, V(-0.62f, 0.4f), V(0, -0.08f), V(0.62f, 0.4f)) - w),
+                "surf" => p => Mathf.Min(Mathf.Abs(Ellipse(p, V(0, 0), V(0.24f, 0.74f))) - w, Seg(p, V(0, 0.5f), V(0, -0.52f)) - w * 0.8f),
                 // the baits (June's shelf, the pouch): a curled shrimp, a slim sardine, a squid, Walt's jar of mix
                 "shrimp" => p => Mathf.Min(Mathf.Min(Arc(p, V(-0.02f, 0.02f), 0.4f, 20, 250) - w * 1.6f, Disc(p, V(0.34f, 0.18f), 0.11f)),
                     Mathf.Min(Mathf.Min(Seg(p, V(0.4f, 0.26f), V(0.72f, 0.6f)), Seg(p, V(0.44f, 0.2f), V(0.76f, 0.34f))) - w * 0.6f,
