@@ -141,8 +141,13 @@ namespace PortBoss.M1
         {
             float dt = Time.deltaTime;
             Minutes += dt;                                  // 1 real second = 1 in-game minute (scaled time: pauses solo, -pb-timescale)
-            // debug: F10 +1 hour (Shift: +6), F11 the next weather (held; F11 past Storm lets the forecast back)
-            if (Authority && Ctl.Key_(UnityEngine.InputSystem.Key.F10)) { Minutes += Ctl.Sprint ? 360 : 60; snap = true; }
+            // debug: F10 +1 hour (Shift: +6; Ctrl: the next morning, 7:00), F11 the next weather (held; F11 past Storm lets the forecast back)
+            if (Authority && Ctl.Key_(UnityEngine.InputSystem.Key.F10))
+            {
+                var kb = UnityEngine.InputSystem.Keyboard.current;
+                if (kb != null && kb.ctrlKey.isPressed) { Jump(DayTime.At(Day + 1, DayTime.Wake)); Alerts.Push("Tester", $"Day {Day} {DayTime.DayName(Day)}, 7:00 AM (Ctrl+F10: the next morning)", Alerts.Kind.Info); }
+                else { Minutes += Ctl.Sprint ? 360 : 60; snap = true; }
+            }
             if (Authority && Ctl.Key_(UnityEngine.InputSystem.Key.F11)) { ForceWx = ForceWx >= 5 ? -1 : ForceWx + 1; Alerts.Push("Debug", ForceWx < 0 ? "Weather: the forecast's again" : "Weather held: " + (Wx)ForceWx, Alerts.Kind.Weather); }
             Apply(dt);
             Calls();

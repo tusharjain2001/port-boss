@@ -827,11 +827,17 @@ namespace PortBoss.M1
             return n;
         }
 
-        // ---------------------------------------------------------------- testers: F7 raises the story act and adds $5,000
+        // ---------------------------------------------------------------- testers: F7 raises the story act and adds $5,000;
+        // Ctrl+F7 adds $100,000 and leaves the act alone (Tushar 7 Nov: money to buy everything and look at it)
         void Tester()
         {
             var kb = Keyboard.current; if (kb == null || !kb.f7Key.wasPressedThisFrame || kb.shiftKey.isPressed || Title.Shown) return; // (Shift+F7 = every fish heavy)
             if (Coop.On && !Coop.IsHost) { Alerts.Push("Tester", "F7 is the host's.", Alerts.Kind.Info); return; }
+            if (kb.ctrlKey.isPressed)
+            {
+                C.Earn(Firm.I.NewTx("tester"), MyName, "Tester cash (Ctrl+F7)", 100000, Sky.Minutes); Firm.I.Dirty = true;
+                Alerts.Push("Tester", $"+$100,000 · bank ${C.Cash:N0} (Ctrl+F7 again: more)", Alerts.Kind.Info); Log($"Ctrl+F7: bank ${C.Cash}"); return;
+            }
             C.Act = C.Act >= 4 ? 1 : C.Act + 1; C.Earn(Firm.I.NewTx("tester"), MyName, "Tester cash (F7)", 5000, Sky.Minutes); Firm.I.Dirty = true;
             Alerts.Push("Tester", $"Act {C.Act} · +$5,000 (F7 again: next act)", Alerts.Kind.Info); Log($"F7: act {C.Act}, bank ${C.Cash}");
         }

@@ -3,6 +3,16 @@
 Build: `Builds\m1\PortBoss.exe`, branch `playtest-7nov` (on top of INTEGRATED-3, `main` @ `ef61963`).
 Start a **New game** for each section unless it says otherwise. Takes about 30 minutes.
 
+## Tester keys (in co-op, only the host can use them)
+| Key | What it does |
+|---|---|
+| **F10** | +1 hour |
+| **Shift+F10** | +6 hours |
+| **Ctrl+F10** | the next morning, 7:00 AM (the next day) |
+| **Ctrl+F7** | +$100,000 in the bank (the story act stays the same) |
+| **F7** | the next story act and +$5,000. Press it 3 times for Act 4 (everything unlocked); a 4th press wraps back to Act 1 |
+| F11 | the next weather (held) |
+
 ## What changed
 1. **Walt's Landing is a port.** A timber quay runs along the shore on both sides of Walt's pier. Behind it is a fenced, packed-earth port yard with the office and warehouse, two pegged-out building lots and crates. The yard has three ways out:
    - the north opening onto the lane up to June's;
