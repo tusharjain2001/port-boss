@@ -27,6 +27,7 @@ PIER = 1.38                          # Walt's pier runs up the middle (|x| < 1.3
 GATE_X, GATE_W = -19.0, 4.2          # the gate in the inland fence (world dy +19)
 GAP_N, GAP_S = (27.8, 5.0), (2.6, 4.0)  # the openings in the north / south fences: centre (m along from the quay end), width
                                      # (north: onto the town's lane up to June's, world x 46.5-51.6; south: onto the waterfront path to Doyle's)
+GAP_NQ = (2.6, 4.4)                  # north again, by the quay: where the town quay comes in (Tushar 7 Nov take 2; build_island.py JOIN)
 MARKET_X = 17.0                      # the Market gate in the inland fence (world dy -17): the lane to Pratt's (Town.cs)
 LOTS = dict(lot1=(-33.0, -23.0, 18.0, 41.0), lot2=(23.0, 33.0, 18.0, 41.0))   # x0, x1, y0, y1 (clear of both gates' ways in)
 R = random.Random(711)
@@ -131,6 +132,11 @@ def gate(coll, name, gx, sign=True):
         put(gm, box(lw, 0.07, 0.12, 0.015), 'cream2', (cx, cy, ZT + 0.42), rot); put(gm, box(lw, 0.07, 0.12, 0.015), 'cream2', (cx, cy, ZT + 1.0), rot)
     finish(gm, name, coll)
     for s in (-1, 1): col_box('%sPost%d_colBox' % (name, s + 1), (gx + s * (GATE_W / 2 + 0.12) - 0.15, YY1 - 0.15, ZT), (gx + s * (GATE_W / 2 + 0.12) + 0.15, YY1 + 0.15, ZT + 3.0), coll)
+    # the open leaves are solid too (Tushar 7 Nov: he walked through them): a box round each, hinge to free end
+    for s in (-1, 1):
+        hx = gx + s * (GATE_W / 2); lw = GATE_W / 2 - 0.08
+        ex, ey = hx - s * lw * math.cos(math.radians(80)), YY1 - lw * math.sin(math.radians(80))
+        col_box('%sLeaf%d_colBox' % (name, s + 1), (min(hx, ex) - 0.07, ey - 0.07, ZT), (max(hx, ex) + 0.07, YY1, ZT + 1.3), coll)
     empty('socket_%s' % name, (gx, YY1 + 1.2, ZT), coll, 180)                                 # outside the gate, facing in
     if sign: empty('socket_%s_sign' % name, (gx, YY1 + 0.2, ZT + 2.22), coll, 180)
 
@@ -138,7 +144,7 @@ def gate(coll, name, gx, sign=True):
 def fence_and_gate(mb, coll):
     # the north side opens onto the town's lane up to June's, the south side onto the waterfront path to Doyle's; inland
     # the town gate (the lane into town) and the Market gate (the lane to Pratt's)
-    rail_run(mb, coll, (X0, YY0 + 0.3), (X0, YY1), 'FenceN', gaps=(GAP_N,))
+    rail_run(mb, coll, (X0, YY0 + 0.3), (X0, YY1), 'FenceN', gaps=(GAP_NQ, GAP_N))
     rail_run(mb, coll, (X1, YY0 + 0.3), (X1, YY1), 'FenceS', gaps=(GAP_S,))
     rail_run(mb, coll, (X0, YY1), (X1, YY1), 'FenceE', gaps=((GATE_X - X0, GATE_W), (MARKET_X - X0, GATE_W)))
     gate(coll, 'YardGate', GATE_X); gate(coll, 'MarketGate', MARKET_X)

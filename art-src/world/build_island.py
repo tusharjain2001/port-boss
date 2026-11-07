@@ -688,6 +688,11 @@ def ribbon(mb, P, wd, rs, quay=False, earth=False):
             bm.faces.new((a[c], b[c], b[c + 1], a[c + 1])); cols.append(top(c))
         bm.faces.new((a[5], b[5], b[0], a[0])); cols.append('quay' if walls[k] == 0 else 'earth2' if earth else 'stone2')
         bm.faces.new((a[4], b[4], b[6], a[6])); cols.append('quay' if walls[k] == 4 else 'earth2' if earth else 'stone2')
+    # both ends closed down to the lip (Tushar 7 Nov: an open end showed as a slab hanging in the air where the ground fell away)
+    for k, sg in ((0, -1.0), (n - 1, 1.0)):
+        r = rows[k]; f = bm.faces.new((r[5], r[0], r[1], r[2], r[3], r[4], r[6])); f.normal_update()
+        if f.normal.x * T[k][0] * sg + f.normal.y * T[k][1] * sg < 0: f.normal_flip()
+        cols.append('earth2' if earth else 'stone2')
     it = iter(cols); mb.add(bm, lambda c_, n_: next(it))
     return P, N_, np.array(Zr)
 
@@ -763,6 +768,23 @@ def build_streets(mb, shore, px, py, tx, ty, rr):
             out.append((list(map(tuple, resample(A, 2.0))), wd))
         log(tag, len(runs), [len(r) for r in runs]); return out
     quays = along(3.0, 5.0, lambda x, y: H(x, y) > -0.3, 'quay runs')           # its water side right at the waterline
+    # (Tushar 7 Nov: the town quay stopped 5 m short of both ends of the port yard, its end in mid-air over a grass bank)
+    # the end of a run nearest an end of the yard goes on, straight, to the yard's fence: through its south opening (dx 1.5,
+    # onto the waterfront to Doyle's) and its north quay opening (dx 1.5, art-src/port/build_port.py GAP_NQ)
+    JOIN = {-1: 1.5, 1: 1.5}   # (its water-side kerb flush with the port deck's corner, dx -1.4)
+    for qi, (P, wd) in enumerate(quays):
+        P = list(P)
+        for first in (True, False):
+            x, y = P[0] if first else P[-1]; ox, oy = x - px, y - py
+            x2, y2 = P[-1] if first else P[0]
+            for ey in (S.YARD[2], S.YARD[3]):
+                sg = 1 if ey > 0 else -1
+                if abs(ey) - 1 < sg * oy < abs(ey) + 12 and S.QUAY[0] - 8 < ox < S.YARD[0] + 12 and sg * oy < sg * (y2 - py):   # (the nearer end only)
+                    T = (px + JOIN[sg], py + ey + sg * 0.3); n = max(1, int(math.dist((x, y), T) / 2.0))
+                    ext = [(x + (T[0] - x) * k / n, y + (T[1] - y) * k / n) for k in range(1, n + 1)]
+                    P = ext[::-1] + P if first else P + ext
+                    log('quay run %d: its %s end (dx %.1f, dy %.1f) goes on to the yard fence at (dx %.1f, dy %.1f)' % (qi, 'first' if first else 'last', ox, oy, JOIN[sg], ey + sg * 0.3))
+        quays[qi] = (P, wd)
     STREETS.extend(quays)
     STREETS.extend(along(22.5, 4.0, lambda x, y: H(x, y) > 0.8 and slope(x, y) < 0.45 and street_d(x, y) > 6, 'back street runs'))
     def gS(x, y):

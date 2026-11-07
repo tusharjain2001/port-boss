@@ -431,6 +431,8 @@ namespace PortBoss.M1
                         if (shack != null) foreach (var c in shack.GetComponentsInChildren<Collider>()) c.enabled = false;
                         // (and the old shack's own box beside it, "Shack_colBox": it stood in the office's doorway, Tushar 7 Nov)
                         if (Landing.I != null) foreach (var c in Landing.I.GetComponentsInChildren<Collider>()) if (c.name.StartsWith("Shack")) c.enabled = false;
+                        // (and the shack window's night glow, Sky.cs: the 6 x 5 office's front wall stands elsewhere; its room light glows instead)
+                        if (Landing.I != null) { var wg = Util.Find(Landing.I.transform, "window glow"); if (wg != null) wg.gameObject.SetActive(false); }
                         TakeSpots(office); RespotAll("furn:", "bed:"); CotInside();
                         // the map's "office" anchor: in front of this tier's door (map B put it on the old shack's doorstep,
                         // inside the walk-in office's frame: a body placed there popped into the room)
@@ -457,31 +459,35 @@ namespace PortBoss.M1
                 whShown = wt;
             }
         }
-        // While I'm inside the office its roof lifts off (fades out in 0.25 s, back in 0.4 s), so the camera sees me and
-        // the room (Tushar 7 Nov). Inside = over one of its floors (the *_colDeck boxes), below the eaves of that floor.
-        Transform roof; float roofA; MaterialPropertyBlock roofMpb;
+        // Am I inside the office? Over its room's floor ("Floor_colDeck", not the porch or the landing), below the eaves.
+        // The roof stays on and the camera comes in after me (CameraRig; Tushar 7 Nov, take 2); a warm lamp under the ridge
+        // lights the room while I'm in it, and every evening (the roof shades the whole floor at midday).
         public bool InOffice { get; private set; }
+        Light roomLight; float roomA;
         void RoofTick(Angler me)
         {
             if (office == null) return;
-            if (roof == null || !roof.IsChildOf(office)) roof = Util.Find(office, "Roof");
             InOffice = false;
             if (me != null && !me.Remote)
                 foreach (var c in office.GetComponentsInChildren<BoxCollider>())
                 {
-                    if (!c.name.EndsWith("_colDeck")) continue;
+                    if (!c.name.StartsWith("Floor_colDeck")) continue;
                     var b = c.bounds; var p = me.transform.position;
                     if (p.x > b.min.x && p.x < b.max.x && p.z > b.min.z && p.z < b.max.z && p.y > b.max.y - 0.4f && p.y < b.max.y + 2.2f) { InOffice = true; break; }
                 }
-            float was = roofA;
-            roofA = Mathf.MoveTowards(roofA, InOffice ? 1 : 0, Time.unscaledDeltaTime / (InOffice ? 0.25f : 0.4f));
-            if (roof == null || (roofA == was && roofA == 0)) return;
-            roofMpb ??= new MaterialPropertyBlock();
-            foreach (var r in roof.GetComponentsInChildren<Renderer>())
+            if (roomLight == null || !roomLight.transform.IsChildOf(office))
             {
-                r.enabled = roofA < 0.99f;
-                r.GetPropertyBlock(roofMpb); roofMpb.SetFloat("_Fade", roofA); r.SetPropertyBlock(roofMpb);
+                BoxCollider fl = null; foreach (var c in office.GetComponentsInChildren<BoxCollider>()) if (c.name.StartsWith("Floor_colDeck")) { fl = c; break; }
+                if (fl == null) return;
+                var b = fl.bounds;
+                roomLight = new GameObject("room light").AddComponent<Light>(); roomLight.transform.SetParent(office, false);
+                roomLight.transform.position = new Vector3(b.center.x, b.max.y + 2.05f, b.center.z);
+                roomLight.type = LightType.Point; roomLight.color = Ponyo.Hex("FFE2B8"); roomLight.shadows = LightShadows.None;
+                roomLight.range = Mathf.Max(b.size.x, b.size.z) * 0.95f; roomLight.intensity = 0;
             }
+            bool night = DayTime.SunElevation(Sky.Minutes) < 2;
+            roomA = Mathf.MoveTowards(roomA, InOffice ? 1 : night ? 0.7f : 0, Time.unscaledDeltaTime * 2.5f);
+            roomLight.intensity = 1.6f * roomA; roomLight.enabled = roomA > 0.001f;
         }
 
         // Walt's cot sleeps inside the office, on its spot_cot, whatever the tier (Tushar 7 Nov: "why is the bed outside?")

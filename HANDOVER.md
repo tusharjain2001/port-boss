@@ -58,7 +58,24 @@ Tushar played INTEGRATED-3 and asked for 6 changes. His picks are final (equal f
 - **Phone map tabs:** All / Shops / Crew (no Fish tab).
 - **Stamina** (`Angler.Stamina`, systems §1.6.7): sprinting 12 s, fast swimming 25 s, swimming or treading water 90 s, refills in 5 s. Run dry on land: no sprint until 35%. Run dry in the water: Dot's fish-out up the nearest ladder.
 
-New test switches: `-pb-staminatest`, `-pb-phonemap`, `-pb-officewalk`, `-pb-porttest`, `-pb-towntest`, `-pb-townopen`, `-pb-mapday`, `-pb-nohud`.
+New test switches: `-pb-staminatest`, `-pb-phonemap`, `-pb-officewalk`, `-pb-porttest`, `-pb-towntest`, `-pb-townopen`, `-pb-mapday`, `-pb-nohud`, `-pb-testerkeys`.
+
+Tester keys (host only): **Ctrl+F7** +$100,000 (act unchanged), **Ctrl+F10** the next morning 7:00, as well as F7 (next act +$5,000) and F10/Shift+F10.
+
+**Round 2 (Tushar, the same evening; his picks):**
+- **Stamina** is a slim bar under the feet (`Hud.Stamina`), no longer a ring beside the head.
+- **The gate leaves are solid:** colliders on each open leaf (`build_port.py gate()`).
+- **The office is bigger**, and the camera comes inside:
+  - Sizes: office0 is 6x5 (was 4x3.5), office1 7.6x5.6, office2 9.2x6.8 (`build_props.py`, `layout.py`; all three layouts pass the checker).
+  - `spot_office` moved to landing (-7, 15, 1.57), growing away from the pier. Copy `art-src/m5/spots.json` to `Art/M5/PB_M5_Spots.json` after a spots run.
+  - Walt's own things are fixed in office0: sea chest + tackle box (`fix_chest`), rods over the door, his oilskin, a lifebuoy, a lantern.
+  - **The roof stays on.** Indoors the follow camera comes in after her: 2.7 m, pitch 10-20, FOV 64, under 2.25 m. The office walls pull it in rather than fading (`CameraRig.OfficeWall`). A warm room light is on while you're in and every evening (`Works.RoofTick`).
+- **No casting without water in the rod's reach** (`Fishing.WaterNear`, `ValidPoint` capped at RangeMax + 2 m). The hint reads "Too far from the water to cast".
+- **The town quay joins the port at both ends** (`build_island.py` JOIN, to dx 1.5). It used to end in mid-air 5 m short of the yard.
+  - It runs into the south opening and into a new north quay opening (`GAP_NQ`).
+  - Every street end is now closed down to the ground (`ribbon` end caps).
+  - On Day 1 there are barriers at both joins (`Town.Barriers`).
+- **Sign words** (`Firm.Sign`) use a new depth-tested `PortBoss/M1/Text` shader (`M1Assets.Text`). The font's GUI shader drew through walls, so the town barriers showed inside the office. Long barrier text now shrinks to fit the board.
 
 Open questions for Manan:
 - Is the port look right? It's still blockout-level art.

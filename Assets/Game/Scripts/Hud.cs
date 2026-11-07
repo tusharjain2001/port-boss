@@ -79,8 +79,10 @@ namespace PortBoss.M1
         readonly List<Alerts.A> held = new();
         // cast
         Image arc, arcTrack; Text distLabel;
-        // stamina (Tushar 7 Nov): a ring beside her while it isn't full
-        RectTransform stam; Image stamFill, stamTrack; CanvasGroup stamCg; float stamShow;
+        // stamina (Tushar 7 Nov, take 2: "a bar below the character, as in other games"): a slim paper bar under her feet
+        // while it isn't full
+        RectTransform stam, stamClip; Image stamFill, stamTrack; CanvasGroup stamCg; float stamShow;
+        public const float StamW = 96, StamH = 15;
         // minigame
         RectTransform mg;
         RectTransform bar, zone, pointer;
@@ -156,13 +158,15 @@ namespace PortBoss.M1
             distLabel = UiKit.Txt(root, "", UiKit.Bold, 20, Color.white, TextAnchor.MiddleCenter); distLabel.rectTransform.Place(new Vector2(0, 0), Vector2.zero, new Vector2(160, 30));
             UiKit.Shade(distLabel, new Color(0.25f, 0.17f, 0.15f, 0.8f), new Vector2(1.5f, -1.5f));
 
-            // stamina: a paper disc with a ring that empties anticlockwise from the top, beside her head
-            stam = UiKit.Rect("stamina", root).Place(new Vector2(0, 0), Vector2.zero, new Vector2(58, 58)); stamCg = stam.gameObject.AddComponent<CanvasGroup>(); stamCg.alpha = 0;
-            UiKit.Img(stam, UiKit.Circle, new Color(1, 0.984f, 0.949f, 0.92f), "disc").rectTransform.Stretch();
-            stamTrack = UiKit.Img(stam, UiKit.RingFat, Ponyo.Paper3, "track"); stamTrack.rectTransform.Stretch(3);
-            stamFill = UiKit.Img(stam, UiKit.RingFat, Ponyo.Leaf, "fill"); stamFill.rectTransform.Stretch(3);
-            stamFill.type = Image.Type.Filled; stamFill.fillMethod = Image.FillMethod.Radial360; stamFill.fillOrigin = (int)Image.Origin360.Top; stamFill.fillClockwise = true;
-            UiKit.Img(stam, UiKit.RingThin, new Color(Ponyo.Line.r, Ponyo.Line.g, Ponyo.Line.b, 0.5f), "edge").rectTransform.Stretch();
+            // stamina: a rounded paper bar (soft shadow, printed edge) whose coloured fill drains to the left, under her feet
+            stam = UiKit.Rect("stamina", root).Place(new Vector2(0, 0), Vector2.zero, new Vector2(StamW, StamH)); stamCg = stam.gameObject.AddComponent<CanvasGroup>(); stamCg.alpha = 0;
+            var sbar = UiKit.Card(stam, "bar", StamH / 2, new Color(1, 0.984f, 0.949f, 0.96f), true, null, 2); sbar.Stretch();
+            stamTrack = UiKit.Fill(sbar); stamTrack.color = Ponyo.Paper3;
+            stamClip = UiKit.Rect("clip", sbar); stamClip.anchorMin = new Vector2(0, 0); stamClip.anchorMax = new Vector2(0, 1); stamClip.pivot = new Vector2(0, 0.5f);
+            stamClip.offsetMin = new Vector2(3, 3); stamClip.offsetMax = new Vector2(StamW - 3, -3); stamClip.gameObject.AddComponent<RectMask2D>();
+            stamFill = UiKit.Img(stamClip, stamTrack.sprite, Ponyo.Leaf, "fill"); stamFill.type = Image.Type.Sliced; stamFill.pixelsPerUnitMultiplier = UiKit.BaseR / ((StamH - 6) / 2);
+            stamFill.rectTransform.Place(new Vector2(0, 0.5f), Vector2.zero, new Vector2(StamW - 6, StamH - 6), new Vector2(0, 0.5f));
+            UiKit.Edge(sbar).transform.SetAsLastSibling();
             stam.gameObject.SetActive(false);
 
             BuildMinigame(); BuildHeavy(); BuildReveal();
@@ -465,7 +469,7 @@ namespace PortBoss.M1
             if (!me.AtHelm)
                 switch (st)
                 {
-                    case Fishing.St.Ready: list.Add(("LMB", "Hold to cast")); break;
+                    case Fishing.St.Ready: list.Add(fish.WaterNear ? ("LMB", "Hold to cast") : ("", "Too far from the water to cast")); break;
                     case Fishing.St.Charging: list.Add(("LMB", "Release to cast")); list.Add(("RMB", "Cancel")); break;
                     case Fishing.St.Waiting: case Fishing.St.Settle: list.Add(("LMB", "Strike on the bite")); list.Add(("RMB", "Hold to reel in")); break;
                     case Fishing.St.Bite: list.Add(("LMB", "STRIKE!")); break;
@@ -502,13 +506,15 @@ namespace PortBoss.M1
             stamCg.alpha = Mathf.MoveTowards(stamCg.alpha, stamShow > 0 ? 1 : 0, dt * 4);
             stam.gameObject.SetActive(stamCg.alpha > 0.001f);
             if (!stam.gameObject.activeSelf) return;
-            stamFill.fillAmount = me.Stamina;
+            stamClip.sizeDelta = new Vector2((StamW - 6) * Mathf.Clamp01(me.Stamina), stamClip.sizeDelta.y);   // (the clip's width: the fill keeps its round left end)
             stamFill.color = me.Winded ? Color.Lerp(Ponyo.Poppy, Ponyo.Peach, 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 10)) : me.Stamina < 0.3f ? Ponyo.Peach : Ponyo.Leaf;
-            stamTrack.color = me.Winded ? Color.Lerp(Ponyo.Paper3, Ponyo.Poppy, 0.35f + 0.25f * Mathf.Sin(Time.unscaledTime * 10)) : Ponyo.Paper3;   // (empty and winded: the whole ring blushes)
-            var cam = canvas.worldCamera; var sp = cam.WorldToScreenPoint(me.transform.position + Vector3.up * 1.15f * me.Size);
+            stamTrack.color = me.Winded ? Color.Lerp(Ponyo.Paper3, Ponyo.Poppy, 0.35f + 0.25f * Mathf.Sin(Time.unscaledTime * 10)) : Ponyo.Paper3;   // (empty and winded: the whole bar blushes)
+            // under her feet (in the water: under her body seen through the surface); centred, a little below
+            var feet = me.transform.position; if (me.Swimming) feet.y = Sea.Height(feet) - 0.8f;
+            var cam = canvas.worldCamera; var sp = cam.WorldToScreenPoint(feet);
             if (sp.z < 0) return;
             RectTransformUtility.ScreenPointToLocalPointInRectangle(root, sp, cam, out var lp);
-            stam.anchoredPosition = lp + root.rect.size * 0.5f + new Vector2(70, 10);
+            stam.anchoredPosition = lp + root.rect.size * 0.5f + new Vector2(-StamW / 2, -26 - StamH / 2);
         }
 
         void Cast()

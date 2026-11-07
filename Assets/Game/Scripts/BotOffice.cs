@@ -39,24 +39,34 @@ namespace PortBoss.M1
             }
             Ctl.BotMove = Vector2.zero; yield return new WaitForSeconds(0.6f);
             bool inside = best < 0.8f;
-            // the roof lifts off while I'm in (and the room reads from the follow camera all round)
-            var roof = Util.Find(off, "Roof");
-            if (roof != null) yield return Until(() => !roof.GetComponentInChildren<Renderer>().enabled, 3);   // (it fades on real time)
-            bool roofGone = roof != null && Works.I.InOffice && !roof.GetComponentInChildren<Renderer>().enabled;
-            Debug.Log($"[PB] officewalk: inside {Works.I.InOffice}, roof {(roof == null ? "MISSING" : roofGone ? "lifted off" : "still on")}");
-            for (int k = 0; k < 4; k++) { CameraRig.I.Yaw = yaw + 35 + k * 90; yield return new WaitForSeconds(0.5f); yield return Shot($"office-inside-{k * 90}"); }
+            // the roof stays on and the camera comes in after me (Tushar 7 Nov, take 2): from every side the camera is in the
+            // room, under the beams, with a clear line to her (no wall faded or in the way)
+            var roof = Util.Find(off, "Roof"); var fb = office0Floor(off);
+            bool roofOn = roof != null && Works.I.InOffice && roof.GetComponentInChildren<Renderer>().enabled;
+            Debug.Log($"[PB] officewalk: inside {Works.I.InOffice}, roof {(roof == null ? "MISSING" : roofOn ? "on" : "OFF")}");
+            int camIn = 0;
+            for (int k = 0; k < 4; k++)
+            {
+                CameraRig.I.Yaw = yaw + 35 + k * 90; yield return new WaitForSeconds(0.9f);
+                var cp = CameraRig.I.Cam.transform.position; var chest = me.transform.position + Vector3.up * 1.0f; var dv = chest - cp;
+                bool inRoom = fb.HasValue && cp.x > fb.Value.min.x && cp.x < fb.Value.max.x && cp.z > fb.Value.min.z && cp.z < fb.Value.max.z, clear = !Physics.Raycast(cp, dv.normalized, out var bh, dv.magnitude - 0.3f, ~0, QueryTriggerInteraction.Ignore) || bh.collider.GetComponentInParent<Angler>() != null;
+                float up = cp.y - me.transform.position.y;
+                if (inRoom && clear && up < 2.3f) camIn++;
+                Debug.Log($"[PB] officewalk: yaw {k * 90}: camera {(inRoom ? "in the room" : "OUTSIDE")} {up:F2} m up, {dv.magnitude:F2} m from her, line {(clear ? "clear" : "blocked by " + bh.collider.name)}, fading {CameraRig.I.Fading}");
+                yield return Shot($"office-inside-{k * 90}");
+            }
             // Walt's cot is in here: its get-in spot is inside too
             var cot = Sleep.Walts; var bed = Sleep.BedSide; var lb = office0Floor(off);
             bool cotIn = cot != null && cot.IsChildOf(off) && lb.HasValue && lb.Value.Contains(new Vector3(bed.x, lb.Value.center.y, bed.z));
             Debug.Log($"[PB] officewalk: Walt's cot {(cot != null && cot.IsChildOf(off) ? "inside" : "OUTSIDE")}, get-in spot {bed} {(cotIn ? "in the room" : "NOT in the room")}");
-            // walk back out: the roof comes back
-            me.Teleport(door.position + Vector3.up * 0.1f - to.normalized * 1.5f, yaw); yield return new WaitForSeconds(0.3f);
-            if (roof != null) yield return Until(() => roof.GetComponentInChildren<Renderer>().enabled, 3);
-            bool back = roof != null && !Works.I.InOffice && roof.GetComponentInChildren<Renderer>().enabled;
-            Debug.Log($"[PB] officewalk: outside again, roof {(back ? "back on" : "STILL OFF")}");
-            Debug.Log($"[PB] RESULT officewalk: {(inside && roofGone && cotIn && back ? "PASS" : "FAIL")} (got within {best:F2} m of the room's middle)");
+            // walk back out: the camera goes back out behind her
+            me.Teleport(door.position + Vector3.up * 0.1f - to.normalized * 1.5f, yaw); CameraRig.I.Yaw = yaw; yield return new WaitForSeconds(1.5f);
+            float camD = Vector3.Distance(CameraRig.I.Cam.transform.position, me.transform.position);
+            bool back = !Works.I.InOffice && camD > 4.5f;
+            Debug.Log($"[PB] officewalk: outside again, camera {camD:F1} m back ({(back ? "ok" : "STILL CLOSE")})");
+            Debug.Log($"[PB] RESULT officewalk: {(inside && roofOn && camIn == 4 && cotIn && back ? "PASS" : "FAIL")} (got within {best:F2} m of the room's middle, camera in the room {camIn}/4)");
             Application.Quit();
-            static Bounds? office0Floor(Transform o) { foreach (var c in o.GetComponentsInChildren<BoxCollider>()) if (c.name.EndsWith("_colDeck")) { var b = c.bounds; b.Expand(new Vector3(0, 4, 0)); return b; } return null; }
+            static Bounds? office0Floor(Transform o) { foreach (var c in o.GetComponentsInChildren<BoxCollider>()) if (c.name.StartsWith("Floor_colDeck")) { var b = c.bounds; b.Expand(new Vector3(0, 4, 0)); return b; } return null; }
             static string Path(Transform t) { var s = t.name; for (var p = t.parent; p != null; p = p.parent) s = p.name + "/" + s; return s; }
         }
     }

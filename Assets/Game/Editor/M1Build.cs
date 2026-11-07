@@ -33,7 +33,7 @@ namespace PortBoss.EditorTools
             var a = ScriptableObject.CreateInstance<M1Assets>();
             a.FishCsv = AssetDatabase.LoadAssetAtPath<TextAsset>(csvPath);
             a.Toon = Shader.Find("PortBoss/M1/Toon"); a.Water = Shader.Find("PortBoss/M1/Water"); a.Sky = Shader.Find("PortBoss/M1/Sky");
-            a.Particle = Shader.Find("Universal Render Pipeline/Particles/Unlit");
+            a.Particle = Shader.Find("Universal Render Pipeline/Particles/Unlit"); a.Text = Shader.Find("PortBoss/M1/Text");
             Font F(string n) => AssetDatabase.LoadAssetAtPath<Font>(Root + "/Fonts/" + n);
             a.Display = F("Fraunces-SemiBold.ttf"); a.DisplayBold = F("Fraunces-Bold.ttf"); a.Ui = F("ZenMaruGothic-Medium.ttf"); a.UiBold = F("ZenMaruGothic-Bold.ttf"); a.UiBlack = F("ZenMaruGothic-Black.ttf");
 

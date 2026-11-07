@@ -59,6 +59,21 @@ namespace PortBoss.M1
                 Ok(bx > -34.2f && by < 43.8f, $"{what} holds (stopped at x {bx:F1}, y {by:F1})");
             }
             Ok(lowest > 1.0f, $"never below the deck ({lowest:F2} m)");
+            // 3b) the open gate leaves are solid (Tushar 7 Nov take 2): walk along the inside of the fence into the Market
+            //     gate's left leaf (hinged at x 14.9, swung in to y 41.6)
+            me.Teleport(P(12.3f, 42.6f), 0); yield return new WaitForSeconds(0.3f); yield return Walk(17.5f, 42.6f, 3);
+            { var lp = port.InverseTransformPoint(me.transform.position); float bx = -lp.x; Ok(bx < 14.95f, $"the Market gate's open leaf holds (stopped at x {bx:F1})"); }
+            // 3c) no casting from the middle of the yard (Tushar 7 Nov take 2), but from the quay's edge as ever
+            me.Teleport(P(-8, 25), 0); yield return new WaitForSeconds(0.3f);
+            if (!me.Bar.Sel.Rod) me.Select(0);                         // (slot 1, the rod, is index 0)
+            for (float w = 0; fish.State != Fishing.St.Ready && w < 3; w += Time.deltaTime) yield return null;
+            bool up = fish.State == Fishing.St.Ready, yardWater = fish.WaterNear;
+            Ctl.BotUse = true; Ctl.BotUsePressed = true; yield return null; Ctl.BotUsePressed = false; yield return new WaitForSeconds(0.3f);
+            var st = fish.State; Ctl.BotUse = false; yield return null;
+            Ok(up && !yardWater && st == Fishing.St.Ready, $"mid-yard: rod up {up}, water in reach {yardWater}, after LMB the rod is {st}");
+            me.Teleport(P(-8, -0.9f), 180); yield return new WaitForSeconds(0.5f);
+            Ok(fish.WaterNear, $"at the quay's edge: water in reach {fish.WaterNear}");
+            me.Select(1); yield return new WaitForSeconds(0.3f);          // (the rod away: an empty slot)
             // 4) pictures: from the sea, from above
             if (shots != null)
             {

@@ -27,14 +27,15 @@ namespace PortBoss.M1
             new[] { new Vector2(56.05f, -14.8f), new Vector2(140.0f, -14.8f), new Vector2(145.6f, -14.8f), new Vector2(145.6f, -12.4f), new Vector2(152.3f, -12.4f), new Vector2(152.3f, -28.0f) },   // (round the forecourt and across the foot of Pratt's steps: the hall up them was a way through; the counter stays in front)
             new[] { new Vector2(56.05f, -19.2f), new Vector2(140.0f, -19.2f), new Vector2(145.6f, -23.0f), new Vector2(145.6f, -28.0f), new Vector2(152.3f, -28.0f) },
         };
-        static readonly (Vector2 at, Vector2 face, string what)[] Barriers =
+        static readonly (Vector2 at, Vector2 face, string what, float width)[] Barriers =
         {
-            (new Vector2(56.4f, 19.0f), new Vector2(-1, 0), "The town"),              // the port's town gate (read from the yard)
-            (new Vector2(23.85f, -34.4f), new Vector2(0, 1), "Doyle Boatworks"),     // the port's south opening
-            (new Vector2(54.3f, 39.5f), new Vector2(-1, 0), "The town"),              // the town gate's lane, where it meets June's lane
-            (new Vector2(105.0f, -14.8f), new Vector2(0, -1), "The town"),           // the lane north from the Market Lane
-            (new Vector2(101.0f, -19.4f), new Vector2(0, 1), "The town"),            // the lane south from it (down the house's west side)
-            (new Vector2(148.0f, -12.4f), new Vector2(0, -1), "The high street"),    // the street north from Pratt's
+            (new Vector2(56.4f, 19.0f), new Vector2(-1, 0), "The town", 4.4f),              // the port's town gate (read from the yard)
+            (new Vector2(23.85f, -34.7f), new Vector2(0, 1), "Doyle Boatworks", 6.4f),     // the port's south opening, on the town quay's end (it runs in there now)
+            (new Vector2(23.85f, 34.7f), new Vector2(0, -1), "The town", 6.4f),              // the port's north quay opening, on the town quay's end (Tushar 7 Nov take 2)
+            (new Vector2(54.3f, 39.5f), new Vector2(-1, 0), "The town", 4.4f),              // the town gate's lane, where it meets June's lane
+            (new Vector2(105.0f, -14.8f), new Vector2(0, -1), "The town", 4.4f),           // the lane north from the Market Lane
+            (new Vector2(101.0f, -19.4f), new Vector2(0, 1), "The town", 4.4f),            // the lane south from it (down the house's west side)
+            (new Vector2(148.0f, -12.4f), new Vector2(0, -1), "The high street", 4.4f),    // the street north from Pratt's
         };
         public readonly List<GameObject> Pieces = new();                 // ropes + barriers (all come down together)
         readonly Dictionary<string, GameObject> doorSigns = new();       // shop id -> its "closed" A-frame
@@ -141,7 +142,7 @@ namespace PortBoss.M1
                         Pieces.Add(seg.gameObject);
                     }
                 }
-            foreach (var (at, face, what) in Barriers) Pieces.Add(Barrier(root, at, face, what, "Closed for now", "opens when you have $90, or on Day 2"));
+            foreach (var (at, face, what, width) in Barriers) Pieces.Add(Barrier(root, at, face, what, "Closed for now", "opens when you have $90, or on Day 2", width));
         }
 
         // a red-and-white sawhorse across the way and an A-frame board in front of it, read from the open side
@@ -165,9 +166,11 @@ namespace PortBoss.M1
             Firm.Box(s, "rim", new Vector3(0, 1.05f, -0.01f), new Vector3(1.6f, 1.0f, 0.04f), Ponyo.Hex("805C52"), new Vector3(-8, 0, 0));
             for (int k = -1; k <= 1; k += 2) Firm.Box(s, "leg", new Vector3(k * 0.62f, 0.5f, -0.12f), new Vector3(0.06f, 1.1f, 0.06f), Ponyo.Hex("805C52"), new Vector3(-14, 0, 0));
             var t = new GameObject("text").transform; t.SetParent(s, false); t.localPosition = new Vector3(0, 1.05f, 0.04f); t.localRotation = Quaternion.Euler(-8, 0, 0);
-            Firm.Sign(t, what, new Vector3(0, 0.24f, 0), Ponyo.Hex("2A1C18"), 0.024f);
-            Firm.Sign(t, head, new Vector3(0, 0.0f, 0), Ponyo.Poppy, 0.021f);
-            Firm.Sign(t, sub, new Vector3(0, -0.24f, 0), Ponyo.Hex("5E4A44"), 0.0125f);
+            // (long words shrink to stay on the 1.5 m board: "Hartley's Outfitters", "opens when you have $90, or on Day 2")
+            static float Fit(string s, float size, int chars) => Mathf.Min(size, size * chars / Mathf.Max(1, s.Length));
+            Firm.Sign(t, what, new Vector3(0, 0.24f, 0), Ponyo.Hex("2A1C18"), Fit(what, 0.024f, 12));
+            Firm.Sign(t, head, new Vector3(0, 0.0f, 0), Ponyo.Poppy, Fit(head, 0.021f, 14));
+            Firm.Sign(t, sub, new Vector3(0, -0.24f, 0), Ponyo.Hex("5E4A44"), Fit(sub, 0.0125f, 28));
         }
 
         // the later shops: an A-frame on the step in front of the door until their day

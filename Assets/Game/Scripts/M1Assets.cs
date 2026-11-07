@@ -7,7 +7,7 @@ namespace PortBoss.M1
     public class M1Assets : ScriptableObject
     {
         public UniversalRenderPipelineAsset Pipeline;     // copy of the PC pipeline + the Ponyo outline pass
-        public Shader Toon, Water, Sky, Particle;
+        public Shader Toon, Water, Sky, Particle, Text;   // (Text: the 3D sign words, depth-tested: PB_Text)
         public Material SoftParticle;   // a transparent particle material ASSET, so the build keeps its shader variant
         public Font Display, DisplayBold, Ui, UiBold, UiBlack; // Fraunces 600 / 700, Zen Maru Gothic 500 / 700 / 900
         public GameObject Boat, Landing, Worker, Pip;    // Pip: the character kit's first body (replaces the placeholder Worker when present)

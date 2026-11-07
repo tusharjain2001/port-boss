@@ -220,13 +220,15 @@ namespace PortBoss.M1
             var tm = g.AddComponent<TextMesh>(); tm.text = text; tm.font = UiKit.DisplayBold; tm.fontSize = 96; tm.characterSize = size; tm.anchor = TextAnchor.MiddleCenter; tm.alignment = TextAlignment.Center; tm.color = col;
             g.GetComponent<MeshRenderer>().sharedMaterial = SignMat();
         }
-        // the font's own material draws through walls in URP (GUI/Text Shader: unity_GUIZTestMode unset): a depth-tested copy
+        // the font's own material draws through walls in URP (GUI/Text Shader; setting unity_GUIZTestMode on a copy did nothing:
+        // the shader doesn't declare it, so the global wins): our own depth-tested text shader (PB_Text) on the font's atlas
         static Material signMat;
         static Material SignMat()
         {
             if (signMat != null) return signMat;
-            signMat = new Material(UiKit.DisplayBold.material) { name = "sign text (depth tested)" };
-            signMat.SetFloat("unity_GUIZTestMode", (float)UnityEngine.Rendering.CompareFunction.LessEqual);
+            var sh = M1Assets.I != null ? M1Assets.I.Text : null;
+            signMat = sh != null ? new Material(sh) { name = "sign text (depth tested)", mainTexture = UiKit.DisplayBold.material.mainTexture }
+                                 : new Material(UiKit.DisplayBold.material) { name = "sign text" };
             Font.textureRebuilt += f => { if (f == UiKit.DisplayBold && signMat != null) signMat.mainTexture = f.material.mainTexture; };
             return signMat;
         }

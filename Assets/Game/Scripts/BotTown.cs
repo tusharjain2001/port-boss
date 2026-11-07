@@ -11,6 +11,8 @@ namespace PortBoss.M1
         // pub, Hartley's, the post office, nor the waterfront either way; she really walks the Market Lane to Pratt's.
         // $60 made ($100 in the bank): the ropes come down and Doyle's is a walk away; Plank & Post says Day 2. Day 2:
         // Plank & Post opens; Day 5: the pub, Hartley's and the post office. Pictures: the board, a barrier, the lanes.
+        // a point on the town quay a few metres past each end of the port's quay (world x, z; map B, build_island.py)
+        static readonly Vector3 QuayS = new(25.55f, 1.6f, -40.5f), QuayN = new(28.15f, 1.6f, 40.5f);
         IEnumerator TownTest(string dir)
         {
             shots = dir; Directory.CreateDirectory(dir); Ctl.Bot = true; Sleep.Off = true; int fails = 0;
@@ -29,6 +31,8 @@ namespace PortBoss.M1
             }
             Ok(!Reach(new Vector3(31, 1.6f, 66)), "Day 1: the waterfront north can't be walked to");
             Ok(!Reach(new Vector3(26, 1.6f, -46)), "Day 1: the waterfront south can't be walked to");
+            // (Tushar 7 Nov take 2: the town quay now runs on to both ends of the port's quay: barred there on Day 1)
+            Ok(!Reach(QuayS) && !Reach(QuayN), "Day 1: the town quay past either end of the port's quay can't be walked to");
             Ok(Town.Lock("doyle") != null && Town.Lock("plank") != null && Town.Lock("pub") != null, "Day 1: the later shops are locked");
             // the board at the pier's head: the closed rows say so
             var row = Signs.I.Arrows.Find(a => a.id == "pub").board; var tx = row != null ? row.GetComponentsInChildren<TextMesh>() : null;
@@ -56,6 +60,7 @@ namespace PortBoss.M1
             yield return null; yield return null; yield return new WaitForSeconds(0.3f);
             Ok(Town.Open && t.Pieces.Count == 0, $"${C.Cash} in the bank: the ropes are down");
             Ok(Reach(Door("doyle")), "Doyle's is a walk from the yard");
+            Ok(Reach(QuayS) && Reach(QuayN), "the town quay is a walk from the port's quay, both ends");
             Ok(Town.Lock("plank") == "opens on Day 2" && Town.Lock("pub") == "opens on Day 5", $"Plank & Post: {Town.Lock("plank")}; the pub: {Town.Lock("pub")}");
             // Day 2, Day 5
             Sky.Jump(DayTime.At(2, 9 * 60)); yield return null; yield return null;

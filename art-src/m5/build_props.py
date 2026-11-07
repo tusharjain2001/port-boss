@@ -510,13 +510,24 @@ def p_crate(mb, coll):
     put(mb, box(0.2, 0.012, 0.07, 0.004), 'poppy', (0, -0.153, 0.2))
 
 
+def p_chest(mb, coll):
+    """Walt's sea chest (fixed in office0, Tushar 7 Nov take 2): iron straps, rope handles, his red tackle box on the lid."""
+    put(mb, box(0.8, 0.45, 0.38, 0.03, 2), 'teal2', (0, 0, 0.19))
+    put(mb, box(0.82, 0.47, 0.06, 0.02), 'midwood', (0, 0, 0.41))
+    for s in (-1, 1): put(mb, box(0.05, 0.475, 0.44, 0.008), 'iron', (s * 0.28, 0, 0.22))
+    for s in (-1, 1): put(mb, cyl(0.055, 0.035, 8, bevel=0.006), 'rope', (s * 0.42, 0, 0.27), (0, D(90), 0))
+    put(mb, box(0.42, 0.25, 0.16, 0.02, 2), 'poppy', (0.12, 0.02, 0.52))
+    put(mb, box(0.43, 0.26, 0.02, 0.005), 'cream2', (0.12, 0.02, 0.57))
+    put(mb, box(0.18, 0.04, 0.04, 0.01), 'iron', (0.12, 0.02, 0.61))
+
+
 FURN = [('cot_fixed', p_cot, 'floor'), ('bunk', p_bunk, 'floor'), ('double', p_double, 'floor'), ('hammock', p_hammock, 'floor'),
         ('hammock_kestrel', p_hammock_kestrel, 'prop'), ('chair', p_chair, 'floor'), ('desk', p_desk, 'floor'),
         ('shelves', p_shelves, 'floor'), ('wardrobe', p_wardrobe, 'floor'), ('rug', p_rug, 'prop'), ('plant', p_plant, 'floor'),
         ('lamp', p_lamp, 'prop'), ('floorlamp', p_floorlamp, 'floor'), ('painting', p_painting, 'prop'),
         ('painting2', p_painting2, 'prop'), ('stove', p_stove, 'floor'), ('maptable', p_maptable, 'floor'),
         ('trophy', p_trophy, 'prop'), ('balcony', p_balcony, 'prop')]
-FIXED = dict(locker=p_locker, crate=p_crate)       # modelled into the office tiers (and kept here for the layout check)
+FIXED = dict(locker=p_locker, crate=p_crate, chest=p_chest)   # modelled into the office tiers (and kept here for the layout check)
 
 
 def build_furniture():
@@ -1152,7 +1163,8 @@ def build_wh():
 # ================================================================ OFFICES =====================================================
 # Origin = floor centre of the office tier = spot_office (Walt's shack footprint centre, floor top z 0; ground ~ -0.28).
 # office1/2 are modelled building-centred and shifted by OFFSET (they grow back / left from the shack's spot, see layout.py).
-OFFSET = {'office0': (0.0, 0.0), 'office1': (0.0, 0.6), 'office2': (-1.0, 0.5)}
+OFFSET = {'office0': (0.0, 0.0), 'office1': (-0.6, 0.3), 'office2': (-1.2, 0.6)}
+OFFICE_AT = (-7.0, 15.0, 1.57)   # spot_office (Tushar 7 Nov take 2: the 6 x 5 office0; floor 0.27 m over the port yard, 1.30)
 G0 = -0.28
 
 
@@ -1197,65 +1209,91 @@ def rail_run(mb, a, b, h=1.0, post=0.08, spind=0.21, col='wood', cap='cream2', z
 
 
 def office0(mb, coll):
-    """Walt's shack, rebuilt as an enterable one-room office: the SAME outside as build_shack, door wide open."""
-    HW, HD = 2.0, 1.75; EAVE, RIDGE = 2.15, 3.2
+    """Walt's shack, rebuilt as an enterable one-room office: the shack's look (weathered boards, the poppy-and-cream roof,
+    nets and floats on the -X wall, the bench under the window), door wide open. 6 x 5 (Tushar 7 Nov, take 2: "the room is
+    too small, bro"; it was 4 x 3.5). Inside, Walt's own things (fixed, not sold): his sea chest with the tackle box, rods
+    on pegs over the door, his oilskin and sou'wester on a peg, a lifebuoy, a lantern from the middle beam."""
+    HW, HD = 3.0, 2.5; EAVE, RIDGE = 2.5, 3.7
+    Lo = layout.LAYOUT['office0']; S = Lo['spots']; dx0, dx1 = Lo['door']; W = Lo['windows']
     roof_z = lambda y: EAVE + (RIDGE - EAVE) * (1 - abs(y) / HD)
-    for a in (-1.8, 1.8):
-        for b in (-1.55, 1.55): put(mb, blob(1, (0.28, 0.24, 0.32), int(a * 10 + b * 7) + 300, 0.1), 'rock2', (a, b, -0.25))
-    put(mb, box(2 * HW + 0.2, 2 * HD + 0.2, 0.14, 0.03, 2), 'greyw', (0, 0, -0.11))
+    def holes(side): return [(w[1], w[2], w[3], w[4]) for w in W if w[0] == side]
+    footings(mb, -HW, HW, -HD, HD, -0.04, G0, 3, 2)
     floor_planks(mb, -HW + 0.06, HW - 0.06, -HD + 0.06, HD - 0.06, 0.0, (('weath', 0.55), ('wood', 0.85), ('greyw', 1.0)), 0.29)
-    bw = 2 * HW / 13
-    wx0, wx1 = -HW + 2 * bw, -HW + 5 * bw; dx0, dx1 = -HW + 8 * bw, -HW + 12 * bw      # window boards 2-4, door boards 8-11
-    WZ0, WZ1, DZ1 = 0.95, 1.65, 1.95; wc = (wx0 + wx1) / 2
-    put(mb, box(1.3, 0.42, 0.16, 0.03, 2), 'weath', ((dx0 + dx1) / 2, -HD - 0.28, -0.2), (0, 0, D(2)))
-    cols = (('weath', 0.7), ('greyw', 1.0))
-    bwall(mb, 'F', -HW, HW, -HD, -HD + 0.06, 0.0, EAVE, [(wx0, wx1, WZ0, WZ1), (dx0, dx1, 0.0, DZ1)], bw, cols)
-    bwall(mb, 'B', -HW, HW, HD - 0.06, HD, 0.0, EAVE, [], bw, cols)
-    for xs in (-HW, HW - 0.06): bwall(mb, 'L', -HD, HD, xs, xs + 0.06, 0.0, lambda u: roof_z(u) - 0.06, [], 2 * HD / 12, (('weath', 0.65), ('greyw', 1.0)))
+    DZ1 = 1.95
+    put(mb, box(1.4, 0.42, 0.16, 0.03, 2), 'weath', ((dx0 + dx1) / 2, -HD - 0.28, -0.2), (0, 0, D(2)))
+    cols = (('weath', 0.7), ('greyw', 1.0)); bw = 2 * HW / 19
+    bwall(mb, 'F', -HW, HW, -HD, -HD + 0.06, 0.0, EAVE, holes('F') + [(dx0, dx1, 0.0, DZ1)], bw, cols)
+    bwall(mb, 'B', -HW, HW, HD - 0.06, HD, 0.0, EAVE, holes('B'), bw, cols)
+    bwall(mb, 'L', -HD, HD, -HW, -HW + 0.06, 0.0, lambda u: roof_z(u) - 0.06, holes('L'), 2 * HD / 16, (('weath', 0.65), ('greyw', 1.0)))
+    bwall(mb, 'R', -HD, HD, HW - 0.06, HW, 0.0, lambda u: roof_z(u) - 0.06, holes('R'), 2 * HD / 16, (('weath', 0.65), ('greyw', 1.0)))
     for a in (-1, 1):
         for b in (-1, 1): put(mb, box(0.13, 0.13, EAVE, 0.025, 2), 'dark', (a * (HW - 0.02), b * (HD - 0.02), EAVE / 2))
     leaf = door_leaf(mb, (dx1, -HD + 0.02), dx1 - dx0, DZ1 - 0.04, 100, 0.01)
     door_frame(mb, 'F', dx0, dx1, DZ1, -HD)
-    window(mb, 'F', wx0, wx1, WZ0, WZ1, -HD)
-    rm = MB()   # the roof is its own object 'Roof': the game lifts it off while you're inside (Tushar 7 Nov)
-    for x in (-0.9, 0.9): put(rm, box(0.1, 2 * HD - 0.1, 0.12, 0.02), 'midwood', (x, 0, EAVE - 0.06))           # tie beams
-    gable_roof(rm, -HW, HW, HD, EAVE, RIDGE, 0.4, ['poppy', 'cream2', 'peach', 'poppy', 'cream2', 'peach', 'poppy', 'peach', 'cream2', 'poppy'],
-               (2 * HW + 0.7) / 5, xov=0.35)
+    for w in W: window(mb, w[0], w[1], w[2], w[3], w[4], {'F': -HD, 'B': HD, 'L': -HW, 'R': HW}[w[0]])
+    rm = MB()   # the roof is its own object 'Roof' (stays on: the camera comes inside, Tushar 7 Nov take 2)
+    for x in (-1.5, 0.0, 1.5): put(rm, box(0.1, 2 * HD - 0.1, 0.12, 0.02), 'midwood', (x, 0, EAVE - 0.06))     # tie beams
+    gable_roof(rm, -HW, HW, HD, EAVE, RIDGE, 0.4, ['poppy', 'cream2', 'peach', 'poppy', 'cream2', 'peach', 'poppy',
+                                                   'peach', 'cream2', 'poppy', 'peach', 'poppy', 'cream2', 'poppy'], (2 * HW + 0.7) / 7, xov=0.35)
     th = math.atan2(RIDGE - EAVE, HD); ye = -(HD + 0.4); ze = EAVE - 0.4 * math.tan(th) + 0.05
-    rm.add(corr_sheet(0.66, 0.8, 3, 0.025), 'rust', Matrix.Translation((0.9, ye + 0.7 * math.cos(th), ze + 0.7 * math.sin(th) + 0.09)) @ Matrix.Rotation(th, 4, 'X') @ Matrix.Rotation(D(6), 4, 'Z'))
-    sx, sy = layout.LAYOUT['office0']['spots']['spot_stove'][:2]; stove_pipe(rm, sx, sy + 0.06, roof_z(sy + 0.06))
+    rm.add(corr_sheet(0.66, 0.8, 3, 0.025), 'rust', Matrix.Translation((1.4, ye + 0.7 * math.cos(th), ze + 0.7 * math.sin(th) + 0.09)) @ Matrix.Rotation(th, 4, 'X') @ Matrix.Rotation(D(6), 4, 'Z'))
+    sx, sy = S['spot_stove'][:2]; stove_pipe(rm, sx, sy + 0.06, roof_z(sy + 0.06))
     finish(rm, 'Roof', coll)
-    # bench outside under the window, nets + floats on the -X wall (as on Walt's shack)
+    # outside: the bench under the front window, nets + floats on the -X wall (as on Walt's shack)
+    wf = next(w for w in W if w[0] == 'F'); wc = (wf[1] + wf[2]) / 2
     put(mb, box(1.45, 0.34, 0.06, 0.02, 2), 'wood', (wc + 0.05, -HD - 0.32, 0.45), (0, D(1.5), D(-1.5)))
     for dx in (-0.55, 0.6): put(mb, box(0.09, 0.28, 0.42 + 0.28, 0.02), 'midwood', (wc + dx, -HD - 0.32, 0.21 - 0.14))
-    xw = -HW - 0.04; nu, nv = 7, 5
-    pts = [[Vector((xw - 0.05 - 0.08 * abs(math.sin(i * 1.3)) - 0.05 * v / nv, -1.2 + 1.9 * i / (nu - 1),
-                    EAVE - 0.25 - 0.18 * abs(math.sin(math.pi * i / 3)) - (1.45 + 0.25 * math.sin(i * 1.7)) * v / (nv - 1))) for i in range(nu)] for v in range(nv)]
-    bm = bmesh.new(); V = [[bm.verts.new(p) for p in row] for row in pts]; W = [[bm.verts.new(p + Vector((0.03, 0, 0))) for p in row] for row in pts]
+    xw = -HW - 0.04; nu, nv = 9, 5; ny0, ny1 = -1.9, 1.3
+    pts = [[Vector((xw - 0.05 - 0.08 * abs(math.sin(i * 1.3)) - 0.05 * v / nv, ny0 + (ny1 - ny0) * i / (nu - 1),
+                    EAVE - 0.25 - 0.18 * abs(math.sin(math.pi * i / 4)) - (1.45 + 0.25 * math.sin(i * 1.7)) * v / (nv - 1))) for i in range(nu)] for v in range(nv)]
+    bm = bmesh.new(); V = [[bm.verts.new(p) for p in row] for row in pts]; Wv = [[bm.verts.new(p + Vector((0.03, 0, 0))) for p in row] for row in pts]
     for v in range(nv - 1):
         for i in range(nu - 1):
-            bm.faces.new((V[v][i], V[v + 1][i], V[v + 1][i + 1], V[v][i + 1])); bm.faces.new((W[v][i], W[v][i + 1], W[v + 1][i + 1], W[v + 1][i]))
+            bm.faces.new((V[v][i], V[v + 1][i], V[v + 1][i + 1], V[v][i + 1])); bm.faces.new((Wv[v][i], Wv[v][i + 1], Wv[v + 1][i + 1], Wv[v + 1][i]))
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces); mb.add(bm, 'rope')
-    for i in (0, 3, 6): put(mb, box(0.12, 0.06, 0.06, 0.02), 'dark', (xw - 0.03, -1.2 + 1.9 * i / (nu - 1), EAVE - 0.22))
+    for i in (0, 4, 8): put(mb, box(0.12, 0.06, 0.06, 0.02), 'dark', (xw - 0.03, ny0 + (ny1 - ny0) * i / (nu - 1), EAVE - 0.22))
     for i in range(1, nu): p = pts[0][i]; put(mb, blob(0, (0.075, 0.075, 0.075), 200 + i, 0.05), 'sun' if i % 2 else 'poppy', (p.x - 0.06, p.y, p.z - 0.05))
-    S = layout.LAYOUT['office0']['spots']
+    # inside: the fixed pieces
     add_fixed(mb, p_locker, S['spot_locker'][:3], S['spot_locker'][3]); add_fixed(mb, p_crate, S['fix_crate'][:3], S['fix_crate'][3])
+    add_fixed(mb, p_chest, S['fix_chest'][:3], S['fix_chest'][3])
+    # rods on pegs over the door (inside the front wall, under the beams)
+    yi = -HD + 0.06
+    for k, (z, body) in enumerate(((2.13, 'wood'), (2.22, 'teal2'), (2.31, 'sand'))):
+        for x in (0.45, 2.15): put(mb, box(0.05, 0.13, 0.04, 0.008), 'dark', (x, yi + 0.065, z - 0.035))
+        put(mb, cyl(0.017, 2.0, 6, r2=0.008, bevel=0.0), body, (1.3, yi + 0.1, z), (0, D(90), 0))
+        put(mb, cyl(0.026, 0.34, 6, bevel=0.005), 'peach', (0.5 + 0.12 * k, yi + 0.1, z), (0, D(90), 0))           # cork handle
+        put(mb, cyl(0.045, 0.04, 8, bevel=0.008), 'iron', (0.78 + 0.12 * k, yi + 0.1, z - 0.045), (D(90), 0, 0))     # reel
+    # his oilskin and sou'wester on a peg on the -X wall, beside the wardrobe's spot
+    put(mb, box(0.05, 0.05, 0.16, 0.01), 'dark', (-HW + 0.09, 2.05, 1.86), (0, D(-60), 0))
+    put(mb, blob(1, (0.075, 0.21, 0.42), 731, 0.22), 'sun', (-HW + 0.15, 2.05, 1.38))
+    put(mb, cyl(0.17, 0.05, 12, bevel=0.01), 'sun', (-HW + 0.2, 2.05, 1.93), (0, D(-75), 0))
+    put(mb, cyl(0.1, 0.1, 10, bevel=0.02), 'sun', (-HW + 0.22, 2.05, 1.93), (0, D(-75), 0))
+    # a lifebuoy on the +X wall over the shelves' spot
+    for k in range(10):
+        a_ = 2 * math.pi * k / 10
+        put(mb, box(0.06, 0.07, 0.17, 0.02), 'poppy' if k % 2 else 'paper', (HW - 0.1, 1.0 + 0.24 * math.cos(a_), 2.25 + 0.24 * math.sin(a_)), (D(-math.degrees(a_)), 0, 0))
+    # the lantern from the middle beam (the game's room light hangs here: Works.RoofTick)
+    rod(mb, (0, 0, EAVE - 0.12), (0, 0, 2.2), 0.01, 'iron', 5)
+    put(mb, cyl(0.1, 0.06, 8, r2=0.03, bevel=0.01), 'iron', (0, 0, 2.17))
+    put(mb, box(0.13, 0.13, 0.17, 0.03, 2), 'sun', (0, 0, 2.05), a=GLOW)
+    put(mb, box(0.15, 0.15, 0.03, 0.01), 'iron', (0, 0, 1.955))
     # colliders + sockets + every set spot
     col_box('Floor_colDeck', (-HW, -HD, -0.3), (HW, HD, 0.0), coll)
     walls_cols(coll, -HW, HW, -HD, HD, RIDGE, (dx0, dx1), 0.06, 0.0, DZ1)
-    col_box('Step_colBox', ((dx0 + dx1) / 2 - 0.65, -HD - 0.49, -0.3), ((dx0 + dx1) / 2 + 0.65, -HD - 0.07, -0.12), coll)
+    col_box('Step_colBox', ((dx0 + dx1) / 2 - 0.7, -HD - 0.49, -0.3), ((dx0 + dx1) / 2 + 0.7, -HD - 0.07, -0.12), coll)
     col_box('Bench_colBox', (wc - 0.68, -HD - 0.5, -0.3), (wc + 0.78, -HD - 0.14, 0.48), coll)
     col_box('DoorLeaf_colBox', (leaf[0][0], leaf[0][1], 0), (leaf[1][0], leaf[1][1], DZ1), coll)
-    col_box('Locker_colBox', (S['spot_locker'][0] - 0.24, S['spot_locker'][1] - 0.23, 0), (S['spot_locker'][0] + 0.24, S['spot_locker'][1] + 0.23, 1.82), coll)
-    col_box('Crate_colBox', (S['fix_crate'][0] - 0.2, S['fix_crate'][1] - 0.16, 0), (S['fix_crate'][0] + 0.2, S['fix_crate'][1] + 0.16, 0.42), coll)
+    for nm, k, sz in (('Locker', 'spot_locker', (0.24, 0.23, 1.82)), ('Crate', 'fix_crate', (0.2, 0.16, 0.42)), ('Chest', 'fix_chest', (0.41, 0.24, 0.62))):
+        x, y = S[k][:2]; col_box(nm + '_colBox', (x - sz[0], y - sz[1], 0), (x + sz[0], y + sz[1], sz[2]), coll)
     office_spots(coll, 'office0', dict(spot_balcony=(HW + 0.06, -0.4, 0.0, 90), socket_door=((dx0 + dx1) / 2, -HD - 0.75, G0, 0),
-                                       socket_inside=((dx0 + dx1) / 2, -1.0, 0.0, 180)))
-    print('OFFICE0 door gap %.2f m (x %.2f..%.2f)' % (dx1 - dx0, dx0, dx1))
+                                       socket_inside=((dx0 + dx1) / 2, -1.6, 0.0, 180)))
+    print('OFFICE0 %.1f x %.1f, door gap %.2f m (x %.2f..%.2f)' % (2 * HW, 2 * HD, dx1 - dx0, dx0, dx1))
 
 
 def office1(mb, coll):
-    """The Patched Office: 6 x 4.5, new boards among the old, a porch with a lean-to roof, a sign board (no text)."""
-    X, Y, EAVE, RIDGE = 3.0, 2.25, 2.6, 3.6; T = 0.06
+    """The Patched Office: 7.6 x 5.6 (was 6 x 4.5, Tushar 7 Nov take 2), new boards among the old, a porch with a lean-to
+    roof, a sign board (no text)."""
+    X, Y, EAVE, RIDGE = 3.8, 2.8, 2.7, 3.9; T = 0.06
     roof_z = lambda y: EAVE + (RIDGE - EAVE) * (1 - abs(y) / Y)
     Lo = layout.LAYOUT['office1']; S = Lo['spots']; d0, d1 = Lo['door']
     footings(mb, -X, X, -Y, Y, -0.04, G0, 3, 2)
@@ -1274,21 +1312,21 @@ def office1(mb, coll):
     leaf = door_leaf(mb, (d1, -Y + 0.02), d1 - d0, 2.01, 100, 0.01)
     door_frame(mb, 'F', d0, d1, 2.05, -Y, 0.0, 'teal2')
     rm = MB()   # the roof: its own object 'Roof' (lifted off while you're inside)
-    for x in (-1.5, 1.5): put(rm, box(0.1, 2 * Y - 0.1, 0.12, 0.02), 'midwood', (x, 0, EAVE - 0.06))
+    for x in (-1.9, 0.0, 1.9): put(rm, box(0.1, 2 * Y - 0.1, 0.12, 0.02), 'midwood', (x, 0, EAVE - 0.06))
     gable_roof(rm, -X, X, Y, EAVE, RIDGE, 0.4, ['poppy', 'cream2', 'poppy', 'peach', 'cream2', 'poppy', 'sun', 'cream2', 'poppy', 'peach', 'cream2', 'poppy', 'cream2', 'peach'], 0.95, xov=0.35)
     sx, sy = S['spot_stove'][:2]; stove_pipe(rm, sx, sy + 0.06, roof_z(sy + 0.06))
     finish(rm, 'Roof', coll)
-    # the porch: deck, posts, a lean-to roof, steps; runs on to x 4.3 so a bought balcony (spot_balcony) joins it
-    PY0, PX1 = -3.45, 4.3
+    # the porch: deck, posts, a lean-to roof, steps; runs on 1.3 m past the side so a bought balcony (spot_balcony) joins it
+    PY0, PX1 = -Y - 1.2, X + 1.3
     floor_planks(mb, -X - 0.05, PX1, PY0, -Y, 0.0, (('fresh', 0.6), ('wood', 1.0)), 0.3)
     put(mb, box(PX1 + X + 0.05, 0.08, 0.26, 0.02), 'midwood', ((PX1 - X) / 2, PY0 + 0.04, -0.15))
     for x in (-X + 0.1, (PX1 - X) / 2 - 0.4, PX1 - 0.1):
         put(mb, blob(1, (0.22, 0.2, 0.26), int(x * 9) + 800, 0.1), 'rock2', (x, PY0 + 0.15, G0 + 0.05))
-    posts = (-2.9, d0 - 0.25, d1 + 0.25, PX1 - 0.1)
+    posts = (-X + 0.1, d0 - 0.25, d1 + 0.25, PX1 - 0.1)
     for x in posts: put(mb, box(0.12, 0.12, 2.12, 0.025, 2), 'teal2', (x, PY0 + 0.1, 1.06))
     put(mb, box(PX1 + X + 0.2, 0.14, 0.12, 0.025), 'midwood', ((PX1 - X) / 2, PY0 + 0.1, 2.12))
     th = math.atan2(2.38 - 2.16, -Y - (PY0 - 0.15)); l = (-Y - (PY0 - 0.15)) / math.cos(th) + 0.05
-    n = 8; sw = (PX1 + X + 0.4) / n
+    n = 10; sw = (PX1 + X + 0.4) / n
     for q in range(n):
         m = Matrix.Translation((-X - 0.2 + (q + 0.5) * sw, PY0 - 0.15, 2.16 + 0.01 * (q % 2))) @ Matrix.Rotation(th, 4, 'X')
         mb.add(corr_sheet(sw + 0.02, l, 4, 0.02), ('cream2', 'teal')[q % 2], m)
@@ -1319,8 +1357,9 @@ def office1(mb, coll):
 
 
 def office2(mb, coll):
-    """The Harbour Office: two storeys (8 x 6), the ground floor walkable, outside stairs up to a first-floor landing."""
-    X, Y, T = 4.0, 3.0, 0.06; E1, F1, EAVE, RIDGE = 2.8, 2.95, 5.3, 6.9
+    """The Harbour Office: two storeys (9.2 x 6.8, was 8 x 6: Tushar 7 Nov take 2), the ground floor walkable, outside
+    stairs up to a first-floor landing."""
+    X, Y, T = 4.6, 3.4, 0.06; E1, F1, EAVE, RIDGE = 2.8, 2.95, 5.3, 7.1
     roof_z = lambda y: EAVE + (RIDGE - EAVE) * (1 - abs(y) / Y)
     Lo = layout.LAYOUT['office2']; S = Lo['spots']; d0, d1 = Lo['door']
     footings(mb, -X, X, -Y, Y, -0.04, G0, 4, 3)
@@ -1328,9 +1367,9 @@ def office2(mb, coll):
     low = (('cream2', 0.6), ('cream3', 1.0)); up = (('peach', 0.55), ('cream3', 0.8), ('peach', 1.0))
     W = Lo['windows']
     def holes(side): return [(w[1], w[2], w[3], w[4]) for w in W if w[0] == side]
-    UW = [('F', -2.6, -1.7, F1 + 0.95, F1 + 1.75), ('F', 0.3, 1.2, F1 + 0.95, F1 + 1.75), ('F', 2.4, 3.3, F1 + 0.95, F1 + 1.75),
-          ('B', -1.2, -0.3, F1 + 0.95, F1 + 1.75), ('B', 1.6, 2.5, F1 + 0.95, F1 + 1.75), ('L', -0.5, 0.5, F1 + 0.95, F1 + 1.75)]
-    UD = (-2.6, -1.6)                                                  # first-floor door on the +X wall, onto the landing
+    UW = [('F', -2.99, -1.96, F1 + 0.95, F1 + 1.75), ('F', 0.35, 1.38, F1 + 0.95, F1 + 1.75), ('F', 2.76, 3.8, F1 + 0.95, F1 + 1.75),
+          ('B', -1.38, -0.35, F1 + 0.95, F1 + 1.75), ('B', 1.84, 2.88, F1 + 0.95, F1 + 1.75), ('L', -0.57, 0.57, F1 + 0.95, F1 + 1.75)]
+    UD = (-2.95, -1.81)                                                  # first-floor door on the +X wall, onto the landing
     def uholes(side): return [(w[1], w[2], w[3], w[4]) for w in UW if w[0] == side] + ([(UD[0], UD[1], F1, F1 + 2.0)] if side == 'R' else [])
     bwall(mb, 'F', -X, X, -Y, -Y + T, 0.0, E1, holes('F') + [(d0, d1, 0.0, 2.05)], 0.36, low, bev=0)
     bwall(mb, 'B', -X, X, Y - T, Y, 0.0, E1, holes('B'), 0.36, low, bev=0)
@@ -1348,7 +1387,7 @@ def office2(mb, coll):
     for a in (-X - 0.03, X + 0.03): put(mb, box(0.08, 2 * Y + 0.12, 0.17, 0.025), 'teal', (a, 0, (E1 + F1) / 2))
     corner_posts(mb, -X, X, -Y, Y, 0.0, EAVE, 'teal2')
     put(mb, box(2 * X - 0.12, 2 * Y - 0.12, F1 - E1, 0.01), 'midwood', (0, 0, (E1 + F1) / 2))
-    for x in (-2.6, 0.0 + 0.9, 2.6): put(mb, box(0.12, 2 * Y - 0.12, 0.14, 0.02), 'wood', (x, 0, E1 - 0.07))
+    for x in (-3.0, 1.0, 3.0): put(mb, box(0.12, 2 * Y - 0.12, 0.14, 0.02), 'wood', (x, 0, E1 - 0.07))
     put(mb, cyl(0.12, 0.03, 8, bevel=0.008), 'iron', (S['spot_stove'][0], S['spot_stove'][1] + 0.06, E1 - 0.015))     # the flue plate
     leaf = door_leaf(mb, (d1, -Y + 0.02), d1 - d0, 2.01, 100, 0.01)
     door_frame(mb, 'F', d0, d1, 2.05, -Y, 0.0, 'teal2')
@@ -1357,7 +1396,7 @@ def office2(mb, coll):
     door_frame(mb, 'R', UD[0], UD[1], F1 + 2.0, X, F1, 'teal2')
     rm = MB()   # the roof + chimney: its own object 'Roof' (lifted off while you're inside)
     gable_roof(rm, -X, X, Y, EAVE, RIDGE, 0.45, ['red', 'poppy', 'cream2', 'poppy', 'red', 'cream2', 'poppy', 'red'], 1.0, xov=0.4, waves=4)
-    cy = 1.9; put(rm, box(0.55, 0.55, RIDGE + 0.5 - roof_z(cy) + 0.3, 0.03, 2), 'terra', (0.0, cy, (roof_z(cy) - 0.3 + RIDGE + 0.5) / 2))
+    cy = 2.2; put(rm, box(0.55, 0.55, RIDGE + 0.5 - roof_z(cy) + 0.3, 0.03, 2), 'terra', (0.0, cy, (roof_z(cy) - 0.3 + RIDGE + 0.5) / 2))
     put(rm, box(0.65, 0.65, 0.1, 0.02), 'rock2', (0.0, cy, RIDGE + 0.5)); put(rm, cyl(0.12, 0.25, 8, bevel=0.01), 'iron', (0, cy, RIDGE + 0.67))
     finish(rm, 'Roof', coll)
     tick(mb, 'band/posts/slab/doors/roof')
@@ -1443,7 +1482,7 @@ def site_spots():
         spot_power=(1.05, -17.4, DECK, -90, 'powerpost'),
         spot_tap=(1.05, -15.8, DECK, -90, 'tap'),
         spot_wh=(wx, wy, wz, 0, 'wh'),
-        spot_office=(SHACK[0], SHACK[1], round(shack_floor(), 3), 0, 'office'))
+        spot_office=(OFFICE_AT[0], OFFICE_AT[1], OFFICE_AT[2], 0, 'office'))
 
 
 def site_obstacles():
@@ -1457,7 +1496,7 @@ def site_obstacles():
           c('cleat -19.2', 1.02, -19.2, 0.22), c('cleat -13.2', 1.02, -13.2, 0.22), c('bollard -21.85', 1.48, -21.85, 0.2),
           c('bollard -16.6', 1.48, -16.6, 0.2), c('rope coil', 0.78, -18.2, 0.2), c('old lamp', -1.0, -21.65, 0.12), c('bucket', -0.95, -20.7, 0.17),
           ('hero rock W', -4.6, -2.2, 7.7, 10.1), c('hero rock E', 3.6, 9.2, 1.2), c('rock', -2.2, 7.7, 0.9), c('rock', 5.2, 8.3, 0.9),
-          c('bush', -2.0, 20.0, 1.0), c('bush', -1.1, 20.0, 0.7), c('bush', -12.0, 18.5, 1.0), c('bush', -11.1, 18.5, 0.7)]
+          ]   # (the landing's bushes went with its Land: map B's port yard is bare, World.cs)
     for k in range(13):                                   # the pier's piles (each side)
         y = PY0 - 2.5 * k
         for x in (-1.22, 1.22): ob.append(c('pile', x, y, 0.17))
@@ -1481,8 +1520,8 @@ def build_spots():
     foot['office'] = (-5.5, 4.3, -3.85, 3.9, 0, 7)                      # the union of office0/1/2 (porches, stairs, landing, balcony)
     # wall / deck level extents of office0/1/2 incl. porch, steps, stairs, landing and a bought balcony (roof overhangs left out)
     o1, o2 = OFFSET['office1'], OFFSET['office2']
-    foot['office'] = (min(-2.0, -3.0 + o1[0], -4.0 + o2[0]), max(3.26, 4.3 + o1[0], 5.24 + o2[0]),
-                      min(-2.2, -3.8 + o1[1], -4.0 + o2[1]), max(1.75, 2.25 + o1[1], 3.0 + o2[1]), 0, 7)
+    foot['office'] = (min(-3.2, -3.8 + o1[0], -4.6 + o2[0]), max(3.0, 5.1 + o1[0], 5.8 + o2[0]),
+                      min(-3.0, -4.5 + o1[1], -4.4 + o2[1]), max(2.5, 2.8 + o1[1], 3.4 + o2[1]), 0, 7)
     print('SPOTS office union', foot['office'])
     rects = {}; base = {}
     for k, (x, y, z, rz, p) in S.items():
@@ -1515,7 +1554,7 @@ def build_spots():
         if abs(my - (-19.0)) < 5.0: bad.append('%s mooring too close to Biscuit (B1)' % k)
         if abs(my - S['spot_b2' if k == 'spot_b3' else 'spot_b3'][1]) < 5.0: bad.append('B2/B3 moorings too close')
     # the walking lines: pier root -> office door, pier root -> warehouse door (0.8 m wide)
-    od = (SHACK[0] + 1.075, SHACK[1] - 1.75 - 0.75); wd = (S['spot_wh'][0], S['spot_wh'][1] - 2.25 - 0.6)
+    od = (OFFICE_AT[0] + 1.35, OFFICE_AT[1] - 2.5 - 0.75); wd = (S['spot_wh'][0], S['spot_wh'][1] - 2.25 - 0.6)
     for nm, p, q in (('pier->office door', (0.0, 10.0), od), ('pier->warehouse door', (0.0, 10.0), wd), ('office door->warehouse door', od, wd)):
         for k, A in rects.items():
             if k in ('spot_office', 'spot_wh', 'spot_planks', 'spot_bench_planks'): continue
@@ -1732,7 +1771,7 @@ def render_site(S, rects):
         for v in bm.verts: v.co = Vector((o[2] if v.co.x > 0 else o[1], o[4] if v.co.y > 0 else o[3], 8.9 if v.co.z > 0 else 8.88))
         me = bpy.data.meshes.new('ob'); bm.to_mesh(me); bm.free(); me.materials.append(emis('obst', '#555555'))
         ob_ = bpy.data.objects.new('ob', me); pc.objects.link(ob_); mod = ob_.modifiers.new('w', 'WIREFRAME'); mod.thickness = 0.04
-    od = (SHACK[0] + 1.075, SHACK[1] - 2.5); wd = (S['spot_wh'][0], S['spot_wh'][1] - 2.85)
+    od = (OFFICE_AT[0] + 1.35, OFFICE_AT[1] - 3.25); wd = (S['spot_wh'][0], S['spot_wh'][1] - 2.85)
     for p, q in (((0, 10), od), ((0, 10), wd), (od, wd)):
         rod_o = bpy.data.objects.new('path', bpy.data.meshes.new('path')); bm = sweep([(p[0], p[1], 8.95), (q[0], q[1], 8.95)], circle(0.4, 4), up=(0, 0, 1))
         bm.to_mesh(rod_o.data); bm.free(); rod_o.data.materials.append(emis('path', '#FFFFFF', 0.6)); pc.objects.link(rod_o)

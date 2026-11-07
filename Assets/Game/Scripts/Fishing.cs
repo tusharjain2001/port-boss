@@ -153,7 +153,9 @@ namespace PortBoss.M1
                     break;
                 case St.Ready:
                     if (!rodSel) { Go(St.Stowed); break; }
-                    if (Ctl.UsePressed && !me.Busy) { Go(St.Charging); Power = 0; }
+                    // only with water in the rod's reach (Tushar 7 Nov: he cast from the middle of the port yard; the snap
+                    // used to find water up to 40 m past the rod's range, across the quay)
+                    if (Ctl.UsePressed && !me.Busy) { if (WaterNear) { Go(St.Charging); Power = 0; } else Snd.Play2D(Synth.Tik, 0.3f, 0.7f); }
                     break;
                 case St.Charging: Charging(dt); break;
                 case St.Flight: Flight(); break;
@@ -228,6 +230,7 @@ namespace PortBoss.M1
                 Marker = ValidPoint(transform.position, dir, dist + scatter.z, out _) + Vector3.Cross(Vector3.up, dir) * scatter.x;
                 if (!IsWater(Marker)) Marker = ValidPoint(transform.position, dir, dist, out _);
                 markerT.gameObject.SetActive(false);
+                if (!IsWater(Marker)) { creakVol = 0; Go(St.Ready); return; }   // (walked off from the water while charging: no cast onto land)
                 CastFrom = transform.position;
                 rolled = false; rollId++; if (Coop.On) Coop.AskRoll(rollId, RodTier, BaitId); // answered long before the bite (≥ 4 s)
                 flightT0 = Time.time; flightLen = 0.55f + 0.03f * dist; flightFrom = rod.Tip.position;
@@ -244,22 +247,46 @@ namespace PortBoss.M1
         static Vector3 Flat(Vector3 v) => new(v.x, 0, v.z);
 
         // Water point at `dist` along `dir`; land, the boat or water shallower than 0.5 m snap to the nearest valid point
-        // (never a dead cast, fishing §3.2/§3.12).
+        // (never a dead cast, fishing §3.2/§3.12) within the rod's reach: first near the line of the aim, then all round.
+        float Reach => Rod.RangeMax + 2f;
+        static readonly float[] Fan = { 25f, -25f, 50f, -50f }, Wide = { 75f, -75f, 100f, -100f, 130f, -130f, 160f, -160f, 180f };
         Vector3 ValidPoint(Vector3 from, Vector3 dir, float dist, out bool snapped)
         {
             var p = from + dir * dist; snapped = false;
             if (IsWater(p)) return p;
-            snapped = true;
-            for (float k = 0.5f; k < 40f; k += 0.5f)
+            snapped = true; float reach = Reach;
+            for (float k = 0.5f; k < reach; k += 0.5f)
             {
-                var a = from + dir * (dist + k); if (IsWater(a)) return a;
-                var b = from + dir * Mathf.Max(1.5f, dist - k); if (IsWater(b) && dist - k > 1.5f) return b;
-                foreach (float ang in new[] { 25f, -25f, 50f, -50f })
+                if (dist + k <= reach) { var a = from + dir * (dist + k); if (IsWater(a)) return a; }
+                if (dist - k > 1.5f) { var b = from + dir * (dist - k); if (IsWater(b)) return b; }
+                foreach (float ang in Fan)
                 {
-                    var c = from + Quaternion.Euler(0, ang, 0) * dir * (dist + k * 0.5f); if (IsWater(c)) return c;
+                    var c = from + Quaternion.Euler(0, ang, 0) * dir * Mathf.Min(reach, dist + k * 0.5f); if (IsWater(c)) return c;
                 }
             }
+            for (float k = 0; k < reach; k += 0.75f)
+                foreach (float d in new[] { dist + k, dist - k })
+                {
+                    if (d < 1.5f || d > reach) continue;
+                    foreach (float ang in Wide) { var c = from + Quaternion.Euler(0, ang, 0) * dir * d; if (IsWater(c)) return c; }
+                }
             return p;
+        }
+
+        // Is there fishable water within the rod's reach of here? (rings out to the reach, 16 bearings; checked 4 times a
+        // second while the rod is up)
+        public bool WaterNear { get { if (Time.time >= waterNearT) { waterNearT = Time.time + 0.25f; waterNear = CheckWaterNear(); } return waterNear; } }
+        float waterNearT = -1; bool waterNear = true;
+        bool CheckWaterNear()
+        {
+            var from = transform.position; float reach = Reach;
+            if (me.OnBoat) return true;
+            for (float d = 2f; d <= reach; d += 1.5f)
+                for (int i = 0; i < 16; i++)
+                {
+                    float a = i * Mathf.PI / 8; if (IsWater(from + new Vector3(Mathf.Sin(a), 0, Mathf.Cos(a)) * d)) return true;
+                }
+            return false;
         }
 
         static bool IsWater(Vector3 p)

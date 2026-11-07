@@ -10,7 +10,7 @@ def _w(w, d, h): return (-w / 2, w / 2, -d, 0.0, -h / 2, h / 2)      # wall piec
 FOOT = dict(cot_fixed=_c(0.80, 1.95, 0.5), bunk=_c(2.0, 1.05, 1.75), double=_c(1.45, 2.05, 1.0), chair=_c(0.62, 0.6, 0.9),
             desk=_c(1.3, 0.65, 0.8), shelves=_c(1.0, 0.35, 1.8), wardrobe=(-0.5, 0.5, -0.55, 0.3, 0, 1.95), rug=_c(1.6, 1.0, 0.02),
             plant=_c(0.45, 0.45, 0.9), lamp=_c(0.3, 0.3, 0.5), floorlamp=_c(0.45, 0.45, 1.6), stove=_c(0.6, 0.6, 2.3),
-            maptable=_c(1.4, 0.9, 0.9), locker=_c(0.47, 0.45, 1.82), crate=_c(0.40, 0.31, 0.42),
+            maptable=_c(1.4, 0.9, 0.9), locker=_c(0.47, 0.45, 1.82), crate=_c(0.40, 0.31, 0.42), chest=_c(0.8, 0.45, 0.62),
             painting=_w(0.72, 0.05, 0.56), painting2=_w(0.52, 0.05, 0.72), trophy=_w(0.9, 0.13, 0.42))
 _pj = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'out', 'props.json')
 if os.path.exists(_pj):
@@ -19,7 +19,7 @@ if os.path.exists(_pj):
 SPOT2PROP = dict(spot_cot='cot_fixed', spot_bunk='bunk', spot_double='double', spot_chair='chair', spot_desk='desk',
                  spot_shelves='shelves', spot_wardrobe='wardrobe', spot_rug='rug', spot_plant='plant', spot_lamp='lamp',
                  spot_floorlamp='floorlamp', spot_stove='stove', spot_maptable='maptable', spot_locker='locker',
-                 fix_crate='crate', spot_painting='painting', spot_painting2='painting2', spot_trophy='trophy')
+                 fix_crate='crate', fix_chest='chest', spot_painting='painting', spot_painting2='painting2', spot_trophy='trophy')
 WALL = {'spot_painting', 'spot_painting2', 'spot_trophy'}
 ONTOP = {'spot_lamp'}             # stands on a fixed piece (the bedside crate), not on the floor
 WALKABLE = {'spot_rug'}           # flat: you walk over it
@@ -27,37 +27,39 @@ WALKABLE = {'spot_rug'}           # flat: you walk over it
 # Each tier: inner floor box, the door gap on the front wall, windows [(wall, a0, a1, z0, z1)], and the spots
 # {name: (x, y, z, yaw)}. Walls: 'F' y = y0, 'B' y = y1, 'L' x = x0, 'R' x = x1.
 LAYOUT = {
-    'office0': dict(inner=(-1.94, 1.94, -1.69, 1.69), door=(0.46, 1.69), eave=2.15,
-                    windows=[('F', -1.38, -0.46, 0.95, 1.65)],
+    # (Tushar 7 Nov, take 2: "the room is too small, bro": every tier grows. office0 4 x 3.5 -> 6 x 5, office1 6 x 4.5 ->
+    # 7.6 x 5.6, office2 8 x 6 -> 9.2 x 6.8; office1/2's spots grown from their old plans, the wall pieces kept on their walls)
+    'office0': dict(inner=(-2.94, 2.94, -2.44, 2.44), door=(0.75, 1.95), eave=2.5,
+                    windows=[('F', -2.2, -1.2, 0.95, 1.65), ('B', 0.4, 1.2, 1.0, 1.7), ('R', -0.5, 0.3, 0.95, 1.65)],
                     spots=dict(
-                        spot_cot=(-1.52, -0.695, 0, 0), fix_crate=(-1.62, 0.47, 0, 0), spot_lamp=(-1.62, 0.47, 0.42, 0),
-                        spot_wardrobe=(-1.50, 1.17, 0, 90),
-                        spot_desk=(0.40, 1.345, 0, 0), spot_chair=(0.40, 0.62, 0, 180),
-                        spot_floorlamp=(-0.50, 1.445, 0, 0), spot_stove=(1.62, 1.37, 0, 0),
-                        spot_shelves=(1.765, 0.20, 0, -90),
-                        spot_locker=(-0.235, -1.445, 0, 180), spot_plant=(-0.75, -1.445, 0, 180),
-                        spot_rug=(0.30, -0.35, 0, 0),
-                        spot_painting=(0.40, 1.69, 1.45, 0), spot_painting2=(-1.94, -0.69, 1.35, 90),
-                        spot_trophy=(1.94, -1.0, 1.6, -90))),
-    # office1/office2 coordinates here are BUILDING-centred; build_props.py adds OFFSET[tier]: office1 (0, +0.6), office2 (-1.0, +0.5)
-    'office1': dict(inner=(-2.94, 2.94, -2.19, 2.19), door=(0.55, 1.75), eave=2.6,
-                    windows=[('F', -1.6, -0.8, 0.95, 1.75), ('F', -0.5, 0.0, 0.95, 1.75), ('B', 1.8, 2.35, 1.0, 1.7), ('R', 0.75, 1.55, 0.95, 1.75)],
+                        spot_cot=(-2.54, -1.35, 0, 0), fix_crate=(-2.72, -0.1, 0, 0), spot_lamp=(-2.72, -0.1, 0.42, 0),
+                        fix_chest=(-1.5, -2.215, 0, 0),
+                        spot_wardrobe=(-2.64, 1.15, 0, 90), spot_floorlamp=(-1.6, 2.2, 0, 0),
+                        spot_desk=(-0.55, 2.115, 0, 0), spot_chair=(-0.55, 1.38, 0, 180),
+                        spot_stove=(2.2, 2.1, 0, 0), spot_shelves=(2.765, 1.0, 0, -90),
+                        spot_locker=(2.45, -2.215, 0, 180), spot_plant=(0.25, -2.215, 0, 180),
+                        spot_rug=(0.4, -0.3, 0, 0),
+                        spot_painting=(-0.55, 2.44, 1.45, 0), spot_painting2=(-2.94, -1.35, 1.35, 90),
+                        spot_trophy=(2.94, -1.3, 1.6, -90))),
+    # office1/office2 coordinates here are BUILDING-centred; build_props.py adds OFFSET[tier]: office1 (-0.6, +0.3), office2 (-1.2, +0.6)
+    'office1': dict(inner=(-3.74, 3.74, -2.74, 2.74), door=(0.86, 2.06), eave=2.7,
+                    windows=[('F', -2.04, -1.02, 0.95, 1.75), ('F', -0.64, 0.0, 0.95, 1.75), ('B', 2.29, 2.99, 1.0, 1.7), ('R', 0.94, 1.94, 0.95, 1.75)],
                     spots=dict(
-                        spot_double=(-2.215, 1.145, 0, 0), fix_crate=(-1.19, 1.99, 0, 0), spot_lamp=(-1.19, 1.99, 0.42, 0),
-                        spot_bunk=(-2.463, -1.165, 0, 90), spot_cot=(-0.9, -1.79, 0, 90), spot_stove=(-0.4, 1.87, 0, 0),
-                        spot_desk=(1.45, 1.845, 0, 0), spot_chair=(1.45, 1.02, 0, 180), spot_floorlamp=(2.715, 1.945, 0, 0),
-                        spot_shelves=(2.765, 0.05, 0, -90), spot_wardrobe=(2.64, -1.05, 0, -90), spot_maptable=(-0.4, 0.0, 0, 0),
-                        spot_rug=(1.22, -0.6, 0, 0), spot_locker=(0.315, -1.965, 0, 180), spot_plant=(1.995, -1.965, 0, 180),
-                        spot_painting=(-1.85, 2.19, 1.6, 0), spot_painting2=(1.0, 2.19, 1.5, 0), spot_trophy=(1.15, -2.19, 2.3, 180))),
-    'office2': dict(inner=(-3.94, 3.94, -2.94, 2.94), door=(-2.9, -1.7), eave=2.8,
-                    windows=[('F', -0.8, 0.4, 0.95, 1.85), ('L', -0.5, 0.8, 0.95, 1.85), ('B', -1.9, -1.1, 1.0, 1.8)],
+                        spot_double=(-3.015, 1.695, 0, 0), fix_crate=(-1.514, 2.54, 0, 0), spot_lamp=(-1.514, 2.54, 0.42, 0),
+                        spot_bunk=(-3.215, -1.715, 0, 90), spot_cot=(-1.145, -2.34, 0, 90), spot_stove=(-0.509, 2.42, 0, 0),
+                        spot_desk=(1.845, 2.395, 0, 0), spot_chair=(1.845, 1.276, 0, 180), spot_floorlamp=(3.515, 2.495, 0, 0),
+                        spot_shelves=(3.565, 0.063, 0, -90), spot_wardrobe=(3.44, -1.314, 0, -90), spot_maptable=(-0.509, 0.0, 0, 0),
+                        spot_rug=(1.552, -0.751, 0, 0), spot_locker=(0.401, -2.515, 0, 180), spot_plant=(2.538, -2.515, 0, 180),
+                        spot_painting=(-2.353, 2.74, 1.6, 0), spot_painting2=(1.272, 2.74, 1.5, 0), spot_trophy=(1.463, -2.74, 2.3, 180))),
+    'office2': dict(inner=(-4.54, 4.54, -3.34, 3.34), door=(-3.245, -2.045), eave=2.8,
+                    windows=[('F', -0.92, 0.46, 0.95, 1.85), ('L', -0.57, 0.91, 0.95, 1.85), ('B', -2.19, -1.27, 1.0, 1.8)],
                     spots=dict(
-                        spot_double=(-3.195, 1.895, 0, 0), fix_crate=(-2.2, 2.74, 0, 0), spot_lamp=(-2.2, 2.74, 0.42, 0),
-                        spot_cot=(-0.9, 1.945, 0, 0), spot_stove=(0.0, 2.62, 0, 0), spot_desk=(1.6, 2.595, 0, 0),
-                        spot_chair=(1.6, 1.77, 0, 180), spot_floorlamp=(2.6, 2.69, 0, 0), spot_shelves=(3.765, 1.6, 0, -90),
-                        spot_wardrobe=(3.64, 0.0, 0, -90), spot_bunk=(3.415, -1.92, 0, -90), spot_maptable=(0.4, -0.4, 0, 0),
-                        spot_rug=(-1.9, -0.6, 0, 0), spot_locker=(-1.2, -2.715, 0, 180), spot_plant=(-0.6, -2.715, 0, 180),
-                        spot_painting=(-3.94, -1.8, 1.5, 90), spot_painting2=(1.6, 2.94, 1.55, 0), spot_trophy=(-2.3, -2.94, 2.45, 180))),
+                        spot_double=(-3.795, 2.295, 0, 0), fix_crate=(-2.535, 3.14, 0, 0), spot_lamp=(-2.535, 3.14, 0.42, 0),
+                        spot_cot=(-1.037, 2.345, 0, 0), spot_stove=(0.0, 3.02, 0, 0), spot_desk=(1.844, 2.995, 0, 0),
+                        spot_chair=(1.844, 2.011, 0, 180), spot_floorlamp=(2.996, 3.09, 0, 0), spot_shelves=(4.365, 1.818, 0, -90),
+                        spot_wardrobe=(4.24, 0.0, 0, -90), spot_bunk=(4.015, -2.32, 0, -90), spot_maptable=(0.461, -0.454, 0, 0),
+                        spot_rug=(-2.189, -0.682, 0, 0), spot_locker=(-1.383, -3.115, 0, 180), spot_plant=(-0.691, -3.115, 0, 180),
+                        spot_painting=(-4.54, -2.045, 1.5, 90), spot_painting2=(1.844, 3.34, 1.55, 0), spot_trophy=(-2.65, -3.34, 2.45, 180))),
 }
 
 
