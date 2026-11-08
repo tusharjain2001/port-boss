@@ -118,6 +118,10 @@ namespace PortBoss.M1
         }
 
         public static AudioSource Play2D(AudioClip c, float vol = 1, float pitch = 1) => Play(c, Camera.main != null ? Camera.main.transform.position : Vector3.zero, vol, pitch, 0);
+        // M7 step 6: an ambient one-shot (gulls): the ambience slider, not the effects one
+        public static AudioSource Amb(AudioClip c, Vector3 at, float vol = 1, float pitch = 1, float blend = 0.8f) { var s = Play(c, at, vol, pitch, blend); if (s != null) s.volume = vol * Settings.Ambience; return s; }
+        // the sliders, every frame (Game.Update): master on the listener, effects on the one-shots
+        public static void Apply() { AudioListener.volume = Settings.Master; Master = Settings.Sfx; }
 
         public static void Rumble(float low, float high, float secs)
         {

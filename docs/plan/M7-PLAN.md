@@ -69,11 +69,27 @@
      - Your days and earnings, and "Wishlist Port Boss on Steam".
      - **Keep fishing** and **Quit**.
    - The world is saved as the card comes up. Co-op: the end is a story event, so every crew member gets the card. The full game plays on (no card).
-6. **Settings and accessibility** (systems §1.12): volume (master, music, SFX, ambience, voice), text size, captions, camera shake and FOV, a tap option for every hold, rebinding, colour-blind-safe shapes. The Esc menu links to them.
-7. **Controller.** Pad glyphs on every prompt; a Steam Deck screen-size (1280×800) check.
-8. **Sound.** The music player with its silent slots; more CC0 sounds where the game is quiet.
-9. **The demo build.** A performance check, store screenshots from the game, `HOW-TO-TEST.md`. Then **stop** for Tushar's or Manan's verdict (★).
-
+6. **Settings and accessibility** *(built 8 Nov)*. The phone's Settings app, also reached from the Esc menu with S, saved on this PC:
+   - **Sound:** master, music, effects, sea and gulls, crew voices.
+   - **Text and motion:** text size 80–150% (a 1280×800 screen starts at 120%), captions (calls, and "[Splash] Bite!" for every bite), camera shake, field of view 50–80, boat roll, reduce motion.
+   - **Fishing:** easy fishing (+30% green), needle speed 70–100%. Test runs ignore these.
+   - **Controls:** sprint as a toggle.
+   - The green zone already has stripes and edges, and the grades have shapes.
+   - Not built: full key rebinding (the game reads raw keys), the "legible font" (the OFL font isn't in the project), mono audio, subtitle sizes.
+7. **Controller** *(built 8 Nov)*.
+   - Every key cap shows the pad's button when the pad was last used (`Ctl.Glyph`, applied in `UiKit.Key`): E→X, LMB→RT, Tab→View, Space→A, and so on.
+   - Y moors at the tiller (it had no pad button).
+   - A Steam Deck-size check: 1280×800 screenshots of the HUD and phone (`-pb-padtest`). No real Deck here.
+8. **Sound** *(built 8 Nov)*.
+   - The music player has empty slots (`Music.cs`, `docs/MUSIC-SLOTS.md`): morning, day, evening, night, storm, and Mari's radio. It crossfades and follows the Music slider.
+   - Gulls follow the ambience slider.
+   - No new sound files.
+9. **The demo build** *(built 8 Nov)*:
+   - **Demo mode:** a marker file `PortBoss_Data/StreamingAssets/demo`, or `PortBoss demo.bat` (`-pb-demo`) beside the exe. It's the same build, as rule 13 allows one build folder.
+   - **Performance:** `-pb-perftest` gives frame times on this PC (8 Nov: 1.2 ms on the boat, 1.1 ms in town). That's the game's own work only: batch mode draws nothing to a screen. Real rendering needs a windowed run (rule 16: the PC owner's OK) or a min-spec machine.
+   - **Store screenshots:** `-pb-storeshots`, real captures, no HUD.
+   - **Test guide:** `docs/M7-HOW-TO-TEST.md`, copied to `Builds\m1\HOW-TO-TEST.md`.
+   - Then **stop** for Tushar's or Manan's verdict (★).
 ## Tests
 - `tools/companycheck.sh`: `Company.StoryTest`: beats, lapses, events, letters, calls, pages, acts, the save.
 - `tools/m7test.sh`:

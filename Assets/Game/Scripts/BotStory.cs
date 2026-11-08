@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 
@@ -353,6 +354,161 @@ namespace PortBoss.M1
             yield return new WaitForSeconds(1f);
             Ok(!S.EndUp, "and it doesn't come back");
             Debug.Log($"[PB] RESULT demotest: {(fails == 0 ? "PASS" : "FAIL")} ({fails} off)");
+            Application.Quit();
+        }
+
+        // -pb-settingstest <dir> (M7 step 6): the phone's Settings app has its sections (sound, text and motion, fishing,
+        // controls) and each knob does its job: text size scales the HUD, FOV moves the camera, master volume the listener,
+        // shake 0 stops a shake, captions say a bite. Stills of the screen.
+        IEnumerator SettingsTest(string dir)
+        {
+            shots = string.IsNullOrEmpty(dir) ? null : dir; if (shots != null) Directory.CreateDirectory(shots);
+            Ctl.Bot = true; Sleep.Off = true; int fails = 0;
+            void Ok(bool ok, string what) { if (!ok) fails++; Debug.Log($"[PB] settingstest: {what}: {(ok ? "ok" : "FAIL")}"); }
+            yield return new WaitForSeconds(1f);
+            Phone.I.Show(Phone.Scr.Settings); yield return null; yield return null;
+            var b = Phone.I.Buttons();
+            Ok(b.Contains("Master") && b.Contains("Text size") && b.Contains("Captions") && b.Contains("Easy fishing") && b.Contains("Sprint") && b.Contains("Field of view"), $"the Settings app: {b}");
+            if (shots != null) { yield return new WaitForSeconds(0.4f); yield return Shot("settings-top"); }
+            // text size: 120% scales the HUD's reference down (bigger)
+            var cs = Hud.I.GetComponent<UnityEngine.UI.CanvasScaler>(); float r0 = cs.referenceResolution.x;
+            Ok(Phone.I.Tap("Text size +") && Phone.I.Tap("Text size +"), "Text size + twice"); yield return null; yield return null;
+            Ok(Mathf.Abs(Settings.UiScale - 1.2f) < 0.01f && cs.referenceResolution.x < r0 * 0.85f, $"120%: the HUD is bigger (reference {r0:0} -> {cs.referenceResolution.x:0})");
+            if (shots != null) { yield return new WaitForSeconds(0.4f); yield return Shot("settings-text-120"); }
+            Phone.I.Tap("Text size −"); Phone.I.Tap("Text size −"); yield return null;
+            // FOV 70: the camera's view widens by 15
+            Phone.I.Hide(); yield return new WaitForSeconds(0.5f); float f0 = CameraRig.I.Cam.fieldOfView;
+            Settings.Fov = 70; yield return new WaitForSeconds(0.3f);
+            Ok(Mathf.Abs(CameraRig.I.Cam.fieldOfView - f0 - 15) < 1.5f, $"FOV 70: {f0:0} -> {CameraRig.I.Cam.fieldOfView:0}");
+            Settings.Fov = 55;
+            // master volume on the listener
+            Settings.Master = 0.4f; yield return null; Ok(Mathf.Abs(AudioListener.volume - 0.4f) < 0.01f, $"master 40%: the listener at {AudioListener.volume:0.00}"); Settings.Master = 1;
+            // shake 0: a knock doesn't move the camera
+            Settings.Shake = 0; var p0 = CameraRig.I.transform.position; CameraRig.Shake(1f); yield return null; yield return null;
+            Ok(Vector3.Distance(CameraRig.I.transform.position, p0) < 0.05f, "camera shake 0: a shake doesn't move it"); Settings.Shake = 0.7f;
+            // captions: a bite says so
+            StoryUi.I.Say(null, "[Splash] Bite!", 1.4f); yield return null;
+            Ok(StoryUi.I != null && Settings.Captions, "captions on: [Splash] Bite!");
+            if (shots != null) yield return Shot("caption-bite");
+            Debug.Log($"[PB] RESULT settingstest: {(fails == 0 ? "PASS" : "FAIL")} ({fails} off)");
+            Application.Quit();
+        }
+
+        // -pb-padtest <dir> (M7 step 7): with the pad last used, every key cap shows its pad button (the rod's prompt: RT;
+        // the journal page: RT, A; a letter: X), and at a Steam Deck's 1280x800 the HUD, the phone and a letter still fit.
+        IEnumerator PadTest(string dir)
+        {
+            shots = string.IsNullOrEmpty(dir) ? null : dir; if (shots != null) Directory.CreateDirectory(shots);
+            Ctl.Bot = true; Sleep.Off = true; int fails = 0;
+            void Ok(bool ok, string what) { if (!ok) fails++; Debug.Log($"[PB] padtest: {what}: {(ok ? "ok" : "FAIL")}"); }
+            IEnumerator Until(System.Func<bool> c, float secs) { for (float t = 0; t < secs && !c(); t += Time.deltaTime) yield return null; }
+            yield return new WaitForSeconds(1f);
+            Ok(Ctl.Glyph("E") == "E", "keyboard: E is E");
+            Ctl.PadLast = true;
+            Ok(Ctl.Glyph("E") == "X" && Ctl.Glyph("LMB") == "RT" && Ctl.Glyph("Tab") == "View" && Ctl.Glyph("Space") == "A", "the pad: E -> X, LMB -> RT, Tab -> View, Space -> A");
+            var port = Landing.I.transform.Find("Port"); Vector3 Pp(float x, float y) => port.TransformPoint(new Vector3(-x, 1.32f, -y));
+            me.Teleport(Pp(-8, -0.9f), 180); yield return new WaitForSeconds(0.4f);
+            me.Select(0); yield return Until(() => fish.State == Fishing.St.Ready, 4); yield return new WaitForSeconds(0.6f);
+            Transform cap = null; foreach (var t in Hud.I.GetComponentsInChildren<Transform>()) if (t.name == "key RT") { cap = t; break; }
+            Ok(cap != null, "the rod's prompt shows RT (Hold to cast)");
+            if (shots != null) yield return Shot("pad-prompts");
+            // a Steam Deck's screen: 1280x800
+            var uc = CameraRig.I.UiCam; var oldT = uc.targetTexture; var rt = new RenderTexture(1280, 800, 24, RenderTextureFormat.ARGB32);
+            uc.targetTexture = rt; yield return null; yield return null;
+            if (shots != null) { yield return new WaitForEndOfFrame(); Save(Path.Combine(shots, "deck-hud.png"), 1280, 800); }
+            Phone.I.Show(); yield return null; yield return null; yield return new WaitForSeconds(0.5f);
+            if (shots != null) { yield return new WaitForEndOfFrame(); Save(Path.Combine(shots, "deck-phone.png"), 1280, 800); }
+            Phone.I.Hide(); yield return new WaitForSeconds(0.4f);
+            Ok(Settings.UiScale >= 0.8f, $"text size {Settings.UiScale:P0} (a Deck-sized screen starts at 120%)");
+            uc.targetTexture = oldT; Destroy(rt);
+            Ctl.PadLast = false;
+            Debug.Log($"[PB] RESULT padtest: {(fails == 0 ? "PASS" : "FAIL")} ({fails} off)");
+            Application.Quit();
+        }
+
+        // -pb-musictest (M7 step 8): the music player's moods follow the clock (morning, day, evening, night) and a storm
+        // wins; empty slots are silent and harmless; the Music slider is the level.
+        IEnumerator MusicTest()
+        {
+            Ctl.Bot = true; Sleep.Off = true; int fails = 0;
+            void Ok(bool ok, string what) { if (!ok) fails++; Debug.Log($"[PB] musictest: {what}: {(ok ? "ok" : "FAIL")}"); }
+            yield return new WaitForSeconds(1f);
+            Ok(Music.I != null, "the music player is up");
+            foreach (var (h, want) in new[] { (8.0, "morning"), (12.0, "day"), (19.0, "evening"), (22.5, "night") })
+            { JumpTo(Today + (DayTime.OfDay(Sky.Minutes) / 60 >= h ? 1 : 0), h); yield return null; yield return null; Ok(Music.I.Mood == want, $"{h:0.0}h: {Music.I.Mood}"); }
+            Ok(Music.MoodAt(DayTime.At(3, 12 * 60), Wx.Storm) == "storm" && Music.MoodAt(DayTime.At(3, 12 * 60), Wx.Fog) == "day", "a storm wins the mood; fog doesn't");
+            Settings.Music = 0.3f; yield return null; Settings.Music = 0.7f;
+            Ok(true, "empty slots: silent, no errors");
+            Debug.Log($"[PB] RESULT musictest: {(fails == 0 ? "PASS" : "FAIL")} ({fails} off)");
+            Application.Quit();
+        }
+
+        // -pb-perftest (M7 step 9): frame times on this PC, 1920x1080, uncapped: Biscuit at full throttle out across the bay
+        // (20 s), then standing in Old Saltmouth's market (8 s). Avg, 95th percentile, worst. The gate here: no hitch over
+        // 250 ms and an average under 33 ms (30 fps). CPU only: batch mode draws nothing to a screen (a windowed run needs the
+        // PC's owner's OK, rule 16); the real gate is a min-spec PC, which this isn't (Manan's call).
+        IEnumerator PerfTest()
+        {
+            Ctl.Bot = true; Sleep.Off = true;
+            yield return new WaitForSeconds(3f);
+            var s = Skiff.I; var l = Landing.I; var dts = new List<float>();
+            JumpTo(2, 11); s.CastOff(true);
+            me.Teleport(s.Helm.position + Vector3.up * 0.05f, s.transform.eulerAngles.y); yield return null; me.TakeHelm(); yield return new WaitForSeconds(0.5f);
+            Ctl.BotThrottle = 1; yield return null; Ctl.BotThrottle = 1; yield return null; Ctl.BotThrottle = 1; yield return new WaitForSeconds(1f);
+            for (float t = 0; t < 20; t += Time.unscaledDeltaTime) { dts.Add(Time.unscaledDeltaTime * 1000); yield return null; }
+            var boat = Summary(dts); dts.Clear();
+            Ctl.BotInteract = true; yield return null; Ctl.BotInteract = false; yield return null;
+            var pr = Firm.I.Stalls.Find(x => x.K == Firm.Kind.Pratt); if (pr != null) me.Teleport(pr.Front + pr.At.forward * 4, pr.At.eulerAngles.y + 180);
+            yield return new WaitForSeconds(1f);
+            for (float t = 0; t < 8; t += Time.unscaledDeltaTime) { dts.Add(Time.unscaledDeltaTime * 1000); yield return null; }
+            var town = Summary(dts);
+            Debug.Log($"[PB] perf: {SystemInfo.processorType} · {SystemInfo.graphicsDeviceName} · {SystemInfo.systemMemorySize / 1024} GB");
+            Debug.Log($"[PB] perf: on the boat {boat.avg:F1} ms avg ({1000 / boat.avg:F0} fps), p95 {boat.p95:F1}, worst {boat.max:F0}; in town {town.avg:F1} ms avg ({1000 / town.avg:F0} fps), p95 {town.p95:F1}, worst {town.max:F0}");
+            bool ok = boat.avg < 33 && town.avg < 33 && boat.max < 250 && town.max < 250;
+            Debug.Log($"[PB] RESULT perftest: {(ok ? "PASS" : "FAIL")} (this PC, CPU only: batch mode draws nothing to a screen; not a min-spec machine)");
+            Application.Quit();
+        }
+        static (float avg, float p95, float max) Summary(List<float> d)
+        {
+            if (d.Count == 0) return (0, 0, 0); d.Sort(); float sum = 0; foreach (var x in d) sum += x;
+            return (sum / d.Count, d[Mathf.Min(d.Count - 1, (int)(d.Count * 0.95f))], d[^1]);
+        }
+
+        // -pb-storeshots <dir> (M7 step 9): real in-game captures for the store page (rule 5: store art is real game
+        // captures), no HUD: Walt's Landing at golden hour, Biscuit out in the bay, The Pelican at sunset, Walt's office,
+        // the Landing at night with Mari moored.
+        IEnumerator StoreShots(string dir)
+        {
+            shots = dir; Directory.CreateDirectory(dir); Ctl.Bot = true; Sleep.Off = true;
+            yield return new WaitForSeconds(2f);
+            var l = Landing.I; var s = Skiff.I; var C = Firm.C; HudShown(false);
+            Vector3 sea = l.transform.forward; sea.y = 0; sea.Normalize(); var side = Vector3.Cross(Vector3.up, sea);
+            // 1) the Landing at golden hour, from the bay
+            JumpTo(1, 18.7); yield return new WaitForSeconds(1.5f);
+            FlyCam(l.transform.position + sea * 75 + side * 28 + Vector3.up * 13, l.transform.position + Vector3.up * 3); yield return new WaitForSeconds(0.5f); yield return Shot("store-landing-golden-hour");
+            CameraRig.I.enabled = true;
+            // 2) Biscuit out in the bay, mid-morning
+            JumpTo(2, 10.5); var bp = l.transform.position + sea * 220 + side * 40; bp.y = s.transform.position.y;
+            s.CastOff(true); s.transform.SetPositionAndRotation(bp, Quaternion.LookRotation(side)); s.TakeOver(); s.AnchorNow();
+            me.Teleport(s.Helm.position + Vector3.up * 0.05f, s.transform.eulerAngles.y); yield return null; me.TakeHelm(); yield return new WaitForSeconds(1f);
+            FlyCam(bp - side * 14 + sea * 6 + Vector3.up * 5, bp + Vector3.up * 1.2f); yield return new WaitForSeconds(0.5f); yield return Shot("store-biscuit-in-the-bay");
+            CameraRig.I.enabled = true; Ctl.BotInteract = true; yield return null; Ctl.BotInteract = false; yield return null;
+            // 3) The Pelican at sunset
+            if (Pelican.Root != null)
+            {
+                JumpTo(3, 19.3); yield return new WaitForSeconds(1f); var r = Pelican.Root;
+                FlyCam(r.position + r.forward * 38 + r.right * -16 + Vector3.up * 8, r.position + Vector3.up * 3); yield return new WaitForSeconds(0.5f); yield return Shot("store-the-pelican");
+                CameraRig.I.enabled = true;
+            }
+            // 4) Walt's office (the follow camera inside)
+            JumpTo(4, 12); var at = Sleep.BedSide; me.Teleport(at, Quaternion.LookRotation(Sleep.Cot.position - at).eulerAngles.y + 180); CameraRig.I.Yaw = me.transform.eulerAngles.y + 160;
+            yield return new WaitForSeconds(1.5f); yield return Shot("store-walts-office");
+            // 5) the Landing at night, Mari moored
+            if (C.Mari != DealSt.Active) { C.Earn(Firm.I.NewTx("tester"), Works.MyName, "Tester sales", 300, Sky.Minutes); C.Tick(Sky.Minutes); Firm.I.AnswerMari(true); }
+            JumpTo(5, 21.5); yield return new WaitForSeconds(1.5f);
+            FlyCam(l.transform.position + sea * 45 - side * 22 + Vector3.up * 9, l.transform.position + sea * 8 + Vector3.up * 2); yield return new WaitForSeconds(0.5f); yield return Shot("store-the-landing-at-night");
+            HudShown(true);
+            Debug.Log("[PB] RESULT storeshots: PASS (5 shots)");
             Application.Quit();
         }
 

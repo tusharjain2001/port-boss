@@ -381,6 +381,7 @@ namespace PortBoss.M1
             {
                 // the bite: yanked fully under, dragged sideways, BLOOP + 3 ratchet clicks, punch-in
                 Go(St.Bite); BiteSeenAt = Time.time; BiteFx(true);
+                if (Settings.Captions) StoryUi.I?.Say(null, "[Splash] Bite!", 1.4f);   // M7 step 6: every bite has a caption (systems §1.12)
                 OnLog?.Invoke($"bite after {t:F2} s (planned {BiteWait:F2})");
             }
         }
@@ -508,8 +509,8 @@ namespace PortBoss.M1
         void NextStop(bool first)
         {
             int c = (int)Hooked.Class;
-            ZoneW = Mathf.Min(0.6f, FishDb.Green[c] * Rod.GreenMul * ZoneScale);
-            PtrSpeed = FishDb.Speed[c] * Rod.SpeedMul * SpeedScale * (first ? 1.00f : 1.08f);
+            ZoneW = Mathf.Min(0.6f, FishDb.Green[c] * Rod.GreenMul * ZoneScale * (Settings.EasyFishing ? 1.3f : 1f));   // (M7: easy fishing, +30%)
+            PtrSpeed = FishDb.Speed[c] * Rod.SpeedMul * SpeedScale * (first ? 1.00f : 1.08f) * Settings.Needle;          // (M7: the needle 70-100%)
             // the stop: the green in the middle (Manan); a heavy fish's retry: 50% ± 8–18% on a random side
             ZoneC = first ? 0.5f : 0.5f + (Rng.Next(2) == 0 ? -1 : 1) * (0.08f + 0.10f * (float)Rng.NextDouble());
             ZoneC = Mathf.Clamp(ZoneC, ZoneW / 2 + 0.02f, 1 - ZoneW / 2 - 0.02f);

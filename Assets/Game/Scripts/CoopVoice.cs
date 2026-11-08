@@ -160,7 +160,7 @@ namespace PortBoss.M1
                 for (int i = 0; i < data.Length; i++)
                 {
                     if (!primed || have == 0) { data[i] = 0; primed = false; continue; }
-                    data[i] = ring[rd] * Mute; rd = (rd + 1) % ring.Length; have--;
+                    data[i] = ring[rd] * Mute * Settings.VoiceVol; rd = (rd + 1) % ring.Length; have--;
                 }
         }
 

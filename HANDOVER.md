@@ -125,6 +125,14 @@ His decisions, 8 Nov:
 
 **Step 5, the demo's end:** `Company.Demo` (marker `StreamingAssets/demo`). The unknown number's texts, then the "To be continued" card.
 
+**Steps 6–9:**
+- Settings and accessibility (phone Settings, or Esc then S).
+- Pad glyphs on every key cap; Y moors at the tiller.
+- The music player with empty slots for Manan (`docs/MUSIC-SLOTS.md`).
+- Demo mode (`PortBoss demo.bat`), the performance and store-shot tests, and **`docs/M7-HOW-TO-TEST.md`**.
+
+**M7 is waiting for a hand test (★).** After that, merge `m7` to `main`.
+
 **Tests:**
 - `tools/companycheck.sh` (Company.StoryTest, OrderTest, MoorerTest)
 - `-pb-pelicantest`, `-pb-days24test`, `-pb-demotest -pb-demo`

@@ -157,7 +157,7 @@ namespace PortBoss.M1
         string Key()
         {
             var c = Firm.C; int minute = (int)Sky.Minutes;
-            return $"{Screen}|{Thread}|{minute}|{c?.Cash}|{c?.Msgs.Count}|{c?.Mari}|{c?.Ledger.Count}|{c?.MariTracked}|{Unread()}|{Alerts.Queue.Count}|{mapFilter}|{(int)scroll}|{Settings.MouseSens:F2}|{Settings.Invert}|{Settings.TimingOffsetMs}|{Settings.Voice}|{H24}|{Firm.I?.MyKit.Rod}|{CrewTab}|{crewEdit}|{eWho}|{eSpot}|{eBait}|{eSh}|{eBack}|{c?.Staff.Count}|{c?.Board.Count}|{c?.BoardSeen}|{CrewLive(c)}|{c?.Act}|{c?.Letters.Count}|{c?.Calls.Count}|{c?.Pages.Count}|{StoryUi.I?.Ringing?.Id}|{StoryUi.I?.Answered.Count}|{StoryUi.I?.Missed.Count}|{StoryUi.I?.ReadLetters.Count}|{OrdKey(c)}|{c?.Hugo}|{c?.HugoFrom}";
+            return $"{Screen}|{Thread}|{minute}|{c?.Cash}|{c?.Msgs.Count}|{c?.Mari}|{c?.Ledger.Count}|{c?.MariTracked}|{Unread()}|{Alerts.Queue.Count}|{mapFilter}|{(int)scroll}|{Settings.MouseSens:F2}|{Settings.Invert}|{Settings.TimingOffsetMs}|{Settings.Voice}|{H24}|{Firm.I?.MyKit.Rod}|{CrewTab}|{crewEdit}|{eWho}|{eSpot}|{eBait}|{eSh}|{eBack}|{c?.Staff.Count}|{c?.Board.Count}|{c?.BoardSeen}|{CrewLive(c)}|{c?.Act}|{c?.Letters.Count}|{c?.Calls.Count}|{c?.Pages.Count}|{StoryUi.I?.Ringing?.Id}|{StoryUi.I?.Answered.Count}|{StoryUi.I?.Missed.Count}|{StoryUi.I?.ReadLetters.Count}|{OrdKey(c)}|{c?.Hugo}|{c?.HugoFrom}|{Settings.Master}{Settings.Music}{Settings.Sfx}{Settings.Ambience}{Settings.VoiceVol}{Settings.UiScale}{Settings.Captions}{Settings.Shake}{Settings.Fov}{Settings.Roll}{Settings.ReduceMotion}{Settings.EasyFishing}{Settings.Needle}{Settings.SprintToggle}";
         }
 
         // ---------------------------------------------------------------- input: mouse, keys, pad
@@ -996,6 +996,32 @@ namespace PortBoss.M1
                 else if (plus != null) Button(r, name, plus);
                 y += 66;
             }
+            void Sec(string t) { Caps(list, t, 2, y + 4, CW); y += 28; }
+            void Pct(string name, string key, Func<float> get, Action<float> set, float lo, float hi, float step)
+            {
+                float v = get(); Row(name, $"{Mathf.RoundToInt(v * 100)}%", () => { var n = Mathf.Clamp(Mathf.Round((get() - step) * 100) / 100, lo, hi); set(n); Settings.SaveF(key, n); },
+                                                                        () => { var n = Mathf.Clamp(Mathf.Round((get() + step) * 100) / 100, lo, hi); set(n); Settings.SaveF(key, n); });
+            }
+            void Flip(string name, string on, string off, Func<bool> get, Action<bool> set, string key) => Row(name, get() ? on : off, null, () => { set(!get()); Settings.SaveB(key, get()); });
+            // M7 step 6: sound, then text and motion, fishing help, controls (systems §1.12)
+            Sec("Sound");
+            Pct("Master", "m7.vol.master", () => Settings.Master, v => Settings.Master = v, 0, 1, 0.1f);
+            Pct("Music", "m7.vol.music", () => Settings.Music, v => Settings.Music = v, 0, 1, 0.1f);
+            Pct("Effects", "m7.vol.sfx", () => Settings.Sfx, v => Settings.Sfx = v, 0, 1, 0.1f);
+            Pct("Sea and gulls", "m7.vol.amb", () => Settings.Ambience, v => Settings.Ambience = v, 0, 1, 0.1f);
+            Pct("Crew voices", "m7.vol.voice", () => Settings.VoiceVol, v => Settings.VoiceVol = v, 0, 1, 0.1f);
+            Sec("Text and motion");
+            Pct("Text size", "m7.ui", () => Settings.UiScale, v => Settings.UiScale = v, 0.8f, 1.5f, 0.1f);
+            Flip("Captions", "On", "Off", () => Settings.Captions, v => Settings.Captions = v, "m7.captions");
+            Pct("Camera shake", "m7.shake", () => Settings.Shake, v => Settings.Shake = v, 0, 1, 0.1f);
+            Row("Field of view", $"{Settings.Fov:0}°", () => { Settings.Fov = Mathf.Clamp(Settings.Fov - 5, 50, 80); Settings.SaveF("m7.fov", Settings.Fov); }, () => { Settings.Fov = Mathf.Clamp(Settings.Fov + 5, 50, 80); Settings.SaveF("m7.fov", Settings.Fov); });
+            Pct("Boat roll", "m7.roll", () => Settings.Roll, v => Settings.Roll = v, 0, 1, 0.1f);
+            Flip("Reduce motion", "On", "Off", () => Settings.ReduceMotion, v => Settings.ReduceMotion = v, "m7.calm");
+            Sec("Fishing");
+            Flip("Easy fishing", "On (+30%)", "Off", () => Settings.EasyFishing, v => Settings.EasyFishing = v, "m7.easy");
+            Pct("Needle speed", "m7.needle", () => Settings.Needle, v => Settings.Needle = v, 0.7f, 1, 0.05f);
+            Sec("Controls");
+            Flip("Sprint", "Tap to toggle", "Hold Shift", () => Settings.SprintToggle, v => Settings.SprintToggle = v, "m7.sprinttoggle");
             Row("Mouse look", $"{Settings.MouseSens:0.0}×", () => SetF("m1.mouse", ref Settings.MouseSens, -0.1f, 0.2f, 3f), () => SetF("m1.mouse", ref Settings.MouseSens, 0.1f, 0.2f, 3f));
             Row("Pad look", $"{Settings.PadSens:0.0}×", () => SetF("m1.pad", ref Settings.PadSens, -0.1f, 0.2f, 3f), () => SetF("m1.pad", ref Settings.PadSens, 0.1f, 0.2f, 3f));
             Row("Invert look", Settings.Invert ? "On" : "Off", null, () => { Settings.Invert = !Settings.Invert; try { PlayerPrefs.SetInt("m1.invert", Settings.Invert ? 1 : 0); PlayerPrefs.Save(); } catch { } });
@@ -1007,7 +1033,7 @@ namespace PortBoss.M1
             });
             Row("Phone clock", H24 ? "24-hour" : "12-hour", null, () => { H24 = !H24; try { PlayerPrefs.SetInt("m4.h24", H24 ? 1 : 0); } catch { } });
             y += 6;
-            T(list, "Bar timing nudges the fishing bar if your screen or pad lags. Esc pauses the game.", UiKit.Body, 14, SubInk, 2, y, CW - 4, 60);
+            T(list, "Bar timing nudges the fishing bar if your screen or pad lags. Easy fishing widens the green; Needle speed slows it. Esc, then S, opens these too.", UiKit.Body, 14, SubInk, 2, y, CW - 4, 80);
             return y + 60;
         }
         static void SetF(string k, ref float v, float d, float lo, float hi)

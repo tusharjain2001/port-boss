@@ -61,7 +61,7 @@ namespace PortBoss.M1
             }
             Hud.Create(rig.UiCam, p);
             Sleep.Create(); // M3: Walt's cot, tired, the night skip
-            Company.CrewSeed = Sky.Seed; Firm.Create(); Pelican.Create(); Yacht.Create(); Works.Create(); Signs.Create(); Town.Create(); Workers.Create(); Phone.Create(); StoryUi.Create(); Shop.Create(); YShop.Create(); Wardrobe.Create(); StoreUi.Create(); Pouch.Create(); // M4: the company, the phone (Tab), the shop counters
+            Company.CrewSeed = Sky.Seed; Firm.Create(); Pelican.Create(); Yacht.Create(); Works.Create(); Signs.Create(); Town.Create(); Workers.Create(); Phone.Create(); StoryUi.Create(); Music.Create(); Shop.Create(); YShop.Create(); Wardrobe.Create(); StoreUi.Create(); Pouch.Create(); // M4: the company, the phone (Tab), the shop counters
             BakeIcons(a);
 
             sea = gameObject.AddComponent<AudioSource>(); sea.clip = a.Waves; sea.loop = true; sea.volume = 0.32f; sea.spatialBlend = 0; sea.Play();
@@ -116,7 +116,7 @@ namespace PortBoss.M1
         }
 
         // co-op adds: invite friends (anyone in a crew, M3.1), the crew code, leave the crew
-        static string PauseText() => "Esc  resume\nQ  save & quit to desktop" + (Coop.On ? "\nI  invite friends" + (Coop.Code != null ? $"  ·  crew code <b>{Coop.Code}</b>" : $"  ·  they join {Coop.LanAddress}") + "\nL  leave the crew (play on alone)" : "") + "\n\nF3 debug overlay · F5 rod tier · F6 bait · hold R: the bait pouch";
+        static string PauseText() => "Esc  resume\nS  settings\nQ  save & quit to desktop" + (Coop.On ? "\nI  invite friends" + (Coop.Code != null ? $"  ·  crew code <b>{Coop.Code}</b>" : $"  ·  they join {Coop.LanAddress}") + "\nL  leave the crew (play on alone)" : "") + "\n\nF3 debug overlay · F5 rod tier · F6 bait · hold R: the bait pouch";
         public static void ClosePause() { var g = FindAnyObjectByType<Game>(); if (g != null && Paused) g.SetPaused(false); }
         public void ShowPause(bool on) => SetPaused(on); public string PauseLine => pauseT.text; // (tests)
         void SetPaused(bool on) { Paused = on; Time.timeScale = Paused && !Coop.On ? 0 : 1; pause.gameObject.SetActive(Paused); pauseT.text = PauseText(); Cursor.lockState = Paused ? CursorLockMode.None : CursorLockMode.Locked; Cursor.visible = Paused; }
@@ -130,17 +130,19 @@ namespace PortBoss.M1
         void Update()
         {
             Coop.SteamTick(); // (lobby callbacks, invites, the mic)
+            Snd.Apply(); if (sea != null) sea.volume = 0.32f * Settings.Ambience;   // M7 step 6: the volume sliders
             if (Title.Up || Title.ClosedFrame == Time.frameCount) return; // (the title, or the invite list: Esc is theirs)
             // (co-op never stops the world: the menu opens, the boat and the crew carry on)
             if (Ctl.Escape && !Ctl.Bot && Ctl.Ui == 0 && Ctl.UiEsc != Time.frameCount) SetPaused(!Paused); // (M4: not while the phone/shop/pouch has Esc)
             if (Paused && Ctl.Key_(UnityEngine.InputSystem.Key.Q)) { Save.OnQuit(); Application.Quit(); } // M4: save & quit
+            if (Paused && Ctl.Key_(UnityEngine.InputSystem.Key.S)) { SetPaused(false); Phone.I?.Show(Phone.Scr.Settings); }   // M7 step 6: the settings, from the pause menu
             // I: the invite list, from the pause menu or straight from the game (M3.1: Manan's Esc, I did nothing); not over the phone/shop (M4)
             if (Ctl.Key_(UnityEngine.InputSystem.Key.I) && !Ctl.Bot && Ctl.Ui == 0) { if (Paused) SetPaused(false); Coop.Invite(); }
             if (Paused && Coop.On && Ctl.Key_(UnityEngine.InputSystem.Key.L)) { Coop.Leave(); SetPaused(false); Alerts.Push("Crew", "You left the crew. Biscuit's all yours.", Alerts.Kind.Info); }
             if (!Paused && Ctl.Ui == 0 && !Application.isBatchMode && Cursor.lockState != CursorLockMode.Locked && UnityEngine.InputSystem.Mouse.current != null && UnityEngine.InputSystem.Mouse.current.leftButton.wasPressedThisFrame) Cursor.lockState = CursorLockMode.Locked;
             // gulls now and then
             gullT -= Time.deltaTime;
-            if (gullT <= 0 && M1Assets.I.Gull != null) { gullT = Random.Range(9f, 22f); var c = Camera.main; if (c != null) Snd.Play(M1Assets.I.Gull, c.transform.position + Random.onUnitSphere * 40 + Vector3.up * 20, Random.Range(0.25f, 0.45f), Random.Range(0.9f, 1.15f), 0.9f); }
+            if (gullT <= 0 && M1Assets.I.Gull != null) { gullT = Random.Range(9f, 22f); var c = Camera.main; if (c != null) Snd.Amb(M1Assets.I.Gull, c.transform.position + Random.onUnitSphere * 40 + Vector3.up * 20, Random.Range(0.25f, 0.45f), Random.Range(0.9f, 1.15f), 0.9f); }
         }
     }
 }

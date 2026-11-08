@@ -336,12 +336,25 @@ namespace PortBoss.M1
         static float Dur(string line) => line == "..." ? 1.6f : Mathf.Clamp(1.4f + 0.06f * line.Length, 2.6f, 7.5f);
         void ShowLine()
         {
+            capLine.rectTransform.anchoredPosition = new Vector2(22, -32);
             capWho.text = UiKit.Caps(playing.From); capWho.color = Color.Lerp(Who(playing.From), Ponyo.Ink, 0.35f);
             capLine.text = playing.Lines[capI];
             float h = Mathf.Max(30, capLine.preferredHeight); capLine.rectTransform.sizeDelta = new Vector2(716, h); capRoot.sizeDelta = new Vector2(760, 44 + h);
         }
+        // M7 step 6: a short caption line of its own (a sound: "[Splash] Bite!"), when no call is playing
+        float sayLeft;
+        public void Say(string who, string line, float secs)
+        {
+            if (playing != null || !Settings.Captions) return;
+            sayLeft = secs; capRoot.gameObject.SetActive(true); capCg.alpha = 1;
+            capWho.text = who != null ? UiKit.Caps(who) : ""; capLine.text = line;
+            float h = Mathf.Max(30, capLine.preferredHeight); capLine.rectTransform.sizeDelta = new Vector2(716, h); capRoot.sizeDelta = new Vector2(760, (who != null ? 44 : 22) + h);
+            capLine.rectTransform.anchoredPosition = new Vector2(22, who != null ? -32 : -10);
+        }
         void Captions()
         {
+            if (sayLeft > 0 && playing == null) { sayLeft -= Time.deltaTime; if (sayLeft > 0) return; }
+            if (playing != null && !Settings.Captions) { capCg.alpha = 0; capLeft -= Time.deltaTime; if (capLeft <= 0 && ++capI < playing.Lines.Length) capLeft = Dur(playing.Lines[capI]); else if (capLeft <= 0) playing = null; return; }
             if (playing == null) { capCg.alpha = Mathf.MoveTowards(capCg.alpha, 0, Time.deltaTime * 4); if (capCg.alpha <= 0 && capRoot.gameObject.activeSelf) capRoot.gameObject.SetActive(false); return; }
             capCg.alpha = Mathf.MoveTowards(capCg.alpha, Phone.IsOpen ? 0.35f : 1, Time.deltaTime * 4);
             capLeft -= Time.deltaTime;
@@ -393,7 +406,7 @@ namespace PortBoss.M1
         {
             if (l.Where == "desk" && (InOpening || OpeningNext)) { Log($"letter {l.Id} on the desk (the opening opens it)"); return; }
             if (l.Where == "mail") Alerts.Push(l.From, "A letter on the morning ferry. It's in the mailbox at the pier's head.", Alerts.Kind.Story, "letter:" + l.Id, null, "Read");
-            else Alerts.Push(l.From, "On the desk: " + l.Title, Alerts.Kind.Story, "letter:" + l.Id, null, "Read");
+            else Alerts.Push(l.From, "He left you a letter on the desk", Alerts.Kind.Story, "letter:" + l.Id, null, "Read");
             Log($"letter {l.Id} from {l.From}: {l.Title}");
         }
         public void Open(Company.Letter l)

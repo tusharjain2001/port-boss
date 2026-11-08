@@ -885,7 +885,7 @@ namespace PortBoss.M1
             if (s.Moored) { if (th > 0) { s.CastOff(); s.Notch = 1; Snd.Play2D(Synth.Ratchet, 0.4f); } }
             else if (th != 0) { s.Notch = Mathf.Clamp(s.Notch + th, -1, 3); Snd.Play2D(Synth.Tik, 0.6f, th > 0 ? 1.2f : 0.9f); }
             s.Steer = Mathf.Clamp(Ctl.Steer, -1, 1);
-            if (s.CanMoor && Ctl.Key_(UnityEngine.InputSystem.Key.F)) s.Moor();
+            if (s.CanMoor && Ctl.Moor) s.Moor();                     // (M7: F, or Y on a pad)
             if (Ctl.Interact || Ctl.Escape) LeaveHelm();
             if (CameraRig.I != null) CameraRig.I.M = helm ? CameraRig.Mode.Helm : CameraRig.Mode.Follow;
             Vel = Vector3.zero;

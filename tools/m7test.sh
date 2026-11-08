@@ -25,6 +25,12 @@ hidden "$EXE" -batchmode -pb-seed 7 -pb-fps 60 -pb-days24test "$(W "$PROOF/days2
 sum days24 "$D/days24.txt"
 hidden "$EXE" -batchmode -pb-seed 7 -pb-fps 60 -pb-demo -pb-demotest "$(W "$PROOF/demo")" -pb-quit 300 -logFile "$(W "$D/demotest.txt")"
 sum demotest "$D/demotest.txt"
+hidden "$EXE" -batchmode -pb-seed 7 -pb-fps 60 -pb-settingstest "$(W "$PROOF/settings")" -pb-quit 200 -logFile "$(W "$D/settingstest.txt")"
+sum settingstest "$D/settingstest.txt"
+hidden "$EXE" -batchmode -pb-seed 7 -pb-fps 60 -pb-padtest "$(W "$PROOF/pad")" -pb-quit 200 -logFile "$(W "$D/padtest.txt")"
+sum padtest "$D/padtest.txt"
+hidden "$EXE" -batchmode -pb-seed 7 -pb-musictest -pb-quit 120 -logFile "$(W "$D/musictest.txt")"
+sum musictest "$D/musictest.txt"
 
 PORT=$((7900 + RANDOM % 90))
 hidden "$EXE" -batchmode -pb-host -pb-port $PORT -pb-name Host -pb-seed 7 -pb-storycoop host -pb-netsim 150 2 -pb-quit 240 -logFile "$(W "$D/coop-host.txt")" &

@@ -239,7 +239,7 @@ namespace PortBoss.M1
             if (Prop != null) Prop.Rotate(0, Speed * 900f * dt, 0, Space.Self);
             WaterVisual();
             engineVol = Mathf.MoveTowards(engineVol, Cold ? 0 : Moored ? 0.12f : 0.25f + 0.5f * Mathf.Abs(Notch) / 3f, dt * (Cold ? 3 : 1));   // (M7: a cold engine is quiet)
-            engine.volume = engineVol; engine.pitch = 0.75f + 0.55f * Mathf.Abs(Speed) / MaxSpeed;
+            engine.volume = engineVol * Settings.Sfx; engine.pitch = 0.75f + 0.55f * Mathf.Abs(Speed) / MaxSpeed;
             // the sea is cut out inside the hull (PB_Water): its footprint, inset a little from the planking
             Shader.SetGlobalMatrix("_PBHullW2L", transform.worldToLocalMatrix);
             Shader.SetGlobalVector("_PBHull", new Vector4(Hull.extents.x - 0.1f, Hull.extents.z - 0.12f, Hull.max.y, 0));
