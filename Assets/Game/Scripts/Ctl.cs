@@ -47,7 +47,16 @@ namespace PortBoss.M1
             }
         }
 
-        public static bool Sprint => Bot ? BotSprint : K_(Key.LeftShift) || (P != null && P.leftStickButton.isPressed);
+        public static bool Sprint => Bot ? BotSprint : Settings.SprintToggle ? SprintToggled() : K_(Key.LeftShift) || (P != null && P.leftStickButton.isPressed);
+        // M7 step 6: Shift (or L3) toggles the sprint on and off; it drops when you stop
+        static bool sprintOn; static int sprintFrame = -1; static float stillT;
+        static bool SprintToggled()
+        {
+            if (sprintFrame == Time.frameCount) return sprintOn; sprintFrame = Time.frameCount;
+            if (KD(Key.LeftShift) || (P != null && P.leftStickButton.wasPressedThisFrame)) sprintOn = !sprintOn;
+            stillT = Move.sqrMagnitude < 0.01f ? stillT + Time.deltaTime : 0; if (stillT > 0.4f) sprintOn = false;
+            return sprintOn;
+        }
         public static bool Walk => !Bot && K_(Key.LeftCtrl);
         public static bool Jump => Bot ? BotJump : Ui < 2 && KD(Key.Space) || (P != null && P.buttonSouth.wasPressedThisFrame);
         public static bool JumpHeld => Bot ? BotJumpHeld : K_(Key.Space) || (P != null && P.buttonSouth.isPressed); // let go early: a lower hop
@@ -114,6 +123,16 @@ namespace PortBoss.M1
 
         public static bool Key_(Key k) => KD(k);
         public static bool Escape => KD(Key.Escape) || (P != null && P.startButton.wasPressedThisFrame);
+        // M7 step 7: moor at the tiller (F, or Y on a pad: it had no pad button)
+        public static bool Moor => !Bot && KD(Key.F) || (P != null && P.buttonNorth.wasPressedThisFrame);
+        // M7 step 7: a key cap's label as the pad shows it, when the pad was the last thing used (UiKit.Key draws every cap
+        // through this). Xbox names, the ones Steam shows on a Deck too.
+        public static string Glyph(string k) => !PadLast || string.IsNullOrEmpty(k) ? k : k switch
+        {
+            "E" => "X", "LMB" => "RT", "RMB" => "B", "Space" => "A", "Enter" => "A", "Esc" => "Menu", "Tab" => "View",
+            "W" => "LS", "S" => "LS", "W/S" => "LS", "A/D" => "LS", "WASD" => "LS", "Q" => "D-pad", "G" => "D-pad", "1" => "LB",
+            "R" => "Y", "F" => "Y", "C" => "RS", "Shift" => "L3", "I" => "Menu", _ => k,
+        };
 
         // helm: throttle notch steps, steering axis
         public static int BotThrottle; public static float BotSteer;
@@ -149,5 +168,22 @@ namespace PortBoss.M1
             return v == "ptt" ? VoiceMode.PushToTalk : v == "off" ? VoiceMode.Off : VoiceMode.Open;
         }
         static float PlayerPrefsGet(string k, float d) { try { return PlayerPrefs.GetFloat(k, d); } catch { return d; } }
+        static bool PlayerPrefsBool(string k, bool d) { try { return PlayerPrefs.GetInt(k, d ? 1 : 0) != 0; } catch { return d; } }
+        public static void SaveF(string k, float v) { try { PlayerPrefs.SetFloat(k, v); PlayerPrefs.Save(); } catch { } }
+        public static void SaveB(string k, bool v) { try { PlayerPrefs.SetInt(k, v ? 1 : 0); PlayerPrefs.Save(); } catch { } }
+
+        // M7 step 6 (systems §1.12, accessibility): sound, text, motion, fishing help, holds. The fishing help and the
+        // sprint toggle change play, so a test run (batch mode) keeps the defaults whatever this PC has saved.
+        static bool Batch => Application.isBatchMode;
+        public static float Master = PlayerPrefsGet("m7.vol.master", 1f), Music = PlayerPrefsGet("m7.vol.music", 0.7f), Sfx = PlayerPrefsGet("m7.vol.sfx", 1f),
+                            Ambience = PlayerPrefsGet("m7.vol.amb", 1f), VoiceVol = PlayerPrefsGet("m7.vol.voice", 1f);
+        public static float UiScale = Mathf.Clamp(PlayerPrefsGet("m7.ui", DeckSized() ? 1.2f : 1f), 0.8f, 1.5f);   // (a Steam Deck's 1280x800: 120%, systems §1.12)
+        static bool DeckSized() { try { return !Batch && Screen.height <= 820 && Screen.width <= 1300; } catch { return false; } }
+        public static bool Captions = PlayerPrefsBool("m7.captions", true);
+        public static float Shake = PlayerPrefsGet("m7.shake", 0.7f), Fov = PlayerPrefsGet("m7.fov", 55f), Roll = PlayerPrefsGet("m7.roll", 0.4f);
+        public static bool ReduceMotion = PlayerPrefsBool("m7.calm", false);
+        public static bool EasyFishing = !Batch && PlayerPrefsBool("m7.easy", false);
+        public static float Needle = Batch ? 1f : Mathf.Clamp(PlayerPrefsGet("m7.needle", 1f), 0.7f, 1f);
+        public static bool SprintToggle = !Batch && PlayerPrefsBool("m7.sprinttoggle", false);
     }
 }

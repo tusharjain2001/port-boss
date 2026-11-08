@@ -246,7 +246,7 @@ namespace PortBoss.M1
                 for (int t = 1; t <= 5; t++)
                 {
                     var rod = FishDb.Rods[t - 1]; string item = "rod:" + t; string why = t == 1 ? "You own it." : c.CanBuy(Firm.MyKey, item, 1);
-                    bool owned = k.Rod >= t, later = t > 2 && !owned;
+                    bool owned = k.Rod >= t, later = !owned && (t == 5 || why.StartsWith("Act"));   // M7: the act opens them (was: always later)
                     var r = Row(y, 96, later);
                     var ri = UiKit.Rect("icon", r).Place(new Vector2(0, 0.5f), new Vector2(14, 0), new Vector2(68, 68), new Vector2(0, 0.5f)).gameObject.AddComponent<RawImage>(); ri.texture = UiKit.RodIcon(t); ri.raycastTarget = false; if (later) ri.color = new Color(1, 1, 1, 0.45f);
                     T(r, rod.Name, UiKit.Bold, 21, later ? Ponyo.InkSoft : Ponyo.Ink, 96, 16, 320, 28);

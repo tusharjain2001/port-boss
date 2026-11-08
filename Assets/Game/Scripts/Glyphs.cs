@@ -67,6 +67,7 @@ namespace PortBoss.M1
                                 Mathf.Abs(RBox(p, V(0.6f, 0.06f), V(0.16f, 0.24f), 0.08f)) - w)),
                 "mug" => p => Mathf.Min(Mathf.Abs(RBox(p, V(-0.12f, -0.1f), V(0.38f, 0.46f), 0.1f)) - w, Mathf.Min(Arc(p, V(0.28f, -0.06f), 0.22f, -80, 80) - w,
                                 Mathf.Min(Ring(p, V(-0.34f, 0.44f), 0.13f) - w, Mathf.Min(Ring(p, V(-0.06f, 0.5f), 0.15f) - w, Ring(p, V(0.2f, 0.44f), 0.12f) - w)))),
+                "call" => p => Mathf.Min(Arc(p, V(0, -0.02f), 0.52f, 25, 155) - w * 1.5f, Mathf.Min(RBox(p, V(-0.48f, -0.08f), V(0.17f, 0.24f), 0.09f), RBox(p, V(0.48f, -0.08f), V(0.17f, 0.24f), 0.09f))),   // M7: a handset (calls)
                 "letter" => p => Mathf.Min(Mathf.Abs(RBox(p, V(0, 0), V(0.66f, 0.44f), 0.06f)) - w, Poly(p, V(-0.62f, 0.4f), V(0, -0.08f), V(0.62f, 0.4f)) - w),
                 "surf" => p => Mathf.Min(Mathf.Abs(Ellipse(p, V(0, 0), V(0.24f, 0.74f))) - w, Seg(p, V(0, 0.5f), V(0, -0.52f)) - w * 0.8f),
                 // the baits (June's shelf, the pouch): a curled shrimp, a slim sardine, a squid, Walt's jar of mix

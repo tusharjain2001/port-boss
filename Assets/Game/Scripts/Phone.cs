@@ -17,7 +17,7 @@ namespace PortBoss.M1
     {
         public static Phone I;
         public static bool IsOpen => I != null && I.open;
-        public enum Scr { Home, Messages, Thread, Contracts, Crew, Map, Bank, Forecast, Journal, Settings }
+        public enum Scr { Home, Messages, Thread, Contracts, Crew, Map, Bank, Forecast, Journal, Settings, Call }
         public Scr Screen = Scr.Home;
         public string Thread;                                   // the contact shown in Thread ("Notifications" = the toasts)
         public static bool H24;                                 // Settings: 24-hour clock on the phone
@@ -92,6 +92,7 @@ namespace PortBoss.M1
         public void Show(Scr s = Scr.Home, string thread = null)
         {
             if (!CanOpen(out var why)) { if (!string.IsNullOrEmpty(why)) Alerts.Push("Phone", why, Alerts.Kind.Info, "phone"); return; }
+            if (StoryUi.I != null && StoryUi.I.Ringing != null && s == Scr.Home && thread == null) s = Scr.Call;   // M7: it's ringing: Tab picks up the call screen (a toast's own screen still wins)
             if (!open) { open = true; root.gameObject.SetActive(true); shownAt = Time.unscaledTime; Snd.Play2D(Synth.Tik, 0.3f, 0.8f); Log("open"); }
             Go(s, thread);
             Ctl.Ui = 1; if (!Application.isBatchMode) { Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }
@@ -117,7 +118,7 @@ namespace PortBoss.M1
         {
             var c = Firm.C; if (c == null) return 0; int n = 0;
             foreach (var m in c.Msgs) if (!m.Me && !m.Read && !read.Contains(m.Id) && (who == null || m.From == who)) n++;
-            return n;
+            return n + (StoryUi.I != null ? StoryUi.I.UnreadLetters(who) : 0);   // M7: an unopened letter counts
         }
         string NewestUnread() { var c = Firm.C; if (c == null) return null; for (int i = c.Msgs.Count - 1; i >= 0; i--) { var m = c.Msgs[i]; if (!m.Me && !m.Read && !read.Contains(m.Id)) return m.From; } return null; }
 
@@ -145,6 +146,7 @@ namespace PortBoss.M1
             if (Screen == Scr.Map) MapDots();
         }
 
+        static string OrdKey(Company c) { if (c == null) return ""; var s = ""; foreach (var o in c.FishOrders) s += $"{o.Id}{(int)o.St};"; return s; }
         public static string Clock(double m, bool ampm = true)
         {
             int t = (int)Math.Floor(DayTime.OfDay(m)), h = t / 60, mi = t % 60;
@@ -155,7 +157,7 @@ namespace PortBoss.M1
         string Key()
         {
             var c = Firm.C; int minute = (int)Sky.Minutes;
-            return $"{Screen}|{Thread}|{minute}|{c?.Cash}|{c?.Msgs.Count}|{c?.Mari}|{c?.Ledger.Count}|{c?.MariTracked}|{Unread()}|{Alerts.Queue.Count}|{mapFilter}|{(int)scroll}|{Settings.MouseSens:F2}|{Settings.Invert}|{Settings.TimingOffsetMs}|{Settings.Voice}|{H24}|{Firm.I?.MyKit.Rod}|{CrewTab}|{crewEdit}|{eWho}|{eSpot}|{eBait}|{eSh}|{eBack}|{c?.Staff.Count}|{c?.Board.Count}|{c?.BoardSeen}|{CrewLive(c)}";
+            return $"{Screen}|{Thread}|{minute}|{c?.Cash}|{c?.Msgs.Count}|{c?.Mari}|{c?.Ledger.Count}|{c?.MariTracked}|{Unread()}|{Alerts.Queue.Count}|{mapFilter}|{(int)scroll}|{Settings.MouseSens:F2}|{Settings.Invert}|{Settings.TimingOffsetMs}|{Settings.Voice}|{H24}|{Firm.I?.MyKit.Rod}|{CrewTab}|{crewEdit}|{eWho}|{eSpot}|{eBait}|{eSh}|{eBack}|{c?.Staff.Count}|{c?.Board.Count}|{c?.BoardSeen}|{CrewLive(c)}|{c?.Act}|{c?.Letters.Count}|{c?.Calls.Count}|{c?.Pages.Count}|{StoryUi.I?.Ringing?.Id}|{StoryUi.I?.Answered.Count}|{StoryUi.I?.Missed.Count}|{StoryUi.I?.ReadLetters.Count}|{OrdKey(c)}|{c?.Hugo}|{c?.HugoFrom}|{Settings.Master}{Settings.Music}{Settings.Sfx}{Settings.Ambience}{Settings.VoiceVol}{Settings.UiScale}{Settings.Captions}{Settings.Shake}{Settings.Fov}{Settings.Roll}{Settings.ReduceMotion}{Settings.EasyFishing}{Settings.Needle}{Settings.SprintToggle}";
         }
 
         // ---------------------------------------------------------------- input: mouse, keys, pad
@@ -243,7 +245,7 @@ namespace PortBoss.M1
         }
         Image Avatar(RectTransform p, string who, float x, float y, float s)
         {
-            var col = who == Company.MariName ? Ponyo.Hex("2FB5A3") : who == "Notifications" ? Ponyo.Hex("8C7468") : Ponyo.Hex("4C5BB8");
+            var col = StoryUi.Who(who);
             var a = UiKit.Img(p, UiKit.Circle, col, "avatar"); a.rectTransform.Place(new Vector2(0, 1), new Vector2(x, -y), new Vector2(s, s), new Vector2(0, 1));
             string ini = who == "Notifications" ? "!" : string.Concat(Array.ConvertAll(who.Split(' '), w => w.Length > 0 ? w.Substring(0, 1) : ""));
             var t = UiKit.Txt(a.transform, ini, UiKit.Black, Mathf.RoundToInt(s * 0.36f), Ponyo.Paper, TextAnchor.MiddleCenter); t.rectTransform.Stretch();
@@ -282,7 +284,7 @@ namespace PortBoss.M1
             float h = Screen switch
             {
                 Scr.Home => Home(), Scr.Messages => Messages(), Scr.Thread => ThreadView(), Scr.Contracts => Contracts(), Scr.Crew => Crew(),
-                Scr.Map => MapView(), Scr.Bank => Bank(), Scr.Forecast => Forecast(), Scr.Journal => Journal(), _ => SettingsView(),
+                Scr.Map => MapView(), Scr.Bank => Bank(), Scr.Forecast => Forecast(), Scr.Journal => Journal(), Scr.Call => CallView(), _ => SettingsView(),
             };
             contentH = h + 20; list.sizeDelta = new Vector2(CW, contentH);
             scroll = Mathf.Clamp(scroll, 0, Mathf.Max(0, contentH - (H - 2 * Inset - Bar))); list.anchoredPosition = new Vector2(Pad, scroll);
@@ -328,7 +330,10 @@ namespace PortBoss.M1
             var nx = Card(list, 0, y, CW, 76);
             UiKit.Img(nx, null, Ponyo.SeaC, "accent").rectTransform.Place(new Vector2(0, 0.5f), new Vector2(2, 0), new Vector2(5, 52), new Vector2(0, 0.5f));
             string t1, t2, av = null; Action go;
-            if (c.Mari == DealSt.Offered) { av = Company.MariName; t1 = "Mari wants to moor here"; t2 = "Mooring request · waiting for you"; go = () => Go(Scr.Thread, Company.MariName); }
+            var ao = c.OpenOrd(Company.AmaraName);
+            if (ao != null && ao.St == OrdSt.Offered) { av = ao.From; t1 = "Amara has an order for you"; t2 = $"{ao.Count} Rare {ao.What.ToLowerInvariant()} · ${ao.Total} · waiting for you"; go = () => Go(Scr.Thread, ao.From); }
+            else if (ao != null) { av = ao.From; t1 = $"Amara's order: {ao.Count} Rare {ao.What.ToLowerInvariant()}"; t2 = $"The Pelican, Lantern Key · by {(DayTime.Day(ao.Due) == DayTime.Day(m) ? "today" : $"Day {DayTime.Day(ao.Due)}")} {Clock(ao.Due)}"; go = () => Go(Scr.Contracts); }
+            else if (c.Mari == DealSt.Offered) { av = Company.MariName; t1 = "Mari wants to moor here"; t2 = "Mooring request · waiting for you"; go = () => Go(Scr.Thread, Company.MariName); }
             else if (c.Mari == DealSt.Active && !c.MariHere(m)) { av = Company.MariName; t1 = "Mari's on her way"; t2 = "Her taco boat ties up at B1 within the hour"; go = () => Go(Scr.Thread, Company.MariName); }
             else if (c.Mari == DealSt.Active && DayTime.OfDay(m) >= 540 && DayTime.OfDay(m) < 1320 && c.MariToday < Market.MariDaily) { av = Company.MariName; t1 = "Mari buys fish at 100%"; t2 = $"Up to {Market.MariDaily - c.MariToday} more today · sprat, mullet, mackerel"; go = () => Go(Scr.Contracts); }
             else
@@ -355,8 +360,8 @@ namespace PortBoss.M1
             y = Mathf.Max(y, H - 2 * Inset - Bar - 20 - 196);
             var apps = new (string name, string g, Color col, Scr s, int badge, bool locked)[]
             {
-                ("Messages", "msg", Ponyo.Hex("2FB5A3"), Scr.Messages, Unread(), false), ("Contracts", "contract", Ponyo.Hex("E39A4C"), Scr.Contracts, c.Mari == DealSt.Offered ? 1 : 0, false),
-                ("Crew", "crew", Ponyo.Hex("4C5BB8"), Scr.Crew, 0, true), ("Map", "map", Ponyo.Hex("5B8FE0"), Scr.Map, 0, false),
+                ("Messages", "msg", Ponyo.Hex("2FB5A3"), Scr.Messages, Unread(), false), ("Contracts", "contract", Ponyo.Hex("E39A4C"), Scr.Contracts, (c.Mari == DealSt.Offered ? 1 : 0) + c.FishOrders.FindAll(o => o.St == OrdSt.Offered).Count, false),
+                ("Crew", "crew", Ponyo.Hex("4C5BB8"), Scr.Crew, 0, c.Act < 2), ("Map", "map", Ponyo.Hex("5B8FE0"), Scr.Map, 0, false),
                 ("Bank", "bank", Ponyo.Hex("4FAF6E"), Scr.Bank, 0, false), ("Forecast", "forecast", Ponyo.Hex("4A90C8"), Scr.Forecast, 0, false),
                 ("Journal", "journal", Ponyo.Hex("A0704E"), Scr.Journal, 0, false), ("Settings", "settings", Ponyo.Hex("6B6450"), Scr.Settings, 0, false),
             };
@@ -390,15 +395,21 @@ namespace PortBoss.M1
         {
             var c = Firm.C; Header("Messages", Unread() > 0 ? $"{Unread()} unread" : null);
             float y = 58;
-            var who = new List<string>(); for (int i = c.Msgs.Count - 1; i >= 0; i--) if (!who.Contains(c.Msgs[i].From)) who.Add(c.Msgs[i].From);
+            // M7: a contact's newest item is a text, a call or a letter
+            var newest = new Dictionary<string, (double at, string line)>();
+            void Seen(string from, double at, string line) { if (!newest.TryGetValue(from, out var o) || at >= o.at) newest[from] = (at, line); }
+            foreach (var m in c.Msgs) Seen(m.From, m.At, (m.Me ? "You: " : "") + m.Text);
+            foreach (var k in c.Calls) Seen(k.From, k.At, StoryUi.I != null && StoryUi.I.CallState(k) == "Missed" ? "Missed call · voicemail" : "Call");
+            foreach (var l in c.Letters) Seen(l.From, l.At, "Letter · " + l.Title);
+            var who = new List<string>(newest.Keys); who.Sort((a, b) => newest[b].at.CompareTo(newest[a].at));
             foreach (var w in who)
             {
-                var last = c.Msgs.FindLast(x => x.From == w); int un = Unread(w);
+                var last = newest[w]; int un = Unread(w);
                 var row = Card(list, 0, y, CW, 78, un > 0 ? Ponyo.Hex("FFF4DC") : Ponyo.Paper);
                 Avatar(row, w, 14, 15, 48);
                 T(row, w, UiKit.Bold, 18, Ponyo.Ink, 74, 13, 180, 24);
-                Caps(row, When(last.At), 160, 16, CW - 176, SubInk, TextAnchor.UpperRight, 12);
-                OneLine(T(row, (last.Me ? "You: " : "") + last.Text, un > 0 ? UiKit.Bold : UiKit.Body, 14, un > 0 ? Ponyo.Ink : SubInk, 74, 42, CW - 110, 22));
+                Caps(row, When(last.at), 160, 16, CW - 176, SubInk, TextAnchor.UpperRight, 12);
+                OneLine(T(row, last.line, un > 0 ? UiKit.Bold : UiKit.Body, 14, un > 0 ? Ponyo.Ink : SubInk, 74, 42, CW - 110, 22));
                 Badge(row, un, new Vector2(-22, -54));
                 string ww = w; Button(row, w, () => Go(Scr.Thread, ww));
                 y += 88;
@@ -420,7 +431,7 @@ namespace PortBoss.M1
             var b = At(list, -6, 10, 40, 40, "back"); Ico(b, "back", Ponyo.Ink, 8, 8, 24); Button(b, "Back", () => Go(Scr.Messages));
             Avatar(list, Thread, 38, 4, 48);
             T(list, Thread, UiKit.Bold, 20, Ponyo.Ink, 96, 6, 240, 26);
-            T(list, Thread == Company.MariName ? "Mari's Tacos · boat" : Thread == "Notifications" ? "Everything that popped up, newest first" : "", UiKit.Body, 14, SubInk, 96, 32, 250, 20);
+            OneLine(T(list, Sub(Thread), UiKit.Body, 14, SubInk, 96, 32, 250, 20));
             UiKit.Img(list, null, Ponyo.Hex("E5D8C2"), "rule").rectTransform.Place(new Vector2(0, 1), new Vector2(-Pad, -62), new Vector2(W, 2), new Vector2(0, 1));
             y = 76;
             if (Thread == "Notifications")
@@ -437,12 +448,20 @@ namespace PortBoss.M1
                 return y;
             }
             var msgs = c.Msgs.FindAll(x => x.From == Thread);
+            var calls = c.Calls.FindAll(x => x.From == Thread); var lets = c.Letters.FindAll(x => x.From == Thread);
+            var items = new List<(double at, int kind, int i)>();                        // M7: texts, calls (1), letters (2)
+            for (int i = 0; i < msgs.Count; i++) items.Add((msgs[i].At, 0, i));
+            for (int i = 0; i < calls.Count; i++) items.Add((calls[i].At, 1, i));
+            for (int i = 0; i < lets.Count; i++) items.Add((lets[i].At, 2, i));
+            items.Sort((a, b) => a.at != b.at ? a.at.CompareTo(b.at) : a.kind != b.kind ? a.kind.CompareTo(b.kind) : a.i.CompareTo(b.i));
             double lastAt = -1e9; int lastOffer = msgs.FindLastIndex(x => x.Offer != null);
-            for (int i = 0; i < msgs.Count; i++)
+            foreach (var it in items)
             {
-                var msg = msgs[i];
-                if (msg.At - lastAt > 90) { Caps(list, When(msg.At), 0, y, CW, SubInk, TextAnchor.UpperCenter, 12); y += 26; }
-                lastAt = msg.At;
+                if (it.at - lastAt > 90) { Caps(list, When(it.at), 0, y, CW, SubInk, TextAnchor.UpperCenter, 12); y += 26; }
+                lastAt = it.at;
+                if (it.kind == 1) { y = CallBubble(calls[it.i], y); continue; }
+                if (it.kind == 2) { y = LetterBubble(lets[it.i], y); continue; }
+                int i = it.i; var msg = msgs[i];
                 float bw = 262;
                 var bub = UiKit.Card(list, "bubble", 16, msg.Me ? Ponyo.Hex("D3F1EC") : Ponyo.Hex("F8EEDC"), false, msg.Me ? Ponyo.Hex("A6DCD3") : Ponyo.Hex("E5D3B5"));
                 var tx = UiKit.Txt(bub, msg.Text, UiKit.Body, 16, Ponyo.Ink, TextAnchor.UpperLeft); tx.rectTransform.Place(new Vector2(0, 1), new Vector2(14, -10), new Vector2(bw - 28, 10), new Vector2(0, 1));
@@ -453,6 +472,17 @@ namespace PortBoss.M1
                 y += th + 30;
                 if (msg.Offer == "mari" && i == lastOffer) y = OfferCard(c, y) + 10;
                 if (msg.Offer != null && msg.Offer.StartsWith("ask:") && int.TryParse(msg.Offer.Substring(4), out int askId)) y = AskCard(c, askId, y) + 10;   // M5: Ask the crew
+            }
+            // M7: an order waiting for an answer: the card, then Deal / Not this time
+            var ord = c.OpenOrd(Thread);
+            if (ord != null) y = OrderCard(c, ord, y + 6) + 10;
+            // M7 step 4: Hugo & Fifi's request
+            if (Thread == Company.HugoName && c.Hugo == DealSt.Offered)
+            {
+                y += 6; float bw = (CW - 10) / 2;
+                Pill(list, "Not now", 0, y, bw, 40, Ponyo.Paper, Ponyo.Ink, () => Firm.I.AnswerHugo(false), UiKit.Body, 15);
+                Pill(list, "Lovely, come", bw + 10, y, bw, 40, Ponyo.Sunflower, Ponyo.Ink, () => Firm.I.AnswerHugo(true), UiKit.Bold, 15);
+                y += 50;
             }
             // quick replies (never free text)
             if (Thread == Company.MariName && c.Mari == DealSt.Offered)
@@ -467,6 +497,92 @@ namespace PortBoss.M1
                 y += 46;
             }
             return y;
+        }
+
+        // M7: who a contact is, under their name in the thread
+        static string Sub(string who) => who switch
+        {
+            Company.MariName => "Mari's Tacos · boat",
+            Company.WaltName => "Your grandpa · Sunny Rest home",
+            Company.JuneName => "Hook, Line & Sinker",
+            Company.PrattName => "Old Saltmouth Fish Market · Voss Maritime",
+            Company.FergusName => "Doyle Boatworks",
+            Company.AmaraName => "Chef · The Pelican, Lantern Key",
+            Company.HugoName => "Houseboat The Last Word",
+            Company.IngridName => "Plank & Post",
+            Company.DotName => "Harbour master · the lighthouse",
+            "Notifications" => "Everything that popped up, newest first",
+            _ => "",
+        };
+        // a call in the thread: answered, or missed with its voicemail (the same words either way)
+        float CallBubble(Company.Call k, float y)
+        {
+            string st = StoryUi.I != null ? StoryUi.I.CallState(k) : "Call";
+            var card = Card(list, 0, y, CW, 60, Ponyo.Paper2, 16, false, Ponyo.Hex("E5D3B5"));
+            Ico(card, "call", st == "Missed" ? Ponyo.Poppy : Ponyo.Hex("3E9A4E"), 14, 14, 28);
+            T(card, st == "Missed" ? "Missed call · voicemail" : st == "Ringing" ? "Calling…" : "Call", UiKit.Bold, 16, Ponyo.Ink, 52, 16, CW - 70, 24);
+            float ty = 50;
+            if (st != "Ringing")
+                foreach (var line in k.Lines)
+                {
+                    var t = T(card, line, UiKit.Body, 14, SubInk, 52, ty, CW - 70, 18); t.horizontalOverflow = HorizontalWrapMode.Wrap;
+                    float h = t.preferredHeight; t.rectTransform.sizeDelta = new Vector2(CW - 70, h); ty += h + 4;
+                }
+            card.sizeDelta = new Vector2(CW, ty + 8);
+            if (st == "Ringing") Button(card, "Answer call", () => Go(Scr.Call));
+            return y + ty + 18;
+        }
+        // a letter in the thread: tap to read it on its paper card
+        float LetterBubble(Company.Letter l, float y)
+        {
+            bool un = StoryUi.I != null && !StoryUi.I.ReadLetters.Contains(l.Id);
+            var card = Card(list, 0, y, CW, 70, un ? Ponyo.Hex("FFF4DC") : Ponyo.Hex("FFFBF2"), 10, true, Ponyo.Hex("D9C9B0"));
+            Ico(card, "letter", Ponyo.Hex("A0704E"), 14, 18, 32);
+            OneLine(T(card, l.Title, UiKit.DisplayBold, 17, Ponyo.Ink, 56, 12, CW - 150, 24));
+            T(card, un ? "Not read yet" : "Read it again", UiKit.Body, 14, SubInk, 56, 38, CW - 150, 20);
+            Pill(card, "Read", CW - 88, 16, 72, 38, Ponyo.Sunflower, Ponyo.Ink, () => StoryUi.I?.Open(l), UiKit.Bold, 15).name = "btn Read letter " + l.Id;
+            return y + 82;
+        }
+        // M7: the phone rings (Tab while it rings comes here)
+        float CallView()
+        {
+            var k = StoryUi.I != null ? StoryUi.I.Ringing : null; float y = 96;
+            if (k == null)
+            {
+                T(list, "No call", UiKit.DisplayBold, 30, Ponyo.Ink, 0, y, CW, 40, TextAnchor.UpperCenter);
+                Pill(list, "Back", CW / 2 - 70, y + 80, 140, 52, Ponyo.Paper2, Ponyo.Ink, () => Go(Scr.Home));
+                return y + 140;
+            }
+            Avatar(list, k.From, CW / 2 - 64, y, 128); y += 150;
+            T(list, k.From, UiKit.DisplayBold, 32, Ponyo.Ink, 0, y, CW, 42, TextAnchor.UpperCenter); y += 46;
+            Caps(list, "Calling…", 0, y, CW, SubInk, TextAnchor.UpperCenter, 14); y += 30;
+            T(list, Sub(k.From), UiKit.Body, 14, SubInk, 0, y, CW, 20, TextAnchor.UpperCenter); y += 150;
+            Pill(list, "Decline", 6, y, CW / 2 - 18, 66, Ponyo.Poppy, Ponyo.Paper, () => { StoryUi.I.Decline(); Go(Scr.Home); }, UiKit.Bold, 19);
+            var yes = Pill(list, "Answer", CW / 2 + 12, y, CW / 2 - 18, 66, Ponyo.Hex("3E9A4E"), Ponyo.Paper, () => { StoryUi.I.Answer(); Hide(); }, UiKit.Bold, 19);
+            focus = btns.FindIndex(b => b.r == yes);
+            return y + 90;
+        }
+
+        // M7: a fish order card (her thread and the Contracts app): what, how many, the pay, the deadline; Deal / Not this time
+        float OrderCard(Company c, Company.Ord o, float y)
+        {
+            double m = Sky.Minutes; bool offered = o.St == OrdSt.Offered;
+            var card = Card(list, 0, y, CW, 200, Ponyo.Paper, 18, true);
+            Avatar(card, o.From, 16, 16, 44);
+            T(card, $"{o.From.Split(' ')[0]}'s order", UiKit.DisplayBold, 21, Ponyo.Ink, 72, 14, 220, 28);
+            T(card, Sub(o.From), UiKit.Body, 14, SubInk, 72, 42, CW - 90, 20);
+            string st = o.St switch { OrdSt.Offered => "Offered", OrdSt.Active => "Active", OrdSt.Done => "Delivered", OrdSt.Late => "Too late", _ => "Declined" };
+            var chip = UiKit.Card(card, "status", 12, o.St == OrdSt.Active ? Ponyo.Hex("DDF1E0") : offered ? Ponyo.Hex("FFF0CC") : Ponyo.Paper2, false); chip.Place(new Vector2(1, 1), new Vector2(-14, -16), new Vector2(92, 24), new Vector2(1, 1));
+            var ct = UiKit.Txt(chip, UiKit.Caps(st), UiKit.Bold, 12, Ponyo.Ink, TextAnchor.MiddleCenter); ct.rectTransform.Stretch();
+            float ry = 78; int left = (int)Math.Max(0, o.Due - m);
+            foreach (var (k, v) in new[] { ("Wants", $"{o.Count} × {(o.Grade > 0 ? "Rare " : "")}{o.What.ToLowerInvariant()}, not soft"), ("Pays", $"${o.Each} each = {Money(o.Total)}"),
+                                           ("By", o.St == OrdSt.Done ? "Delivered" : $"{(DayTime.Day(o.Due) == DayTime.Day(m) ? "today" : $"Day {DayTime.Day(o.Due)}")} {Clock(o.Due)}{(o.St == OrdSt.Active ? $" · {left / 60}h {left % 60:00}m left" : "")}"),
+                                           ("Where", "The Pelican, Lantern Key") })
+            { T(card, k, UiKit.Body, 14, SubInk, 16, ry, 120, 20); T(card, v, UiKit.Body, 14, Ponyo.Ink, 80, ry, CW - 96, 20, TextAnchor.UpperRight); ry += 25; }
+            ry += 6; float bw = (CW - 32 - 10) / 2;
+            if (offered) { Pill(card, "Not this time", 16, ry, bw, 44, Ponyo.Paper2, Ponyo.Ink, () => Firm.I.AnswerOrd(o.Id, false)); Pill(card, "Deal", 26 + bw, ry, bw, 44, Ponyo.Sunflower, Ponyo.Ink, () => Firm.I.AnswerOrd(o.Id, true)); ry += 54; }
+            card.sizeDelta = new Vector2(CW, ry + 8);
+            return y + ry + 8;
         }
 
         // the mooring request, embedded in Mari's thread (and the same card in Contracts)
@@ -545,9 +661,12 @@ namespace PortBoss.M1
         float Contracts()
         {
             var c = Firm.C; double m = Sky.Minutes;
-            Header("Contracts", c.Mari == DealSt.Active ? "1 active" : c.Mari == DealSt.Offered ? "1 offered" : null);
+            int act = (c.Mari == DealSt.Active ? 1 : 0) + c.FishOrders.FindAll(o => o.St == OrdSt.Active).Count, off = (c.Mari == DealSt.Offered ? 1 : 0) + c.FishOrders.FindAll(o => o.St == OrdSt.Offered).Count;
+            Header("Contracts", act > 0 ? $"{act} active" : off > 0 ? $"{off} offered" : null);
             float y = 58;
-            if (c.Mari == DealSt.None) { T(list, "No deals yet. Earn a bit and the harbour will notice the new owner: Mari has asked about Walt's old berth.", UiKit.Body, 15, SubInk, 4, y, CW - 8, 80); return y + 80; }
+            // M7: fish orders first (the open ones), newest first
+            for (int i = c.FishOrders.Count - 1; i >= 0; i--) { var o = c.FishOrders[i]; if (o.St == OrdSt.Offered || o.St == OrdSt.Active || i == c.FishOrders.Count - 1) y = OrderCard(c, o, y) + 14; }
+            if (c.Mari == DealSt.None) { if (c.FishOrders.Count == 0) T(list, "No deals yet. Earn a bit and the harbour will notice the new owner: Mari has asked about Walt's old berth.", UiKit.Body, 15, SubInk, 4, y, CW - 8, 80); return y + 80; }
             var card = Card(list, 0, y, CW, 262, Ponyo.Paper, 18, true);
             Avatar(card, Company.MariName, 16, 16, 44);
             T(card, "Mari's mooring", UiKit.DisplayBold, 21, Ponyo.Ink, 72, 14, 220, 28);
@@ -817,6 +936,29 @@ namespace PortBoss.M1
             var k = Firm.I.MyKit; int n = 0; foreach (var s in FishDb.All) if (k.Best.ContainsKey(s.Id)) n++;
             Header("Journal", $"{n} / {FishDb.All.Count} fish");
             float y = 58;
+            var c = Firm.C;
+            if (c != null && c.Pages.Count > 0)
+            {
+                Caps(list, "Walt's pages", 2, y, CW); y += 24;
+                foreach (var p in c.Pages)
+                {
+                    var card = Card(list, 0, y, CW, 60, Ponyo.Hex("FFFBF2"), 14, false, Ponyo.Hex("E5D3B5"));
+                    T(card, p.Title, UiKit.DisplayBold, 18, Ponyo.Ink, 16, 12, CW - 32, 24);
+                    var t = T(card, p.Text, UiKit.Display, 15, Ponyo.Ink, 16, 40, CW - 32, 20); t.horizontalOverflow = HorizontalWrapMode.Wrap;
+                    float h = t.preferredHeight; t.rectTransform.sizeDelta = new Vector2(CW - 32, h);
+                    float ky = 48 + h;
+                    if (!string.IsNullOrEmpty(p.Keys))
+                        foreach (var pair in p.Keys.Split(';'))
+                        {
+                            var kv = pair.Split('|'); if (kv.Length < 2) continue;
+                            var key = UiKit.Key(card, kv[0], 24); key.Place(new Vector2(0, 1), new Vector2(16, -ky), key.sizeDelta, new Vector2(0, 1));
+                            T(card, kv[1], UiKit.Body, 14, SubInk, 24 + key.sizeDelta.x, ky + 2, CW - 60 - key.sizeDelta.x, 20); ky += 30;
+                        }
+                    card.sizeDelta = new Vector2(CW, ky + 8); y += ky + 18;
+                }
+            }
+            if (c != null && c.Letters.Count > 0) { Caps(list, "Letters", 2, y, CW); y += 24; foreach (var l in c.Letters) y = LetterBubble(l, y); y += 6; }
+            Caps(list, "Fish", 2, y, CW); y += 22;
             T(list, "Walt's fish book. Every fish you land goes in.", UiKit.Body, 14, SubInk, 2, y, CW, 20); y += 30;
             foreach (var s in FishDb.All)
             {
@@ -854,6 +996,32 @@ namespace PortBoss.M1
                 else if (plus != null) Button(r, name, plus);
                 y += 66;
             }
+            void Sec(string t) { Caps(list, t, 2, y + 4, CW); y += 28; }
+            void Pct(string name, string key, Func<float> get, Action<float> set, float lo, float hi, float step)
+            {
+                float v = get(); Row(name, $"{Mathf.RoundToInt(v * 100)}%", () => { var n = Mathf.Clamp(Mathf.Round((get() - step) * 100) / 100, lo, hi); set(n); Settings.SaveF(key, n); },
+                                                                        () => { var n = Mathf.Clamp(Mathf.Round((get() + step) * 100) / 100, lo, hi); set(n); Settings.SaveF(key, n); });
+            }
+            void Flip(string name, string on, string off, Func<bool> get, Action<bool> set, string key) => Row(name, get() ? on : off, null, () => { set(!get()); Settings.SaveB(key, get()); });
+            // M7 step 6: sound, then text and motion, fishing help, controls (systems §1.12)
+            Sec("Sound");
+            Pct("Master", "m7.vol.master", () => Settings.Master, v => Settings.Master = v, 0, 1, 0.1f);
+            Pct("Music", "m7.vol.music", () => Settings.Music, v => Settings.Music = v, 0, 1, 0.1f);
+            Pct("Effects", "m7.vol.sfx", () => Settings.Sfx, v => Settings.Sfx = v, 0, 1, 0.1f);
+            Pct("Sea and gulls", "m7.vol.amb", () => Settings.Ambience, v => Settings.Ambience = v, 0, 1, 0.1f);
+            Pct("Crew voices", "m7.vol.voice", () => Settings.VoiceVol, v => Settings.VoiceVol = v, 0, 1, 0.1f);
+            Sec("Text and motion");
+            Pct("Text size", "m7.ui", () => Settings.UiScale, v => Settings.UiScale = v, 0.8f, 1.5f, 0.1f);
+            Flip("Captions", "On", "Off", () => Settings.Captions, v => Settings.Captions = v, "m7.captions");
+            Pct("Camera shake", "m7.shake", () => Settings.Shake, v => Settings.Shake = v, 0, 1, 0.1f);
+            Row("Field of view", $"{Settings.Fov:0}°", () => { Settings.Fov = Mathf.Clamp(Settings.Fov - 5, 50, 80); Settings.SaveF("m7.fov", Settings.Fov); }, () => { Settings.Fov = Mathf.Clamp(Settings.Fov + 5, 50, 80); Settings.SaveF("m7.fov", Settings.Fov); });
+            Pct("Boat roll", "m7.roll", () => Settings.Roll, v => Settings.Roll = v, 0, 1, 0.1f);
+            Flip("Reduce motion", "On", "Off", () => Settings.ReduceMotion, v => Settings.ReduceMotion = v, "m7.calm");
+            Sec("Fishing");
+            Flip("Easy fishing", "On (+30%)", "Off", () => Settings.EasyFishing, v => Settings.EasyFishing = v, "m7.easy");
+            Pct("Needle speed", "m7.needle", () => Settings.Needle, v => Settings.Needle = v, 0.7f, 1, 0.05f);
+            Sec("Controls");
+            Flip("Sprint", "Tap to toggle", "Hold Shift", () => Settings.SprintToggle, v => Settings.SprintToggle = v, "m7.sprinttoggle");
             Row("Mouse look", $"{Settings.MouseSens:0.0}×", () => SetF("m1.mouse", ref Settings.MouseSens, -0.1f, 0.2f, 3f), () => SetF("m1.mouse", ref Settings.MouseSens, 0.1f, 0.2f, 3f));
             Row("Pad look", $"{Settings.PadSens:0.0}×", () => SetF("m1.pad", ref Settings.PadSens, -0.1f, 0.2f, 3f), () => SetF("m1.pad", ref Settings.PadSens, 0.1f, 0.2f, 3f));
             Row("Invert look", Settings.Invert ? "On" : "Off", null, () => { Settings.Invert = !Settings.Invert; try { PlayerPrefs.SetInt("m1.invert", Settings.Invert ? 1 : 0); PlayerPrefs.Save(); } catch { } });
@@ -865,7 +1033,7 @@ namespace PortBoss.M1
             });
             Row("Phone clock", H24 ? "24-hour" : "12-hour", null, () => { H24 = !H24; try { PlayerPrefs.SetInt("m4.h24", H24 ? 1 : 0); } catch { } });
             y += 6;
-            T(list, "Bar timing nudges the fishing bar if your screen or pad lags. Esc pauses the game.", UiKit.Body, 14, SubInk, 2, y, CW - 4, 60);
+            T(list, "Bar timing nudges the fishing bar if your screen or pad lags. Easy fishing widens the green; Needle speed slows it. Esc, then S, opens these too.", UiKit.Body, 14, SubInk, 2, y, CW - 4, 80);
             return y + 60;
         }
         static void SetF(string k, ref float v, float d, float lo, float hi)

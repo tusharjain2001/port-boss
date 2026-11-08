@@ -49,7 +49,7 @@ namespace PortBoss.M1
 
         bool cut;
         public void Cut() => cut = true; // the next frame jumps straight to the target (a join, under the cover: JoinView)
-        public static void Shake(float a) => shake = Mathf.Max(shake, a);
+        public static void Shake(float a) => shake = Mathf.Max(shake, a * (Settings.ReduceMotion ? 0 : Settings.Shake / 0.7f));   // (M7: 70% is the old shake)
         public static void Dip(float m) { dipT = 0; dipA = m; } // a big landing: down and back up in 0.3 s
 
         void LateUpdate()
@@ -155,7 +155,7 @@ namespace PortBoss.M1
             var fwd = M == Mode.Reveal ? (aimAt - p) : Vector3.Lerp(rot * Vector3.forward, (aimAt - p).normalized, Mathf.Clamp01(focusW / 0.05f));
             if (M == Mode.Reveal) fwd = (Target.position + Vector3.up * 1.3f + Target.forward * 0.25f) - p;
             // a little roll with the deck (systems §1.6.1: roll follow is a setting; calm default)
-            float tRoll = OnDeck && Skiff.I != null ? -Mathf.DeltaAngle(0, Skiff.I.transform.eulerAngles.z) * 0.25f : 0;
+            float tRoll = OnDeck && Skiff.I != null && !Settings.ReduceMotion ? -Mathf.DeltaAngle(0, Skiff.I.transform.eulerAngles.z) * 0.25f * (Settings.Roll / 0.4f) : 0;   // (M7: 40% is the old roll)
             roll = Mathf.Lerp(roll, tRoll, 1 - Mathf.Exp(-3f * dt));
             var q = Quaternion.LookRotation(fwd.normalized, Vector3.up) * Quaternion.Euler(0, 0, roll);
 
@@ -165,9 +165,9 @@ namespace PortBoss.M1
             {
                 p += Random.insideUnitSphere * shake * 0.15f; shake = Mathf.MoveTowards(shake, 0, dt * 1.5f);
             }
-            FovPunch = Mathf.MoveTowards(FovPunch, 0, dt * 6f);
+            FovPunch = Settings.ReduceMotion ? 0 : Mathf.MoveTowards(FovPunch, 0, dt * 6f);
             transform.SetPositionAndRotation(p, q);
-            Cam.fieldOfView = fov - FovPunch;
+            Cam.fieldOfView = fov - FovPunch + (Settings.Fov - 55);    // (M7: the FOV setting moves every framing alike)
             if (UiCam != Cam) UiCam.fieldOfView = Cam.fieldOfView;
         }
 

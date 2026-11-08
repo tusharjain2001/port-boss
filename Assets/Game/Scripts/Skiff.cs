@@ -126,7 +126,7 @@ namespace PortBoss.M1
         public Pose NetPose(float t) => new()
         {
             T = t, X = pos.x, Y = y, Z = pos.z, Yaw = yaw, Pitch = pitch, Roll = roll, Speed = Speed, Rudder = Rudder, AnchorT = AnchorT, Water = Water, Notch = (sbyte)Notch,
-            Flags = (byte)((Moored ? 1 : 0) | (Anchored ? 2 : 0) | (AtHelm ? 4 : 0) | (Leaking ? 8 : 0) | (Index << 4)),
+            Flags = (byte)((Moored ? 1 : 0) | (Anchored ? 2 : 0) | (AtHelm ? 4 : 0) | (Leaking ? 8 : 0) | ((Index & 7) << 4) | (Cold ? 128 : 0)),   // (M7: bit 7 = her engine is cold)
         };
 
         // This copy becomes the real boat (its driver, or the host when the driver leaves): carry on from where it is shown.
@@ -148,7 +148,7 @@ namespace PortBoss.M1
             pos = np; y = Mathf.Lerp(a.Y, b.Y, k); yaw = Mathf.LerpAngle(a.Yaw, b.Yaw, k);
             pitch = Mathf.LerpAngle(a.Pitch, b.Pitch, k); roll = Mathf.LerpAngle(a.Roll, b.Roll, k);
             Speed = Mathf.Lerp(a.Speed, b.Speed, k); Rudder = Mathf.Lerp(a.Rudder, b.Rudder, k); Notch = b.Notch;
-            bool wasAnch = Anchored; Moored = (b.Flags & 1) != 0; Anchored = (b.Flags & 2) != 0; AtHelm = (b.Flags & 4) != 0; AnchorT = b.AnchorT; Water = b.Water;
+            bool wasAnch = Anchored; Moored = (b.Flags & 1) != 0; Anchored = (b.Flags & 2) != 0; AtHelm = (b.Flags & 4) != 0; AnchorT = b.AnchorT; Water = b.Water; Cold = (b.Flags & 128) != 0;
             bool leak = (b.Flags & 8) != 0; if (leak != Leaking) { if (leak) SpringLeak(); else Patch(); } // (the toasts, here too)
             if (Anchored != wasAnch) Snd.Play(M1Assets.I.Splash, AnchorPt != null ? AnchorPt.position : transform.position, Anchored ? 0.7f : 0.3f);
             transform.SetPositionAndRotation(new Vector3(pos.x, y, pos.z), Quaternion.Euler(0, yaw, 0) * Quaternion.Euler(pitch, 0, roll));
@@ -164,7 +164,7 @@ namespace PortBoss.M1
             Rudder = Mathf.Abs(Steer) > 0.05f ? Mathf.MoveTowards(Rudder, Steer * 35f, 120f * dt) : Mathf.MoveTowards(Rudder, 0, 60f * dt);
             if (!AtHelm && !Crewed && Notch != 0 && !Moored) { Notch = 0; Alerts.Push(Name, "Throttle eased to stop.", Alerts.Kind.Info); } // no runaway boats
 
-            LeakTick(dt);
+            LeakTick(dt); StartTick(dt);                        // (M7: the cold start and the weeping hull, SkiffStart.cs)
             float want = Moored || Anchored ? 0 : TargetSpeed * SpeedMul;
             float acc = Mathf.Abs(want) > Mathf.Abs(Speed) ? 1.1f : 0.8f;
             Speed = Mathf.MoveTowards(Speed, want, acc * dt);
@@ -187,13 +187,14 @@ namespace PortBoss.M1
                 else newPos += windDrift * dt;
             }
 
-            if (Moored && MoorAt != null)
+            FindAway();                                                  // (M7: moored at a visiting berth, SkiffBerth.cs)
+            if (Moored && Berth != null)
             {
                 // the assisted 1.5 s settle into the berth (systems §1.6.3), then held by the ropes
                 moorBlend = Mathf.MoveTowards(moorBlend, 1, dt / 1.5f);
-                var mp = MoorAt.position; mp.y = 0;
+                var mp = Berth.position; mp.y = 0;
                 newPos = Util.Damp(newPos, mp, 2f + 20f * moorBlend * moorBlend, dt);
-                newYaw = Mathf.LerpAngle(newYaw, MoorAt.eulerAngles.y, 1 - Mathf.Exp(-(2f + 20f * moorBlend * moorBlend) * dt));
+                newYaw = Mathf.LerpAngle(newYaw, Berth.eulerAngles.y, 1 - Mathf.Exp(-(2f + 20f * moorBlend * moorBlend) * dt));
             }
 
             // the pier, the shore: stop with a bump instead of sailing through
@@ -237,8 +238,8 @@ namespace PortBoss.M1
             if (Motor != null) Motor.localRotation = Quaternion.Euler(0, Rudder * 0.34f, 0); // ±12°: the tiller swings clear of the helmsman (visual only)
             if (Prop != null) Prop.Rotate(0, Speed * 900f * dt, 0, Space.Self);
             WaterVisual();
-            engineVol = Mathf.MoveTowards(engineVol, Moored ? 0.12f : 0.25f + 0.5f * Mathf.Abs(Notch) / 3f, dt);
-            engine.volume = engineVol; engine.pitch = 0.75f + 0.55f * Mathf.Abs(Speed) / MaxSpeed;
+            engineVol = Mathf.MoveTowards(engineVol, Cold ? 0 : Moored ? 0.12f : 0.25f + 0.5f * Mathf.Abs(Notch) / 3f, dt * (Cold ? 3 : 1));   // (M7: a cold engine is quiet)
+            engine.volume = engineVol * Settings.Sfx; engine.pitch = 0.75f + 0.55f * Mathf.Abs(Speed) / MaxSpeed;
             // the sea is cut out inside the hull (PB_Water): its footprint, inset a little from the planking
             Shader.SetGlobalMatrix("_PBHullW2L", transform.worldToLocalMatrix);
             Shader.SetGlobalVector("_PBHull", new Vector4(Hull.extents.x - 0.1f, Hull.extents.z - 0.12f, Hull.max.y, 0));
@@ -312,12 +313,16 @@ namespace PortBoss.M1
         public void CastOff(bool quiet = false)
         {
             if (!Moored) return;
-            Moored = false; moorBlend = 0;
+            Moored = false; moorBlend = 0; AwayAt = null; AwayName = null;
             if (!quiet) Alerts.Push(Name, "Cast off. W / S for the throttle, A / D to steer.", Alerts.Kind.Info, "berth", "berth");
         }
 
-        public bool CanMoor => !Moored && MoorAt != null && Vector3.Distance(Flat(pos), Flat(MoorAt.position)) < 6f && Mathf.Abs(Speed) < 2f;
-        public void Moor(bool quiet = false) { Moored = true; Anchored = false; moorBlend = 0; Notch = 0; Speed = 0; if (!quiet) Alerts.Push(Name, "Moored at Walt's Landing.", Alerts.Kind.Info, "berth", "berth|anchor"); }
+        public bool CanMoor => !Moored && BerthNear(out _) != null && Mathf.Abs(Speed) < 2f;   // (M7: home, or a visiting berth)
+        public void Moor(bool quiet = false)
+        {
+            var b = BerthNear(out var n); AwayAt = b != null && b != MoorAt ? b : null; AwayName = AwayAt != null ? n : null;
+            Moored = true; Anchored = false; moorBlend = 0; Notch = 0; Speed = 0; if (!quiet) Alerts.Push(Name, $"Moored at {(AwayAt != null ? n : "Walt's Landing")}.", Alerts.Kind.Info, "berth", "berth|anchor");
+        }
         static Vector3 Flat(Vector3 v) => new Vector3(v.x, 0, v.z);
 
         // M3: a boat left loose for the night anchors itself where it is (systems §1.4.2)

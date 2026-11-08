@@ -160,6 +160,7 @@ namespace PortBoss.M1
         // A paper key cap ("E", "LMB", "Space") as in the mockups.
         public static RectTransform Key(Transform parent, string label, float h = 30)
         {
+            label = Ctl.Glyph(label);                                   // M7 step 7: the pad's button when the pad is in use
             float w = Mathf.Max(h, 14 + label.Length * (h * 0.42f));
             var k = Card(parent, "key " + label, 7, Ponyo.Paper, false);
             k.sizeDelta = new Vector2(w, h);

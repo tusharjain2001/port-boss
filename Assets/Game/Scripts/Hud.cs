@@ -63,6 +63,8 @@ namespace PortBoss.M1
     public class Hud : MonoBehaviour
     {
         public static Hud I;
+        CanvasScaler scaler; float scaled = -1;                     // M7 step 6: text size (Settings.UiScale)
+        void ScaleTick() { if (scaler != null && scaled != Settings.UiScale) { scaled = Settings.UiScale; scaler.referenceResolution = new Vector2(W, H) / scaled; } }
         Canvas canvas; RectTransform root;
         Angler me; Fishing fish;
         public static readonly Dictionary<string, Texture> Icons = new();
@@ -105,7 +107,7 @@ namespace PortBoss.M1
             var h = g.AddComponent<Hud>(); I = h; h.me = a; h.fish = a.Fish;
             h.canvas = g.AddComponent<Canvas>(); h.canvas.renderMode = RenderMode.ScreenSpaceCamera; h.canvas.worldCamera = cam; h.canvas.planeDistance = 0.5f;
             h.canvas.pixelPerfect = false; h.canvas.sortingOrder = 10;
-            var cs = g.AddComponent<CanvasScaler>(); cs.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize; cs.referenceResolution = new Vector2(W, H); cs.matchWidthOrHeight = 0.5f;
+            var cs = g.AddComponent<CanvasScaler>(); cs.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize; cs.referenceResolution = new Vector2(W, H) / Settings.UiScale; cs.matchWidthOrHeight = 0.5f; h.scaler = cs;   // (M7: text size)
             h.root = (RectTransform)g.transform;
             h.Build();
             NameTags.Make(h.root, cam);
@@ -409,6 +411,7 @@ namespace PortBoss.M1
         // ------------------------------------------------------------------------------------------------ per frame
         void LateUpdate()
         {
+            ScaleTick();                                             // (M7: text size)
             float dt = Time.unscaledDeltaTime;
             Fx.Tick();
             if (Ctl.Key_(UnityEngine.InputSystem.Key.F3)) ShowDebug = !ShowDebug;
@@ -483,7 +486,7 @@ namespace PortBoss.M1
                         }
                         break;
                 }
-            string key = string.Join("|", list.ConvertAll(x => x.k + x.v));
+            string key = string.Join("|", list.ConvertAll(x => x.k + x.v)) + Ctl.PadLast;   // (M7: a device switch redraws the caps)
             if (key == lastPrompt) return;
             lastPrompt = key;
             foreach (Transform c in prompts) Destroy(c.gameObject);

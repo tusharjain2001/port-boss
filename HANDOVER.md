@@ -79,8 +79,66 @@ Tester keys (host only): **Ctrl+F7** +$100,000 (act unchanged), **Ctrl+F10** the
 
 Open questions for Manan:
 - Is the port look right? It's still blockout-level art.
-- Should anything advance the story act by itself?
+- ~~Should anything advance the story act by itself?~~ Yes: M7 step 1 (§0b).
 - Should the town's later stages get their own ropes too? At the moment it all opens with Doyle's.
+
+---
+
+## 0b. M7 "demo polish", done and on `main` (8 Nov 2026, branch `m7`; plan `docs/plan/M7-PLAN.md`)
+
+Tushar asked for the next module while nobody can test by hand. M7 is built step by step on `m7`. Each step is tested headless and committed, and the branch is pushed. It is **not merged** until Tushar or Manan plays it (rule 10).
+
+His decisions, 8 Nov:
+- The demo ends on the evening of Day 4, with a "to be continued" card showing Voss's goons.
+- Music: a player with silent slots, for Manan's own tracks.
+- Unity may be closed and reopened for Blender work.
+- Everything stays on `m7`.
+
+**Step 1, the story driver:**
+- `Story.cs` (plain C#, in the company): beats with time windows, world events, letters, calls, Walt's journal pages, and the acts.
+  - Act 2 begins once Act 1's goal is met (from Day 4 at 6 PM), or on Day 5 at 6 PM at the latest. This answers the open question in §0a.
+- `StoryUi.cs`: the journal side card, ringing calls with captions, letters on paper cards.
+- The phone has a Call screen. Calls and letters sit in each contact's thread, and the Journal app holds the pages and letters.
+- The Crew app and the Carbon rod open in Act 2 (the rod never could before).
+- `Firm` now marks clock-made company changes (beats, Mari's texts, rent) as changed, so the crew sees them straight away.
+
+**Step 2, the first morning:**
+- A new game fades up in Walt's office beside his cot (`Sleep.WakeOpening`), then his six-line letter from the desk.
+- Biscuit starts half full of rainwater with a cold engine (`SkiffStart.cs`):
+  - Bail her out, then press W at the tiller to pull the cord. The third pull catches before Doyle's rebuild, the first after it.
+  - She won't catch while flooded.
+  - The hull weeps a little until the $120 patch.
+  - This only happens in real games, or in tests with `-pb-coldstart`.
+- A mailbox at the pier's head (flag up while a letter waits; E reads it).
+- Walt: "Is that my Biscuit I can hear from here??"
+
+**Step 3, contracts and Amara:**
+- `Orders.cs`: Amara's order of 3 Rare mackerel on Day 2, delivered at her counter. It meets Act 1's goal.
+- The Pelican on Lantern Key (`Pelican.cs`, `art-src/m7/build_pelican.py`).
+- Visiting berths (`SkiffBerth.cs`).
+
+**Step 4, Days 2–4:**
+- Doyle's engine rebuild in an hour; shrimp from Day 2; Ingrid's offer.
+- Mari's line; the conger and the swordfish (`StoryUi.Moments`).
+- Voss's yacht in the Day 4 fog (`Yacht.cs`, `build_yacht.py`).
+- Hugo & Fifi (`Moorers.cs`).
+
+**Step 5, the demo's end:** `Company.Demo` (marker `StreamingAssets/demo`). The unknown number's texts, then the "To be continued" card.
+
+**Steps 6–9:**
+- Settings and accessibility (phone Settings, or Esc then S).
+- Pad glyphs on every key cap; Y moors at the tiller.
+- The music player with empty slots for Manan (`docs/MUSIC-SLOTS.md`).
+- Demo mode (`PortBoss demo.bat`), the performance and store-shot tests, and **`docs/M7-HOW-TO-TEST.md`**.
+
+**M7 passed the hand test (★):** Tushar and Manan played it (8 Nov, "we have tested"), and `m7` was merged into `main`. Next: M8 on branch `m8`.
+
+**Tests:**
+- `tools/companycheck.sh` (Company.StoryTest, OrderTest, MoorerTest)
+- `-pb-pelicantest`, `-pb-days24test`, `-pb-demotest -pb-demo`
+- `tools/m7test.sh`:
+  - `-pb-storytest`, `-pb-openingtest -pb-opening -pb-coldstart`
+  - `-pb-storycoop host|rider` at 150 ms + 2% loss
 
 ---
 
