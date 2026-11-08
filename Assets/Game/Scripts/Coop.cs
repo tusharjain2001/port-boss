@@ -181,6 +181,7 @@ namespace PortBoss.M1
                 var e = new Entry { Id = from, Slot = slot, Crew = FreeCrew(back != null ? back.Crew : wish, from), Name = string.IsNullOrEmpty(name) ? "Crew " + (slot + 1) : name, Key = key };
                 Roster.Add(e); Log($"{e.Name} {(back != null ? "is back" : "joined")}: slot {slot}, {CrewName(e.Crew)}{(back != null ? $", their hotbar back ({Book.Bar(from).FishCount} fish)" : "")}");
                 Alerts.Push("Crew", back != null ? $"{e.Name} is back aboard." : $"{e.Name} came aboard as {CrewName(e.Crew)}.", Alerts.Kind.Crew);
+                if (back == null && Firm.C != null) { Firm.C.StoryJoin(e.Name, Roster.Count, Sky.Minutes); Firm.I.Dirty = true; }   // M7: Walt welcomes each friend by name
                 Broadcast(); Apply();
                 if (back != null) SendPlace(from, back);
                 // the boat as it is now, so the joiner doesn't wait for the next pose to see it
@@ -474,7 +475,7 @@ namespace PortBoss.M1
             var p = Skiff.Pose.Read(ref r);
             Deliver(() =>
             {
-                int bi = p.Flags >> 4; if (bi >= Owner.Length || owner != Owner[bi]) return;
+                int bi = (p.Flags >> 4) & 7; if (bi >= Owner.Length || owner != Owner[bi]) return;
                 if (nm.IsServer) RelayBoat(owner, p);
                 var s = Skiff.At(bi); if (s != null && s.Remote) s.Net.Add(p.T, p);
             }, false);

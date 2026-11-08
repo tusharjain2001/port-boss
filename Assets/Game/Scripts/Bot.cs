@@ -53,6 +53,11 @@ namespace PortBoss.M1
             else if (Arg("-pb-porttest") != null) yield return PortTest(Arg("-pb-porttest"));
             else if (Arg("-pb-towntest") != null) yield return TownTest(Arg("-pb-towntest"));
             else if (Arg("-pb-testerkeys") != null) yield return TesterKeys();
+            else if (Arg("-pb-storytest") != null) yield return StoryTestRun(Arg("-pb-storytest"));    // M7 (BotStory.cs)
+            else if (Arg("-pb-storycoop") != null) yield return StoryCoop(Arg("-pb-storycoop"));
+            else if (Arg("-pb-openingtest") != null) yield return OpeningTest(Arg("-pb-openingtest"));
+            else if (Arg("-pb-probe") != null) yield return Probe();
+            else if (Arg("-pb-pelicantest") != null) yield return PelicanTest(Arg("-pb-pelicantest"));
             else if (Arg("-pb-staminatest") != null) yield return StaminaTest(Arg("-pb-staminatest") is string sd && sd != "" && !sd.StartsWith("-") ? sd : null);
             else if (Arg("-pb-laddertest") != null) yield return LadderTest(Arg("-pb-laddertest"));
             else if (Arg("-pb-camtest") != null) yield return CamTest((int)ArgF("-pb-camtest", 6));

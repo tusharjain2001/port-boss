@@ -605,6 +605,7 @@ namespace PortBoss.M1
             if (OnBoat && s.AnchorPt != null && Near(s.AnchorPt.position, 1.4f) && !s.Moored) { Prompt = s.AnchorT >= 0 ? "…" : s.Anchored ? "Raise the anchor" : "Drop the anchor"; if (Ctl.Interact) { if (s.Remote) Coop.Request(Coop.Ask.Anchor); else s.ToggleAnchor(); } return; }
             var leak = s.LeakPrompt(this); if (leak != null) { Prompt = leak; return; }  // M3: patch the leak, bail
             var shop = Firm.Prompt(this); if (shop != null) { Prompt = shop; return; } // M4: the shop counters
+            var post = StoryUi.Prompt(this); if (post != null) { Prompt = post; return; } // M7: the mailbox
             var works = Works.Prompt(this) ?? Workers.Prompt(this); if (works != null) { Prompt = works; return; } // M5: Doyle's, Plank & Post, Hartley's, the wardrobe, the warehouse
             var bed = Sleep.BedPrompt(this); if (bed != null) { Prompt = bed; return; } // M3: Walt's cot
             var pick = FishPickup.Nearest(transform.position, 1.6f);
@@ -874,6 +875,12 @@ namespace PortBoss.M1
             transform.rotation = Quaternion.Euler(0, s.transform.eulerAngles.y + Mathf.LerpAngle(helmFromYaw, 0, k), 0);
             Cc.enabled = true;
             int th = Ctl.Throttle;
+            if (s.Cold)                                           // M7: her engine's cold (SkiffStart.cs): W pulls the cord
+            {
+                Prompt = $"W  Pull the cord{(s.Pulls > 0 ? $" ({s.Pulls})" : "")}{(s.Water >= Skiff.FloodAt ? "  ·  she's flooded" : "")}   ·   E  Leave the tiller";
+                if (th > 0 && !s.Remote) { s.Pull(); leanPV -= 320f; }   // (a yank back on the cord)
+                th = 0;
+            }
             if (s.Moored) { if (th > 0) { s.CastOff(); s.Notch = 1; Snd.Play2D(Synth.Ratchet, 0.4f); } }
             else if (th != 0) { s.Notch = Mathf.Clamp(s.Notch + th, -1, 3); Snd.Play2D(Synth.Tik, 0.6f, th > 0 ? 1.2f : 0.9f); }
             s.Steer = Mathf.Clamp(Ctl.Steer, -1, 1);

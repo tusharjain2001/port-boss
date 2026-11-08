@@ -149,7 +149,7 @@ namespace PortBoss.M1
                     break;
                 case St.Drawing:
                     if (!rodSel) { Go(St.Stowed); break; }
-                    if (StateT >= DrawT) Go(St.Ready);
+                    if (StateT >= DrawT) { Go(St.Ready); StoryUi.Event("rod"); }   // M7: the first time: Walt's journal, page 1
                     break;
                 case St.Ready:
                     if (!rodSel) { Go(St.Stowed); break; }
@@ -240,7 +240,7 @@ namespace PortBoss.M1
                 Snd.Play(Synth.Zing, transform.position, 0.35f, Mathf.Lerp(1.2f, 0.8f, Power));
                 if (sweet) Fx.Splash(rod.Tip.position, 0.1f, 4); // a little sparkle on a clean cast
                 OnLog?.Invoke($"cast power={Power:F2} dist={Vector3.Distance(Flat(transform.position), Flat(Marker)):F1} sweet={sweet}");
-                Go(St.Flight);
+                Go(St.Flight); StoryUi.Event("cast");                    // M7: the first cast (Walt: "Dot says she can see you")
             }
         }
         float flightT0, flightLen; Vector3 flightFrom;

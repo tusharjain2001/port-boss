@@ -27,7 +27,7 @@ namespace PortBoss.M1
         uint txNext; readonly string txSeed = System.Guid.NewGuid().ToString("N").Substring(0, 6);
         public string NewTx(string what) => $"{what}:{txSeed}:{++txNext}";
 
-        public enum Kind { June, Pratt, Mari }
+        public enum Kind { June, Pratt, Mari, Pelican }
         public class Stall
         {
             public Kind K; public string Id, Name, Owner, Line; public Transform At; public Vector3 Front; public bool Real;
@@ -44,6 +44,8 @@ namespace PortBoss.M1
         {
             var g = new GameObject("Firm"); I = g.AddComponent<Firm>();
             Company.Namer = id => FishDb.Get(id)?.Name ?? id;
+            // M7: Pratt's morning price list, at 60% of the Basic price of the everyday fish
+            Company.PriceList = day => string.Join(" · ", FishDb.All.FindAll(s => s.Class == FishClass.Everyday).ConvertAll(s => $"{s.Name} ${Market.Price(s.Price, 0, Buyer.Pratt, 0)}"));
             I.BuildStalls(); I.Bind();
             return I;
         }
@@ -52,6 +54,7 @@ namespace PortBoss.M1
         public void Use(Company co)
         {
             c = co; seenMsg = 0; foreach (var m in c.Msgs) seenMsg = Mathf.Max(seenMsg, m.Id); seenLedger = c.Ledger.Count;
+            StoryUi.I?.Mark(c);                                 // M7: the story so far isn't news (a loaded world)
             Bind(); Dirty = true;
         }
 
@@ -63,7 +66,7 @@ namespace PortBoss.M1
             var mine = MyKit;
             if (!synced && co.Kits.TryGetValue(MyKey, out var theirs)) { mine.Rod = theirs.Rod; mine.Bait = theirs.Bait; mine.BaitI = theirs.BaitI; mine.Pouch5 = theirs.Pouch5; mine.Best = theirs.Best; }
             co.Kits[MyKey] = mine;
-            if (!synced) { seenMsg = 0; foreach (var m in co.Msgs) seenMsg = Mathf.Max(seenMsg, m.Id); seenLedger = co.Ledger.Count; Log($"the crew's bank: ${co.Cash}, {co.Ledger.Count} ledger lines"); }
+            if (!synced) { seenMsg = 0; foreach (var m in co.Msgs) seenMsg = Mathf.Max(seenMsg, m.Id); seenLedger = co.Ledger.Count; StoryUi.I?.Mark(co); Log($"the crew's bank: ${co.Cash}, {co.Ledger.Count} ledger lines"); }
             synced = true; c = co;
             if (seenLedger > c.Ledger.Count) seenLedger = c.Ledger.Count;
             Bind();
@@ -80,7 +83,13 @@ namespace PortBoss.M1
         // ---------------------------------------------------------------- the clock and the toasts
         void Update()
         {
-            if (Sky.Authority) c.Tick(Sky.Minutes);
+            if (Sky.Authority)
+            {
+                c.Tick(Sky.Minutes);
+                // M7: what the clock changed by itself (a story beat, Mari's texts, the morning's rent, a repair done) goes to
+                // the crew too: a cheap fingerprint of the company, checked every frame (only co-op reads Dirty)
+                long sig = Sig(c); if (sig != lastSig) { lastSig = sig; Dirty = true; }
+            }
             Toasts();
             MariBoat();
             var me = Angler.I; Near = null;
@@ -91,6 +100,9 @@ namespace PortBoss.M1
                     if (d.magnitude < 2.0f) { Near = s; break; }
                 }
         }
+
+        long lastSig;
+        static long Sig(Company c) => (((((((long)c.Msgs.Count * 131 + c.Ledger.Count) * 131 + c.BeatAt.Count) * 131 + c.Events.Count) * 131 + c.Act) * 131 + (int)c.Mari) * 131 + c.Owned.Count) * 131 + c.Orders.Count;
 
         void Toasts()
         {
@@ -111,7 +123,7 @@ namespace PortBoss.M1
         }
 
         // ---------------------------------------------------------------- selling (the hotbar's fish)
-        public static Company.Lot Lot(Fish f) => new() { Species = f.Species.Id, Everyday = f.Species.Class == FishClass.Everyday, Value = f.Value, Fresh = f.Fresh };
+        public static Company.Lot Lot(Fish f) => new() { Species = f.Species.Id, Everyday = f.Species.Class == FishClass.Everyday, Value = f.Value, Fresh = f.Fresh, Grade = f.Grade };
         public int[] Quote(Buyer b, List<Fish> fish, out string why) => c.Quote(b, fish.ConvertAll(Lot), Sky.Minutes, out why);
 
         // sells these fish of my hotbar; the toast says how it went (co-op client: when the host answers)
@@ -163,9 +175,30 @@ namespace PortBoss.M1
             if (Coop.On && !Coop.IsHost) { CoopFirm.AskDeal(2); return; }
             c.HaggleMari(Sky.Minutes); Dirty = true;
         }
+        // M7 step 3: fish orders (Orders.cs). Answer one; deliver at the buyer's counter from my hotbar.
+        public void AnswerOrd(int id, bool yes)
+        {
+            if (Coop.On && !Coop.IsHost) { CoopFirm.AskOrd(id, yes); return; }
+            if (c.AnswerOrd(id, yes, MyName, Sky.Minutes)) { Log($"order {id}: {(yes ? "accepted" : "declined")} by {MyName}"); Dirty = true; }
+        }
+        public void Deliver(Company.Ord o)
+        {
+            var me = Angler.I; if (me == null || o == null) return;
+            var mine = new List<Fish>(); foreach (var s in me.Bar.S) foreach (var f in s.Fish) if (!Selling.Contains(f.Id)) mine.Add(f);
+            var take = Company.Fits(o, mine.ConvertAll(Lot), out var why);
+            if (take == null) { Alerts.Push(o.From, why, Alerts.Kind.Info, "order"); return; }
+            var fish = take.ConvertAll(i => mine[i]); var tx = NewTx("deliver");
+            if (Coop.On && !Coop.IsHost) { var ids = fish.ConvertAll(f => f.Id); Selling.UnionWith(ids); asked[tx] = ids; CoopFirm.AskDeliver(tx, o.Id, fish); return; }
+            if (!c.Deliver(tx, MyName, o.Id, fish.ConvertAll(Lot), Sky.Minutes, out why)) { Alerts.Push(o.From, why, Alerts.Kind.Info, "order"); return; }
+            if (Coop.On) Coop.I.Book.Sell(Coop.Me, fish.ConvertAll(f => f.Id)); else foreach (var f in fish) me.Bar.Remove(f);
+            Log($"delivered {o.From}'s order {o.Id}: {o.Count} {o.What} for ${o.Total}"); Snd.Play2D(Synth.Fanfare, 0.35f, 1.1f);
+            Dirty = true;
+        }
         public void Track(bool on) { if (Coop.On && !Coop.IsHost) { CoopFirm.AskDeal(on ? 3 : 4); return; } c.MariTracked = on; Dirty = true; }
 
         // ---------------------------------------------------------------- the counters
+        // M7 step 3: a counter placed later (The Pelican, on Lantern Key: Pelican.cs)
+        public void AddStall(Stall s) { s.Front = s.At.position + s.At.forward * 1.1f; Stalls.Add(s); Log($"{s.Name} at {s.At.position.x:F1} {s.At.position.y:F2} {s.At.position.z:F1}"); }
         public static Transform Anchor(string id) { var g = GameObject.Find("anchor_" + id); return g != null ? g.transform : null; }
 
         // where a counter goes: the map's anchor, else a temporary spot on the M1 Landing (Blender metres in the Landing's
@@ -309,6 +342,15 @@ namespace PortBoss.M1
             if (I == null || me.Remote || me.Swimming || me.OnBoat || Shop.Open) return null;
             var s = I.Near; if (s == null) return null;
             if (!s.IsOpen(Sky.Minutes)) return $"{s.Name} · closed, back at {DayTime.Clock(s.Open)}";
+            if (s.K == Kind.Pelican)                                    // M7: Amara's kitchen door: deliver her order
+            {
+                var o = C.OpenOrd(Company.AmaraName);
+                if (o == null || o.St != OrdSt.Active) return o != null ? "The Pelican · answer Amara's order on your phone first" : "The Pelican · Amara: \"Nothing on today. I'll text.\"";
+                int have = 0; foreach (var sl in me.Bar.S) foreach (var f in sl.Fish) if (f.Species.Id == o.Species && f.Grade >= o.Grade && f.Fresh < 2) have++;
+                if (have < o.Count) return $"Amara's order · {o.Count} {(o.Grade > 0 ? "Rare " : "")}{o.What.ToLowerInvariant()} · you have {have}";
+                if (Ctl.Interact) I.Deliver(o);
+                return $"Deliver Amara's order · {o.Count} {(o.Grade > 0 ? "Rare " : "")}{o.What.ToLowerInvariant()} · ${o.Total}";
+            }
             if (Ctl.Interact) Shop.Show(s);
             return s.K == Kind.June ? "Hook, Line & Sinker · bait and tackle" : s.K == Kind.Pratt ? "Sell at Pratt's (60%)" : "Sell to Mari (100%)";
         }

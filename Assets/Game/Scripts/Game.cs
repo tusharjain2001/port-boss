@@ -61,7 +61,7 @@ namespace PortBoss.M1
             }
             Hud.Create(rig.UiCam, p);
             Sleep.Create(); // M3: Walt's cot, tired, the night skip
-            Company.CrewSeed = Sky.Seed; Firm.Create(); Works.Create(); Signs.Create(); Town.Create(); Workers.Create(); Phone.Create(); Shop.Create(); YShop.Create(); Wardrobe.Create(); StoreUi.Create(); Pouch.Create(); // M4: the company, the phone (Tab), the shop counters
+            Company.CrewSeed = Sky.Seed; Firm.Create(); Pelican.Create(); Works.Create(); Signs.Create(); Town.Create(); Workers.Create(); Phone.Create(); StoryUi.Create(); Shop.Create(); YShop.Create(); Wardrobe.Create(); StoreUi.Create(); Pouch.Create(); // M4: the company, the phone (Tab), the shop counters
             BakeIcons(a);
 
             sea = gameObject.AddComponent<AudioSource>(); sea.clip = a.Waves; sea.loop = true; sea.volume = 0.32f; sea.spatialBlend = 0; sea.Play();
@@ -70,14 +70,15 @@ namespace PortBoss.M1
             BuildPause();
             Application.quitting += () => { if (!Application.isBatchMode) Save.OnQuit(); }; // M4: closing the window saves too
 
-            // the welcome tips one at a time, 6 s apart (look audit 3 Nov: three at once were a wall of text)
-            void Welcome() => StartCoroutine(Tips());
+            // the welcome tip (M7: Walt's texts at 07:02 and his journal's page 1 with the rod took over the other two: Story.cs)
+            // M7 step 2: a real game's boat starts cold and wet (a test asks with -pb-coldstart); a new game opens in the cot
+            Skiff.ColdStarts = !Application.isBatchMode || System.Array.IndexOf(args, "-pb-coldstart") >= 0;
+            if (Application.isBatchMode && Skiff.ColdStarts) Skiff.I?.Fresh();
+            if (System.Array.IndexOf(args, "-pb-opening") >= 0) StoryUi.OpeningNext = true;
+            void Welcome() { if (StoryUi.OpeningNext && StoryUi.I != null) StoryUi.I.StartCoroutine(StoryUi.I.Opening()); else StartCoroutine(Tips()); }
             IEnumerator Tips()
             {
-                Alerts.Push("Grandpa Walt", "Biscuit's yours now, kiddo. She leaks a bit, but she floats. The fish are out past the pier.", Alerts.Kind.Story);
-                yield return new WaitForSeconds(6f);
-                Alerts.Push("How to fish", "1 rod · hold LMB to cast, release · strike on the bite · Space stops the bar", Alerts.Kind.Info);
-                yield return new WaitForSeconds(6f);
+                yield return new WaitForSeconds(8f);
                 Alerts.Push("Biscuit", "E at the tiller to take her out. E at the bow for the anchor.", Alerts.Kind.Info);
             }
             Debug.Log($"[PB] hotbar self-test: {Hotbar.SelfTest()}");

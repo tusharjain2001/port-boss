@@ -99,16 +99,16 @@ namespace PortBoss.M1
             {
                 var p = s.transform.position; w.K("boat").Obj();
                 // moored: she's at her berth (the scene's), so where she bobbed on her lines isn't saved
-                if (!s.Moored) w.K("x").V(R2(p.x)).K("z").V(R2(p.z)).K("yaw").V(Yaw(s.transform.eulerAngles.y));
-                w.K("moored").V(s.Moored).K("anchored").V(s.Anchored)
+                if (!s.Moored || s.MooredAway) w.K("x").V(R2(p.x)).K("z").V(R2(p.z)).K("yaw").V(Yaw(s.transform.eulerAngles.y));
+                w.K("moored").V(s.Moored && !s.MooredAway).K("anchored").V(s.Anchored || s.MooredAway)   // (M7: tied up away from home: saved anchored where she lies)
                     .K("water").V(R2(s.Water)).K("leaking").V(s.Leaking).End();
             }
             w.K("boats").Arr();
             foreach (var b in Skiff.All)
             {
                 if (b.Index == 0) continue; var p = b.transform.position;
-                w.Obj().K("id").V(b.Id); if (!b.Moored) w.K("x").V(R2(p.x)).K("z").V(R2(p.z)).K("yaw").V(Yaw(b.transform.eulerAngles.y));
-                w.K("moored").V(b.Moored).K("anchored").V(b.Anchored).End();
+                w.Obj().K("id").V(b.Id); if (!b.Moored || b.MooredAway) w.K("x").V(R2(p.x)).K("z").V(R2(p.z)).K("yaw").V(Yaw(b.transform.eulerAngles.y));
+                w.K("moored").V(b.Moored && !b.MooredAway).K("anchored").V(b.Anchored || b.MooredAway).End();
             }
             w.End();
             w.K("deck").Arr();
@@ -164,7 +164,7 @@ namespace PortBoss.M1
             if (File.Exists(world))
             {
                 for (int i = 3; i > 1; i--) { string a = world + ".bak" + (i - 1), b = world + ".bak" + i; if (File.Exists(a)) { if (File.Exists(b)) File.Delete(b); File.Move(a, b); } }
-                File.Replace(tmp, world, world + ".bak1");
+                Retry(() => File.Replace(tmp, world, world + ".bak1"));
             }
             else File.Move(tmp, world);
             var o = (Dictionary<string, object>)Json.Parse(json);
@@ -173,8 +173,19 @@ namespace PortBoss.M1
                 .K("day").V(DayTime.Day(Json.D(o, "minute"))).K("minute").V(Json.D(o, "minute")).K("cash").V(co != null ? Json.I(co, "cash") : 0)
                 .K("saved").V(Json.S(o, "saved") ?? "").K("why").V(why).K("crc").V((long)Crc32(gz)).End().ToString();
             string meta = Path.Combine(dir, "meta.json"); File.WriteAllText(meta + ".tmp", m);
-            if (File.Exists(meta)) File.Replace(meta + ".tmp", meta, null); else File.Move(meta + ".tmp", meta);
+            if (File.Exists(meta)) Retry(() => File.Replace(meta + ".tmp", meta, null)); else File.Move(meta + ".tmp", meta);
             Thumb(dir);
+        }
+        // M7: Windows can hold a file a moment after it was written (a virus scan, the search indexer): two saves close
+        // together then failed with "Unable to remove the file to be replaced" (the M4 save test, 8 Nov, twice). Try again
+        // a few times, 50-400 ms apart, before giving up.
+        static void Retry(Action a)
+        {
+            for (int i = 0; ; i++)
+            {
+                try { a(); return; }
+                catch (IOException) when (i < 4) { System.Threading.Thread.Sleep(50 << i); }
+            }
         }
 
         // a 320 x 180 picture of the moment (the title's world list)
@@ -323,6 +334,8 @@ namespace PortBoss.M1
         {
             Current = null; CurrentName = null; IsCopy = false;
             Firm.I.Use(new Company()); Log("a new world");
+            if (!UnityEngine.Application.isBatchMode) StoryUi.OpeningNext = true;   // M7: wake in Walt's cot, his letter on the desk
+            Skiff.I?.Fresh();                                                        // M7: Biscuit half full of rainwater, cold
         }
 
         // a co-op copy (the host's morning save, on a crewmate's PC)

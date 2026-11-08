@@ -268,6 +268,7 @@ namespace PortBoss.M1
         // ---- the buy itself (host): all or nothing, once per transaction id
         public bool BuyM5(string tx, string key, string who, string item, int arg, double at, bool instant, out string why)
         {
+            storyNow = Math.Max(storyNow, at);                        // M7: a rushed repair's "fixed" event carries the buy's time
             why = Done.Contains(tx) ? "Already bought." : WhyNotM5(key, item, arg, at, instant);
             if (why != "") return false;
             var w = Catalog.Get(item);
@@ -292,7 +293,7 @@ namespace PortBoss.M1
             }
             return true;
         }
-        void Repair(Ware w) { var b = BoatOf(w.Boat); if (w.Id.EndsWith(":engine")) b.Engine = true; else b.Hull = true; Owned.Add(w.Id); Installed?.Invoke(w.Id); }
+        void Repair(Ware w) { var b = BoatOf(w.Boat); if (w.Id.EndsWith(":engine")) b.Engine = true; else b.Hull = true; Owned.Add(w.Id); Installed?.Invoke(w.Id); Event("fixed:" + w.Id, storyNow); }
         void Install(string item)
         {
             var w = Catalog.Get(item);

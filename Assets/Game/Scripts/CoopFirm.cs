@@ -26,6 +26,7 @@ namespace PortBoss.M1
         {
             Reg(m, "pb.co", OnBlob); Reg(m, "pb.copy", OnBlob); Reg(m, "pb.kit", OnKit);
             Reg(m, "pb.sell", OnSellAsk); Reg(m, "pb.buy", OnBuyAsk); Reg(m, "pb.deal", OnDealAsk); Reg(m, "pb.res", OnRes);
+            Reg(m, "pb.ev", OnEvAsk); Reg(m, "pb.ord", OnOrdAsk); Reg(m, "pb.dlv", OnDeliverAsk);
         }
 
         // (Update) host: send the company when it changed; client: report my kit when it changed
@@ -148,6 +149,38 @@ namespace PortBoss.M1
                 Firm.I.Dirty = true;
             }, true);
         }
+        // M7: a story event seen on a crewmate's machine (the first cast, the rod...): the host books it (Story.cs)
+        public void AskEv(string ev) { Sent++; SendTo(NetworkManager.ServerClientId, "pb.ev", w => w.WriteValueSafe(ev), NetworkDelivery.ReliableSequenced); }
+        void OnEvAsk(ulong from, FastBufferReader r)
+        {
+            r.ReadValueSafe(out string ev);
+            Deliver(() => { if (Firm.C != null && Firm.C.Event(ev, Sky.Minutes)) { Firm.I.Dirty = true; Log($"story event {ev} (from {Find(from)?.Name})"); } }, true);
+        }
+        // M7 step 3: answer a fish order; deliver one (the fish off the hotbar by the host's book, like a sale)
+        public void AskOrd(int id, bool yes) { Sent++; SendTo(NetworkManager.ServerClientId, "pb.ord", w => { w.WriteValueSafe(id); w.WriteValueSafe(yes); }, NetworkDelivery.ReliableSequenced); }
+        void OnOrdAsk(ulong from, FastBufferReader r)
+        {
+            r.ReadValueSafe(out int id); r.ReadValueSafe(out bool yes);
+            Deliver(() => { var e = Find(from); if (e == null || Firm.C == null) return; if (Firm.C.AnswerOrd(id, yes, e.Name, Sky.Minutes)) { Firm.I.Dirty = true; Log($"order {id}: {(yes ? "accepted" : "declined")} by {e.Name}"); } }, true);
+        }
+        public void AskDeliver(string tx, int id, List<Fish> fish)
+        {
+            Sent++; var ids = fish.ConvertAll(f => f.Id);
+            SendTo(NetworkManager.ServerClientId, "pb.dlv", w => { w.WriteValueSafe(tx); w.WriteValueSafe(id); w.WriteValueSafe((byte)ids.Count); foreach (var x in ids) w.WriteValueSafe(x); }, NetworkDelivery.ReliableSequenced);
+        }
+        void OnDeliverAsk(ulong from, FastBufferReader r)
+        {
+            r.ReadValueSafe(out string tx); r.ReadValueSafe(out int id); r.ReadValueSafe(out byte n); var ids = new ulong[n]; for (int i = 0; i < n; i++) r.ReadValueSafe(out ids[i]);
+            Deliver(() =>
+            {
+                var e = Find(from); if (e == null) return;
+                var fish = new List<Fish>(); string why = null;
+                foreach (var x in ids) { if (Book.Is(x, Ledger.Kind.Bar, from) && Book.All.TryGetValue(x, out var f)) fish.Add(f); else { why = "That fish isn't in your hotbar any more."; break; } }
+                bool ok = why == null && Firm.C.Deliver(tx, e.Name, id, fish.ConvertAll(Firm.Lot), Sky.Minutes, out why);
+                if (ok) { Book.Sell(from, ids); SendBar(from); Firm.I.Dirty = true; Log($"{e.Name} delivered order {id}"); }
+                Res(from, 0, tx, ok, why ?? "", "");
+            }, true);
+        }
         void Res(ulong to, byte kind, string tx, bool ok, string why, string what)
         {
             if (to == nm.LocalClientId) return;
@@ -179,6 +212,9 @@ namespace PortBoss.M1
         public static void AskSell(string tx, Buyer b, List<Fish> fish) => Coop.I?.AskSell(tx, b, fish);
         public static void AskBuy(string tx, string item, int qty) => Coop.I?.AskBuy(tx, item, qty);
         public static void AskDeal(int op) => Coop.I?.AskDeal((byte)op);
+        public static void Event(string ev) => Coop.I?.AskEv(ev);
+        public static void AskOrd(int id, bool yes) => Coop.I?.AskOrd(id, yes);
+        public static void AskDeliver(string tx, int id, List<Fish> fish) => Coop.I?.AskDeliver(tx, id, fish);
         public static void SendCopy(string worldId, byte[] gz) { if (Coop.IsHost) Coop.I.SendCopy(worldId, gz); }
     }
 }

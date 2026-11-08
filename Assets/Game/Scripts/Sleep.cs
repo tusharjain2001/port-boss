@@ -271,6 +271,30 @@ namespace PortBoss.M1
             if (k == Kind.Bed) CotTaken = true;
         }
 
+        // ---- M7: a new game opens in Walt's office (gdd world §9.1, 0:00): black, the gulls first, then the room fades up
+        //      with you just out of his cot. Then his letter on the desk (StoryUi.Opening).
+        //      (Not lying in it: the follow camera can't frame a body lying down, and three held shots inside the small
+        //      office landed in a wall or outside it. Standing at the bedside, the camera's own inside view frames the room.)
+        public IEnumerator WakeOpening()
+        {
+            var me = Angler.I; if (me == null || Cot == null) yield break;
+            Frozen = true;
+            fade.enabled = true; fade.color = new Color(fade.color.r, fade.color.g, fade.color.b, 1);
+            // (under the black: Works moves Walt's cot into the office a moment after the start)
+            for (float t = 0; t < 5 && !(Works.I != null && Works.I.Office != null && Walts != null && Walts.IsChildOf(Works.I.Office)); t += Time.deltaTime) yield return null;
+            var at = BedSide; float yaw = Quaternion.LookRotation(Flat(Cot.position - at)).eulerAngles.y + 180;
+            me.Teleport(at, yaw); if (CameraRig.I != null) CameraRig.I.Yaw = yaw;
+            Log("the opening: by Walt's cot, the gulls");
+            yield return new WaitForSeconds(0.6f);
+            if (M1Assets.I.Gull != null) Snd.Play2D(M1Assets.I.Gull, 0.5f);
+            yield return new WaitForSeconds(1.2f);
+            for (float t = 0; t < 2.4f; t += Time.deltaTime) { fade.color = new Color(fade.color.r, fade.color.g, fade.color.b, Mathf.SmoothStep(1, 0, t / 2.4f)); yield return null; }   // (game time, like the rest of it)
+            fade.color = new Color(fade.color.r, fade.color.g, fade.color.b, 0); fade.enabled = false;
+            yield return new WaitForSeconds(0.6f);
+            Frozen = false;
+            Log("the opening: up");
+        }
+
         // ---- the skip itself, on every machine: fade, wake where §1.4.2 says, jump the clock, the night card, fade in
         public IEnumerator Night(ulong? who, Kind k, double to, string name)
         {

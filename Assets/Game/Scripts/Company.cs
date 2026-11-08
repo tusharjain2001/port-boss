@@ -116,7 +116,7 @@ namespace PortBoss.M1
 
         // ---- selling. fish: (species id, class Everyday?, value = base x grade, rot stage). Returns what each fish
         // fetched (null: refused, nothing sold); `why` says why for the toast.
-        public struct Lot { public string Species; public bool Everyday; public float Value; public int Fresh; }
+        public struct Lot { public string Species; public bool Everyday; public float Value; public int Fresh, Grade; }   // (Grade: M7's orders)
         public int[] Quote(Buyer b, IList<Lot> fish, double at, out string why)
         {
             why = null;
@@ -146,6 +146,7 @@ namespace PortBoss.M1
             Done.Add(tx);
             string what = fish.Count == 1 ? $"Sold 1 {Pretty(fish[0].Species)} · {Market.Short[(int)b]}" : $"Sold {fish.Count} fish · {Market.Short[(int)b]}";
             Book(tx, who, what, sum, at);
+            Event("sold", at); Event("sold:" + Market.Short[(int)b], at);   // M7: the story (Walt's text after the first sale)
             Tick(at);
             return p;
         }
@@ -175,7 +176,7 @@ namespace PortBoss.M1
                 if (Shelf.NeedsPouch(i) && !k.Pouch5) return "Needs the tackle pouch.";
                 if (k.Bait[i] + qty * Shelf.PackOf[i] > Shelf.BaitMax) return "Your pouch is full.";
             }
-            else if (item.StartsWith("rod:")) { int t = int.Parse(item.Substring(4)); if (k.Rod >= t) return "You own it."; if (t > 2) return t == 3 ? "Act 2" : t == 4 ? "Act 3" : "Walt's journal"; }
+            else if (item.StartsWith("rod:")) { int t = int.Parse(item.Substring(4)); if (k.Rod >= t) return "You own it."; if (t == 3 && Act < 2) return "Act 2"; if (t == 4 && Act < 3) return "Act 3"; if (t == 5) return "Walt's journal"; }
             else if (item == "pouch" && k.Pouch5) return "You own it.";
             if (price > Cash) return $"Need ${price - Cash} more";
             return "";
@@ -207,11 +208,12 @@ namespace PortBoss.M1
             while (Morning < today) { Morning++; RunMorning(Morning, DayTime.At(Morning, DayTime.Wake)); }
             if (BoardDay == 0) RefreshBoard(Math.Max(1, today));   // M6: Rosie's first board (a new game, or a save from before M6)
             if (Mari == DealSt.None && (Earned >= MariEarned || m >= DayTime.At(MariDay, DayTime.Wake))) OfferMari(m);
+            TickOrders(m); TickStory(m);                         // M7: fish orders (Orders.cs), the story's beats (Story.cs)
         }
 
         void RunMorning(int day, double at)
         {
-            Sold.Clear(); MariToday = 0; MorningM5(day);
+            storyNow = at; Sold.Clear(); MariToday = 0; MorningM5(day);
             if (Mari == DealSt.Active && day >= MariFirstPay) Earn($"rent:mari:{day}", "Mari Duarte", "Mari's mooring · B1", MariPrice, at);
             if (Mari == DealSt.Declined && day >= MariRetry) { MariPrice = MariFee + MariStep * MariAsk; OfferMari(at); }
             MorningM6(day, at);   // M6: Rosie's board, then wages (after the morning's rent is in)
@@ -280,7 +282,7 @@ namespace PortBoss.M1
             if (earned != Earned) return $"earned ${Earned}, ledger ${earned}";
             var tx = new HashSet<string>(); foreach (var e in Ledger) if (!tx.Add(e.Tx)) return $"transaction {e.Tx} booked twice";
             foreach (var k in Kits.Values) for (int b = 0; b < 5; b++) if (k.Bait[b] < 0 || k.Bait[b] > Shelf.BaitMax) return $"bait {b}: {k.Bait[b]}";
-            var m5 = CheckM5(); return m5 != "" ? m5 : CheckM6();
+            var m5 = CheckM5(); if (m5 != "") return m5; var m6 = CheckM6(); if (m6 != "") return m6; var st = CheckStory(); return st != "" ? st : CheckOrders();
         }
 
         // ---------------------------------------------------------------- save (JSON; Save.cs wraps it)
@@ -298,7 +300,7 @@ namespace PortBoss.M1
             w.K("msgs").Arr(); foreach (var m in Msgs) w.Obj().K("id").V(m.Id).K("from").V(m.From).K("text").V(m.Text).K("at").V(m.At).K("me").V(m.Me).K("offer").V(m.Offer).K("read").V(m.Read).End(); w.End();
             var kk = new List<string>(Kits.Keys); kk.Sort(StringComparer.Ordinal);
             w.K("kits").Obj(); foreach (var k in kk) WriteKit(w.K(k), Kits[k]); w.End();
-            WriteM5(w); WriteM6(w);
+            WriteM5(w); WriteM6(w); WriteStory(w); WriteOrders(w);
             w.End();
         }
         public static void WriteKit(Json.W w, Kit k)
@@ -330,7 +332,7 @@ namespace PortBoss.M1
             if (o.TryGetValue("msgs", out var ms) && ms is List<object> ml)
                 foreach (Dictionary<string, object> e in ml) c.Msgs.Add(new Msg { Id = Json.I(e, "id"), From = Json.S(e, "from"), Text = Json.S(e, "text"), At = Json.D(e, "at"), Me = Json.B(e, "me"), Offer = Json.S(e, "offer"), Read = Json.B(e, "read") });
             if (o.TryGetValue("kits", out var ko) && ko is Dictionary<string, object> kd) foreach (var kv in kd) c.Kits[kv.Key] = ReadKit((Dictionary<string, object>)kv.Value);
-            c.ReadM5(o); c.ReadM6(o);
+            c.ReadM5(o); c.ReadM6(o); c.ReadStory(o); c.ReadOrders(o);
             return c;
         }
         public string ToJson() { var w = new Json.W(); Write(w); return w.ToString(); }
