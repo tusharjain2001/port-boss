@@ -99,6 +99,7 @@ namespace PortBoss.M1
                 // the hook on the rods is the client's choice, of the hooks the host says it owns
                 kit.Bait = mine.Bait; kit.BaitI = mine.BaitI; kit.Best = mine.Best;
                 if (Tackle.Owns(kit, mine.Hook)) kit.Hook = mine.Hook;
+                if (SurfGear.Owns(kit, mine.Board)) kit.Board = mine.Board;                                  // (M8: the board I carry)
             }, true);
         }
 

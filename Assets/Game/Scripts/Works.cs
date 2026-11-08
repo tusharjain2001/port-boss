@@ -58,7 +58,7 @@ namespace PortBoss.M1
             Counter(Store.Plank, "plank", "Plank & Post", "Ingrid Marsh", "the timber yard", "Measure twice, nail once. Then nail again, it's the sea.", new Vector2(-6f, 2f));
             Counter(Store.Hartley, "hartleys", "Hartley's Outfitters", "Mabel Hartley", "Old Saltmouth high street", "Clothes make the captain, dear. Not the boat.", new Vector2(6f, -2f));
             Keepers.Clear(); foreach (var s in Shops) if (s.Keeper != null) Keepers.Add(s.Keeper);
-            if (Firm.I != null) foreach (var st in Firm.I.Stalls) if (st.K != Firm.Kind.Mari) Keepers.Add(Npc.Make(st.Owner, st.K == Firm.Kind.June ? KeeperLook(5) : st.K == Firm.Kind.Pelican ? KeeperLook(7) : KeeperLook(6), st.At));   // June, Gideon: town NPC; M7: Amara at The Pelican routines v1
+            if (Firm.I != null) foreach (var st in Firm.I.Stalls) if (st.K != Firm.Kind.Mari) Keepers.Add(Npc.Make(st.Owner, st.K == Firm.Kind.June ? KeeperLook(5) : st.K == Firm.Kind.Pelican ? KeeperLook(7) : st.K == Firm.Kind.Surf ? KeeperLook(8) : KeeperLook(6), st.At));   // June, Gideon: town NPC; M7: Amara at The Pelican routines v1
             BuildDoyleCrew();
             BuildKestrel(a);
             Firm.C.Installed += OnInstalled;
@@ -104,6 +104,7 @@ namespace PortBoss.M1
             4 => new PortBoss.Look { Set = 1, Face = 2, Hair = 2, Beard = 3, Hat = 1, Top = 2, Gloves = 1, SkinTone = 2, HairColor = 1, TopColor = 2, AccentColor = 4, LegsColor = 2, BootsColor = 7, GloveColor = 3, HatColor = 0 },    // Doyle's lad, Arlo
             5 => new PortBoss.Look { Set = 1, Face = 1, Hair = 3, Beard = 0, Hat = 2, Top = 0, Gloves = 0, SkinTone = 1, HairColor = 4, TopColor = 3, AccentColor = 4, LegsColor = 1, BootsColor = 6, GloveColor = 4, HatColor = 3 },    // June Pike
             7 => new PortBoss.Look { Set = 1, Face = 1, Hair = 3, Beard = 0, Hat = 0, Top = 3, Gloves = 0, SkinTone = 6, HairColor = 0, TopColor = 11, AccentColor = 2, LegsColor = 1, BootsColor = 7, GloveColor = 4, HatColor = 11 },   // M7: Amara Bell, chef whites
+            8 => new PortBoss.Look { Set = 1, Face = 1, Hair = 3, Beard = 0, Hat = 0, Top = 3, Gloves = 0, SkinTone = 3, HairColor = 5, TopColor = 5, AccentColor = 11, LegsColor = 0, BootsColor = 3, GloveColor = 4, HatColor = 0 },    // M8: Kai Rennick, sun-bleached curls, an open orange shirt, board shorts, barefoot (skin-ish feet)
             _ => new PortBoss.Look { Set = 1, Face = 3, Hair = 0, Beard = 1, Hat = 0, Top = 1, Gloves = 1, SkinTone = 2, HairColor = 7, TopColor = 1, AccentColor = 4, LegsColor = 1, BootsColor = 7, GloveColor = 4, HatColor = 2 },   // Gideon Pratt
         };
 

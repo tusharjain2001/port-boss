@@ -27,12 +27,13 @@ namespace PortBoss.M1
         uint txNext; readonly string txSeed = System.Guid.NewGuid().ToString("N").Substring(0, 6);
         public string NewTx(string what) => $"{what}:{txSeed}:{++txNext}";
 
-        public enum Kind { June, Pratt, Mari, Pelican }
+        public enum Kind { June, Pratt, Mari, Pelican, Surf }
         public class Stall
         {
             public Kind K; public string Id, Name, Owner, Line; public Transform At; public Vector3 Front; public bool Real;
             public double Open, Close;
-            public bool IsOpen(double m) { double h = DayTime.OfDay(m); return h >= Open && h < Close; }
+            public System.Func<double, bool> Shut;                  // M8: shut anyway (Swell Surf Co. in a storm)
+            public bool IsOpen(double m) { double h = DayTime.OfDay(m); return h >= Open && h < Close && (Shut == null || !Shut(m)); }
         }
         public readonly List<Stall> Stalls = new();
         public Stall Near;                                      // the counter I'm at (the prompt)
@@ -68,6 +69,7 @@ namespace PortBoss.M1
             {
                 mine.Rod = theirs.Rod; mine.Bait = theirs.Bait; mine.BaitI = theirs.BaitI; mine.Pouch5 = theirs.Pouch5; mine.Best = theirs.Best;
                 mine.Rods = theirs.Rods; mine.Reel = theirs.Reel; mine.Line = theirs.Line; mine.Hooks = theirs.Hooks; mine.Hook = theirs.Hook; mine.Sight = theirs.Sight; mine.Net = theirs.Net;   // (M8 tackle)
+                mine.Boards = theirs.Boards; mine.Board = theirs.Board; mine.Wetsuit = theirs.Wetsuit;                                                                                    // (M8 surf gear)
             }
             co.Kits[MyKey] = mine;
             if (!synced) { seenMsg = 0; foreach (var m in co.Msgs) seenMsg = Mathf.Max(seenMsg, m.Id); seenLedger = co.Ledger.Count; StoryUi.I?.Mark(co); Log($"the crew's bank: ${co.Cash}, {co.Ledger.Count} ledger lines"); }
@@ -162,6 +164,13 @@ namespace PortBoss.M1
             Bought(item, qty);
             Dirty = true;
         }
+        // M8 step 4: the board I carry (my kit's choice, like the hook)
+        public void UseBoard(int b)
+        {
+            if (!SurfGear.Owns(MyKit, b)) return;
+            MyKit.Board = b; Dirty = true; Snd.Play2D(Synth.Tik, 0.3f, 1.4f); Log($"board: {SurfGear.Boards[b].Name}");
+            Alerts.Push("Swell Surf Co.", $"You'll carry the {SurfGear.Boards[b].Name.ToLowerInvariant()}.", Alerts.Kind.Info);
+        }
         // M8: the hook on my rods (my kit's choice, like the bait; the host takes it with my kit)
         public void UseHook(int hook)
         {
@@ -174,6 +183,7 @@ namespace PortBoss.M1
             Log($"bought {Company.ItemName(item, qty)}: bank ${c.Cash}");
             Snd.Play2D(Synth.Chime, 0.3f, 1.3f);
             if (item.StartsWith("rod:")) Bind();
+            if (item.StartsWith("board:") || item == "wetsuit") Alerts.Push("Swell Surf Co.", item == "wetsuit" ? "Kai: \"Suits you. Literally.\"" : $"Kai: \"Treat her nice. Wax her.\" (the {Company.ItemName(item, 1).ToLowerInvariant()})", Alerts.Kind.Info);
             if (item.StartsWith("reel:") || item.StartsWith("line:") || item.StartsWith("hook:") || item == "float" || item == "net")
                 Alerts.Push("Hook, Line & Sinker", item == "float" ? "The Sight float's on your line." : item == "net" ? "The landing net's on your back. E beside a crewmate's fight." : $"{Company.ItemName(item, 1)} on your rods.", Alerts.Kind.Info);
         }
@@ -216,7 +226,7 @@ namespace PortBoss.M1
 
         // ---------------------------------------------------------------- the counters
         // M7 step 3: a counter placed later (The Pelican, on Lantern Key: Pelican.cs)
-        public void AddStall(Stall s) { s.Front = s.At.position + s.At.forward * 1.1f; Stalls.Add(s); Log($"{s.Name} at {s.At.position.x:F1} {s.At.position.y:F2} {s.At.position.z:F1}"); }
+        public void AddStall(Stall s, bool counter = false) { s.Front = s.At.position + s.At.forward * 1.1f; Stalls.Add(s); if (counter) Counter(s); Log($"{s.Name} at {s.At.position.x:F1} {s.At.position.y:F2} {s.At.position.z:F1}"); }
         public static Transform Anchor(string id) { var g = GameObject.Find("anchor_" + id); return g != null ? g.transform : null; }
 
         // where a counter goes: the map's anchor, else a temporary spot on the M1 Landing (Blender metres in the Landing's
@@ -292,11 +302,11 @@ namespace PortBoss.M1
         {
             var root = new GameObject("Counter " + s.Name).transform; root.SetParent(s.At, false);
             Color wood = Ponyo.Hex("9A7352"), woodDk = Ponyo.Hex("6E5038"), top = Ponyo.Hex("C9A27A");
-            Color a1 = s.K == Kind.June ? Ponyo.Hex("46B3A6") : Ponyo.Hex("8D96A3"), a2 = Ponyo.Hex("FFF6E2");
+            Color a1 = s.K == Kind.June ? Ponyo.Hex("46B3A6") : s.K == Kind.Surf ? Ponyo.Hex("E3A83C") : Ponyo.Hex("8D96A3"), a2 = Ponyo.Hex("FFF6E2");
             Box(root, "counter", new Vector3(0, 0.47f, 0.1f), new Vector3(1.9f, 0.94f, 0.62f), wood);
             Box(root, "counter top", new Vector3(0, 0.96f, 0.14f), new Vector3(2.02f, 0.06f, 0.74f), top);
             Box(root, "kick", new Vector3(0, 0.07f, 0.42f), new Vector3(1.86f, 0.14f, 0.02f), woodDk);
-            string name = s.K == Kind.June ? "Hook, Line & Sinker" : "Pratt's Fish Market";
+            string name = s.K == Kind.June ? "Hook, Line & Sinker" : s.K == Kind.Surf ? "Swell Surf Co." : "Pratt's Fish Market";
             if (s.Real)
             {
                 for (int i = -1; i <= 1; i += 2) Box(root, "sign post", new Vector3(0.72f * i, 1.4f, -0.15f), new Vector3(0.05f, 0.82f, 0.05f), woodDk);
@@ -359,6 +369,7 @@ namespace PortBoss.M1
         {
             if (I == null || me.Remote || me.Swimming || me.OnBoat || Shop.Open) return null;
             var s = I.Near; if (s == null) return null;
+            if (s.Shut != null && s.Shut(Sky.Minutes)) return $"{s.Name} · Kai: \"Gnarly. Shop's shut. Go home.\"";   // M8: a storm
             if (!s.IsOpen(Sky.Minutes)) return $"{s.Name} · closed, back at {DayTime.Clock(s.Open)}";
             if (s.K == Kind.Pelican)                                    // M7: Amara's kitchen door: deliver her order
             {
@@ -370,7 +381,7 @@ namespace PortBoss.M1
                 return $"Deliver Amara's order · {o.Count} {(o.Grade > 0 ? "Rare " : "")}{o.What.ToLowerInvariant()} · ${o.Total}";
             }
             if (Ctl.Interact) Shop.Show(s);
-            return s.K == Kind.June ? "Hook, Line & Sinker · bait and tackle" : s.K == Kind.Pratt ? "Sell at Pratt's (60%)" : "Sell to Mari (100%)";
+            return s.K == Kind.June ? "Hook, Line & Sinker · bait and tackle" : s.K == Kind.Surf ? "Swell Surf Co. · boards and wetsuits" : s.K == Kind.Pratt ? "Sell at Pratt's (60%)" : "Sell to Mari (100%)";
         }
     }
 }

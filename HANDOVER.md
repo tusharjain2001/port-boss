@@ -167,6 +167,15 @@ Tushar and Manan played M7 and Tushar said "start with m8". This round covers su
 - Co-op only: `pb.net`, `pb.scoop`.
 - Test: `-pb-netcoop`.
 
+**Step 4, Swell Surf Co. and Kai** (`Surf.cs`, `SurfShop.cs`, `art-src/m8/build_surf.py`):
+- Kai's counter at the shop by the Cut, 9 AM to 6 PM, shut in storms.
+- From Act 2: Foam board (his first is free), Bodyboard, Longboard, Shortboard (after his challenge 1), and the Wetsuit (+50% swim stamina).
+- His hello is the morning after Act 2 begins; after that he texts a dawn surf report on surf days.
+- The Forecast app has a surf card.
+- His jetty has a visiting berth (F).
+- The four board models exist, for surfing.
+- Test: `-pb-surfshoptest`; companycheck runs SurfTest.
+
 **Tests:** `tools/m8test.sh <exe>`.
 
 ---

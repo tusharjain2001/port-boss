@@ -907,6 +907,14 @@ namespace PortBoss.M1
                 T(sc, "Get Biscuit tied up before it hits.", UiKit.Body, 14, Ponyo.Ink, 62, 34, CW - 76, 20);
                 y += 76;
             }
+            if (Firm.C != null && Firm.C.Act >= 2)                                                    // M8 step 4: Kai's surf line
+            {
+                var sc = Card(list, 0, y, CW, 64, Ponyo.Hex("FFF3D6"), 16, false, Ponyo.Hex("E3A83C"));
+                Ico(sc, "surf", Ponyo.Hex("C98A1A"), 14, 14, 36);
+                T(sc, "Surf · Swell Surf Co.", UiKit.Bold, 16, Ponyo.Ink, 62, 12, CW - 76, 22);
+                T(sc, SurfShop.Line(DayTime.Day(m), Mathf.Min(Weather.BlockAt(m).b, 2)), UiKit.Body, 14, Ponyo.Ink, 62, 34, CW - 76, 20);
+                y += 76;
+            }
             var dotLine = T(list, "“" + Sky.Word(Sky.W.Block(DayTime.Day(m), Mathf.Min(Weather.BlockAt(m).b, 2))) + "”", UiKit.Display, 17, Ponyo.Ink, 2, y, CW - 4, 48);
             y += Mathf.Max(30, dotLine.preferredHeight) + 10;
             for (int part = 0; part < 2; part++)

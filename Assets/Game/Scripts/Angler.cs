@@ -373,7 +373,8 @@ namespace PortBoss.M1
             bool sprint = Ctl.Sprint && !Winded && !OnBoat && !Swimming && !Ctl.Walk && load < 5 && wish.sqrMagnitude > 0.01f;
             bool fastSwim = Swimming && Ctl.Sprint && !Winded && wish.sqrMagnitude > 0.01f;
             SprintW = Mathf.MoveTowards(SprintW, sprint ? 1 : 0, dt / (sprint ? 0.6f : 0.2f));
-            Breathe(dt, sprint ? 1 / SprintSecs : !Swimming ? 0 : fastSwim ? 1 / FastSwimSecs : 1 / SwimSecs);
+            float wet = !Remote && Firm.I != null && Firm.I.MyKit.Wetsuit ? SurfGear.WetsuitStamina : 1f;   // M8: the wetsuit, +50% in the water
+            Breathe(dt, sprint ? 1 / SprintSecs : !Swimming ? 0 : (fastSwim ? 1 / FastSwimSecs : 1 / SwimSecs) / wet);
             float run = Mathf.Lerp(4.2f, 5.8f, Mathf.SmoothStep(0, 1, SprintW)) * (1 - 0.08f * load);
             float max = Swimming ? (fastSwim ? 2.2f : 1.4f) : Ctl.Walk ? 1.4f : OnBoat ? 2.6f : run;
             if (Fish.Holding && !Swimming) max = Mathf.Min(max, OnBoat ? 2.2f : 3.6f); // careful with a rod out

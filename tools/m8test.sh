@@ -11,7 +11,10 @@
 #     while the rider casts a second line, the holder bite taken and landed: checked out on the host
 #  5. -pb-netcoop host + rider with -pb-netsim 150 2: the landing net (the rider readies it beside the host's fight: one
 #     more stop and a wider green; a Rare, the rider scoops it)
-# (the tackle's plain rules: tools/companycheck.sh, Company.TackleTest)
+#  6. -pb-surfshoptest: Swell Surf Co. (Act 2, Kai's hello, his shelf: the free foamie, the longboard, the wetsuit, the
+#     shortboard locked, Carry; a storm shuts him; the jetty placed, Biscuit moored at it; the Forecast's surf line; the
+#     wetsuit's stamina; his dawn report)
+# (the plain rules: tools/companycheck.sh, Company.TackleTest, Company.SurfTest)
 . "$(dirname "$0")/env.sh"
 EXE=$1; PROOF=${2:-$PB_LOGS/m8}; D=$PB_LOGS/m8; rm -rf "$D"; mkdir -p "$D" "$PROOF"
 W() { cygpath -m "$1"; }
@@ -43,6 +46,9 @@ sleep 4
 hidden "$EXE" -batchmode -pb-join 127.0.0.1:$PORT -pb-name Rider1 -pb-netcoop rider -pb-netshots "$(W "$PROOF/net")" -pb-netsim 150 2 -pb-quit 240 -logFile "$(W "$D/netcoop-rider.txt")" &
 wait
 sum "netcoop host" "$D/netcoop-host.txt"; sum "netcoop rider" "$D/netcoop-rider.txt"
+
+hidden "$EXE" -batchmode -pb-seed 7 -pb-fps 60 -pb-surfshoptest "$(W "$PROOF/surfshop")" -pb-quit 400 -logFile "$(W "$D/surfshoptest.txt")"
+sum surfshoptest "$D/surfshoptest.txt"
 
 cp "$D"/*.txt "$PROOF/" 2>/dev/null
 echo "== logs: $D  proof: $PROOF"

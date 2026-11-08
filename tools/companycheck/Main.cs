@@ -13,6 +13,7 @@ static class CompanyCheckMain
         var ot = Company.OrderTest(); Console.WriteLine(ot == "" ? "M7 orders: Amara's offer, accept, the wrong fish, delivery once, late, again tomorrow, save PASS" : "FAIL M7 orders: " + ot); if (ot != "") fails++;
         var mt = Company.MoorerTest(); Console.WriteLine(mt == "" ? "M7 Days 2-4: Hugo & Fifi, Doyle's hour, June's shrimp PASS" : "FAIL M7 Days 2-4: " + mt); if (mt != "") fails++;
         var tk = Company.TackleTest(); Console.WriteLine(tk == "" ? "M8 tackle: June's reels, lines, hooks, the float, the hook choice, the save, an M7 kit PASS" : "FAIL M8 tackle: " + tk); if (tk != "") fails++;
+        var sf = Company.SurfTest(); Console.WriteLine(sf == "" ? "M8 surf gear: Act 2, Kai's free foamie once, the shortboard after the challenge, the wetsuit, the save PASS" : "FAIL M8 surf gear: " + sf); if (sf != "") fails++;
         var cr = Company.CrewTest(); Console.WriteLine(cr == "" ? "M6 crew: board, hiring, wages, IOU, save, 4000-shift model PASS" : "FAIL M6 crew: " + cr); if (cr != "") fails++;
         Console.WriteLine(fails == 0 ? "ALL PASS" : $"{fails} FAILED");
         return fails == 0 ? 0 : 1;

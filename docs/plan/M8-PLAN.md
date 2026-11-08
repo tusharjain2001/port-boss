@@ -71,7 +71,7 @@
      - The angler gets +1 stop and a ×1.1 green zone for that fight (`Fishing.NetReady`). If the net arrives during the strike, the fight starts with both.
      - On a Rare the helper scoops it: the net dips and lifts, a splash, a cheer, and "Scooped!" for both.
      - Co-op: `pb.net` and `pb.scoop`.
-4. **Swell Surf Co. and Kai.**
+4. **Swell Surf Co. and Kai.** *(built 8 Nov)*
    - The shop is the building already at the Cut.
    - Kai Rennick keeps the counter. He is a new keeper look: sun-bleached hair, open shirt, shell necklace, barefoot.
    - Open 09:00–18:00, shut in storms ("Gnarly. Shop's shut. Go home.").
@@ -79,6 +79,17 @@
    - Kai texts a swell report at dawn on surf days. His "Dawn Patrol" invite comes in Act 2 and lends a free foam board.
    - The Forecast app gains a surf line. The boards are Blender models.
    - Test `-pb-surfshoptest`.
+   - **Built as:**
+     - `Surf.cs` (company): the boards, the wetsuit and Kai's free foamie. `SurfShop.cs`: his counter at the landmark's door with Firm's market counter and a sun-yellow awning, and the hours.
+     - A storm shuts the shop (`Stall.Shut`).
+     - The surf report is face ≈ 1.6 × the sea's Hs in feet, with the wind for how clean it is. Kai texts it at 06:00 from the morning after his hello, only when there's surf.
+     - The Forecast app's surf card.
+     - The wetsuit makes swimming stamina last 1.5× as long.
+     - **Kai's jetty** (`art-src/m8/build_surf.py` → `PB_Bld_surfjetty.fbx`, 8.8k tris): 38 m over the Cut's silted shallows to a T-head. It has teal-and-yellow trim, an arch with "Swell Surf Co." facing the sea, two boards planted in the sand, a lamp and a ladder.
+     - The jetty is placed by a look round from the door: the shore, then the deepest berth, which came out at 1.17 m. F moors there.
+     - The four boards are Blender models too (`PB_Prop_board_*.fbx`, about 1.1–1.3k tris each), for step 6.
+     - Kai is keeper look 8.
+     - Known: the shop building, its leaning boards and the blue roof board are map B's blockout art from before M8.
 5. **The surf waves.**
    - A breaking wave at Breaker Point, separate from the open sea: a mesh that peels along a reef line, in sets of 3–5 waves every 20–40 s.
    - Height comes from the day's swell: breezy is good, a storm closes it out. The Widowmaker at Gullrock runs big the day after a storm.
