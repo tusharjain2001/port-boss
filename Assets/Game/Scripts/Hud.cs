@@ -467,9 +467,11 @@ namespace PortBoss.M1
         {
             var list = new List<(string k, string v)>();
             var st = fish.State;
-            if (me.AtHelm) { var s = Skiff.I; if (s.Moored) list.Add(("W", "Cast off")); else { list.Add(("W/S", "Throttle " + Notch(s.Notch))); list.Add(("A/D", "Steer")); if (s.CanMoor) list.Add(("F", "Moor")); } list.Add(("E", "Leave the tiller")); }
+            bool surfing = me.Surf != null && me.Surf.Active;
+            if (surfing) list.AddRange(me.Surf.Keys());                                   // M8: on the board
+            else if (me.AtHelm) { var s = Skiff.I; if (s.Moored) list.Add(("W", "Cast off")); else { list.Add(("W/S", "Throttle " + Notch(s.Notch))); list.Add(("A/D", "Steer")); if (s.CanMoor) list.Add(("F", "Moor")); } list.Add(("E", "Leave the tiller")); }
             else if (me.Prompt != null && st is Fishing.St.Stowed or Fishing.St.Ready or Fishing.St.Drawing) list.Add(("E", me.Prompt));
-            if (!me.AtHelm)
+            if (!me.AtHelm && !surfing)
                 switch (st)
                 {
                     case Fishing.St.Ready: list.Add(fish.WaterNear ? ("LMB", "Hold to cast") : ("", "Too far from the water to cast")); break;
@@ -728,7 +730,7 @@ namespace PortBoss.M1
             ring.color = new Color(c.r, c.g, c.b, 0.75f + 0.25f * k);
         }
 
-        static string Doing(Angler a) => a == null ? "" : a.Down ? "knocked over" : a.Swimming ? "swimming" : a.AtHelm ? "at the tiller" : a.Fish != null && a.Fish.State != Fishing.St.Stowed ? "fishing" : "";
+        static string Doing(Angler a) => a == null ? "" : a.Down ? "knocked over" : a.Surf != null && a.Surf.Shown ? "surfing" : a.Swimming ? "swimming" : a.AtHelm ? "at the tiller" : a.Fish != null && a.Fish.State != Fishing.St.Stowed ? "fishing" : "";
 
         void Crew()
         {

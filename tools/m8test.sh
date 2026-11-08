@@ -14,7 +14,13 @@
 #  6. -pb-surfshoptest: Swell Surf Co. (Act 2, Kai's hello, his shelf: the free foamie, the longboard, the wetsuit, the
 #     shortboard locked, Carry; a storm shuts him; the jetty placed, Biscuit moored at it; the Forecast's surf line; the
 #     wetsuit's stamina; his dawn report)
-# (the plain rules: tools/companycheck.sh, Company.TackleTest, Company.SurfTest)
+#  7. -pb-wavetest: the surf at Breaker Point (a forced 1.5 m face): a set, the breaks, white water, the sand dry; dusk; the
+#     Widowmaker at Gullrock (frames)
+#  8. -pb-surftest: surfing (the foamie: on, paddle, duck-dive, pop-up, ride, the score, Kai's challenges 2-3, a wipeout,
+#     the leash; the bodyboard; the Journal's surf card) with chase-cam frames
+#  9. -pb-surfcoop host + rider: a party wave, then a drop-in (both down)
+# (the plain rules: tools/companycheck.sh, Company.TackleTest, Company.SurfTest; if Windows Smart App Control blocks the
+#  companycheck exe, run the same calls in the editor)
 . "$(dirname "$0")/env.sh"
 EXE=$1; PROOF=${2:-$PB_LOGS/m8}; D=$PB_LOGS/m8; rm -rf "$D"; mkdir -p "$D" "$PROOF"
 W() { cygpath -m "$1"; }
@@ -49,6 +55,18 @@ sum "netcoop host" "$D/netcoop-host.txt"; sum "netcoop rider" "$D/netcoop-rider.
 
 hidden "$EXE" -batchmode -pb-seed 7 -pb-fps 60 -pb-surfshoptest "$(W "$PROOF/surfshop")" -pb-quit 400 -logFile "$(W "$D/surfshoptest.txt")"
 sum surfshoptest "$D/surfshoptest.txt"
+
+hidden "$EXE" -batchmode -pb-seed 7 -pb-fps 60 -pb-wavetest "$(W "$PROOF/waves")" -pb-quit 600 -logFile "$(W "$D/wavetest.txt")"
+sum wavetest "$D/wavetest.txt"
+hidden "$EXE" -batchmode -pb-seed 7 -pb-fps 60 -pb-surftest "$(W "$PROOF/surf")" -pb-quit 900 -logFile "$(W "$D/surftest.txt")"
+sum surftest "$D/surftest.txt"
+
+PORT=$((7900 + RANDOM % 90))
+hidden "$EXE" -batchmode -pb-host -pb-port $PORT -pb-name Host -pb-seed 7 -pb-surfcoop host -pb-netsim 150 2 -pb-quit 500 -logFile "$(W "$D/surfcoop-host.txt")" &
+sleep 4
+hidden "$EXE" -batchmode -pb-join 127.0.0.1:$PORT -pb-name Rider1 -pb-surfcoop rider -pb-surfshots "$(W "$PROOF/surfcoop")" -pb-netsim 150 2 -pb-quit 500 -logFile "$(W "$D/surfcoop-rider.txt")" &
+wait
+sum "surfcoop host" "$D/surfcoop-host.txt"; sum "surfcoop rider" "$D/surfcoop-rider.txt"
 
 cp "$D"/*.txt "$PROOF/" 2>/dev/null
 echo "== logs: $D  proof: $PROOF"

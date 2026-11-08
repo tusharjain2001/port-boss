@@ -195,7 +195,15 @@ namespace PortBoss.M1
                 c.Text(KaiName, "hey, Kai here. Swell Surf Co, down by the Cut", m);
                 c.Text(KaiName, "Walt says you're good in the water. there's a foam board at the shop with your name on it. free. come grab it", m);
                 c.Text(KaiName, "I text a surf report most mornings. no surf, no text", m);
+                c.Text(KaiName, "when you're out at Breaker: 1) stand up for 3 seconds 2) ride one for 8 3) 3 seconds in the pocket. there's stuff in it for you", m);
             } },
+            // M8 step 7: Kai's challenges (Surfer.cs raises kai:ch1..3); the rewards: the shortboard (Surf.cs), his sunburst on your boards, being a local
+            new Beat { Id = "kai:ch1", Due = c => c.EvAt("kai:ch1", 1), Window = 3 * 24 * 60, Run = (c, m) =>
+                c.Text(KaiName, "saw that. you STOOD UP. the shortboard's yours to buy now if you want it. it's twitchy. you'll love it", m) },
+            new Beat { Id = "kai:ch2", Due = c => c.EvAt("kai:ch2", 1), Window = 3 * 24 * 60, Run = (c, m) =>
+                c.Text(KaiName, "8 seconds!! I put my sunburst on your boards. don't tell anyone it's free", m) },
+            new Beat { Id = "kai:ch3", Due = c => c.EvAt("kai:ch3", 1), Window = 3 * 24 * 60, Run = (c, m) =>
+                c.Text(KaiName, "three seconds in the pocket. ok. you're a local. Breaker Point's yours as much as mine", m) },
         };
 
         public void TickStory(double m)

@@ -843,7 +843,15 @@ namespace PortBoss.M1
         // Ctrl+F7 adds $100,000 and leaves the act alone (Tushar 7 Nov: money to buy everything and look at it)
         void Tester()
         {
-            var kb = Keyboard.current; if (kb == null || !kb.f7Key.wasPressedThisFrame || kb.shiftKey.isPressed || Title.Shown) return; // (Shift+F7 = every fish heavy)
+            var kb = Keyboard.current;
+            // M8: Ctrl+F11: surf's up today (Breaker Point 1.5 m, the Widowmaker 3.2 m), for testing surfing on a flat day
+            if (kb != null && kb.f11Key.wasPressedThisFrame && kb.ctrlKey.isPressed && !Title.Shown)
+            {
+                if (Coop.On && !Coop.IsHost) { Alerts.Push("Tester", "Ctrl+F11 is the host's.", Alerts.Kind.Info); return; }
+                int d = DayTime.Day(Sky.Minutes); C.Event("test:surf:" + d, Sky.Minutes); Firm.I.Dirty = true;
+                Alerts.Push("Tester", "Surf's up today: Breaker Point 1.5 m, the Widowmaker at Gullrock 3.2 m (Ctrl+F11)", Alerts.Kind.Info); Log($"Ctrl+F11: surf's up on day {d}"); return;
+            }
+            if (kb == null || !kb.f7Key.wasPressedThisFrame || kb.shiftKey.isPressed || Title.Shown) return; // (Shift+F7 = every fish heavy)
             if (Coop.On && !Coop.IsHost) { Alerts.Push("Tester", "F7 is the host's.", Alerts.Kind.Info); return; }
             if (kb.ctrlKey.isPressed)
             {

@@ -69,7 +69,7 @@ namespace PortBoss.M1
             {
                 mine.Rod = theirs.Rod; mine.Bait = theirs.Bait; mine.BaitI = theirs.BaitI; mine.Pouch5 = theirs.Pouch5; mine.Best = theirs.Best;
                 mine.Rods = theirs.Rods; mine.Reel = theirs.Reel; mine.Line = theirs.Line; mine.Hooks = theirs.Hooks; mine.Hook = theirs.Hook; mine.Sight = theirs.Sight; mine.Net = theirs.Net;   // (M8 tackle)
-                mine.Boards = theirs.Boards; mine.Board = theirs.Board; mine.Wetsuit = theirs.Wetsuit;                                                                                    // (M8 surf gear)
+                mine.Boards = theirs.Boards; mine.Board = theirs.Board; mine.Wetsuit = theirs.Wetsuit; mine.SurfBest = theirs.SurfBest; mine.Rides = theirs.Rides;                                                                                    // (M8 surf gear)
             }
             co.Kits[MyKey] = mine;
             if (!synced) { seenMsg = 0; foreach (var m in co.Msgs) seenMsg = Mathf.Max(seenMsg, m.Id); seenLedger = co.Ledger.Count; StoryUi.I?.Mark(co); Log($"the crew's bank: ${co.Cash}, {co.Ledger.Count} ledger lines"); }

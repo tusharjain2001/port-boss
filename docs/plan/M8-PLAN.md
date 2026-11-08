@@ -1,6 +1,6 @@
 # M8: surfing and fishing gear (plan, 8 Nov 2026)
 
-**Branch:** `m8` (from `main` @ `4e4a209`, after M7 was played and merged). **Status:** being built. Each step is tested headless and committed on `m8`. The branch is pushed to GitHub, and it goes to `main` only after Tushar or Manan plays it (HANDOVER rule 10).
+**Branch:** `m8` (from `main` @ `4e4a209`, after M7 was played and merged). **Status:** all 8 steps built (8 Nov). **Waiting for Manan's hand test (★)**: Tushar said "manan will test once m8 will be fully completed". Each step is tested headless and committed on `m8`. The branch is pushed to GitHub, and it goes to `main` only after Tushar or Manan plays it (HANDOVER rule 10).
 
 **Scope** (systems §5.2 M8):
 - Swell Surf Co. and surfing (systems §1.7, world §10.3, economy §4.2);
@@ -90,12 +90,20 @@
      - The four boards are Blender models too (`PB_Prop_board_*.fbx`, about 1.1–1.3k tris each), for step 6.
      - Kai is keeper look 8.
      - Known: the shop building, its leaning boards and the blue roof board are map B's blockout art from before M8.
-5. **The surf waves.**
+5. **The surf waves.** *(built 8 Nov)*
    - A breaking wave at Breaker Point, separate from the open sea: a mesh that peels along a reef line, in sets of 3–5 waves every 20–40 s.
    - Height comes from the day's swell: breezy is good, a storm closes it out. The Widowmaker at Gullrock runs big the day after a storm.
    - Judged on looks: frame sheets of a full set, at day and at dusk.
    - Test `-pb-wavetest`.
-6. **Surfing.**
+   - **Built as:**
+     - `SurfWaves.cs` and `PB_Water.shader`. The waves are part of the sea itself: the water shader lifts its own surface by up to 4 breaking waves, so they have the sea's colour, depth tint, reflections and crest foam with no seams. `Sea.Height` adds the same lift on the CPU, so boats, swimmers and boards ride what you see.
+     - **Breaker Point** is a straight beach break (map B: the shore at z −1160, breaking on the 2.5 m line).
+     - **The Widowmaker** is Gullrock's reef ledge (11 m deep, then 5 m), only the day after a storm, at 1.8× and at least 3.5 m.
+     - **Each wave:** it rolls in at 5 m/s and grows as it shoals. Breaking at its peak, it peels 5 m/s one way and 2 m/s the other, alternating lefts and rights. The broken stretch is white water, lower than the green face, and runs to the sand.
+     - **Look:** a steep glassy face (lighter aqua, light through it), a wider white lip near the curl, and spray.
+     - Sets come from the shared sea clock, so co-op sees the same waves.
+     - The height comes from Kai's report. Tester key **Ctrl+F11** puts the surf up for the day.
+6. **Surfing.** *(built 8 Nov)*
    - The board is a hotbar item (a carry pose).
    - In the water: W paddles and Ctrl duck-dives under white water.
    - **Pop-up:** a timing ring (the fishing bar's look, one stop) where Space stands you up as the wave lifts you.
@@ -103,15 +111,43 @@
    - The bodyboard is ridden lying down. Camera, sounds and spray.
    - Co-op: riders show on every screen.
    - Test `-pb-surftest`, with a film watched before the step counts as done.
-7. **Score, Kai's challenges and party waves.**
+   - **Built as:**
+     - `Surfer.cs`. The board isn't a hotbar slot: in the water, E gets you on it. Paddling uses the swim stroke lying on the board.
+     - **Duck-dive:** Ctrl, or B on a pad.
+     - **Catching:** only within 22 m of the break line.
+     - **The pop-up bar:** a 1.1 s sweep; green is 34% wide on the foamie, 30% on the longboard, 16% on the shortboard; the bodyboard has none. Easy fishing widens it too.
+     - **Riding** is in the wave's frame. Gravity on the face gives speed. The wave's carry fades down the face, so a ~60° line trims mid-face and straight down outruns it. The pocket gives +2.6 m/s².
+     - **The end of a ride:**
+       - a wipeout: more than 125° round, or the white water;
+       - a ride over: off the back, the end of the wave, or the sand.
+     - **Poses:** the jump clip's crouch side-on for standing, the swim stroke lying down, the flail for a wipeout.
+     - The camera eases along the line, a glowing pocket band shows near the curl, and the prompt line shows the surf keys.
+     - Co-op: the pose carries it (State 7: state, board, lean, wave).
+7. **Score, Kai's challenges and party waves.** *(built 8 Nov)*
    - Score = ride time × pocket time × style.
    - Kai's three challenges (the first unlocks the Shortboard) pay in reputation and a cosmetic.
    - The best rides go in the Journal.
    - In co-op, 2+ riders on one wave multiply the score; dropping in on a friend knocks you both off.
    - Tests `-pb-surfchallenge` and `-pb-surfcoop`.
-8. **The M8 build.**
+   - **Built as:**
+     - **Points:** (10 × (time + 2 × pocket time) + 2 per carve) × the board (shortboard 1.3, longboard 1.1, bodyboard 0.8) × 1.2 all the way in × (1 + 0.5 per crewmate on the wave).
+     - Your best and your rides are in the kit and the Journal's Surf card.
+     - **Kai's challenges** (crew-wide events): 3 s up unlocks the shortboard; 8 s gets his sunburst tint on your boards; 3 s in the pocket makes you "a local". He lists them with his hello and texts as each is done.
+     - **Party wave:** anyone on your wave during the ride.
+     - **Drop-in:** two riders within 2.5 m on one wave both go down.
+     - The challenges are tested inside `-pb-surftest`; co-op in `-pb-surfcoop`.
+8. **The M8 build.** *(built 8 Nov)*
    - `docs/M8-HOW-TO-TEST.md`, also copied to `Builds/m1/HOW-TO-TEST.md`.
    - The full regression on the build, then **stop for Tushar's or Manan's hand test (★)**.
+   - **Built as:**
+     - `Builds\m1\PortBoss.exe` with `HOW-TO-TEST.md` beside it.
+     - **Tester key Ctrl+F11** puts the surf up for the day: Breaker Point 1.5 m, the Widowmaker 3.2 m. It is a company event, so co-op shares it, and F11 alone still holds the weather.
+     - The crew list says "surfing".
+     - **Tests on the final build:**
+       - `tools/m8test.sh`, all 13 runs: tackle and its co-op, holders and their co-op, the net in co-op, the surf shop, the waves, surfing, and surfing in co-op.
+       - `testerkeys` (with Ctrl+F11), `m3storm` and `swim`.
+       - The company checks, run in the editor.
+     - The steps 5–7 regression: everything else passed, 0 exceptions.
 
 ## Not in M8
 - The gear guns (Manan's Q1).

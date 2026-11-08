@@ -226,7 +226,11 @@ namespace PortBoss.M1
         {
             if (I == null || me.Remote || !me.OnBoat || me.Swimming || me.AtHelm || me.Busy || me.Boat == null) return null;
             var f = me.Fish;
-            if (f.State is not (Fishing.St.Stowed or Fishing.St.Drawing or Fishing.St.Ready or Fishing.St.Settle or Fishing.St.Waiting or Fishing.St.Recover)) return null;
+            bool calm = f.State is Fishing.St.Stowed or Fishing.St.Drawing or Fishing.St.Ready or Fishing.St.Settle or Fishing.St.Waiting or Fishing.St.Recover;
+            // a ringing holder wins even over a bite in the hands (both at once: E takes the holder's, the other swims off)
+            var ring0 = calm || f.State == Fishing.St.Bite ? BiteNear(me) : null;
+            if (ring0 != null) { if (Ctl.Interact) I.Take(me, ring0); return "Take the rod! A bite"; }
+            if (!calm) return null;
             Holder near = null; float bd = Reach;
             foreach (var h in I.All)
             {
@@ -234,7 +238,6 @@ namespace PortBoss.M1
                 var d = h.Socket.position - me.transform.position; d.y *= 0.4f;
                 if (d.magnitude < bd) { bd = d.magnitude; near = h; }
             }
-            var ring = BiteNear(me); if (ring != null) { if (Ctl.Interact) I.Take(me, ring); return "Take the rod! A bite"; }
             if (near == null || near.St != HS.Empty && !near.Mine) return null;
             if (near.St != HS.Bite && me.Boat.Helm != null)                                    // (by the tiller: the nearer one is what E is for; a bell always wins)
             { var dh = me.Boat.Helm.position - me.transform.position; dh.y *= 0.4f; if (dh.magnitude < bd && dh.magnitude < 1.3f) return null; }

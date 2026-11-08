@@ -142,7 +142,7 @@ His decisions, 8 Nov:
 
 ---
 
-## 0c. M8 "surfing and fishing gear", in progress (from 8 Nov 2026, branch `m8`; plan `docs/plan/M8-PLAN.md`)
+## 0c. M8 "surfing and fishing gear", built, waiting for Manan's hand test (8 Nov 2026, branch `m8`; plan `docs/plan/M8-PLAN.md`; guide `docs/M8-HOW-TO-TEST.md`)
 
 Tushar and Manan played M7 and Tushar said "start with m8". This round covers surfing and the fishing gear (F10–F11). **The gear guns wait for Manan's Q1 (§9).** Same way of working as M7: branch `m8`, each step tested headless and committed, the branch pushed, merged after a hand test (★). Unity may be closed and reopened for Blender.
 
@@ -175,6 +175,19 @@ Tushar and Manan played M7 and Tushar said "start with m8". This round covers su
 - His jetty has a visiting berth (F).
 - The four board models exist, for surfing.
 - Test: `-pb-surfshoptest`; companycheck runs SurfTest.
+
+**Steps 5–7, the surf, surfing, scores and party waves** (`SurfWaves.cs` + `PB_Water.shader`, `Surfer.cs`):
+- **The waves** are part of the sea (shader and `Sea.Height`): Breaker Point daily, the Widowmaker the day after a storm. Sets come from the shared sea clock, at Kai's report height.
+- **Surfing:** E on the board in the water, then paddle, duck-dive, pop-up and ride (carve, pocket, wipeouts, the leash). The bodyboard is ridden lying down.
+- **The rest:** a score per ride, your best in the Journal, Kai's three challenges, party waves and drop-ins.
+- **Tester key Ctrl+F11:** surf's up today (host only; F11 alone still cycles the weather).
+- **Tests:** `-pb-wavetest`, `-pb-surftest`, `-pb-surfcoop`.
+- **companycheck** has been blocked by Windows Smart App Control since 8 Nov evening. Run the same `Company.*Test` calls in the editor (`execute_code`); they all pass.
+
+**Step 8, the build:**
+- `Builds\m1\PortBoss.exe` with `HOW-TO-TEST.md` (the same as `docs/M8-HOW-TO-TEST.md`).
+- **Manan tests the finished M8 (★):** Tushar, 8 Nov, "manan will test once m8 will be fully completed".
+- After his OK, merge `m8` into `main`.
 
 **Tests:** `tools/m8test.sh <exe>`.
 

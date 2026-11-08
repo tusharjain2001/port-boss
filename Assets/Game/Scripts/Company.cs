@@ -57,12 +57,13 @@ namespace PortBoss.M1
         public int Hand;                                           // M8: the rod in my hands (0: the best); not saved
         public bool Net;                                           // M8: a landing net (co-op: E beside a crewmate's fight)
         public int Boards, Board; public bool Wetsuit;             // M8 step 4 (Surf.cs): the surfboards owned (a bit each, 1-4), the one carried; the wetsuit
+        public int SurfBest, Rides;                                // M8 step 7: my best ride's score, rides stood up
         public int HandRod => Hand > 0 && (Rods >> (Hand - 1) & 1) != 0 ? Hand : Rod;
         public int[] Bait = { 10, 0, 0, 0, 0 };                    // June's free bag of worms (10)
         public int BaitI;                                          // the bait on the hook
         public bool Pouch5;
         public Dictionary<string, float> Best = new();              // the journal: species -> the biggest landed (cm)
-        public Kit Copy() => new() { Rod = Rod, Rods = Rods, Reel = Reel, Line = Line, Hooks = Hooks, Hook = Hook, Sight = Sight, Net = Net, Boards = Boards, Board = Board, Wetsuit = Wetsuit, Bait = (int[])Bait.Clone(), BaitI = BaitI, Pouch5 = Pouch5, Best = new(Best) };
+        public Kit Copy() => new() { Rod = Rod, Rods = Rods, Reel = Reel, Line = Line, Hooks = Hooks, Hook = Hook, Sight = Sight, Net = Net, Boards = Boards, Board = Board, Wetsuit = Wetsuit, SurfBest = SurfBest, Rides = Rides, Bait = (int[])Bait.Clone(), BaitI = BaitI, Pouch5 = Pouch5, Best = new(Best) };
     }
 
     public enum DealSt { None, Offered, Declined, Active, GaveUp }
@@ -324,7 +325,7 @@ namespace PortBoss.M1
         public static void WriteKit(Json.W w, Kit k)
         {
             w.Obj().K("rod").V(k.Rod).K("baitI").V(k.BaitI).K("pouch5").V(k.Pouch5).K("bait").Arr(); foreach (var b in k.Bait) w.V(b); w.End();
-            w.K("rods").V(k.Rods).K("reel").V(k.Reel).K("line").V(k.Line).K("hooks").V(k.Hooks).K("hook").V(k.Hook).K("sight").V(k.Sight).K("net").V(k.Net).K("boards").V(k.Boards).K("board").V(k.Board).K("wetsuit").V(k.Wetsuit);
+            w.K("rods").V(k.Rods).K("reel").V(k.Reel).K("line").V(k.Line).K("hooks").V(k.Hooks).K("hook").V(k.Hook).K("sight").V(k.Sight).K("net").V(k.Net).K("boards").V(k.Boards).K("board").V(k.Board).K("wetsuit").V(k.Wetsuit).K("surfBest").V(k.SurfBest).K("rides").V(k.Rides);
             w.K("best").Obj(); var ks = new List<string>(k.Best.Keys); ks.Sort(StringComparer.Ordinal); foreach (var id in ks) w.K(id).V(k.Best[id]); w.End();
             w.End();
         }
@@ -333,7 +334,7 @@ namespace PortBoss.M1
             var k = new Kit { Rod = Json.I(o, "rod", 1), BaitI = Json.I(o, "baitI"), Pouch5 = Json.B(o, "pouch5") };
             // M8: the tackle; an older save had only its best rod (and Walt's bamboo)
             k.Rods = Json.I(o, "rods", 1 | 1 << (Math.Clamp(k.Rod, 1, 5) - 1)) | 1; k.Reel = Math.Clamp(Json.I(o, "reel"), 0, 3); k.Line = Math.Clamp(Json.I(o, "line"), 0, 3);
-            k.Hooks = Json.I(o, "hooks", 1) | 1; k.Hook = Math.Clamp(Json.I(o, "hook"), 0, 3); if (!Tackle.Owns(k, k.Hook)) k.Hook = 0; k.Sight = Json.B(o, "sight"); k.Net = Json.B(o, "net"); k.Boards = Json.I(o, "boards"); k.Board = Json.I(o, "board"); k.Wetsuit = Json.B(o, "wetsuit");
+            k.Hooks = Json.I(o, "hooks", 1) | 1; k.Hook = Math.Clamp(Json.I(o, "hook"), 0, 3); if (!Tackle.Owns(k, k.Hook)) k.Hook = 0; k.Sight = Json.B(o, "sight"); k.Net = Json.B(o, "net"); k.Boards = Json.I(o, "boards"); k.Board = Json.I(o, "board"); k.Wetsuit = Json.B(o, "wetsuit"); k.SurfBest = Json.I(o, "surfBest"); k.Rides = Json.I(o, "rides");
             if (o.TryGetValue("bait", out var b) && b is List<object> l) for (int i = 0; i < 5 && i < l.Count; i++) k.Bait[i] = Convert.ToInt32(l[i], CultureInfo.InvariantCulture);
             if (o.TryGetValue("best", out var bo) && bo is Dictionary<string, object> bd) foreach (var kv in bd) k.Best[kv.Key] = (float)Convert.ToDouble(kv.Value, CultureInfo.InvariantCulture);
             return k;

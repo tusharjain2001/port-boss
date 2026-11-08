@@ -104,7 +104,7 @@ namespace PortBoss.M1
             float px = x, pz = z;
             Vector3 o = default;
             for (int i = 0; i < 3; i++) { o = Offset(px, pz, T); px = x - o.x; pz = z - o.z; }
-            return Level + Offset(px, pz, T).y;
+            return Level + Offset(px, pz, T).y + SurfWaves.Bump(x, z);   // (M8: the surf, SurfWaves; 0 away from a live spot)
         }
         public static float Height(Vector3 p) => Height(p.x, p.z);
 

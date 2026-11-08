@@ -35,6 +35,9 @@ namespace PortBoss.M1
             double m0 = Sky.Minutes;
             yield return Press(Key.F10);
             Ok(Sky.Minutes - m0 >= 60 && Sky.Minutes - m0 < 62, $"F10: +{Sky.Minutes - m0:F1} min");
+            int wx0 = Sky.ForceWx;
+            yield return Press(Key.LeftCtrl, Key.F11);                                          // M8: surf's up today
+            Ok(C.Seen("test:surf:" + Sky.Day) && Mathf.Abs(SurfWaves.FaceHeight(SurfWaves.Breaker, Sky.Minutes) - 1.5f) < 0.01f && Sky.ForceWx == wx0, $"Ctrl+F11: surf's up ({SurfWaves.FaceHeight(SurfWaves.Breaker, Sky.Minutes):F1} m at Breaker Point), the weather left alone ({Sky.ForceWx})");
             Debug.Log($"[PB] RESULT testerkeys: {(fails == 0 ? "PASS" : "FAIL")} ({fails} off)");
             Application.Quit();
         }

@@ -158,7 +158,7 @@ namespace PortBoss.M1
             float dt = Time.deltaTime; StateT += dt;
             if (me.Remote) { RemoteFish(dt); return; } // a crewmate: shown as they send it
             bob.Sight(Kit.Sight);                          // M8: my own float only (it's for my eyes)
-            bool rodSel = me.Bar.Sel.Rod && !me.Swimming && !me.AtHelm && !me.Down && me.RepairT < 0 && me.ShoveT < 0; // (the hands are busy)
+            bool rodSel = me.Bar.Sel.Rod && !me.Swimming && !me.AtHelm && !me.Down && me.RepairT < 0 && me.ShoveT < 0 && (me.Surf == null || !me.Surf.Active); // (the hands are busy; M8: on a board)
             DebugKeys();
 
             switch (State)

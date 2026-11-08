@@ -100,6 +100,7 @@ namespace PortBoss.M1
                 kit.Bait = mine.Bait; kit.BaitI = mine.BaitI; kit.Best = mine.Best;
                 if (Tackle.Owns(kit, mine.Hook)) kit.Hook = mine.Hook;
                 if (SurfGear.Owns(kit, mine.Board)) kit.Board = mine.Board;                                  // (M8: the board I carry)
+                kit.SurfBest = mine.SurfBest; kit.Rides = mine.Rides;                                          // (M8: my surfing record, like the journal)
             }, true);
         }
 

@@ -218,8 +218,8 @@ namespace PortBoss.M1
             Debug.Log($"[PB] surfshoptest: ground round the door at {at.x:F1} {at.y:F2} {at.z:F1}, facing {Mathf.Atan2(st.At.forward.x, st.At.forward.z) * Mathf.Rad2Deg:F0} deg (+Z = 0, height m, - = under water):{sb}");
             // 1) Act 2; Kai the next morning
             C.SetAct(2, Sky.Minutes); Firm.I.Dirty = true; int today = DayTime.Day(Sky.Minutes);
-            JumpTo(today + 1, 6.6); yield return Until(() => Kai() >= 3, 4);
-            Ok(Kai() == 3 && C.Msgs.Exists(m => m.From == Company.KaiName && m.Text.Contains("foam board")), $"Kai's hello the morning after Act 2 ({Kai()} texts)");
+            JumpTo(today + 1, 6.6); yield return Until(() => Kai() >= 4, 4);
+            Ok(Kai() == 4 && C.Msgs.Exists(m => m.From == Company.KaiName && m.Text.Contains("foam board")) && C.Msgs.Exists(m => m.From == Company.KaiName && m.Text.Contains("in the pocket")), $"Kai's hello the morning after Act 2, with his challenges ({Kai()} texts)");
             // 2) at his counter at 10
             JumpTo(today + 1, 10); yield return null;
             walk = false; yield return AtCounter(Firm.Kind.Surf);
@@ -289,13 +289,273 @@ namespace PortBoss.M1
             // 5) his dawn report the next morning
             JumpTo(today + 2, 6.05); yield return Until(() => C.Seen("kai:surf:" + (today + 2)), 4);
             var (ft, word, good) = SurfShop.Report(today + 2, 0);
-            Ok(C.Seen("kai:surf:" + (today + 2)) && (good ? Kai() == 4 && C.Msgs.FindLast(m => m.From == Company.KaiName).Text.Contains(ft + " ft") : Kai() == 3), $"Kai's dawn report: {ft} ft {word} ({(good ? "a text" : "no surf, no text")}, {Kai()} texts)");
+            Ok(C.Seen("kai:surf:" + (today + 2)) && (good ? Kai() == 5 && C.Msgs.FindLast(m => m.From == Company.KaiName).Text.Contains(ft + " ft") : Kai() == 4), $"Kai's dawn report: {ft} ft {word} ({(good ? "a text" : "no surf, no text")}, {Kai()} texts)");
             Phone.I.Show(Phone.Scr.Thread, Company.KaiName); yield return null; yield return null;
             if (shots != null) { yield return new WaitForSeconds(0.4f); yield return Shot("kai-texts"); }
             Phone.I.Hide();
             Ok(C.Check() == "", $"the company's invariants ({C.Check()})");
             Debug.Log($"[PB] RESULT surfshoptest: {(fails == 0 ? "PASS" : "FAIL")} ({fails} off)");
             Application.Quit();
+        }
+
+        // -pb-wavetest <dir> (M8 step 5): the surf at Breaker Point, a 1.5 m face (forced: SurfWaves.TestHeight). A set rolls
+        // through: the sea at the break line rises to ~the face height as each wave passes, waves break (white water on the
+        // CPU as on the GPU), the broken stretch peels along, nothing lifts the sand. Frames every 1.5 s from the beach and
+        // from the side (day), a few at dusk, and the Widowmaker at Gullrock. Logs the height at the break line.
+        IEnumerator WaveTest(string dir)
+        {
+            shots = string.IsNullOrEmpty(dir) ? null : dir; if (shots != null) Directory.CreateDirectory(shots);
+            Ctl.Bot = true; Sleep.Off = true; int fails = 0;
+            void Ok(bool ok, string what) { if (!ok) fails++; Debug.Log($"[PB] wavetest: {what}: {(ok ? "ok" : "FAIL")}"); }
+            int breaks = 0; SurfWaves.OnLog = sx => { breaks++; Debug.Log("[PB] wavetest: " + sx); };
+            yield return new WaitForSeconds(1f);
+            SurfWaves.TestHeight = 1.5f; JumpTo(DayTime.Day(Sky.Minutes), 11);
+            var bp = SurfWaves.Breaker; var O = new Vector3(bp.O.x, 0, bp.O.y); var f = new Vector3(bp.Dir.x, 0, bp.Dir.y); var r = new Vector3(f.z, 0, -f.x);
+            me.Teleport(O + f * (bp.Shore + 6) + Vector3.up * 2f, Mathf.Atan2(-f.x, -f.z) * Mathf.Rad2Deg); yield return new WaitForSeconds(1f);
+            Ok(SurfWaves.Live == bp, $"Breaker Point's surf is up near me ({SurfWaves.Live?.Name})");
+            // watch the break line for a minute and a half: the highest the sea gets there, the white water, the sand stays dry
+            float top = 0, foamMax = 0, sand = 0; int seen = 0, shotN = 0;
+            var beachCam = O + f * (bp.Shore + 4) + r * 22f + Vector3.up * 3.2f; var sideCam = O + f * -2f + r * 34f + Vector3.up * 4f;
+            for (float t = 0; t < 90; t += Time.deltaTime)
+            {
+                for (float u = -40; u <= 40; u += 10)
+                {
+                    var q = O + r * u; float h = Sea.Height(q) ; SurfWaves.Bump(q.x, q.z, out float fm);
+                    top = Mathf.Max(top, h); foamMax = Mathf.Max(foamMax, fm);
+                }
+                var land = O + f * (bp.Shore + 4); sand = Mathf.Max(sand, SurfWaves.Bump(land.x, land.z));
+                seen = Mathf.Max(seen, SurfWaves.N);
+                if (shots != null && t > 6 && shotN < 16 && t > 6 + shotN * 1.5f)
+                {
+                    bool side = shotN >= 8; FlyCam(side ? sideCam : beachCam, side ? O + f * -8f + Vector3.up * 0.5f : O + f * -25f - r * 10f + Vector3.up * 0.5f);
+                    yield return Shot($"surf-{(side ? "side" : "beach")}-{shotN:00}"); shotN++; CameraRig.I.enabled = true; continue;
+                }
+                yield return null;
+            }
+            Ok(seen >= 2 && seen <= SurfWaves.Max, $"a set rolls in ({seen} waves up at once at most)");
+            Ok(top > 1.0f && top < 2.4f, $"the sea at the break line rose to {top:F2} m (a 1.5 m face, 0.8-1.2x a wave)");
+            Ok(foamMax > 0.6f, $"white water ({foamMax:F2})");
+            Ok(breaks >= 2, $"waves broke ({breaks})");
+            Ok(sand < 0.01f, $"nothing on the sand ({sand:F3} m)");
+            // dusk
+            JumpTo(DayTime.Day(Sky.Minutes), 19.4); yield return new WaitForSeconds(2f);
+            if (shots != null) for (int i = 0; i < 4; i++) { FlyCam(beachCam, O + f * -25f - r * 10f + Vector3.up * 0.5f); yield return Shot($"surf-dusk-{i}"); CameraRig.I.enabled = true; yield return new WaitForSeconds(2.5f); }
+            // the Widowmaker (forced: 1.8x)
+            JumpTo(DayTime.Day(Sky.Minutes) + 1, 11);
+            var wm = SurfWaves.Widowmaker; var WO = new Vector3(wm.O.x, 0, wm.O.y); var wf = new Vector3(wm.Dir.x, 0, wm.Dir.y); var wr = new Vector3(wf.z, 0, -wf.x);
+            me.Teleport(WO + wf * (wm.Shore + 8) + Vector3.up * 3f, 0); yield return new WaitForSeconds(1f);
+            float wtop = 0; for (float t = 0; t < 40; t += Time.deltaTime) { for (float u = -30; u <= 30; u += 10) { var q = WO + wr * u; wtop = Mathf.Max(wtop, Sea.Height(q)); } yield return null; }
+            Ok(SurfWaves.Live == wm && wtop > 2.0f, $"the Widowmaker at Gullrock: {wtop:F2} m");
+            if (shots != null)
+            {
+                bool OnLedge() { for (int k = 0; k < SurfWaves.N; k++) if (SurfWaves.W[k].S > -4 && SurfWaves.W[k].S < 18) return true; return false; }
+                for (float t = 0; t < 80 && !OnLedge(); t += Time.deltaTime) yield return null;
+                for (int i = 0; i < 3; i++) { FlyCam(WO + wf * 26f + wr * 38f + Vector3.up * 7f, WO + wf * 4f + Vector3.up * 1.5f); yield return Shot($"widowmaker-{i}"); CameraRig.I.enabled = true; yield return new WaitForSeconds(1.4f); }
+            }
+            SurfWaves.TestHeight = -1;
+            Debug.Log($"[PB] RESULT wavetest: {(fails == 0 ? "PASS" : "FAIL")} ({fails} off)");
+            Application.Quit();
+        }
+
+        // -pb-surftest <dir> (M8 step 6): surfing at Breaker Point on a forced 1.4 m day. In the water with Kai's foamie: E,
+        // lying on it. Paddle (W); a duck-dive (Ctrl) sinks me and the board. Lined up in front of an incoming wave on its
+        // shoulder, paddling in: the pop-up bar; Space in the green: up and riding, carving along the face away from the
+        // peak (the bot holds ~55 degrees); a few seconds, the pocket maybe, the ride ends (over or a wipeout). The next wave:
+        // turned too far round: a wipeout, the leash, paddling again. The bodyboard: no pop-up, ridden lying down. E: off.
+        // Chase-cam frames of each.
+        IEnumerator SurfTest(string dir)
+        {
+            shots = string.IsNullOrEmpty(dir) ? null : dir; if (shots != null) Directory.CreateDirectory(shots);
+            Ctl.Bot = true; Sleep.Off = true; int fails = 0;
+            void Ok(bool ok, string what) { if (!ok) fails++; Debug.Log($"[PB] surftest: {what}: {(ok ? "ok" : "FAIL")}"); }
+            IEnumerator Until(System.Func<bool> c, float secs) { for (float t = 0; t < secs && !c(); t += Time.deltaTime) yield return null; }
+            IEnumerator E() { Ctl.BotInteract = true; yield return null; Ctl.BotInteract = false; yield return null; }
+            yield return new WaitForSeconds(1f);
+            var C = Firm.C; var k = Firm.I.MyKit; var sf = me.Surf;
+            C.SetAct(2, Sky.Minutes); C.Earn(Firm.I.NewTx("test"), Firm.MyName, "surftest", 5000, Sky.Minutes);
+            foreach (var it in new[] { "board:1", "board:2", "board:4" }) { if (it == "board:4") C.Event("kai:ch1", Sky.Minutes); Firm.I.Buy(it, 1); }
+            Firm.I.UseBoard(1); SurfWaves.TestHeight = 1.4f; JumpTo(DayTime.Day(Sky.Minutes) + 1, 10);
+            var bp = SurfWaves.Breaker; var O = new Vector3(bp.O.x, 0, bp.O.y); var f = new Vector3(bp.Dir.x, 0, bp.Dir.y); var r = new Vector3(f.z, 0, -f.x);
+            float inYaw = Mathf.Atan2(f.x, f.z) * Mathf.Rad2Deg;
+            me.Teleport(O + f * -30f + Vector3.up * -0.5f, inYaw); yield return Until(() => me.Swimming, 4);
+            Ok(me.Swimming && SurfWaves.Live == bp, "in the water at Breaker Point");
+            yield return null; Ok(me.Prompt == "Lie on your foam board", $"the prompt: \"{me.Prompt}\"");
+            yield return E();
+            Ok(sf.State == Surfer.St.Paddle && sf.Board == 1, $"lying on the foamie ({sf.State})");
+            // paddle
+            var p0 = sf.Pos; Ctl.BotMove = Vector2.up; yield return new WaitForSeconds(2.5f); Ctl.BotMove = Vector2.zero;
+            Ok((sf.Pos - p0).magnitude > 2.5f && sf.Speed > 1f, $"paddled {(sf.Pos - p0).magnitude:F1} m ({sf.Speed:F1} m/s)");
+            if (shots != null) { Chase(sf, -7f, 2.6f, 3f); yield return Shot("paddle"); CameraRig.I.enabled = true; }
+            // a duck-dive
+            Surfer.BotDuck = true; yield return new WaitForSeconds(0.5f);
+            float under = Sea.Height(sf.Pos) - me.transform.position.y; Surfer.BotDuck = false; yield return new WaitForSeconds(0.8f);
+            Ok(under > 0.4f, $"the duck-dive: {under:F2} m under");
+            // 1) line up on an incoming wave's shoulder and catch it
+            int ridden = 0, wipes = 0; float best = 0; bool pocket = false;
+            for (int attempt = 0; attempt < 4 && ridden < 1; attempt++)
+            {
+                yield return Until(() => { for (int q = 0; q < SurfWaves.N; q++) if (SurfWaves.W[q].S > -32 && SurfWaves.W[q].S < -22 && SurfWaves.W[q].H > 0.6f) return true; return false; }, 90);
+                int wk = -1; for (int q = 0; q < SurfWaves.N; q++) if (SurfWaves.W[q].S > -32 && SurfWaves.W[q].S < -22) wk = q;
+                if (wk < 0) continue;
+                var w = SurfWaves.W[wk]; float side = attempt % 2 == 0 ? 1 : -1, u = w.U0 + side * 14f;
+                sf.Pos = O + f * (w.S + 7f) + r * u; sf.Yaw = inYaw; sf.Speed = 1.2f; Ctl.BotMove = Vector2.up;
+                yield return Until(() => sf.State == Surfer.St.Pop || sf.State == Surfer.St.Ride, 12);
+                Ok(sf.State == Surfer.St.Pop, $"wave {w.Id}: the pop-up bar ({sf.State})");
+                if (sf.State != Surfer.St.Pop) { Ctl.BotMove = Vector2.zero; continue; }
+                if (shots != null && attempt == 0) { Chase(sf, -6f, 2.2f, 4f); yield return Shot("popup"); CameraRig.I.enabled = true; }
+                yield return Until(() => sf.PopNeedle >= 0.62f, 2); Surfer.Bot.PopNow = true; yield return null; Surfer.Bot.PopNow = false; Ctl.BotMove = Vector2.zero;
+                Ok(sf.State == Surfer.St.Ride, $"Space in the green: riding ({sf.State})");
+                if (sf.State != Surfer.St.Ride) continue;
+                float target = sf.Theta > 0 ? 55 : -55, t0 = Time.time; int frame = 0;
+                while (sf.State == Surfer.St.Ride && Time.time - t0 < 20)
+                {
+                    Ctl.BotSteer = Mathf.Clamp((target - sf.Theta) / 25f, -1, 1);
+                    best = Mathf.Max(best, sf.Speed); pocket |= sf.InPocket;
+                    if (shots != null && frame < 6 && Time.time - t0 > 0.8f + frame * 1.1f) { Chase(sf, -8f, 3.2f, sf.Theta > 0 ? -5f : 5f); yield return Shot($"ride-{frame}"); CameraRig.I.enabled = true; frame++; continue; }
+                    yield return null;
+                }
+                Ctl.BotSteer = 0; ridden++;
+                Ok(sf.LastRide > 2.5f, $"the ride: {sf.LastRide:F1} s, {(sf.LastOutcome == "wipe" ? "a wipeout" : "over")}, top {best:F1} m/s, the pocket {(pocket ? "found" : "not")}");
+            }
+            Ok(ridden >= 1, $"rode a wave ({ridden})");
+            Ok(sf.LastScore > 50 && k.SurfBest == sf.LastScore && k.Rides >= 1, $"the ride's score {sf.LastScore} pts, my best {k.SurfBest}, {k.Rides} ride(s)");
+            yield return Until(() => C.Msgs.Exists(m => m.From == Company.KaiName && m.Text.StartsWith("8 seconds")), 4);
+            Ok(sf.LastRide < 8 || C.Seen("kai:ch2") && C.Msgs.Exists(m => m.From == Company.KaiName && m.Text.StartsWith("8 seconds")), $"Kai's challenge 2 (8 s): {(C.Seen("kai:ch2") ? "done, his sunburst" : "not yet")}");
+            // the pocket: hang back until the curl's close, then run with it (Kai's challenge 3: 3 s in the pocket)
+            float bestPocket = 0;
+            for (int attempt = 0; attempt < 4 && !C.Seen("kai:ch3"); attempt++)
+            {
+                yield return Until(() => sf.State == Surfer.St.Paddle, 6);
+                yield return Until(() => { for (int q = 0; q < SurfWaves.N; q++) if (SurfWaves.W[q].S > -32 && SurfWaves.W[q].S < -22 && SurfWaves.W[q].H > 0.6f) return true; return false; }, 90);
+                int wk = -1; for (int q = 0; q < SurfWaves.N; q++) if (SurfWaves.W[q].S > -32 && SurfWaves.W[q].S < -22) wk = q;
+                if (wk < 0) continue;
+                var w = SurfWaves.W[wk]; bool fastRight = ((w.Id / 10 + w.Id % 10) & 1) == 0; float side = fastRight ? 1 : -1;   // (SurfWaves.Waves: which way it peels fast)
+                sf.Pos = O + f * (w.S + 7f) + r * (w.U0 + side * 4f); sf.Yaw = inYaw; sf.Speed = 1.2f; Ctl.BotMove = Vector2.up;
+                yield return Until(() => sf.State == Surfer.St.Pop, 12); yield return Until(() => sf.PopNeedle >= 0.62f, 2); Surfer.Bot.PopNow = true; yield return null; Surfer.Bot.PopNow = false; Ctl.BotMove = Vector2.zero;
+                float inPocket = 0, logT = 0;
+                while (sf.State == Surfer.St.Ride)
+                {
+                    int q = SurfWaves.Find(sf.WaveId); if (q < 0) break; var ww = SurfWaves.W[q];
+                    float sgn = sf.Theta > 0 ? 1 : -1, curlU = sgn > 0 ? ww.U0 + ww.BR : ww.U0 - ww.BL, gap = (sf.U - curlU) * sgn;
+                    // match the curl's peel (5 m/s on the fast side): a bit slower to let it close, a bit faster once it's there
+                    float lat = !ww.Broke ? 1.2f : SurfWaves.PeelFast + (gap > 3f ? -2f : gap < 1f ? 1.5f : 0.3f);       // (wait by the peak till it breaks)
+                    float target = sgn * Mathf.Clamp(Mathf.Asin(Mathf.Clamp(lat / Mathf.Max(sf.Speed, 1f), 0, 0.97f)) * Mathf.Rad2Deg, 10, 75);
+                    Ctl.BotSteer = Mathf.Clamp((target - sf.Theta) / 20f, -1, 1);
+                    if (sf.InPocket) inPocket += Time.deltaTime;
+                    logT += Time.deltaTime; if (logT > 0.5f) { logT = 0; SurfWaves.Local(q, sf.U, sf.X, out float bs, out _, out float wf); Debug.Log($"[PB] surftest:   S {ww.S:F1} broke {ww.Broke} gap {gap:F1} X {sf.X:F2} face {wf:F2} bs {bs:F2} theta {sf.Theta:F0} v {sf.Speed:F1} pocket {sf.InPocket}"); }
+                    yield return null;
+                }
+                Ctl.BotSteer = 0; bestPocket = Mathf.Max(bestPocket, inPocket);
+                Debug.Log($"[PB] surftest: pocket try {attempt}: {inPocket:F1} s in the pocket, {sf.LastOutcome} after {sf.LastRide:F1} s, {sf.LastScore} pts");
+            }
+            yield return Until(() => C.Msgs.Exists(m => m.From == Company.KaiName && m.Text.StartsWith("three seconds")), 4);
+            Ok(C.Seen("kai:ch3"), $"Kai's challenge 3: 3 s in the pocket (best {bestPocket:F1} s)");
+
+            yield return Until(() => sf.State == Surfer.St.Paddle, 4);
+            // 2) the next one, turned too far round: a wipeout
+            yield return Until(() => { for (int q = 0; q < SurfWaves.N; q++) if (SurfWaves.W[q].S > -32 && SurfWaves.W[q].S < -22 && SurfWaves.W[q].H > 0.6f) return true; return false; }, 90);
+            { int wk = -1; for (int q = 0; q < SurfWaves.N; q++) if (SurfWaves.W[q].S > -32 && SurfWaves.W[q].S < -22) wk = q;
+              if (wk >= 0) { var w = SurfWaves.W[wk]; sf.Pos = O + f * (w.S + 7f) + r * (w.U0 + 14f); sf.Yaw = inYaw; sf.Speed = 1.2f; Ctl.BotMove = Vector2.up; } }
+            yield return Until(() => sf.State == Surfer.St.Pop, 12); yield return Until(() => sf.PopNeedle >= 0.62f, 2); Surfer.Bot.PopNow = true; yield return null; Surfer.Bot.PopNow = false; Ctl.BotMove = Vector2.zero;
+            if (sf.State == Surfer.St.Ride) { Ctl.BotSteer = sf.Theta > 0 ? 1 : -1; yield return Until(() => sf.State != Surfer.St.Ride, 6); Ctl.BotSteer = 0; }
+            Ok(sf.State == Surfer.St.Wipe && sf.LastOutcome == "wipe", $"turned too far round: a wipeout ({sf.State})");
+            if (shots != null && sf.State == Surfer.St.Wipe) { Chase(sf, -6f, 2.4f, 4f); yield return Shot("wipeout"); CameraRig.I.enabled = true; }
+            yield return Until(() => sf.State == Surfer.St.Paddle, 4);
+            Ok(sf.State == Surfer.St.Paddle, "the leash: back on the board, paddling");
+            // 3) the bodyboard: no pop-up
+            yield return E(); Ok(sf.State == Surfer.St.Off && me.Cc.enabled, "E: off the board");
+            Firm.I.UseBoard(2); yield return Until(() => me.Swimming && me.Prompt == "Lie on your bodyboard", 4); yield return E();
+            Ok(sf.State == Surfer.St.Paddle && sf.Board == 2, "on the bodyboard");
+            yield return Until(() => { for (int q = 0; q < SurfWaves.N; q++) if (SurfWaves.W[q].S > -32 && SurfWaves.W[q].S < -22 && SurfWaves.W[q].H > 0.6f) return true; return false; }, 90);
+            { int wk = -1; for (int q = 0; q < SurfWaves.N; q++) if (SurfWaves.W[q].S > -32 && SurfWaves.W[q].S < -22) wk = q;
+              if (wk >= 0) { var w = SurfWaves.W[wk]; sf.Pos = O + f * (w.S + 7f) + r * (w.U0 - 14f); sf.Yaw = inYaw; sf.Speed = 1.2f; Ctl.BotMove = Vector2.up; } }
+            yield return Until(() => sf.State == Surfer.St.Ride || sf.State == Surfer.St.Pop, 12); Ctl.BotMove = Vector2.zero;
+            Ok(sf.State == Surfer.St.Ride, $"the bodyboard catches it straight away, lying down ({sf.State})");
+            if (shots != null && sf.State == Surfer.St.Ride) { yield return new WaitForSeconds(1f); Chase(sf, -6f, 2.4f, sf.Theta > 0 ? -4f : 4f); yield return Shot("bodyboard"); CameraRig.I.enabled = true; }
+            yield return Until(() => sf.State == Surfer.St.Paddle, 25);
+            yield return E();
+            me.Teleport(O + f * (bp.Shore + 8) + Vector3.up * 2f, 0); yield return new WaitForSeconds(1f);
+            Phone.I.Show(Phone.Scr.Journal); yield return null; yield return null;
+            if (shots != null) { yield return new WaitForSeconds(0.4f); yield return Shot("journal-surf"); }
+            Phone.I.Hide();
+            SurfWaves.TestHeight = -1;
+            Debug.Log($"[PB] RESULT surftest: {(fails == 0 ? "PASS" : "FAIL")} ({fails} off)");
+            Application.Quit();
+        }
+        // -pb-surfcoop host|rider (M8 step 7): two on one wave. Both on foamies at Breaker Point (a forced 1.4 m day; the waves
+        // come from the shared sea clock, so both machines have the same ones). The same wave, 6 m apart on its shoulder:
+        // both pop up and ride it: a party wave on both (each sees the other on it in their pose). The next wave, 1 m apart:
+        // a drop-in: both go down.
+        IEnumerator SurfCoop(string role)
+        {
+            Ctl.Bot = true; Sleep.Off = true; int fails = 0;
+            void Ok(bool ok, string what) { if (!ok) fails++; Debug.Log($"[PB] surfcoop {role}: {what}: {(ok ? "ok" : "FAIL")}"); }
+            IEnumerator Until(System.Func<bool> c, float secs) { for (float t = 0; t < secs && !c(); t += Time.unscaledDeltaTime) yield return null; }
+            for (float t = 0; t < 40 && !(Coop.Joined && Coop.I.Roster.Count >= 2); t += Time.unscaledDeltaTime) yield return null;
+            Ok(Coop.Joined && Coop.I.Roster.Count >= 2, "the crew is together");
+            if (!Coop.Joined) { Debug.Log($"[PB] RESULT surfcoop {role}: FAIL (never connected)"); Application.Quit(); yield break; }
+            var C = Firm.C; var sf = me.Surf; bool host = role == "host";
+            shots = Arg("-pb-surfshots"); if (shots != null) Directory.CreateDirectory(shots);
+            if (host) { C.SetAct(2, Sky.Minutes); C.Earn(Firm.I.NewTx("test"), Firm.MyName, "surfcoop", 5000, Sky.Minutes); Firm.I.Dirty = true; }
+            yield return Until(() => C.Act >= 2 && C.Cash >= 5000, 20);
+            Firm.I.Buy("board:1", 1); yield return Until(() => SurfGear.Owns(Firm.I.MyKit, 1), 10);
+            if (!host) { yield return new WaitForSeconds(1f); Firm.I.Buy("board:1", 1); yield return Until(() => SurfGear.Owns(Firm.I.MyKit, 1), 10); }
+            Ok(SurfGear.Owns(Firm.I.MyKit, 1), "a foamie");
+            SurfWaves.TestHeight = 1.4f;
+            var bp = SurfWaves.Breaker; var O = new Vector3(bp.O.x, 0, bp.O.y); var f = new Vector3(bp.Dir.x, 0, bp.Dir.y); var r = new Vector3(f.z, 0, -f.x);
+            float inYaw = Mathf.Atan2(f.x, f.z) * Mathf.Rad2Deg;
+            me.Teleport(O + f * -35f + r * (host ? 0 : 8) + Vector3.up * -0.5f, inYaw); yield return Until(() => me.Swimming, 5);
+            yield return Until(() => me.Prompt != null && me.Prompt.StartsWith("Lie on"), 3);
+            Ctl.BotInteract = true; yield return null; Ctl.BotInteract = false; yield return null;
+            Ok(sf.State == Surfer.St.Paddle, "on the board");
+            yield return Until(() => { foreach (var m in Coop.I.Mates.Values) if (m != null && m.Surf != null && m.Surf.Shown) return true; return false; }, 40);
+            Ok(true, "my crewmate's on a board too");
+            // both take the first wave of the next set (the sea clock is shared, so it's the same wave on both machines)
+            int n1 = Mathf.FloorToInt(Sea.T / SurfWaves.SetGrid) + 1;
+            IEnumerator Catch(float gap, int id)
+            {
+                yield return Until(() => { for (int q = 0; q < SurfWaves.N; q++) if (SurfWaves.W[q].Id == id && SurfWaves.W[q].S > -32 && SurfWaves.W[q].S < -22) return true; return false; }, 200);
+                int wk = -1; for (int q = 0; q < SurfWaves.N; q++) if (SurfWaves.W[q].Id == id && SurfWaves.W[q].S > -32 && SurfWaves.W[q].S < -22) wk = q;
+                if (wk < 0) { Debug.Log($"[PB] surfcoop {role}: wave {id} never came"); yield break; }
+                var w = SurfWaves.W[wk]; Debug.Log($"[PB] surfcoop {role}: lining up on wave {w.Id}");
+                sf.Pos = O + f * (w.S + 7f) + r * (w.U0 + 10f + (host ? 0 : gap)); sf.Yaw = inYaw; sf.Speed = 1.2f; Ctl.BotMove = Vector2.up;
+                yield return Until(() => sf.State == Surfer.St.Pop, 12); yield return Until(() => sf.PopNeedle >= 0.62f, 2);
+                Surfer.Bot.PopNow = true; yield return null; Surfer.Bot.PopNow = false; Ctl.BotMove = Vector2.zero;
+                float rt = 0; bool shot = false;
+                while (sf.State == Surfer.St.Ride)
+                {
+                    Ctl.BotSteer = Mathf.Clamp((50 - sf.Theta) / 25f, -1, 1); rt += Time.deltaTime;
+                    if (!host && !shot && rt > 1.5f && shots != null)
+                    {
+                        shot = true; Angler mate = null; foreach (var m in Coop.I.Mates.Values) if (m != null) mate = m;
+                        if (mate != null) { var mp = mate.transform.position; FlyCam(mp + f * 6f + r * 4f + Vector3.up * 2.2f, mp + Vector3.up * 0.8f); yield return Shot("crewmate-surfing"); CameraRig.I.enabled = true; continue; }
+                    }
+                    yield return null;
+                }
+                Ctl.BotSteer = 0;
+            }
+            // 1) the same wave, 6 m apart: a party wave
+            yield return Catch(6f, n1 * 10);
+            Ok(sf.LastRide > 2, $"rode it ({sf.LastRide:F1} s, {sf.LastScore} pts)");
+            Ok(sf.LastParty, "a party wave (two on one wave)");
+            yield return Until(() => Firm.C.Seen("surf:party"), 8);                 // (Firm.C: a rider's company is replaced at each sync)
+            Ok(Firm.C.Seen("surf:party"), "the crew's company has the party wave");
+            yield return Until(() => sf.State == Surfer.St.Paddle, 6);
+            // 2) the next one, 1 m apart: a drop-in, both off
+            yield return Catch(1f, (n1 + 1) * 10);
+            Ok(sf.Dropped && sf.LastOutcome == "wipe", $"a drop-in: both down ({sf.LastOutcome}, dropped {sf.Dropped})");
+            yield return new WaitForSeconds(4f);
+            SurfWaves.TestHeight = -1;
+            Ok(C.Check() == "", "the company's invariants");
+            Debug.Log($"[PB] RESULT surfcoop {role}: {(fails == 0 ? "PASS" : "FAIL")} ({fails} off)");
+            Application.Quit();
+        }
+
+        // a chase camera: behind the board (back m), up, and to the side
+        static void Chase(Surfer s, float back, float up, float side)
+        {
+            var h = Quaternion.Euler(0, s.Yaw, 0); var at = s.Pos;
+            FlyCam(at + h * new Vector3(side, 0, back) + Vector3.up * up, at + h * Vector3.forward * 3f + Vector3.up * 0.6f);
         }
 
         IEnumerator CastLine(float power)
