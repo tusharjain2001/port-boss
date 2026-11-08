@@ -67,8 +67,37 @@ Shader "PortBoss/M1/Water"
             // map B's seabed (Seabed.cs): height = r * _PBSeabedH.y + _PBSeabedH.x over the rect (x0, z0, 1/size, 1/size)
             TEXTURE2D(_PBSeabed); SAMPLER(sampler_PBSeabed); float4 _PBSeabedRect, _PBSeabedH;
 
+            // M8 step 5: the surf (SurfWaves.cs mirrors SurfOne line for line): up to 4 breaking waves lift this surface
+            float4 _PBSurfA[4], _PBSurfB[4], _PBSurfC[4]; float _PBSurfN;
+
             struct A { float4 pos : POSITION; };
-            struct V { float4 cs : SV_POSITION; float3 ws : TEXCOORD0; float3 n : TEXCOORD1; float4 sp : TEXCOORD2; float h : TEXCOORD3; float fog : TEXCOORD4; };
+            struct V { float4 cs : SV_POSITION; float3 ws : TEXCOORD0; float3 n : TEXCOORD1; float4 sp : TEXCOORD2; float h : TEXCOORD3; float fog : TEXCOORD4; float3 su : TEXCOORD5; };
+
+            float SmoothS(float e0, float e1, float x) { float u = saturate((x - e0) / (e1 - e0)); return u * u * (3 - 2 * u); }
+            float SurfOne(int k, float2 p, out float wf)
+            {
+                float4 a = _PBSurfA[k], b = _PBSurfB[k], c = _PBSurfC[k];
+                wf = 0; float H = b.y; if (H <= 0.001) return 0;
+                float2 q = p - a.xy; float s = dot(q, a.zw), u = q.x * a.w - q.y * a.z;
+                float x = s - b.x;
+                float side = 1 - SmoothS(c.y - 12, c.y, abs(u));
+                float span = b.w + c.x;
+                float bs = span > 0.001 ? saturate(min(u - (b.z - b.w), (b.z + c.x) - u) / 3.0 + 0.5) : 0;
+                float dc = span > 0.001 ? min(abs(u - (b.z + c.x)), abs(u - (b.z - b.w))) : abs(u - b.z);
+                float curl = (1 - bs) * (1 - SmoothS(0, 9, dc)) * (b.x > -6 ? 1 : 0);
+                float wface = lerp(lerp(0.7 * H + 0.3, 0.38 * H + 0.25, curl), 0.6 * H + 0.6, bs), wback = 3.5 * H + 2;
+                float r = x > 0 ? x / wface : x / wback, prof = exp(-r * r);
+                float shore = 1 - SmoothS(c.z - 8, c.z, s);
+                float trail = (x < 2.5 && x > -c.w - 1) ? saturate(1 - (-x - 1) / c.w) : 0;
+                wf = max(bs * trail, curl * exp(-(x / 1.4) * (x / 1.4)) * 0.95) * side * shore;
+                return H * lerp(1, 0.55, bs) * prof * side * shore;
+            }
+            float SurfBump(float2 p, out float wf)
+            {
+                float h = 0; wf = 0;
+                for (int k = 0; k < 4; k++) { if (k >= (int)_PBSurfN) break; float f; h += SurfOne(k, p, f); wf = max(wf, f); }
+                return h;
+            }
 
             void Gerstner(float2 dir, float len, float amp, float steep, float2 p, inout float3 off, inout float3 tan, inout float3 bin)
             {
@@ -89,6 +118,14 @@ Shader "PortBoss/M1/Water"
                 Gerstner(normalize(float2(-0.4, 1)), _WaveLen * 0.61, _WaveAmp * 0.55 * fade, _WaveSteep, ws.xz, off, tan, bin);
                 Gerstner(normalize(float2(0.9, -0.7)), _WaveLen * 0.37, _WaveAmp * 0.3 * fade, _WaveSteep, ws.xz, off, tan, bin);
                 ws += off;
+                o.su = 0;
+                if (_PBSurfN > 0.5)                                     // M8: the surf, at the displaced point (as Sea.Height)
+                {
+                    float wf, w1, w2; float e = 0.25;
+                    float b0 = SurfBump(ws.xz, wf), bx = SurfBump(ws.xz + float2(e, 0), w1), bz = SurfBump(ws.xz + float2(0, e), w2);
+                    ws.y += b0; off.y += b0; tan.y += (bx - b0) / e; bin.y += (bz - b0) / e;
+                    o.su = float3(wf, length(float2(bx - b0, bz - b0)) / e, b0);   // white water, the face's steepness, the lift
+                }
                 o.ws = ws; o.h = off.y / max(_WaveAmp * 1.85, 1e-3);
                 o.n = normalize(cross(bin, tan));
                 o.cs = TransformWorldToHClip(ws);
@@ -165,6 +202,14 @@ Shader "PortBoss/M1/Water"
                 float glitter = smoothstep(0.62, 0.64, spk) * lobe;
                 col += L.color * (glitter * _SunSpec + pow(rl, 48) * _Sheen) * L.shadowAttenuation;
 
+                // M8: a surf wave's face: light through it (glassy aqua on the steep face), its back a touch deeper
+                {
+                    float on = smoothstep(0.02, 0.25, i.su.z);                     // (faded in with the lift: no edge where it starts)
+                    float face = saturate(i.su.y * 0.9) * on;
+                    float3 glass = lerp(_Shallow.rgb, float3(0.78, 1.0, 0.94), 0.4) * (LDAmbient(float3(0, 1, 0)) * 0.6 + L.color * 0.7);
+                    col = lerp(col, glass, face * 0.55);
+                    col *= lerp(1, 0.88, saturate(i.su.z * 0.5) * on * (1 - face));
+                }
                 // contact foam: a crisp, broken white band where the hull, pilings and shore meet the water
                 float fn = LDNoise(i.ws.xz * _FoamScale + _LDTime * 0.2) * 0.6 + LDNoise(i.ws.xz * _FoamScale * 2.3) * 0.4;
                 float contact = 1 - saturate(min(vdepth, tdepth + 0.15) / _FoamDist);
@@ -172,6 +217,7 @@ Shader "PortBoss/M1/Water"
                 // crest foam only where a wave is steeper than the threshold (none on a calm Clear sea)
                 float steep = 1 - i.n.y;
                 foam = max(foam, smoothstep(_CrestSteep, _CrestSteep + 0.03, steep + (fn - 0.5) * 0.04) * step(0.2, i.h) * _CrestFoam);
+                foam = max(foam, smoothstep(0.22, 0.4, i.su.x + (fn - 0.5) * 0.3));   // M8: the surf's white water and lip: solid, ragged edges
                 col = lerp(col, _Foam.rgb * lerp(0.6, 1, shadow) * (LDAmbient(float3(0,1,0)) + L.color * 0.8), foam * _Foam.a);
 
                 col = MixFog(col, i.fog);

@@ -32,14 +32,31 @@ namespace PortBoss.M1
         public int BaitI { get => Kit.BaitI; set => Kit.BaitI = value; }
         public int[] BaitCount => Kit.Bait;
         public string BaitId => BaitCount[BaitI] > 0 ? FishDb.Baits[BaitI].Id : "None";
+        // M8 tackle (Tackle.cs): the reel and a Circle hook widen the strike window; the line on this rod sets "HEAVY"; a
+        // Barbed / Treble hook redoes a missed stop (Tries: this fight's stops at most, the heavy fish's own retry on top)
+        public float StrikeWin => StrikeWindow + Tackle.StrikeOf(Kit);
+        public float LineKg => Tackle.LineKg(Kit, RodTier);
+        public int Retries => Tackle.RetriesOf(Kit);
+        public int Tries = 1;
+        // M8 step 3: a crewmate's landing net (LandingNet): one more go and a 10% wider green for the rest of this fight
+        public bool Netted; public string NetBy;
+        public Vector3 FishAt => fishUnder;
+        public void NetReady(string by)
+        {
+            if (Netted || !(State is St.Strike or St.Heavy or St.Minigame)) return;
+            Netted = true; NetBy = by;
+            if (State == St.Minigame) { Tries = Mathf.Min(Tackle.MaxStops, Tries + 1); ZoneW = Mathf.Min(0.6f, ZoneW * 1.1f); }
+            Alerts.Push("Landing net", $"{by} has the net ready: one more go, a wider green.", Alerts.Kind.Info);
+            OnLog?.Invoke("netted by " + by);
+        }
 
         // --- live state the HUD reads ---
         public float Power; public bool InSweet; public Vector3 Marker; public bool MarkerSnapped; public float MarkerDist;
         public Vector3 CastFrom;
         public FishSpecies Hooked; public Fish Catch; public float BiteSeenAt, BiteAt, BiteWait, WaitStart; public int Nibbles, NibblesDone;
         readonly List<float> nibbleAt = new();
-        public int Stop, Hits, Misses; public readonly int[] Result = new int[2]; // per try: 0 pending, 1 hit, -1 miss (try 2 = heavy retry)
-        public readonly float[] ErrMs = new float[2];
+        public int Stop, Hits, Misses; public readonly int[] Result = new int[Tackle.MaxStops]; // per try: 0 pending, 1 hit, -1 miss (M8: a hook's retries, then a heavy fish's)
+        public readonly float[] ErrMs = new float[Tackle.MaxStops];
         public const float ZoneScale = 1f / 8f; // Manan 1 Nov: the green is 1/8 of the old width (FishDb.Green × rod)
         // Tushar 1 Nov: Rare 25% for a practised player (70 ms timing spread) on the starter rod, was 15%. The green stays
         // 1/8 (rule 29), so the pointer moves slower: 0.59 × the gdd speeds (a pass takes ~1.9 s instead of ~1.1 s).
@@ -102,10 +119,11 @@ namespace PortBoss.M1
 
         public void SetRod(int tier, bool quiet = false)
         {
-            RodTier = Mathf.Clamp(tier, 1, 5); Kit.Rod = RodTier;
+            RodTier = Mathf.Clamp(tier, 1, 5); Kit.Hand = RodTier; Kit.Rod = Mathf.Max(Kit.Rod, RodTier);   // (M8: the rod in my hands; Rod = the best owned)
             Destroy(rod.gameObject); rod = RodView.Make(Game.ToonMat, RodTier); line.A = rod.Tip;
             if (Hud.RodIcon != null) Destroy(Hud.RodIcon); Hud.RodIcon = UiKit.RodIcon(RodTier); // the icon wears the rod's colour
-            if (!quiet) Alerts.Push("Debug", $"Rod: {Rod.Name} (bites {Rod.BiteLo:0}–{Rod.BiteHi:0} s, green ×{Rod.GreenMul:0.00}, line {Rod.LineKg:0} kg)", Alerts.Kind.Info);
+            Kit.Rods |= 1 << (RodTier - 1);
+            if (!quiet) Alerts.Push("Debug", $"Rod: {Rod.Name} (bites {Rod.BiteLo:0}–{Rod.BiteHi:0} s, green ×{Rod.GreenMul:0.00}, line {LineKg:0} kg)", Alerts.Kind.Info);
         }
 
         public void Stow() { if (State == St.Ready || State == St.Drawing) Go(St.Stowed); }
@@ -139,7 +157,8 @@ namespace PortBoss.M1
         {
             float dt = Time.deltaTime; StateT += dt;
             if (me.Remote) { RemoteFish(dt); return; } // a crewmate: shown as they send it
-            bool rodSel = me.Bar.Sel.Rod && !me.Swimming && !me.AtHelm && !me.Down && me.RepairT < 0 && me.ShoveT < 0; // (the hands are busy)
+            bob.Sight(Kit.Sight);                          // M8: my own float only (it's for my eyes)
+            bool rodSel = me.Bar.Sel.Rod && !me.Swimming && !me.AtHelm && !me.Down && me.RepairT < 0 && me.ShoveT < 0 && (me.Surf == null || !me.Surf.Active); // (the hands are busy; M8: on a board)
             DebugKeys();
 
             switch (State)
@@ -232,7 +251,7 @@ namespace PortBoss.M1
                 markerT.gameObject.SetActive(false);
                 if (!IsWater(Marker)) { creakVol = 0; Go(St.Ready); return; }   // (walked off from the water while charging: no cast onto land)
                 CastFrom = transform.position;
-                rolled = false; rollId++; if (Coop.On) Coop.AskRoll(rollId, RodTier, BaitId); // answered long before the bite (≥ 4 s)
+                rolled = false; rollId = NewRoll(); Netted = false; if (Coop.On) Coop.AskRoll(rollId, RodTier, BaitId); // answered long before the bite (≥ 4 s)
                 flightT0 = Time.time; flightLen = 0.55f + 0.03f * dist; flightFrom = rod.Tip.position;
                 bob.gameObject.SetActive(true); bob.Floating = false; bob.Dip = bob.Yank = 0;
                 line.Live = true; line.Slack = 0.02f; line.Arc = true; line.Reset(rod.Tip.position, rod.Tip.position);
@@ -413,7 +432,7 @@ namespace PortBoss.M1
                 Snd.Play(Synth.Zing, rod.Tip.position, 0.5f, 1.3f); Snd.Play(Synth.Whoosh, transform.position, 0.5f, 1.4f);
                 Go(St.Strike); return;
             }
-            if (StateT > StrikeWindow)
+            if (StateT > StrikeWin)
             {
                 LastOutcome = "late"; Alerts.Push("It swam off.", "Too slow on the strike. The bait's still on.", Alerts.Kind.Info);
                 OnLog?.Invoke("strike late"); bob.Spin = 0; Recover(); return;
@@ -460,7 +479,41 @@ namespace PortBoss.M1
             return Mathf.Min(Mathf.Min(PtSeg(p0, q0, q1), PtSeg(p1, q0, q1)), Mathf.Min(PtSeg(q0, p0, p1), PtSeg(q1, p0, p1)));
         }
 
-        public void Rolled(int id, FishSpecies sp, float cm, float kg, ulong fish) { if (id != rollId) return; rolled = true; rolledSp = sp; rolledCm = cm; rolledKg = kg; rolledFish = fish; }
+        public void Rolled(int id, FishSpecies sp, float cm, float kg, ulong fish) { if (id != rollId) { RodHolders.I?.Rolled(id, sp, cm, kg, fish); return; } rolled = true; rolledSp = sp; rolledCm = cm; rolledKg = kg; rolledFish = fish; }
+
+        // ---- M8 step 2: a line out handed to a rod holder (RodHolders), and a holder rod back in the hands. One roll counter
+        //      for both, so the host's answers find their line.
+        public struct Cast { public int Tier, Bait, RollId; public bool Rolled, ByHost; public FishSpecies Sp; public float Cm, Kg, BiteAt; public ulong Fish; public Vector3 Float; }
+        static int rollSeq;
+        public static int NewRoll() => ++rollSeq;
+        // the settled line goes in the holder, cast and all; the next rod comes to hand, ready
+        public Cast HandOff(int next)
+        {
+            var c = new Cast { Tier = RodTier, Bait = BaitI, RollId = rollId, Rolled = true, ByHost = RolledByHost, Sp = Hooked, Cm = rolledCm, Kg = rolledKg, Fish = rolledFish, Float = bob.Pos, BiteAt = BiteAt };
+            bob.Floating = false; bob.Dip = 0; bob.gameObject.SetActive(false); line.Live = false; nibbleAt.Clear();
+            rollId = NewRoll(); rolled = false;                          // (a late answer for that cast is the holder's now)
+            SetRod(next, true); Go(St.Ready); OnLog?.Invoke("rod into a holder");
+            return c;
+        }
+        // a holder rod taken on its bell: its cast in the hands, already struck (the E is the strike): the normal fight next
+        public void TakeBite(Cast c)
+        {
+            if (!me.Bar.Sel.Rod) me.Select(0);
+            SetRod(c.Tier, true); BaitI = c.Bait;
+            rollId = c.RollId; rolled = c.Rolled; RolledByHost = c.ByHost; Hooked = c.Sp; Netted = false; rolledSp = c.Sp; rolledCm = c.Cm; rolledKg = c.Kg; rolledFish = c.Fish;
+            bob.gameObject.SetActive(true); bob.Pos = c.Float; bob.Floating = true; bob.Dip = 0.25f; bob.Yank = 0;
+            line.Live = true; line.Arc = false; line.Slack = 0; line.Reset(rod.Tip.position, bob.transform.position);
+            Marker = c.Float; CastFrom = transform.position; BiteSeenAt = Time.time; markerT.gameObject.SetActive(false); cancelHeld = 0; dragT = 0;
+            Snd.Play(Synth.Zing, rod.Tip.position, 0.5f, 1.3f); Snd.Play(Synth.Whoosh, transform.position, 0.5f, 1.4f);
+            LastOutcome = null; OnLog?.Invoke("holder bite taken"); Go(St.Strike);
+        }
+        // a holder rod taken back with no bite (or resting): in the hands, reeled in, its bait still on
+        public void TakeBack(int tier, int bait)
+        {
+            if (!me.Bar.Sel.Rod) me.Select(0);
+            bob.Floating = false; bob.gameObject.SetActive(false); line.Live = false; nibbleAt.Clear();
+            SetRod(tier, true); BaitI = bait; Go(St.Ready); OnLog?.Invoke("rod out of a holder");
+        }
 
         void ReelIn(string why) { LastOutcome = "reeled"; Recover(); }
 
@@ -485,7 +538,7 @@ namespace PortBoss.M1
             for (int i = 0; i < Result.Length; i++) { Result[i] = 0; ErrMs[i] = 0; }
             fishUnder = bob.Pos; fightPh = Random.value * 10;
             bob.gameObject.SetActive(false); bob.Floating = false;
-            if (f.Kg > Rod.LineKg || Bot.ForceHeavy) { Go(St.Heavy); OnLog?.Invoke($"heavy {f.Kg:F1} kg > line {Rod.LineKg} kg"); return; }
+            if (f.Kg > LineKg || Bot.ForceHeavy) { Go(St.Heavy); OnLog?.Invoke($"heavy {f.Kg:F1} kg > line {LineKg} kg"); return; }
             StartMinigame();
         }
 
@@ -495,7 +548,7 @@ namespace PortBoss.M1
             if (Ctl.Keep || Ctl.Bot && Bot.FightHeavy && StateT > 1.2f) { HeavyFight = true; StartMinigame(); return; } // the bot reads the prompt for 1.2 s
             if (Ctl.LetGo || StateT > 4f || Ctl.Bot && !Bot.FightHeavy && StateT > 0.5f)
             {
-                LastOutcome = "letgo"; Alerts.Push("Let it go", "A stronger line would hold it (June's shop, later). Bait's still on.", Alerts.Kind.Info);
+                LastOutcome = "letgo"; Alerts.Push("Let it go", $"Too heavy for {LineKg:0} kg line. June sells stronger. Bait's still on.", Alerts.Kind.Info);
                 OnLog?.Invoke("heavy: let go"); Recover(); bob.gameObject.SetActive(true); bob.Pos = fishUnder;
             }
         }
@@ -503,13 +556,14 @@ namespace PortBoss.M1
         void StartMinigame()
         {
             Go(St.Minigame);
+            Tries = Mathf.Min(Tackle.MaxStops, 1 + Retries + (HeavyFight ? 1 : 0) + (Netted ? 1 : 0));
             NextStop(first: true);
         }
 
         void NextStop(bool first)
         {
             int c = (int)Hooked.Class;
-            ZoneW = Mathf.Min(0.6f, FishDb.Green[c] * Rod.GreenMul * ZoneScale * (Settings.EasyFishing ? 1.3f : 1f));   // (M7: easy fishing, +30%)
+            ZoneW = Mathf.Min(0.6f, FishDb.Green[c] * Rod.GreenMul * ZoneScale * (Settings.EasyFishing ? 1.3f : 1f) * (Netted ? 1.1f : 1f));   // (M7: easy fishing, +30%; M8: a crewmate's net +10%)
             PtrSpeed = FishDb.Speed[c] * Rod.SpeedMul * SpeedScale * (first ? 1.00f : 1.08f) * Settings.Needle;          // (M7: the needle 70-100%)
             // the stop: the green in the middle (Manan); a heavy fish's retry: 50% ± 8–18% on a random side
             ZoneC = first ? 0.5f : 0.5f + (Rng.Next(2) == 0 ? -1 : 1) * (0.08f + 0.10f * (float)Rng.NextDouble());
@@ -538,7 +592,7 @@ namespace PortBoss.M1
             FightLine();
             double now = Time.timeAsDouble;
             // one stop; only a heavy fish that missed gets a second try
-            if (Frozen) { if (now >= freezeUntil) { if (Hits > 0 || !HeavyFight || Snapped || Stop >= 2) EndFight(); else NextStop(false); } return; }
+            if (Frozen) { if (now >= freezeUntil) { if (Hits > 0 || Snapped || Stop >= Tries) EndFight(); else NextStop(false); } return; }
             PointerShown = PointerAt(now);
             bool press = Ctl.Strike;
             bool timeout = PtrSpeed * (now - sweepT0) >= 3.0; // 3 full passes, no press = a miss
@@ -563,7 +617,7 @@ namespace PortBoss.M1
                 Misses++;
                 Snd.Play(Synth.Miss, fishUnder, 0.6f); Snd.Rumble(0.2f, 0, 0.08f);
                 Fx.Splash(fishUnder + Vector3.up * 0.1f, 0.7f, 10); // the fish splashes once; nothing else happens
-                if (HeavyFight && Misses >= 2)
+                if (HeavyFight && Misses >= Tries)
                 {
                     Snapped = true; Snd.Play2D(Synth.Snap, 0.8f);
                     Alerts.Push("Snap!", $"The line broke. The {Hooked.Name} is gone, and the bait with it.", Alerts.Kind.Warning);
@@ -589,13 +643,14 @@ namespace PortBoss.M1
         void EndFight()
         {
             if (Snapped) { line.Live = false; LastOutcome = "snap"; OnLog?.Invoke("snap"); Go(St.Ready); return; }
-            Catch.Grade = Hits > 0 && Misses == 0 ? 1 : 0; // Rare only on the first try; a heavy fish landed on its retry is Basic
+            Catch.Grade = Hits > 0 && Misses < Tries - (HeavyFight ? 1 : 0) ? 1 : 0; // Rare on the first try or a hook's retry; a heavy fish landed on its own retry is Basic
             BaitCount[BaitI] = Mathf.Max(0, BaitCount[BaitI] - (BaitCount[BaitI] > 0 ? 1 : 0)); // 1 bait per landed fish
             ReelLen = Mathf.Clamp(1.0f + 0.25f * Mathf.Sqrt(Catch.Kg), 1.0f, 3.5f);
             fishGo = FishView.Make(Catch, null);
             fishGo.transform.position = fishUnder;
             FishView.Swim(fishGo, 0.16f, 3f);
             if (Coop.On) Coop.Landed(rollId, Catch, stopTimes); // the host checks it against its roll (fishing §4.4)
+            if (Coop.On && Netted && Catch.Grade == 1) Coop.I.SendScoop(Catch.Species.Id);   // M8: the crewmate with the net scoops a Rare
             Go(St.Reel);
             OnLog?.Invoke($"landed {Catch.Species.Id} {Catch.Cm:F0} cm {Catch.Kg:F2} kg grade {Ponyo.GradeName[Catch.Grade]}");
         }
@@ -1091,7 +1146,7 @@ namespace PortBoss.M1
         // ---- co-op: what crewmates see of this angler (in their pose, 30 a second) and how a crewmate's copy plays it ----
         public struct Net
         {
-            public byte State, Rod, Nibbles, Stop, Flags; public sbyte R0, R1; // Flags: 1 frozen (a stop just judged), 2 tangled
+            public byte State, Rod, Nibbles, Stop, Flags, Hit, Tries; // Flags: 1 frozen (a stop just judged), 2 tangled, 4 a heavy fight; Hit: a bit per stop hit
             public float T, Len, Power, Dip, Zone, ZoneW, Ptr, Cm, Kg; public Vector3 Marker, Bob, Under, TossTo; public short Species; public byte Grade;
             static bool Fight(byte s) => s == (byte)St.Heavy || s == (byte)St.Minigame;
             static bool Holds(byte s) => s == (byte)St.Reel || s == (byte)St.Reveal || s == (byte)St.Toss;
@@ -1100,7 +1155,7 @@ namespace PortBoss.M1
                 w.WriteValueSafe(State); if (State == 0) return;
                 w.WriteValueSafe(T); w.WriteValueSafe(Rod); w.WriteValueSafe(Len); w.WriteValueSafe(Power); w.WriteValueSafe(Dip);
                 w.WriteValueSafe(Marker); w.WriteValueSafe(Bob); w.WriteValueSafe(Under); w.WriteValueSafe(Nibbles); w.WriteValueSafe(Flags);
-                if (Fight(State)) { w.WriteValueSafe(Zone); w.WriteValueSafe(ZoneW); w.WriteValueSafe(Ptr); w.WriteValueSafe(Stop); w.WriteValueSafe(R0); w.WriteValueSafe(R1); }
+                if (Fight(State)) { w.WriteValueSafe(Zone); w.WriteValueSafe(ZoneW); w.WriteValueSafe(Ptr); w.WriteValueSafe(Stop); w.WriteValueSafe(Hit); w.WriteValueSafe(Tries); }
                 if (Holds(State)) { w.WriteValueSafe(Species); w.WriteValueSafe(Cm); w.WriteValueSafe(Kg); w.WriteValueSafe(Grade); w.WriteValueSafe(TossTo); }
             }
             public static Net Read(ref FastBufferReader r)
@@ -1108,7 +1163,7 @@ namespace PortBoss.M1
                 var n = new Net(); r.ReadValueSafe(out n.State); if (n.State == 0) return n;
                 r.ReadValueSafe(out n.T); r.ReadValueSafe(out n.Rod); r.ReadValueSafe(out n.Len); r.ReadValueSafe(out n.Power); r.ReadValueSafe(out n.Dip);
                 r.ReadValueSafe(out n.Marker); r.ReadValueSafe(out n.Bob); r.ReadValueSafe(out n.Under); r.ReadValueSafe(out n.Nibbles); r.ReadValueSafe(out n.Flags);
-                if (Fight(n.State)) { r.ReadValueSafe(out n.Zone); r.ReadValueSafe(out n.ZoneW); r.ReadValueSafe(out n.Ptr); r.ReadValueSafe(out n.Stop); r.ReadValueSafe(out n.R0); r.ReadValueSafe(out n.R1); }
+                if (Fight(n.State)) { r.ReadValueSafe(out n.Zone); r.ReadValueSafe(out n.ZoneW); r.ReadValueSafe(out n.Ptr); r.ReadValueSafe(out n.Stop); r.ReadValueSafe(out n.Hit); r.ReadValueSafe(out n.Tries); }
                 if (Holds(n.State)) { r.ReadValueSafe(out n.Species); r.ReadValueSafe(out n.Cm); r.ReadValueSafe(out n.Kg); r.ReadValueSafe(out n.Grade); r.ReadValueSafe(out n.TossTo); }
                 return n;
             }
@@ -1120,11 +1175,11 @@ namespace PortBoss.M1
             if (State == St.Stowed) return n;
             n.T = StateT; n.Rod = (byte)RodTier; n.Power = Power; n.Dip = bob.Dip; n.Marker = Marker; n.Bob = bob.Pos; n.Under = fishUnder; n.Nibbles = (byte)NibblesDone;
             n.Len = State == St.Flight ? flightLen : State == St.Reel ? ReelLen : State == St.Recover ? recoverLen : 0;
-            n.Flags = (byte)((Frozen ? 1 : 0) | (Tangled ? 2 : 0));
+            n.Flags = (byte)((Frozen ? 1 : 0) | (Tangled ? 2 : 0) | (HeavyFight ? 4 : 0));
             if (State is St.Heavy or St.Minigame && Hooked != null)
             {
                 n.Zone = State == St.Minigame ? ZoneAt(Time.timeAsDouble) : ZoneC; n.ZoneW = ZoneW; n.Ptr = PointerShown;
-                n.Stop = (byte)Stop; n.R0 = (sbyte)Result[0]; n.R1 = (sbyte)Result[1];
+                n.Stop = (byte)Stop; n.Tries = (byte)Tries; for (int i = 0; i < Stop && i < Result.Length; i++) if (Result[i] > 0) n.Hit |= (byte)(1 << i);
             }
             if (State is St.Reel or St.Reveal or St.Toss && Catch != null)
             { n.Species = (short)FishDb.All.IndexOf(Catch.Species); n.Cm = Catch.Cm; n.Kg = Catch.Kg; n.Grade = (byte)Catch.Grade; n.TossTo = tossTo; }
@@ -1162,7 +1217,8 @@ namespace PortBoss.M1
                     fishUnder = Vector3.Lerp(same ? NetA.Under : n.Under, n.Under, k); line.B = fishUnder; line.Slack = 0;
                     if (Random.value < dt * 1.5f) Fx.Ring(new Vector3(fishUnder.x, Sea.Height(fishUnder), fishUnder.z), 0.8f, 0.7f, 0.5f);
                     ZoneC = n.Zone; ZoneW = n.ZoneW; PointerShown = same ? Mathf.Lerp(NetA.Ptr, n.Ptr, k) : n.Ptr;
-                    while (shownStop < n.Stop && shownStop < 2) { RemoteStop(shownStop, shownStop == 0 ? n.R0 : n.R1); shownStop++; }
+                    Tries = Mathf.Max(1, (int)n.Tries); HeavyFight = (n.Flags & 4) != 0;
+                    while (shownStop < n.Stop && shownStop < Result.Length) { RemoteStop(shownStop, (n.Hit >> shownStop & 1) != 0 ? 1 : -1); shownStop++; }
                     break;
                 case St.Reel: if (fishGo != null) ReelMove(Mathf.Clamp01(StateT / ReelLen)); break;
                 case St.Reveal: if (fishGo != null) RevealHold(); break;
@@ -1180,7 +1236,7 @@ namespace PortBoss.M1
             else
             {
                 Misses++; Snd.Play(Synth.Miss, fishUnder, 0.6f); Fx.Splash(fishUnder + Vector3.up * 0.1f, 0.7f, 10);
-                if (Misses >= 2) Snd.Play(Synth.Snap, fishUnder, 0.8f);
+                if (HeavyFight && Misses >= Tries) Snd.Play(Synth.Snap, fishUnder, 0.8f);
             }
         }
 
@@ -1212,7 +1268,7 @@ namespace PortBoss.M1
                 case St.Heavy: case St.Minigame:
                     if (was is not (St.Heavy or St.Minigame))
                     {
-                        Hits = Misses = Stop = shownStop = 0; Result[0] = Result[1] = 0;
+                        Hits = Misses = Stop = shownStop = 0; System.Array.Clear(Result, 0, Result.Length);
                         bob.gameObject.SetActive(false); bob.Floating = false; line.Live = true; line.Arc = false; fishUnder = n.Under;
                     }
                     break;

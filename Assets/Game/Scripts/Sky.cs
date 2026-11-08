@@ -148,7 +148,8 @@ namespace PortBoss.M1
                 if (kb != null && kb.ctrlKey.isPressed) { Jump(DayTime.At(Day + 1, DayTime.Wake)); Alerts.Push("Tester", $"Day {Day} {DayTime.DayName(Day)}, 7:00 AM (Ctrl+F10: the next morning)", Alerts.Kind.Info); }
                 else { Minutes += Ctl.Sprint ? 360 : 60; snap = true; }
             }
-            if (Authority && Ctl.Key_(UnityEngine.InputSystem.Key.F11)) { ForceWx = ForceWx >= 5 ? -1 : ForceWx + 1; Alerts.Push("Debug", ForceWx < 0 ? "Weather: the forecast's again" : "Weather held: " + (Wx)ForceWx, Alerts.Kind.Weather); }
+            // (M8: Ctrl+F11 is surf's up: Works.Tester)
+            if (Authority && Ctl.Key_(UnityEngine.InputSystem.Key.F11) && !(UnityEngine.InputSystem.Keyboard.current?.ctrlKey.isPressed ?? false)) { ForceWx = ForceWx >= 5 ? -1 : ForceWx + 1; Alerts.Push("Debug", ForceWx < 0 ? "Weather: the forecast's again" : "Weather held: " + (Wx)ForceWx, Alerts.Kind.Weather); }
             Apply(dt);
             Calls();
         }

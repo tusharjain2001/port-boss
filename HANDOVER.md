@@ -142,6 +142,57 @@ His decisions, 8 Nov:
 
 ---
 
+## 0c. M8 "surfing and fishing gear", built and merged to `main`, waiting for Manan's hand test (8 Nov 2026, branch `m8`; plan `docs/plan/M8-PLAN.md`; guide `docs/M8-HOW-TO-TEST.md`)
+
+Tushar and Manan played M7 and Tushar said "start with m8". This round covers surfing and the fishing gear (F10–F11). **The gear guns wait for Manan's Q1 (§9).** Same way of working as M7: branch `m8`, each step tested headless and committed, the branch pushed, merged after a hand test (★). Unity may be closed and reopened for Blender.
+
+**Step 1, tackle** (`Tackle.cs`):
+- June's Tackle tab sells reels (strike window), lines (the HEAVY weight) and hooks: Circle +0.15 s; Barbed and Treble redo a missed stop.
+- The Sight float is 1.5× with a halo.
+- Reels and lines only get better, so your best is always on. The hook is your choice ("Use").
+- A rod comes strung with its own line.
+- Tests: `-pb-tackletest`, `-pb-tacklecoop`, Company.TackleTest.
+
+**Step 2, rod holders and trolling** (`RodHolders.cs`):
+- Doyle's holders upgrade gives Biscuit one steel tube; the Kestrel has three.
+- E puts a line out in the holder, and your next rod comes to hand.
+- The bell gives 2 s to E it (one E from the tiller works), then the normal fight.
+- Trolling: sardine or squid at 2–5 m/s.
+- Co-op: `pb.hold`, plus the host's held rolls (`Coop.HoldBook`).
+- Tests: `-pb-holdertest`, `-pb-holdercoop`.
+
+**Step 3, the landing net** (`LandingNet.cs`):
+- $150 at June's, carried once bought.
+- E beside a crewmate's fight gives them +1 stop and a 10% wider green, and you scoop a Rare.
+- Co-op only: `pb.net`, `pb.scoop`.
+- Test: `-pb-netcoop`.
+
+**Step 4, Swell Surf Co. and Kai** (`Surf.cs`, `SurfShop.cs`, `art-src/m8/build_surf.py`):
+- Kai's counter at the shop by the Cut, 9 AM to 6 PM, shut in storms.
+- From Act 2: Foam board (his first is free), Bodyboard, Longboard, Shortboard (after his challenge 1), and the Wetsuit (+50% swim stamina).
+- His hello is the morning after Act 2 begins; after that he texts a dawn surf report on surf days.
+- The Forecast app has a surf card.
+- His jetty has a visiting berth (F).
+- The four board models exist, for surfing.
+- Test: `-pb-surfshoptest`; companycheck runs SurfTest.
+
+**Steps 5–7, the surf, surfing, scores and party waves** (`SurfWaves.cs` + `PB_Water.shader`, `Surfer.cs`):
+- **The waves** are part of the sea (shader and `Sea.Height`): Breaker Point daily, the Widowmaker the day after a storm. Sets come from the shared sea clock, at Kai's report height.
+- **Surfing:** E on the board in the water, then paddle, duck-dive, pop-up and ride (carve, pocket, wipeouts, the leash). The bodyboard is ridden lying down.
+- **The rest:** a score per ride, your best in the Journal, Kai's three challenges, party waves and drop-ins.
+- **Tester key Ctrl+F11:** surf's up today (host only; F11 alone still cycles the weather).
+- **Tests:** `-pb-wavetest`, `-pb-surftest`, `-pb-surfcoop`.
+- **companycheck** has been blocked by Windows Smart App Control since 8 Nov evening. Run the same `Company.*Test` calls in the editor (`execute_code`); they all pass.
+
+**Step 8, the build:**
+- `Builds\m1\PortBoss.exe` with `HOW-TO-TEST.md` (the same as `docs/M8-HOW-TO-TEST.md`).
+- **Manan tests the finished M8 (★):** Tushar, 8 Nov, "manan will test once m8 will be fully completed".
+- **Merged into `main` before the hand test**, at Tushar's call (8 Nov: "push to main please then manan will check"). Manan plays it from `main`; his changes go on a new branch from `main`.
+
+**Tests:** `tools/m8test.sh <exe>`.
+
+---
+
 ## 0. To Tushar's Claude (2026-11-03)
 
 **What Manan's side did since M1b** (all on `main` once Kufu pushes this merge; details in §4):

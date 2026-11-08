@@ -58,7 +58,7 @@ namespace PortBoss.M1
             Counter(Store.Plank, "plank", "Plank & Post", "Ingrid Marsh", "the timber yard", "Measure twice, nail once. Then nail again, it's the sea.", new Vector2(-6f, 2f));
             Counter(Store.Hartley, "hartleys", "Hartley's Outfitters", "Mabel Hartley", "Old Saltmouth high street", "Clothes make the captain, dear. Not the boat.", new Vector2(6f, -2f));
             Keepers.Clear(); foreach (var s in Shops) if (s.Keeper != null) Keepers.Add(s.Keeper);
-            if (Firm.I != null) foreach (var st in Firm.I.Stalls) if (st.K != Firm.Kind.Mari) Keepers.Add(Npc.Make(st.Owner, st.K == Firm.Kind.June ? KeeperLook(5) : st.K == Firm.Kind.Pelican ? KeeperLook(7) : KeeperLook(6), st.At));   // June, Gideon: town NPC; M7: Amara at The Pelican routines v1
+            if (Firm.I != null) foreach (var st in Firm.I.Stalls) if (st.K != Firm.Kind.Mari) Keepers.Add(Npc.Make(st.Owner, st.K == Firm.Kind.June ? KeeperLook(5) : st.K == Firm.Kind.Pelican ? KeeperLook(7) : st.K == Firm.Kind.Surf ? KeeperLook(8) : KeeperLook(6), st.At));   // June, Gideon: town NPC; M7: Amara at The Pelican routines v1
             BuildDoyleCrew();
             BuildKestrel(a);
             Firm.C.Installed += OnInstalled;
@@ -104,6 +104,7 @@ namespace PortBoss.M1
             4 => new PortBoss.Look { Set = 1, Face = 2, Hair = 2, Beard = 3, Hat = 1, Top = 2, Gloves = 1, SkinTone = 2, HairColor = 1, TopColor = 2, AccentColor = 4, LegsColor = 2, BootsColor = 7, GloveColor = 3, HatColor = 0 },    // Doyle's lad, Arlo
             5 => new PortBoss.Look { Set = 1, Face = 1, Hair = 3, Beard = 0, Hat = 2, Top = 0, Gloves = 0, SkinTone = 1, HairColor = 4, TopColor = 3, AccentColor = 4, LegsColor = 1, BootsColor = 6, GloveColor = 4, HatColor = 3 },    // June Pike
             7 => new PortBoss.Look { Set = 1, Face = 1, Hair = 3, Beard = 0, Hat = 0, Top = 3, Gloves = 0, SkinTone = 6, HairColor = 0, TopColor = 11, AccentColor = 2, LegsColor = 1, BootsColor = 7, GloveColor = 4, HatColor = 11 },   // M7: Amara Bell, chef whites
+            8 => new PortBoss.Look { Set = 1, Face = 1, Hair = 3, Beard = 0, Hat = 0, Top = 3, Gloves = 0, SkinTone = 3, HairColor = 5, TopColor = 5, AccentColor = 11, LegsColor = 0, BootsColor = 3, GloveColor = 4, HatColor = 0 },    // M8: Kai Rennick, sun-bleached curls, an open orange shirt, board shorts, barefoot (skin-ish feet)
             _ => new PortBoss.Look { Set = 1, Face = 3, Hair = 0, Beard = 1, Hat = 0, Top = 1, Gloves = 1, SkinTone = 2, HairColor = 7, TopColor = 1, AccentColor = 4, LegsColor = 1, BootsColor = 7, GloveColor = 4, HatColor = 2 },   // Gideon Pratt
         };
 
@@ -617,7 +618,9 @@ namespace PortBoss.M1
                     g.transform.localPosition = Vector3.zero;
                     if (pf == null) for (int sx = -1; sx <= 1; sx += 2) Firm.Box(g.transform, "plate", new Vector3(sx > 0 ? h.max.x + 0.015f : h.min.x - 0.015f, Sea.Level - b.transform.position.y + 0.1f + 0.15f, h.center.z), new Vector3(0.02f, 0.22f, h.size.z * 0.82f), Ponyo.Hex("A8B2BC"));
                     break;
-                case "holders": g.transform.localPosition = Vector3.zero; if (pf == null) for (int i = 0; i < 3; i++) Firm.Box(g.transform, "holder", new Vector3(h.max.x - 0.06f, top + 0.12f, h.min.z + 0.8f + i * 0.5f), new Vector3(0.06f, 0.3f, 0.06f), Ponyo.Hex("C9CED3"), new Vector3(-20, 0, -10)); break;
+                case "holders":                                                          // M8: one steel tube on Biscuit's port quarter (RodHolders); the Kestrel has hers
+                    Destroy(g); if (b.Id != "biscuit") return null;
+                    g = RodHolders.BuildBiscuit(b.transform, h); g.name = item; break;
                 case "finder": g.transform.localPosition = (b.Helm != null ? b.transform.InverseTransformPoint(b.Helm.position) : new Vector3(0, top, h.min.z + 0.8f)) + new Vector3(-0.35f, 0.45f, 0.35f); if (pf == null) { Firm.Box(g.transform, "finder", Vector3.zero, new Vector3(0.22f, 0.16f, 0.06f), Ponyo.Hex("3F2C27")); var sc = Firm.Box(g.transform, "screen glow", new Vector3(0, 0, 0.032f), new Vector3(0.18f, 0.12f, 0.005f), Ponyo.Hex("46D6C8")); } break;
                 case "cap": g.transform.localPosition = new Vector3(h.min.x + 0.3f, top + 0.02f, h.min.z + 0.5f); if (pf == null) { Firm.Box(g.transform, "cap", Vector3.zero, new Vector3(0.12f, 0.05f, 0.12f), Ponyo.Hex("F7C548")); Firm.Box(g.transform, "lock", new Vector3(0, 0.05f, 0), new Vector3(0.05f, 0.05f, 0.03f), Ponyo.Hex("B9B2A6")); } break;
                 default: g.transform.localPosition = new Vector3(0, top, 0); break;
@@ -840,7 +843,15 @@ namespace PortBoss.M1
         // Ctrl+F7 adds $100,000 and leaves the act alone (Tushar 7 Nov: money to buy everything and look at it)
         void Tester()
         {
-            var kb = Keyboard.current; if (kb == null || !kb.f7Key.wasPressedThisFrame || kb.shiftKey.isPressed || Title.Shown) return; // (Shift+F7 = every fish heavy)
+            var kb = Keyboard.current;
+            // M8: Ctrl+F11: surf's up today (Breaker Point 1.5 m, the Widowmaker 3.2 m), for testing surfing on a flat day
+            if (kb != null && kb.f11Key.wasPressedThisFrame && kb.ctrlKey.isPressed && !Title.Shown)
+            {
+                if (Coop.On && !Coop.IsHost) { Alerts.Push("Tester", "Ctrl+F11 is the host's.", Alerts.Kind.Info); return; }
+                int d = DayTime.Day(Sky.Minutes); C.Event("test:surf:" + d, Sky.Minutes); Firm.I.Dirty = true;
+                Alerts.Push("Tester", "Surf's up today: Breaker Point 1.5 m, the Widowmaker at Gullrock 3.2 m (Ctrl+F11)", Alerts.Kind.Info); Log($"Ctrl+F11: surf's up on day {d}"); return;
+            }
+            if (kb == null || !kb.f7Key.wasPressedThisFrame || kb.shiftKey.isPressed || Title.Shown) return; // (Shift+F7 = every fish heavy)
             if (Coop.On && !Coop.IsHost) { Alerts.Push("Tester", "F7 is the host's.", Alerts.Kind.Info); return; }
             if (kb.ctrlKey.isPressed)
             {

@@ -14,6 +14,7 @@ namespace PortBoss.M1
     {
         public static Angler I;           // the local player (co-op crewmates are Remote copies, driven by their poses)
         public CharacterController Cc;
+        public Surfer Surf;                                // M8 step 6: on a surfboard (Surfer.cs)
         public CharAnim Anim;
         public Transform Model, Head;     // Head: the head bone (co-op name tags sit over it, standing or lying)
         public Hotbar Bar = new();
@@ -87,7 +88,7 @@ namespace PortBoss.M1
             if (bi >= 0 && bi + 1 < args.Length && a.CrewNames != null)
                 Body = Mathf.Max(0, System.Array.FindIndex(a.CrewNames, n => n.Equals(args[bi + 1], System.StringComparison.OrdinalIgnoreCase)));
             p.Wear(a, Body, Coop.Colours[0]);
-            p.Fish = g.AddComponent<Fishing>();
+            p.Fish = g.AddComponent<Fishing>(); p.Surf = g.AddComponent<Surfer>();   // (M8: surfing)
             p.lastPos = at;
             return p;
         }
@@ -101,7 +102,7 @@ namespace PortBoss.M1
             p.Model = new GameObject("model").transform; p.Model.SetParent(g.transform, false);
             p.Bar.Selected = 1;
             p.Wear(a, crew, colour);
-            p.Fish = g.AddComponent<Fishing>();
+            p.Fish = g.AddComponent<Fishing>(); p.Surf = g.AddComponent<Surfer>();   // (M8: surfing)
             p.lastPos = at;
             return p;
         }
@@ -218,7 +219,7 @@ namespace PortBoss.M1
                 w.WriteValueSafe(T); w.WriteValueSafe(Flags); w.WriteValueSafe(P); w.WriteValueSafe(Vel); w.WriteValueSafe(Yaw); w.WriteValueSafe(AirT); w.WriteValueSafe(Vy); w.WriteValueSafe(SprintW);
                 w.WriteValueSafe(State); w.WriteValueSafe(Hop); w.WriteValueSafe(Boat);
                 if (State == 1) { w.WriteValueSafe(Hips); w.WriteValueSafe((byte)Rot.Length); foreach (var q in Rot) w.WriteValueSafe(q); }
-                else if (State >= 2) { w.WriteValueSafe(Up); w.WriteValueSafe(UpT); }
+                else if (State >= 2) { w.WriteValueSafe(Up); w.WriteValueSafe(UpT); if (State == 7) w.WriteValueSafe(Hips); }   // (M8: surfing: the wave)
                 F.Write(ref w);
             }
             public static Pose Read(ref Unity.Netcode.FastBufferReader r)
@@ -227,7 +228,7 @@ namespace PortBoss.M1
                 r.ReadValueSafe(out p.Yaw); r.ReadValueSafe(out p.AirT); r.ReadValueSafe(out p.Vy); r.ReadValueSafe(out p.SprintW);
                 r.ReadValueSafe(out p.State); r.ReadValueSafe(out p.Hop); r.ReadValueSafe(out p.Boat);
                 if (p.State == 1) { r.ReadValueSafe(out p.Hips); r.ReadValueSafe(out byte n); p.Rot = new Quaternion[n]; for (int i = 0; i < n; i++) r.ReadValueSafe(out p.Rot[i]); }
-                else if (p.State >= 2) { r.ReadValueSafe(out p.Up); r.ReadValueSafe(out p.UpT); }
+                else if (p.State >= 2) { r.ReadValueSafe(out p.Up); r.ReadValueSafe(out p.UpT); if (p.State == 7) r.ReadValueSafe(out p.Hips); }
                 p.F = Fishing.Net.Read(ref r);
                 return p;
             }
@@ -252,6 +253,7 @@ namespace PortBoss.M1
             else if (RepairT >= 0) { p.State = 4; p.UpT = RepairT; }
             else if (ShoveT >= 0) { p.State = 5; p.UpT = ShoveT; }
             else if (Lie > 0) { p.State = 6; p.Up = (byte)Mathf.Clamp(LieH * 100, 0, 255); p.UpT = Lie; } // M3: in the cot, or slumped on a deck
+            else if (Surf != null && Surf.Active) { p.State = 7; p.Up = Surf.NetUp; p.UpT = Surf.NetT; p.Hips = Surf.NetWave; }     // M8: surfing (Surfer.Net; Hips = the wave)
             if (Fish != null) p.F = Fish.NetState();
             return p;
         }
@@ -292,6 +294,7 @@ namespace PortBoss.M1
             RepairT = b.State == 4 ? (a.State == 4 ? Mathf.Lerp(a.UpT, b.UpT, k) : b.UpT) : -1;
             float shoveWas = ShoveT; ShoveT = b.State == 5 ? (a.State == 5 ? Mathf.Lerp(a.UpT, b.UpT, k) : b.UpT) : -1;
             Lie = b.State == 6 ? (a.State == 6 ? Mathf.Lerp(a.UpT, b.UpT, k) : b.UpT) : 0; if (b.State == 6) LieH = b.Up / 100f;
+            Surf?.Net(b.State == 7, b.Up, b.UpT, b.Hips);                                              // M8: their surfing
             if (shoveWas < 0 && ShoveT >= 0) Snd.Play(Synth.Whoosh, transform.position, 0.4f, 1.5f);
             Vel = Vector3.Lerp(a.Vel, b.Vel, k); SprintW = b.SprintW; airT = b.AirT; vy = b.Vy;
             Swimming = b.Swim; helm = b.Helm; netGrounded = b.Grounded; jumped = b.Jumped; fallIn = b.FallIn;
@@ -347,6 +350,7 @@ namespace PortBoss.M1
                 else { Fish.Stow(); Wear(M1Assets.I, Body + 1, Colour); Alerts.Push("Debug", "Body: " + M1Assets.I.CrewNames[Body] + " (F9 for the next)", Alerts.Kind.Info); }
             }
 
+            if (Surf != null && Surf.Active) { Breathe(dt, 0); Surf.Tick(dt); Prompt = Surf.Hint; Track(); CamY = transform.position.y; Animate(dt); return; }   // M8: surfing
             if (helm) { Breathe(dt, 0); Helm(dt); Track(); CamY = transform.position.y; Animate(dt); return; }
 
             // hotbar
@@ -373,7 +377,8 @@ namespace PortBoss.M1
             bool sprint = Ctl.Sprint && !Winded && !OnBoat && !Swimming && !Ctl.Walk && load < 5 && wish.sqrMagnitude > 0.01f;
             bool fastSwim = Swimming && Ctl.Sprint && !Winded && wish.sqrMagnitude > 0.01f;
             SprintW = Mathf.MoveTowards(SprintW, sprint ? 1 : 0, dt / (sprint ? 0.6f : 0.2f));
-            Breathe(dt, sprint ? 1 / SprintSecs : !Swimming ? 0 : fastSwim ? 1 / FastSwimSecs : 1 / SwimSecs);
+            float wet = !Remote && Firm.I != null && Firm.I.MyKit.Wetsuit ? SurfGear.WetsuitStamina : 1f;   // M8: the wetsuit, +50% in the water
+            Breathe(dt, sprint ? 1 / SprintSecs : !Swimming ? 0 : (fastSwim ? 1 / FastSwimSecs : 1 / SwimSecs) / wet);
             float run = Mathf.Lerp(4.2f, 5.8f, Mathf.SmoothStep(0, 1, SprintW)) * (1 - 0.08f * load);
             float max = Swimming ? (fastSwim ? 2.2f : 1.4f) : Ctl.Walk ? 1.4f : OnBoat ? 2.6f : run;
             if (Fish.Holding && !Swimming) max = Mathf.Min(max, OnBoat ? 2.2f : 3.6f); // careful with a rod out
@@ -569,10 +574,13 @@ namespace PortBoss.M1
         {
             Prompt = null;
             var s = Boat;
+            var holder = RodHolders.Prompt(this); if (holder != null) { Prompt = holder; return; }   // M8: rod holders (with a line out, too)
+            var net = LandingNet.Prompt(this); if (net != null) { Prompt = net; return; }             // M8: the landing net for a crewmate's fight
             if (Busy || Fish.Locked || Shop.Open || YShop.Open || Wardrobe.Open || StoreUi.Open) return;
             // ladders from the water
             if (Swimming)
             {
+                var surf = Surfer.Prompt(this); if (surf != null) { Prompt = surf; return; }        // M8: on the board
                 if (s != null && s.LadderBottom != null && Near(s.LadderBottom.position, 1.8f)) { Prompt = "Climb aboard"; if (Ctl.Interact) StartClimb(s.LadderBottom, s.LadderTop, s.transform); return; }
                 var l = Landing.I;
                 if (l != null && l.LadderBottom != null && Near(l.LadderBottom.position, 1.8f)) { Prompt = "Climb the ladder"; if (Ctl.Interact) StartClimb(l.LadderBottom, l.LadderTop, l.transform); return; }
@@ -869,6 +877,7 @@ namespace PortBoss.M1
         {
             var s = Boat;
             Prompt = s.Moored ? "W  Cast off   ·   E  Leave the tiller" : s.CanMoor ? "F  Moor   ·   E  Leave the tiller" : "W/S  Throttle   ·   A/D  Steer   ·   E  Leave";
+            if (RodHolders.BiteNear(this) != null) Prompt = "The bell!   E  Take the rod";               // M8: one E leaves the tiller and takes it
             Cc.enabled = false;
             // slide onto the seat (0.35 s) instead of jumping there
             helmT = Mathf.Min(1, helmT + dt / 0.35f); float k = Mathf.SmoothStep(0, 1, helmT);
@@ -886,7 +895,7 @@ namespace PortBoss.M1
             else if (th != 0) { s.Notch = Mathf.Clamp(s.Notch + th, -1, 3); Snd.Play2D(Synth.Tik, 0.6f, th > 0 ? 1.2f : 0.9f); }
             s.Steer = Mathf.Clamp(Ctl.Steer, -1, 1);
             if (s.CanMoor && Ctl.Moor) s.Moor();                     // (M7: F, or Y on a pad)
-            if (Ctl.Interact || Ctl.Escape) LeaveHelm();
+            if (Ctl.Interact || Ctl.Escape) { var bite = Ctl.Interact ? RodHolders.BiteNear(this) : null; LeaveHelm(); if (bite != null) RodHolders.I.Take(this, bite); }
             if (CameraRig.I != null) CameraRig.I.M = helm ? CameraRig.Mode.Helm : CameraRig.Mode.Follow;
             Vel = Vector3.zero;
         }
@@ -1122,6 +1131,7 @@ namespace PortBoss.M1
                 var lift = overClip == a.JumpUp ? a.JumpLift : a.FallLift;
                 if (overW > 0 && lift != null && lift.length > 0) Model.localPosition -= Vector3.up * (Mathf.Max(0, lift.Evaluate(overT)) * overW * BodyK);
             }
+            if (Surf != null && Surf.Shown) Surf.Pose(ref slot, ref animSp);                        // M8: on a board
             Anim.Tick(slot, animSp);
 
             // footsteps on the heel strikes (the shared stride: left at 0, right at ~0.5), wood on the deck and pier;

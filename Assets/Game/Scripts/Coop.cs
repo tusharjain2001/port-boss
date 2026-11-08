@@ -91,7 +91,7 @@ namespace PortBoss.M1
             Reg(m, "pb.ask", OnAsk); Reg(m, "pb.clock", OnClock);
             Reg(m, "pb.roll", OnRoll); Reg(m, "pb.rolled", OnRolled);
             Reg(m, "pb.landed", OnLanded); Reg(m, "pb.tangle", OnTangle);
-            RegisterItems(m); Reg(m, "pb.voice", OnVoice); Reg(m, "pb.place", OnPlace); RegisterDay(m); RegisterSleep(m); RegisterFirm(m); RegisterM5(m); Reg(m, "pb.shove", OnShove);
+            RegisterItems(m); Reg(m, "pb.voice", OnVoice); Reg(m, "pb.place", OnPlace); RegisterDay(m); RegisterSleep(m); RegisterFirm(m); RegisterM5(m); RegisterHold(m); RegisterNet(m); Reg(m, "pb.shove", OnShove);
             StartVoice();
             if (!host && System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-pb-oldjoin") < 0) gameObject.AddComponent<JoinView>(); // M3.1: the view waits till I'm me, where I was (JoinView)
             if (host)
@@ -489,27 +489,30 @@ namespace PortBoss.M1
         readonly Dictionary<ulong, (int id, FishSpecies sp, float cm, float kg, ulong fish)> rolls = new();
         public int Checked, Flagged, TangleCount;       // (tests)
 
-        public static void AskRoll(int id, int rod, string bait)
+        // (M8: held = a rod holder's line re-baited: kept aside with the holders', the hands' cast left alone)
+        public static void AskRoll(int id, int rod, string bait, bool held = false)
         {
             if (!On) return;
-            if (IsHost) { var r = I.Roll(I.nm.LocalClientId, id, rod, bait); Angler.I?.Fish.Rolled(id, r.sp, r.cm, r.kg, r.fish); }
-            else I.Send("pb.roll", w => { w.WriteValueSafe(id); w.WriteValueSafe((byte)rod); w.WriteValueSafe(bait); }, NetworkDelivery.ReliableSequenced);
+            if (IsHost) { var r = I.Roll(I.nm.LocalClientId, id, rod, bait, held); Angler.I?.Fish.Rolled(id, r.sp, r.cm, r.kg, r.fish); }
+            else I.Send("pb.roll", w => { w.WriteValueSafe(id); w.WriteValueSafe((byte)rod); w.WriteValueSafe(bait); w.WriteValueSafe(held); }, NetworkDelivery.ReliableSequenced);
         }
 
-        (int id, FishSpecies sp, float cm, float kg, ulong fish) Roll(ulong who, int id, int rod, string bait)
+        (int id, FishSpecies sp, float cm, float kg, ulong fish) Roll(ulong who, int id, int rod, string bait, bool held = false)
         {
             var sp = FishDb.Roll(Fishing.Rng, rod, bait); FishDb.RollSize(Fishing.Rng, sp, out var cm, out var kg);
-            Book.FreeHands(who); // the last cast's fish never came up
+            if (!held) FreeHandsButHeld(who); // the last cast's fish never came up (M8: the holders' lines are still out)
             var f = Book.Make(who, sp, 0, cm, kg, (float)Sky.Minutes); // in the book from the cast: in their hands once it's landed
-            return rolls[who] = (id, sp, cm, kg, f.Id);
+            var x = (id, sp, cm, kg, f.Id);
+            if (held) heldRolls[(who, id)] = x; else rolls[who] = x;
+            return x;
         }
 
         void OnRoll(ulong from, FastBufferReader r)
         {
-            r.ReadValueSafe(out int id); r.ReadValueSafe(out byte rod); r.ReadValueSafe(out string bait);
+            r.ReadValueSafe(out int id); r.ReadValueSafe(out byte rod); r.ReadValueSafe(out string bait); r.ReadValueSafe(out bool held);
             Deliver(() =>
             {
-                var x = Roll(from, id, rod, bait);
+                var x = Roll(from, id, rod, bait, held);
                 SendTo(from, "pb.rolled", w => { w.WriteValueSafe(id); w.WriteValueSafe((short)FishDb.All.IndexOf(x.sp)); w.WriteValueSafe(x.cm); w.WriteValueSafe(x.kg); w.WriteValueSafe(x.fish); }, NetworkDelivery.ReliableSequenced);
             }, true);
         }

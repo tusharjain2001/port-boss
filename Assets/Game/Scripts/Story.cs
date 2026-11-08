@@ -21,7 +21,7 @@ namespace PortBoss.M1
         // M7 step 5: the Steam demo (Tushar 8 Nov: it ends on the evening of Day 4, as Act 2 begins). The game sets it from
         // the demo build's marker (StreamingAssets/demo) or -pb-demo; the full game plays on.
         public static bool Demo;
-        public const string UnknownName = "Unknown number";
+        public const string UnknownName = "Unknown number";   // (M8: Kai Rennick is KaiName, Surf.cs)
         public const string WaltName = "Grandpa Walt", JuneName = "June Pike", PrattName = "Gideon Pratt", FergusName = "Fergus Doyle", IngridName = "Ingrid Marsh", DotName = "Dot";
 
         public class Letter { public int Id; public string From, Title, Where = "mail"; public string[] Lines; public double At; }
@@ -189,6 +189,21 @@ namespace PortBoss.M1
                 if (c.Hugo == DealSt.None) c.OfferHugo(m);                 // M7 step 4: the second moorers open Act 2 (Moorers.cs)
                 c.Text(WaltName, "Rosie at the Mooring Line rang me. Says someone keeps asking her for work. Go and see her board kid. Two pairs of hands catch more than one", m);
             } },
+            // M8 step 4: Kai, the morning after Act 2 begins (world §10.3's hook; he texts at dawn and dusk only)
+            new Beat { Id = "kai:hello", Due = c => c.Act >= 2 && c.ActAt >= 0 ? DayTime.At(DayTime.Day(c.ActAt) + 1, 6 * 60 + 30) : double.NaN, Window = 3 * 24 * 60, Run = (c, m) =>
+            {
+                c.Text(KaiName, "hey, Kai here. Swell Surf Co, down by the Cut", m);
+                c.Text(KaiName, "Walt says you're good in the water. there's a foam board at the shop with your name on it. free. come grab it", m);
+                c.Text(KaiName, "I text a surf report most mornings. no surf, no text", m);
+                c.Text(KaiName, "when you're out at Breaker: 1) stand up for 3 seconds 2) ride one for 8 3) 3 seconds in the pocket. there's stuff in it for you", m);
+            } },
+            // M8 step 7: Kai's challenges (Surfer.cs raises kai:ch1..3); the rewards: the shortboard (Surf.cs), his sunburst on your boards, being a local
+            new Beat { Id = "kai:ch1", Due = c => c.EvAt("kai:ch1", 1), Window = 3 * 24 * 60, Run = (c, m) =>
+                c.Text(KaiName, "saw that. you STOOD UP. the shortboard's yours to buy now if you want it. it's twitchy. you'll love it", m) },
+            new Beat { Id = "kai:ch2", Due = c => c.EvAt("kai:ch2", 1), Window = 3 * 24 * 60, Run = (c, m) =>
+                c.Text(KaiName, "8 seconds!! I put my sunburst on your boards. don't tell anyone it's free", m) },
+            new Beat { Id = "kai:ch3", Due = c => c.EvAt("kai:ch3", 1), Window = 3 * 24 * 60, Run = (c, m) =>
+                c.Text(KaiName, "three seconds in the pocket. ok. you're a local. Breaker Point's yours as much as mine", m) },
         };
 
         public void TickStory(double m)

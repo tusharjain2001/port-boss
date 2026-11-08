@@ -57,7 +57,7 @@ namespace PortBoss.M1
             stall = s; tab = "Bait"; key = null; scroll = 0; focus = 0; holdDone = true; // the E that opened it isn't a buy
             root.gameObject.SetActive(true); Ctl.Ui = 2; Snd.Play2D(Synth.Tik, 0.3f, 0.9f);
             if (!Application.isBatchMode) { Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }
-            band.color = s.K == Firm.Kind.June ? Ponyo.Hex("46B3A6") : s.K == Firm.Kind.Pratt ? Ponyo.Hex("8D96A3") : Ponyo.Hex("3A86E0");
+            band.color = s.K == Firm.Kind.June ? Ponyo.Hex("46B3A6") : s.K == Firm.Kind.Surf ? Ponyo.Hex("E3A83C") : s.K == Firm.Kind.Pratt ? Ponyo.Hex("8D96A3") : Ponyo.Hex("3A86E0");
             title.text = s.Name; sub.text = $"{s.Owner} · “{s.Line}”";
             Log("open " + s.Name);
         }
@@ -86,7 +86,7 @@ namespace PortBoss.M1
         {
             var me = Angler.I; if (me == null) return ""; var k = Firm.I.MyKit;
             var sb = new System.Text.StringBuilder(); foreach (var s in me.Bar.S) sb.Append(s.Fish.Count).Append(';');
-            return sb.Append(string.Join(",", k.Bait)).Append(k.Rod).Append(k.Pouch5).ToString();
+            return sb.Append(string.Join(",", k.Bait)).Append(k.Rod).Append(k.Pouch5).Append(k.Rods).Append(k.Reel).Append(k.Line).Append(k.Hooks).Append(k.Hook).Append(k.Sight).Append(k.Boards).Append(k.Board).Append(k.Wetsuit).ToString();
         }
 
         // ---------------------------------------------------------------- input (the phone's way: mouse, arrows, pad)
@@ -180,7 +180,7 @@ namespace PortBoss.M1
         {
             foreach (Transform t in list) Destroy(t.gameObject);
             btns.Clear();
-            float h = stall.K == Firm.Kind.June ? June() : Sell();
+            float h = stall.K == Firm.Kind.June ? June() : stall.K == Firm.Kind.Surf ? SurfPanel() : Sell();
             contentH = h; list.sizeDelta = new Vector2(W - 2 * Pad, h);
             root.sizeDelta = new Vector2(W, Mathf.Clamp(184 + h + 6, 380, H));   // the card fits what's in it (an empty stall is a small card)
             Scroll(0);
@@ -232,6 +232,7 @@ namespace PortBoss.M1
             }
             else if (tab == "Tackle")
             {
+                y = TackleRows(y, k, c, RW);
                 var r = Row(y, 110); string why = c.CanBuy(Firm.MyKey, "pouch", 1);
                 var ic = UiKit.Img(r, Glyphs.Get("pouch"), Ponyo.Hex("A0704E"), "icon"); ic.rectTransform.Place(new Vector2(0, 0.5f), new Vector2(22, 0), new Vector2(56, 56), new Vector2(0, 0.5f));
                 T(r, "Tackle pouch", UiKit.Bold, 21, Ponyo.Ink, 96, 18, 300, 28);
@@ -246,12 +247,12 @@ namespace PortBoss.M1
                 for (int t = 1; t <= 5; t++)
                 {
                     var rod = FishDb.Rods[t - 1]; string item = "rod:" + t; string why = t == 1 ? "You own it." : c.CanBuy(Firm.MyKey, item, 1);
-                    bool owned = k.Rod >= t, later = !owned && (t == 5 || why.StartsWith("Act"));   // M7: the act opens them (was: always later)
+                    bool owned = (k.Rods >> (t - 1) & 1) != 0, later = !owned && (t == 5 || why.StartsWith("Act"));   // M7: the act opens them (was: always later)
                     var r = Row(y, 96, later);
                     var ri = UiKit.Rect("icon", r).Place(new Vector2(0, 0.5f), new Vector2(14, 0), new Vector2(68, 68), new Vector2(0, 0.5f)).gameObject.AddComponent<RawImage>(); ri.texture = UiKit.RodIcon(t); ri.raycastTarget = false; if (later) ri.color = new Color(1, 1, 1, 0.45f);
                     T(r, rod.Name, UiKit.Bold, 21, later ? Ponyo.InkSoft : Ponyo.Ink, 96, 16, 320, 28);
-                    T(r, $"Tier {t} · line {rod.LineKg:0} kg · casts {rod.RangeMax:0} m", UiKit.Body, 14, Ponyo.InkSoft, 96, 46, 320, 20);
-                    T(r, t == 1 ? "Walt's. It's seen things." : owned ? (k.Rod == t ? "In your hands" : "Yours") : later ? (t == 5 ? "Somewhere in Walt's journal" : $"Comes in {why}") : Money(Shelf.RodPrice[t]), UiKit.Body, 14, owned ? Ponyo.Hex("3E9A4E") : Ponyo.Ink, 96, 68, 320, 20);
+                    T(r, $"Tier {t} · strung with {Tackle.Lines[t - 1].Short} · casts {rod.RangeMax:0} m", UiKit.Body, 14, Ponyo.InkSoft, 96, 46, 360, 20);
+                    T(r, owned && Angler.I != null && Angler.I.Fish.RodTier == t ? "In your hands" : t == 1 ? "Walt's. It's seen things." : owned ? "Yours" : later ? (t == 5 ? "Somewhere in Walt's journal" : $"Comes in {why}") : Money(Shelf.RodPrice[t]), UiKit.Body, 14, owned ? Ponyo.Hex("3E9A4E") : Ponyo.Ink, 96, 68, 320, 20);
                     if (why == "") Pill(r, $"Buy {Money(Shelf.RodPrice[t])}", RW - 160, 26, 144, 44, Ponyo.Sunflower, Ponyo.Ink, () => Firm.I.Buy(item, 1), true).name = "btn Buy rod " + t;
                     else if (!owned && !later) T(r, why, UiKit.Bold, 15, Ponyo.Poppy, RW - 200, 38, 184, 22, TextAnchor.UpperRight);
                     else if (owned) { var ck = UiKit.Img(r, UiKit.Check, Ponyo.Hex("3E9A4E"), "owned"); ck.rectTransform.Place(new Vector2(1, 0.5f), new Vector2(-28, 0), new Vector2(30, 30), new Vector2(1, 0.5f)); }
@@ -260,6 +261,68 @@ namespace PortBoss.M1
                 }
             }
             return y + 10;
+        }
+        // M8 step 1: reels, lines, hooks and the Sight float (Tackle.cs). Reels and lines only get better, so the best is
+        // always on; the hook is a choice (Use). Tap Use; hold Buy.
+        float TackleRows(float y, Kit k, Company c, float RW)
+        {
+            T(list, "Your rods: " + Tackle.Label(k, Angler.I != null ? Angler.I.Fish.RodTier : k.Rod), UiKit.Bold, 16, Ponyo.Ink, 4, y, RW, 24); y += 34;
+            void Head(string s) { T(list, s, UiKit.Bold, 13, Ponyo.InkSoft, 4, y, RW, 20); y += 26; }
+            void One(string item, string glyph, Color col, Tackle.Piece p, string what, string on, bool useIt = false, int hook = 0)
+            {
+                string why = c.CanBuy(Firm.MyKey, item, 1); bool mine = why == "You own it.", worse = why == "You've a better one." || why == "Your rods hold as much.";
+                var r = Row(y, 84, worse);
+                var ic = UiKit.Img(r, Glyphs.Get(glyph), worse ? Ponyo.Hex("B5A99A") : col, "icon"); ic.rectTransform.Place(new Vector2(0, 0.5f), new Vector2(24, 0), new Vector2(44, 44), new Vector2(0, 0.5f));
+                T(r, p != null ? p.Name : "Sight float", UiKit.Bold, 19, worse ? Ponyo.InkSoft : Ponyo.Ink, 88, 12, 300, 26);
+                T(r, what, UiKit.Body, 14, Ponyo.InkSoft, 88, 40, 380, 20);
+                bool isOn = mine && (!useIt || k.Hook == hook);
+                T(r, isOn ? on : mine ? "Yours" : worse ? why.TrimEnd('.') : Money(c.PriceOf(item, 1)), UiKit.Body, 14, isOn ? Ponyo.Hex("3E9A4E") : Ponyo.Ink, 88, 60, 300, 20);
+                if (why == "") Pill(r, $"Buy {Money(c.PriceOf(item, 1))}", RW - 152, 20, 136, 44, Ponyo.Sunflower, Ponyo.Ink, () => Firm.I.Buy(item, 1), true).name = "btn Buy " + item;
+                else if (mine && useIt && k.Hook != hook) Pill(r, "Use", RW - 120, 20, 104, 44, Ponyo.Paper2, Ponyo.Ink, () => Firm.I.UseHook(hook)).name = "btn Use " + item;
+                else if (isOn) { var ck = UiKit.Img(r, UiKit.Check, Ponyo.Hex("3E9A4E"), "on"); ck.rectTransform.Place(new Vector2(1, 0.5f), new Vector2(-28, 0), new Vector2(30, 30), new Vector2(1, 0.5f)); }
+                else if (!worse) T(r, why, UiKit.Bold, 15, Ponyo.Poppy, RW - 200, 32, 184, 22, TextAnchor.UpperRight);
+                y += 92;
+            }
+            Head("REELS · a wider strike window · your best is always on");
+            for (int i = 1; i <= 3; i++) One("reel:" + i, "reel", Ponyo.Hex("6F8FA8"), Tackle.Reels[i], Tackle.Reels[i].What, "On your rods");
+            Head("LINE · how heavy a fish it holds · a new rod comes strung");
+            for (int i = 1; i <= 3; i++) One("line:" + i, "line", Ponyo.Hex("3F9E93"), Tackle.Lines[i], Tackle.Lines[i].What, "On your rods");
+            Head("HOOKS · one at a time: a gentler strike, or a second go");
+            for (int i = 1; i <= 3; i++) One("hook:" + i, "hook", Ponyo.Hex("8A7B6C"), Tackle.Hooks[i], Tackle.Hooks[i].What, "On your rods", true, i);
+            if (k.Hook != 0) { int h0 = 0; var r0 = Row(y, 60, true); T(r0, "Bent hook (Walt's)", UiKit.Bold, 17, Ponyo.InkSoft, 88, 18, 300, 24); Pill(r0, "Use", RW - 120, 8, 104, 44, Ponyo.Paper2, Ponyo.Ink, () => Firm.I.UseHook(h0)).name = "btn Use hook:0"; y += 68; }
+            Head("FLOATS");
+            One("float", "float", Ponyo.Hex("E2553F"), null, "1.5x bigger with a bright halo: easy to spot far out", "On your line");
+            Head("THE LANDING NET · for a crewmate's fish");
+            One("net", "net", Ponyo.Hex("4E8F6E"), new Tackle.Piece { Name = "Landing net" }, "E beside a crewmate's fight: one more go, +10% green; a Rare, you scoop it", "On your back");
+            Head("POUCH");
+            return y;
+        }
+        // M8 step 4: Kai's shelf at Swell Surf Co. (Surf.cs): the four boards and the wetsuit. Owned boards: Carry (tap).
+        static readonly string[] BoardCol = { "", "F29A85", "3A86E0", "E3A83C", "46B3A6" };
+        float SurfPanel()
+        {
+            float y = 4; var k = Firm.I.MyKit; var c = Firm.C; float RW = W - 2 * Pad; var (d, b) = Weather.BlockAt(Sky.Minutes);
+            T(list, c.Act < 2 ? "Kai: \"Season's not open yet. Come back when it is.\"" : c.KaiFree ? "Kai: \"That foamie's yours. On the house.\"" : "Today: " + SurfShop.Line(d, Mathf.Min(b, 2)), UiKit.Body, 16, Ponyo.InkSoft, 4, y, RW, 24); y += 36;
+            void Row(string item, string glyph, Color col, string name, string what, bool carry, int board)
+            {
+                string why = c.CanBuy(Firm.MyKey, item, 1); bool mine = why == "You own it.", locked = why == "Act 2" || why == "Kai's challenge 1";
+                var r = this.Row(y, 92, locked);
+                var ic = UiKit.Img(r, Glyphs.Get(glyph), locked ? Ponyo.Hex("B5A99A") : col, "icon"); ic.rectTransform.Place(new Vector2(0, 0.5f), new Vector2(24, 0), new Vector2(48, 48), new Vector2(0, 0.5f));
+                T(r, name, UiKit.Bold, 20, locked ? Ponyo.InkSoft : Ponyo.Ink, 92, 14, 320, 26);
+                T(r, what, UiKit.Body, 14, Ponyo.InkSoft, 92, 42, 400, 20);
+                bool on = mine && carry && k.Board == board; int price = c.PriceOf(item, 1);
+                T(r, on ? "You carry this one" : mine ? "Yours" : locked ? (why == "Act 2" ? "Comes in Act 2" : "After Kai's challenge 1") : price == 0 ? "Free, from Kai" : Money(price), UiKit.Body, 14, mine ? Ponyo.Hex("3E9A4E") : Ponyo.Ink, 92, 64, 300, 20);
+                if (why == "") Pill(r, price == 0 ? "Take it" : $"Buy {Money(price)}", RW - 152, 24, 136, 44, Ponyo.Sunflower, Ponyo.Ink, () => Firm.I.Buy(item, 1), true).name = "btn Buy " + item;
+                else if (mine && carry && !on) Pill(r, "Carry", RW - 120, 24, 104, 44, Ponyo.Paper2, Ponyo.Ink, () => Firm.I.UseBoard(board)).name = "btn Carry " + item;
+                else if (mine) { var ck = UiKit.Img(r, UiKit.Check, Ponyo.Hex("3E9A4E"), "on"); ck.rectTransform.Place(new Vector2(1, 0.5f), new Vector2(-28, 0), new Vector2(30, 30), new Vector2(1, 0.5f)); }
+                else if (locked) { var lk = UiKit.Img(r, Glyphs.Get("lock"), Ponyo.InkSoft, "lock"); lk.rectTransform.Place(new Vector2(1, 0.5f), new Vector2(-28, 0), new Vector2(28, 28), new Vector2(1, 0.5f)); }
+                else T(r, why, UiKit.Bold, 15, Ponyo.Poppy, RW - 200, 36, 184, 22, TextAnchor.UpperRight);
+                y += 100;
+            }
+            for (int i = 1; i <= 4; i++) Row("board:" + i, "surf", Ponyo.Hex(BoardCol[i]), SurfGear.Boards[i].Name, SurfGear.Boards[i].What, true, i);
+            Row("wetsuit", "shirt", Ponyo.Hex("2E3F5C"), "Wetsuit", "+50% swim stamina. Warm on cold nights", false, 0);
+            T(list, "Surfing's for fun. Kai's challenges pay in respect, not money.", UiKit.Body, 14, Ponyo.InkSoft, 4, y + 2, RW, 22);
+            return y + 30;
         }
         public static readonly string[] BaitGlyph = { "worm", "shrimp", "sardine", "squid", "mix" };   // FishDb.Baits order
         public static Color BaitCol(int i) => i switch { 0 => Ponyo.Hex("D9826A"), 1 => Ponyo.Hex("F29A85"), 2 => Ponyo.Hex("8FA6C0"), 3 => Ponyo.Hex("E7D6C6"), _ => Ponyo.Hex("C98A1A") };

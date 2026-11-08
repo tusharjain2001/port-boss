@@ -907,6 +907,14 @@ namespace PortBoss.M1
                 T(sc, "Get Biscuit tied up before it hits.", UiKit.Body, 14, Ponyo.Ink, 62, 34, CW - 76, 20);
                 y += 76;
             }
+            if (Firm.C != null && Firm.C.Act >= 2)                                                    // M8 step 4: Kai's surf line
+            {
+                var sc = Card(list, 0, y, CW, 64, Ponyo.Hex("FFF3D6"), 16, false, Ponyo.Hex("E3A83C"));
+                Ico(sc, "surf", Ponyo.Hex("C98A1A"), 14, 14, 36);
+                T(sc, "Surf · Swell Surf Co.", UiKit.Bold, 16, Ponyo.Ink, 62, 12, CW - 76, 22);
+                T(sc, SurfShop.Line(DayTime.Day(m), Mathf.Min(Weather.BlockAt(m).b, 2)), UiKit.Body, 14, Ponyo.Ink, 62, 34, CW - 76, 20);
+                y += 76;
+            }
             var dotLine = T(list, "“" + Sky.Word(Sky.W.Block(DayTime.Day(m), Mathf.Min(Weather.BlockAt(m).b, 2))) + "”", UiKit.Display, 17, Ponyo.Ink, 2, y, CW - 4, 48);
             y += Mathf.Max(30, dotLine.preferredHeight) + 10;
             for (int part = 0; part < 2; part++)
@@ -958,6 +966,21 @@ namespace PortBoss.M1
                 }
             }
             if (c != null && c.Letters.Count > 0) { Caps(list, "Letters", 2, y, CW); y += 24; foreach (var l in c.Letters) y = LetterBubble(l, y); y += 6; }
+            if (c != null && (k.Rides > 0 || c.Fired("kai:hello")))                                   // M8 step 7: surfing
+            {
+                Caps(list, "Surf", 2, y, CW); y += 24;
+                var sc = Card(list, 0, y, CW, 132, Ponyo.Hex("FFF3D6"), 14, false, Ponyo.Hex("E3A83C"));
+                Ico(sc, "surf", Ponyo.Hex("C98A1A"), 14, 14, 30);
+                T(sc, k.Rides > 0 ? $"Best ride {k.SurfBest} pts · {k.Rides} ride{(k.Rides == 1 ? "" : "s")}" : "No rides yet", UiKit.Bold, 16, Ponyo.Ink, 54, 16, CW - 70, 22);
+                string[] ch = { "Stand up for 3 seconds (the shortboard)", "Ride one for 8 seconds (Kai's sunburst)", "3 seconds in the pocket (a local)" };
+                for (int i = 0; i < 3; i++)
+                {
+                    bool done = c.Seen("kai:ch" + (i + 1));
+                    var ic = UiKit.Img(sc, done ? UiKit.Check : UiKit.Circle, done ? Ponyo.Hex("3E9A4E") : Ponyo.Hex("D8C9AE"), "ch"); ic.rectTransform.Place(new Vector2(0, 1), new Vector2(18, -(52 + i * 24)), new Vector2(16, 16), new Vector2(0, 1));
+                    T(sc, ch[i], UiKit.Body, 14, done ? Ponyo.Ink : SubInk, 44, 50 + i * 24, CW - 60, 20);
+                }
+                y += 144;
+            }
             Caps(list, "Fish", 2, y, CW); y += 22;
             T(list, "Walt's fish book. Every fish you land goes in.", UiKit.Body, 14, SubInk, 2, y, CW, 20); y += 30;
             foreach (var s in FishDb.All)

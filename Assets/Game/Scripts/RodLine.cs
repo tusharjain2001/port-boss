@@ -162,7 +162,9 @@ namespace PortBoss.M1
         public Vector3 Pos;            // resting point on the sea (xz drifts)
         public float Dip, Yank, Spin;  // metres under (nibble / bite), extra sideways drag, spin
         public bool Floating;
-        float rippleT; Transform halo;
+        public float Big = 1;          // M8: the Sight float, 1.5x with a brighter halo (fishing §6.5)
+        float rippleT; Transform halo; Material haloM;
+        public void Sight(bool on) { float b = on ? 1.5f : 1f; if (b == Big) return; Big = b; if (haloM != null) haloM.color = new Color(1f, on ? 0.85f : 0.6f, on ? 0.4f : 0.45f, on ? 0.75f : 0.45f); }
 
         public static BobberView Make(Material toon)
         {
@@ -180,7 +182,7 @@ namespace PortBoss.M1
             halo.transform.SetParent(g.transform, false); halo.transform.localScale = Vector3.one * 0.42f;
             var hm = Util.Soft(new Color(1f, 0.6f, 0.45f, 0.45f)); hm.renderQueue = 3150;
             halo.GetComponent<MeshRenderer>().sharedMaterial = hm; halo.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            b.halo = halo.transform;
+            b.halo = halo.transform; b.haloM = hm;
             g.transform.localScale = Vector3.one * 1.25f;
             b.gameObject.SetActive(false);
             return b;
@@ -198,7 +200,7 @@ namespace PortBoss.M1
             // never lost at range: grows so it stays ~10 px tall beyond 15 m
             var cam = Camera.main;
             float d = cam != null ? Vector3.Distance(cam.transform.position, transform.position) : 10;
-            transform.localScale = Vector3.one * Mathf.Max(1.25f, d / 12f);
+            transform.localScale = Vector3.one * Mathf.Max(1.25f, d / 12f) * Big;
             if (halo != null && cam != null) { halo.rotation = Quaternion.LookRotation(halo.position - cam.transform.position); halo.gameObject.SetActive(Yank < 0.05f); }
             rippleT += Time.deltaTime;
             if (rippleT > 1.6f && Yank < 0.05f) { rippleT = 0; Fx.Ring(new Vector3(Pos.x, h, Pos.z), 1.2f, 1.0f, 0.45f); }
