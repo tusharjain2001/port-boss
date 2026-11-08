@@ -451,7 +451,7 @@ namespace PortBoss.M1
             nameShow -= dt;
             bool show = nameShow > 0 && (fish.State is not (Fishing.St.Minigame or Fishing.St.Reveal or Fishing.St.Heavy));
             namePill.gameObject.SetActive(show && !sl.Empty);
-            if (sl.Rod) { nameT.text = fish.Rod.Name; nameSub.text = $"{BaitText()} · line {fish.Rod.LineKg:0} kg"; }
+            if (sl.Rod) { nameT.text = fish.Rod.Name; nameSub.text = $"{BaitText()} · {Tackle.Label(fish.Kit, fish.RodTier)}"; }   // M8: Carbon Rod · Smooth reel · Braid 40 kg · Barbed
             else if (sl.Fish.Count > 0) { var f = sl.Fish[0]; float old = f.CaughtAt; foreach (var x in sl.Fish) old = Mathf.Min(old, x.CaughtAt); nameT.text = f.Species.Name; nameSub.text = $"{Ponyo.GradeName[f.Grade]} · {Rot.Names[Rot.Stage(Sky.Minutes - old)]} · {sl.Fish.Count} of 5 · about ${Mathf.RoundToInt(f.Value * 0.6f)} each"; }
             namePill.sizeDelta = new Vector2(Mathf.Max(460, nameT.preferredWidth + nameSub.preferredWidth + 70), 50);
             baitTag.text = sl.Rod && !me.AtHelm ? (fish.BaitCount[fish.BaitI] > 0 ? BaitText() : "<color=#E2553F>No bait: sprats only</color>") : "";
@@ -711,8 +711,8 @@ namespace PortBoss.M1
             var track = UiKit.Img(g, null, Ponyo.Hex("CFF2F0"), "track").rectTransform; track.Stretch(5); track.offsetMax = new Vector2(-38, -5);
             var zone = UiKit.Img(track, null, Ponyo.Leaf, "zone").rectTransform;
             var ptr = UiKit.Img(track, null, Ponyo.Ink, "ptr").rectTransform; ptr.pivot = new Vector2(0.5f, 0.5f);
-            var pips = new Image[2];
-            for (int i = 0; i < 2; i++) { pips[i] = UiKit.Img(g, UiKit.Circle, Ponyo.Paper3, "pip" + i); pips[i].rectTransform.Place(new Vector2(1, 0.5f), new Vector2(-24 + i * 13, 0), new Vector2(10, 10)); }
+            var pips = new Image[Tackle.MaxStops];                          // (M8: a hook's retries add stops; Ghost places them)
+            for (int i = 0; i < pips.Length; i++) { pips[i] = UiKit.Img(g, UiKit.Circle, Ponyo.Paper3, "pip" + i); pips[i].rectTransform.Place(new Vector2(1, 0.5f), new Vector2(-24 + i * 13, 0), new Vector2(10, 10)); }
             g.gameObject.SetActive(false);
             return new Tag { R = r, T = t, C = m.Colour, G = r.gameObject.AddComponent<CanvasGroup>(), Ghost = g, Zone = zone, Ptr = ptr, Pips = pips, Ring = ring };
         }
@@ -797,7 +797,13 @@ namespace PortBoss.M1
             tg.Zone.offsetMin = tg.Zone.offsetMax = Vector2.zero;
             tg.Ptr.anchorMin = new Vector2(f.PointerShown, 0); tg.Ptr.anchorMax = new Vector2(f.PointerShown, 1);
             tg.Ptr.sizeDelta = new Vector2(4, 8); tg.Ptr.anchoredPosition = Vector2.zero;
-            for (int i = 0; i < 2; i++) tg.Pips[i].color = f.Result[i] > 0 ? Ponyo.Leaf : f.Result[i] < 0 ? Ponyo.Hex("E2553F") : Ponyo.Paper3;
+            int n = Mathf.Clamp(f.Tries, 1, tg.Pips.Length); float sp = n <= 2 ? 13 : 7, sz = n <= 2 ? 10 : 6;
+            for (int i = 0; i < tg.Pips.Length; i++)
+            {
+                var pp = tg.Pips[i]; pp.enabled = i < n; if (i >= n) continue;
+                pp.rectTransform.anchoredPosition = new Vector2(-17.5f + (i - (n - 1) / 2f) * sp, 0); pp.rectTransform.sizeDelta = new Vector2(sz, sz);
+                pp.color = f.Result[i] > 0 ? Ponyo.Leaf : f.Result[i] < 0 ? Ponyo.Hex("E2553F") : Ponyo.Paper3;
+            }
         }
 
         void LateUpdate() => Place();

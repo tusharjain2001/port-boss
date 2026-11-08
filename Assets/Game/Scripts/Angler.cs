@@ -569,6 +569,7 @@ namespace PortBoss.M1
         {
             Prompt = null;
             var s = Boat;
+            var holder = RodHolders.Prompt(this); if (holder != null) { Prompt = holder; return; }   // M8: rod holders (with a line out, too)
             if (Busy || Fish.Locked || Shop.Open || YShop.Open || Wardrobe.Open || StoreUi.Open) return;
             // ladders from the water
             if (Swimming)
@@ -869,6 +870,7 @@ namespace PortBoss.M1
         {
             var s = Boat;
             Prompt = s.Moored ? "W  Cast off   ·   E  Leave the tiller" : s.CanMoor ? "F  Moor   ·   E  Leave the tiller" : "W/S  Throttle   ·   A/D  Steer   ·   E  Leave";
+            if (RodHolders.BiteNear(this) != null) Prompt = "The bell!   E  Take the rod";               // M8: one E leaves the tiller and takes it
             Cc.enabled = false;
             // slide onto the seat (0.35 s) instead of jumping there
             helmT = Mathf.Min(1, helmT + dt / 0.35f); float k = Mathf.SmoothStep(0, 1, helmT);
@@ -886,7 +888,7 @@ namespace PortBoss.M1
             else if (th != 0) { s.Notch = Mathf.Clamp(s.Notch + th, -1, 3); Snd.Play2D(Synth.Tik, 0.6f, th > 0 ? 1.2f : 0.9f); }
             s.Steer = Mathf.Clamp(Ctl.Steer, -1, 1);
             if (s.CanMoor && Ctl.Moor) s.Moor();                     // (M7: F, or Y on a pad)
-            if (Ctl.Interact || Ctl.Escape) LeaveHelm();
+            if (Ctl.Interact || Ctl.Escape) { var bite = Ctl.Interact ? RodHolders.BiteNear(this) : null; LeaveHelm(); if (bite != null) RodHolders.I.Take(this, bite); }
             if (CameraRig.I != null) CameraRig.I.M = helm ? CameraRig.Mode.Helm : CameraRig.Mode.Follow;
             Vel = Vector3.zero;
         }

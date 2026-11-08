@@ -617,7 +617,9 @@ namespace PortBoss.M1
                     g.transform.localPosition = Vector3.zero;
                     if (pf == null) for (int sx = -1; sx <= 1; sx += 2) Firm.Box(g.transform, "plate", new Vector3(sx > 0 ? h.max.x + 0.015f : h.min.x - 0.015f, Sea.Level - b.transform.position.y + 0.1f + 0.15f, h.center.z), new Vector3(0.02f, 0.22f, h.size.z * 0.82f), Ponyo.Hex("A8B2BC"));
                     break;
-                case "holders": g.transform.localPosition = Vector3.zero; if (pf == null) for (int i = 0; i < 3; i++) Firm.Box(g.transform, "holder", new Vector3(h.max.x - 0.06f, top + 0.12f, h.min.z + 0.8f + i * 0.5f), new Vector3(0.06f, 0.3f, 0.06f), Ponyo.Hex("C9CED3"), new Vector3(-20, 0, -10)); break;
+                case "holders":                                                          // M8: one steel tube on Biscuit's port quarter (RodHolders); the Kestrel has hers
+                    Destroy(g); if (b.Id != "biscuit") return null;
+                    g = RodHolders.BuildBiscuit(b.transform, h); g.name = item; break;
                 case "finder": g.transform.localPosition = (b.Helm != null ? b.transform.InverseTransformPoint(b.Helm.position) : new Vector3(0, top, h.min.z + 0.8f)) + new Vector3(-0.35f, 0.45f, 0.35f); if (pf == null) { Firm.Box(g.transform, "finder", Vector3.zero, new Vector3(0.22f, 0.16f, 0.06f), Ponyo.Hex("3F2C27")); var sc = Firm.Box(g.transform, "screen glow", new Vector3(0, 0, 0.032f), new Vector3(0.18f, 0.12f, 0.005f), Ponyo.Hex("46D6C8")); } break;
                 case "cap": g.transform.localPosition = new Vector3(h.min.x + 0.3f, top + 0.02f, h.min.z + 0.5f); if (pf == null) { Firm.Box(g.transform, "cap", Vector3.zero, new Vector3(0.12f, 0.05f, 0.12f), Ponyo.Hex("F7C548")); Firm.Box(g.transform, "lock", new Vector3(0, 0.05f, 0), new Vector3(0.05f, 0.05f, 0.03f), Ponyo.Hex("B9B2A6")); } break;
                 default: g.transform.localPosition = new Vector3(0, top, 0); break;

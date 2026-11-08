@@ -142,6 +142,29 @@ His decisions, 8 Nov:
 
 ---
 
+## 0c. M8 "surfing and fishing gear", in progress (from 8 Nov 2026, branch `m8`; plan `docs/plan/M8-PLAN.md`)
+
+Tushar and Manan played M7 and Tushar said "start with m8". This round covers surfing and the fishing gear (F10–F11). **The gear guns wait for Manan's Q1 (§9).** Same way of working as M7: branch `m8`, each step tested headless and committed, the branch pushed, merged after a hand test (★). Unity may be closed and reopened for Blender.
+
+**Step 1, tackle** (`Tackle.cs`):
+- June's Tackle tab sells reels (strike window), lines (the HEAVY weight) and hooks: Circle +0.15 s; Barbed and Treble redo a missed stop.
+- The Sight float is 1.5× with a halo.
+- Reels and lines only get better, so your best is always on. The hook is your choice ("Use").
+- A rod comes strung with its own line.
+- Tests: `-pb-tackletest`, `-pb-tacklecoop`, Company.TackleTest.
+
+**Step 2, rod holders and trolling** (`RodHolders.cs`):
+- Doyle's holders upgrade gives Biscuit one steel tube; the Kestrel has three.
+- E puts a line out in the holder, and your next rod comes to hand.
+- The bell gives 2 s to E it (one E from the tiller works), then the normal fight.
+- Trolling: sardine or squid at 2–5 m/s.
+- Co-op: `pb.hold`, plus the host's held rolls (`Coop.HoldBook`).
+- Tests: `-pb-holdertest`, `-pb-holdercoop`.
+
+**Tests:** `tools/m8test.sh <exe>`.
+
+---
+
 ## 0. To Tushar's Claude (2026-11-03)
 
 **What Manan's side did since M1b** (all on `main` once Kufu pushes this merge; details in §4):

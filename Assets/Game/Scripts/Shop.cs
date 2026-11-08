@@ -86,7 +86,7 @@ namespace PortBoss.M1
         {
             var me = Angler.I; if (me == null) return ""; var k = Firm.I.MyKit;
             var sb = new System.Text.StringBuilder(); foreach (var s in me.Bar.S) sb.Append(s.Fish.Count).Append(';');
-            return sb.Append(string.Join(",", k.Bait)).Append(k.Rod).Append(k.Pouch5).ToString();
+            return sb.Append(string.Join(",", k.Bait)).Append(k.Rod).Append(k.Pouch5).Append(k.Rods).Append(k.Reel).Append(k.Line).Append(k.Hooks).Append(k.Hook).Append(k.Sight).ToString();
         }
 
         // ---------------------------------------------------------------- input (the phone's way: mouse, arrows, pad)
@@ -232,6 +232,7 @@ namespace PortBoss.M1
             }
             else if (tab == "Tackle")
             {
+                y = TackleRows(y, k, c, RW);
                 var r = Row(y, 110); string why = c.CanBuy(Firm.MyKey, "pouch", 1);
                 var ic = UiKit.Img(r, Glyphs.Get("pouch"), Ponyo.Hex("A0704E"), "icon"); ic.rectTransform.Place(new Vector2(0, 0.5f), new Vector2(22, 0), new Vector2(56, 56), new Vector2(0, 0.5f));
                 T(r, "Tackle pouch", UiKit.Bold, 21, Ponyo.Ink, 96, 18, 300, 28);
@@ -246,12 +247,12 @@ namespace PortBoss.M1
                 for (int t = 1; t <= 5; t++)
                 {
                     var rod = FishDb.Rods[t - 1]; string item = "rod:" + t; string why = t == 1 ? "You own it." : c.CanBuy(Firm.MyKey, item, 1);
-                    bool owned = k.Rod >= t, later = !owned && (t == 5 || why.StartsWith("Act"));   // M7: the act opens them (was: always later)
+                    bool owned = (k.Rods >> (t - 1) & 1) != 0, later = !owned && (t == 5 || why.StartsWith("Act"));   // M7: the act opens them (was: always later)
                     var r = Row(y, 96, later);
                     var ri = UiKit.Rect("icon", r).Place(new Vector2(0, 0.5f), new Vector2(14, 0), new Vector2(68, 68), new Vector2(0, 0.5f)).gameObject.AddComponent<RawImage>(); ri.texture = UiKit.RodIcon(t); ri.raycastTarget = false; if (later) ri.color = new Color(1, 1, 1, 0.45f);
                     T(r, rod.Name, UiKit.Bold, 21, later ? Ponyo.InkSoft : Ponyo.Ink, 96, 16, 320, 28);
-                    T(r, $"Tier {t} · line {rod.LineKg:0} kg · casts {rod.RangeMax:0} m", UiKit.Body, 14, Ponyo.InkSoft, 96, 46, 320, 20);
-                    T(r, t == 1 ? "Walt's. It's seen things." : owned ? (k.Rod == t ? "In your hands" : "Yours") : later ? (t == 5 ? "Somewhere in Walt's journal" : $"Comes in {why}") : Money(Shelf.RodPrice[t]), UiKit.Body, 14, owned ? Ponyo.Hex("3E9A4E") : Ponyo.Ink, 96, 68, 320, 20);
+                    T(r, $"Tier {t} · strung with {Tackle.Lines[t - 1].Short} · casts {rod.RangeMax:0} m", UiKit.Body, 14, Ponyo.InkSoft, 96, 46, 360, 20);
+                    T(r, owned && Angler.I != null && Angler.I.Fish.RodTier == t ? "In your hands" : t == 1 ? "Walt's. It's seen things." : owned ? "Yours" : later ? (t == 5 ? "Somewhere in Walt's journal" : $"Comes in {why}") : Money(Shelf.RodPrice[t]), UiKit.Body, 14, owned ? Ponyo.Hex("3E9A4E") : Ponyo.Ink, 96, 68, 320, 20);
                     if (why == "") Pill(r, $"Buy {Money(Shelf.RodPrice[t])}", RW - 160, 26, 144, 44, Ponyo.Sunflower, Ponyo.Ink, () => Firm.I.Buy(item, 1), true).name = "btn Buy rod " + t;
                     else if (!owned && !later) T(r, why, UiKit.Bold, 15, Ponyo.Poppy, RW - 200, 38, 184, 22, TextAnchor.UpperRight);
                     else if (owned) { var ck = UiKit.Img(r, UiKit.Check, Ponyo.Hex("3E9A4E"), "owned"); ck.rectTransform.Place(new Vector2(1, 0.5f), new Vector2(-28, 0), new Vector2(30, 30), new Vector2(1, 0.5f)); }
@@ -260,6 +261,39 @@ namespace PortBoss.M1
                 }
             }
             return y + 10;
+        }
+        // M8 step 1: reels, lines, hooks and the Sight float (Tackle.cs). Reels and lines only get better, so the best is
+        // always on; the hook is a choice (Use). Tap Use; hold Buy.
+        float TackleRows(float y, Kit k, Company c, float RW)
+        {
+            T(list, "Your rods: " + Tackle.Label(k, Angler.I != null ? Angler.I.Fish.RodTier : k.Rod), UiKit.Bold, 16, Ponyo.Ink, 4, y, RW, 24); y += 34;
+            void Head(string s) { T(list, s, UiKit.Bold, 13, Ponyo.InkSoft, 4, y, RW, 20); y += 26; }
+            void One(string item, string glyph, Color col, Tackle.Piece p, string what, string on, bool useIt = false, int hook = 0)
+            {
+                string why = c.CanBuy(Firm.MyKey, item, 1); bool mine = why == "You own it.", worse = why == "You've a better one." || why == "Your rods hold as much.";
+                var r = Row(y, 84, worse);
+                var ic = UiKit.Img(r, Glyphs.Get(glyph), worse ? Ponyo.Hex("B5A99A") : col, "icon"); ic.rectTransform.Place(new Vector2(0, 0.5f), new Vector2(24, 0), new Vector2(44, 44), new Vector2(0, 0.5f));
+                T(r, p != null ? p.Name : "Sight float", UiKit.Bold, 19, worse ? Ponyo.InkSoft : Ponyo.Ink, 88, 12, 300, 26);
+                T(r, what, UiKit.Body, 14, Ponyo.InkSoft, 88, 40, 380, 20);
+                bool isOn = mine && (!useIt || k.Hook == hook);
+                T(r, isOn ? on : mine ? "Yours" : worse ? why.TrimEnd('.') : Money(c.PriceOf(item, 1)), UiKit.Body, 14, isOn ? Ponyo.Hex("3E9A4E") : Ponyo.Ink, 88, 60, 300, 20);
+                if (why == "") Pill(r, $"Buy {Money(c.PriceOf(item, 1))}", RW - 152, 20, 136, 44, Ponyo.Sunflower, Ponyo.Ink, () => Firm.I.Buy(item, 1), true).name = "btn Buy " + item;
+                else if (mine && useIt && k.Hook != hook) Pill(r, "Use", RW - 120, 20, 104, 44, Ponyo.Paper2, Ponyo.Ink, () => Firm.I.UseHook(hook)).name = "btn Use " + item;
+                else if (isOn) { var ck = UiKit.Img(r, UiKit.Check, Ponyo.Hex("3E9A4E"), "on"); ck.rectTransform.Place(new Vector2(1, 0.5f), new Vector2(-28, 0), new Vector2(30, 30), new Vector2(1, 0.5f)); }
+                else if (!worse) T(r, why, UiKit.Bold, 15, Ponyo.Poppy, RW - 200, 32, 184, 22, TextAnchor.UpperRight);
+                y += 92;
+            }
+            Head("REELS · a wider strike window · your best is always on");
+            for (int i = 1; i <= 3; i++) One("reel:" + i, "reel", Ponyo.Hex("6F8FA8"), Tackle.Reels[i], Tackle.Reels[i].What, "On your rods");
+            Head("LINE · how heavy a fish it holds · a new rod comes strung");
+            for (int i = 1; i <= 3; i++) One("line:" + i, "line", Ponyo.Hex("3F9E93"), Tackle.Lines[i], Tackle.Lines[i].What, "On your rods");
+            Head("HOOKS · one at a time: a gentler strike, or a second go");
+            for (int i = 1; i <= 3; i++) One("hook:" + i, "hook", Ponyo.Hex("8A7B6C"), Tackle.Hooks[i], Tackle.Hooks[i].What, "On your rods", true, i);
+            if (k.Hook != 0) { int h0 = 0; var r0 = Row(y, 60, true); T(r0, "Bent hook (Walt's)", UiKit.Bold, 17, Ponyo.InkSoft, 88, 18, 300, 24); Pill(r0, "Use", RW - 120, 8, 104, 44, Ponyo.Paper2, Ponyo.Ink, () => Firm.I.UseHook(h0)).name = "btn Use hook:0"; y += 68; }
+            Head("FLOATS");
+            One("float", "float", Ponyo.Hex("E2553F"), null, "1.5x bigger with a bright halo: easy to spot far out", "On your line");
+            Head("POUCH");
+            return y;
         }
         public static readonly string[] BaitGlyph = { "worm", "shrimp", "sardine", "squid", "mix" };   // FishDb.Baits order
         public static Color BaitCol(int i) => i switch { 0 => Ponyo.Hex("D9826A"), 1 => Ponyo.Hex("F29A85"), 2 => Ponyo.Hex("8FA6C0"), 3 => Ponyo.Hex("E7D6C6"), _ => Ponyo.Hex("C98A1A") };

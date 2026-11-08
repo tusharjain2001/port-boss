@@ -67,6 +67,7 @@ namespace PortBoss.M1
         public static AudioClip Ratchet => C("ratchet", () => { var lp = LP(6500); return Make("ratchet", 0.5f, t => 0.6f * lp(t) * Mathf.Exp(-((t * 28f) % 1f) * 30f)); });
         public static AudioClip Reel => C("reel", () => { var lp = LP(7000); return Make("reel", 0.25f, t => 0.45f * lp(t) * Mathf.Exp(-((t * 40f) % 1f) * 25f), true); });
         public static AudioClip Creak => C("creak", () => Make("creak", 1f, t => 0.18f * (Mathf.Repeat(t * 110, 1) * 2 - 1) * (0.6f + 0.4f * Sin(7, t)) + 0.08f * Sin(220, t), true));
+        public static AudioClip HolderBell => C("holderbell", () => Make("holderbell", 1.2f, t => { float s = 0; for (int k = 0; k < 4; k++) { float u = t - k * 0.12f; if (u < 0) continue; s += (0.26f * Sin(2093, u) + 0.12f * Sin(3170, u) + 0.05f * Sin(5274, u)) * Env(u, 0.002f, 0.2f) * (1 - 0.15f * k); } return s * 0.85f; }));   // M8: the rod holder's bell
         public static AudioClip Ting => C("ting", () => Make("ting", 0.6f, t => (0.35f * Sin(1568, t) + 0.12f * Sin(3136, t)) * Env(t, 0.002f, 0.12f)));
         public static AudioClip Slap => C("slap", () => { var lp = LP(2200); return Make("slap", 0.3f, t => 0.9f * lp(t) * Env(t, 0.001f, 0.035f) + 0.3f * Sin(140, t) * Env(t, 0.001f, 0.05f)); });
         public static AudioClip Scuff => C("scuff", () => { var lp = LP(1200); return Make("scuff", 0.25f, t => 0.7f * lp(t) * Env(t, 0.004f, 0.08f)); });

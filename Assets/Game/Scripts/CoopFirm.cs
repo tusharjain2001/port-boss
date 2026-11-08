@@ -95,8 +95,10 @@ namespace PortBoss.M1
             {
                 var e = Find(from); if (e == null || Firm.C == null) return;
                 var mine = Company.ReadKit((Dictionary<string, object>)Json.Parse(k)); var kit = Firm.C.KitOf(e.Key ?? MyKey(e.Name));
-                // the pouch and the journal are the client's; what was bought (the rod, the tackle pouch) the host's
+                // the pouch and the journal are the client's; what was bought (the rod, the tackle pouch, M8's tackle) the host's;
+                // the hook on the rods is the client's choice, of the hooks the host says it owns
                 kit.Bait = mine.Bait; kit.BaitI = mine.BaitI; kit.Best = mine.Best;
+                if (Tackle.Owns(kit, mine.Hook)) kit.Hook = mine.Hook;
             }, true);
         }
 
@@ -197,10 +199,8 @@ namespace PortBoss.M1
                 if (!ok) { Alerts.Push(kind == 0 ? "Market" : "Hook, Line & Sinker", why, Alerts.Kind.Info); return; }
                 if (kind == 1)
                 {
-                    var bits = what.Split('|'); string item = bits[0]; int qty = int.Parse(bits[1]); var k = Firm.I.MyKit;
-                    if (item.StartsWith("bait:")) { int i = int.Parse(item.Substring(5)); k.Bait[i] = Math.Min(Shelf.BaitMax, k.Bait[i] + qty * Shelf.PackOf[i]); }
-                    else if (item.StartsWith("rod:")) k.Rod = int.Parse(item.Substring(4));
-                    else if (item == "pouch") k.Pouch5 = true;
+                    var bits = what.Split('|'); string item = bits[0]; int qty = int.Parse(bits[1]);
+                    Company.Give(Firm.I.MyKit, item, qty);
                     Firm.I.Bought(item, qty);
                 }
             }, true);

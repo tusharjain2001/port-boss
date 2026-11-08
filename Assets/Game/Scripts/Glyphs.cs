@@ -62,6 +62,15 @@ namespace PortBoss.M1
                 // letter, the surf shop's board (Pratt's has the fish, Doyle's the boat, Hartley's the shirt)
                 "hook" => p => Mathf.Min(Mathf.Min(Ring(p, V(0.16f, 0.66f), 0.11f) - w, Seg(p, V(0.16f, 0.55f), V(0.16f, -0.22f)) - w),
                                 Mathf.Min(Arc(p, V(-0.12f, -0.22f), 0.28f, 180, 360) - w, Mathf.Min(Seg(p, V(-0.4f, -0.22f), V(-0.4f, 0.06f)) - w, Seg(p, V(-0.4f, 0.06f), V(-0.27f, -0.08f)) - w))),
+                // M8 tackle: a reel (spool ring, hub, crank), a spool of line with its loose end, a float on the water
+                "reel" => p => Mathf.Min(Mathf.Min(Ring(p, V(0, 0.1f), 0.5f) - w, Mathf.Min(Ring(p, V(0, 0.1f), 0.2f) - w * 0.8f, Disc(p, V(0, 0.1f), 0.07f))),
+                                Mathf.Min(Mathf.Min(Seg(p, V(0.12f, 0.2f), V(0.27f, 0.33f)) - w * 0.9f, Disc(p, V(0.29f, 0.35f), 0.1f)),
+                                Mathf.Min(Seg(p, V(0, -0.4f), V(0, -0.62f)) - w, Seg(p, V(-0.42f, -0.66f), V(0.42f, -0.66f)) - w * 1.1f))),
+                "line" => p => Mathf.Min(Mathf.Min(Seg(p, V(-0.5f, 0.6f), V(0.5f, 0.6f)) - w * 1.3f, Seg(p, V(-0.5f, -0.6f), V(0.5f, -0.6f)) - w * 1.3f),
+                                Mathf.Min(Mathf.Min(Seg(p, V(-0.34f, 0.3f), V(0.34f, 0.3f)) - w * 0.8f, Seg(p, V(-0.34f, 0f), V(0.34f, 0f)) - w * 0.8f),
+                                Mathf.Min(Seg(p, V(-0.34f, -0.3f), V(0.34f, -0.3f)) - w * 0.8f, Poly(p, V(0.34f, 0.3f), V(0.62f, 0.12f), V(0.78f, -0.3f)) - w * 0.7f))),
+                "float" => p => Mathf.Min(Mathf.Min(Mathf.Abs(Disc(p, V(0, -0.05f), 0.36f)) - w, Mathf.Max(Disc(p, V(0, -0.05f), 0.36f), -0.05f - p.y)),
+                                Mathf.Min(Seg(p, V(0, 0.3f), V(0, 0.74f)) - w, Seg(p, V(-0.78f, -0.5f), V(0.78f, -0.5f)) - w * 0.7f)),
                 "saw" => p => Mathf.Min(Poly(p, V(-0.72f, -0.12f), V(0.42f, -0.12f), V(0.42f, 0.26f), V(-0.6f, 0.08f), V(-0.72f, -0.12f)) - w,
                                 Mathf.Min(Poly(p, V(-0.66f, -0.12f), V(-0.57f, -0.26f), V(-0.48f, -0.12f), V(-0.39f, -0.26f), V(-0.3f, -0.12f), V(-0.21f, -0.26f), V(-0.12f, -0.12f), V(-0.03f, -0.26f), V(0.06f, -0.12f), V(0.15f, -0.26f), V(0.24f, -0.12f)) - w * 0.8f,
                                 Mathf.Abs(RBox(p, V(0.6f, 0.06f), V(0.16f, 0.24f), 0.08f)) - w)),

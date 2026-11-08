@@ -58,6 +58,10 @@ namespace PortBoss.M1
             else if (Arg("-pb-openingtest") != null) yield return OpeningTest(Arg("-pb-openingtest"));
             else if (Arg("-pb-probe") != null) yield return Probe();
             else if (Arg("-pb-pelicantest") != null) yield return PelicanTest(Arg("-pb-pelicantest"));
+            else if (Arg("-pb-tackletest") != null) yield return TackleTest(Arg("-pb-tackletest"));      // M8 (BotM8.cs)
+            else if (Arg("-pb-tacklecoop") != null) yield return TackleCoop(Arg("-pb-tacklecoop"));
+            else if (Arg("-pb-holdertest") != null) yield return HolderTest(Arg("-pb-holdertest"));
+            else if (Arg("-pb-holdercoop") != null) yield return HolderCoop(Arg("-pb-holdercoop"));
             else if (Arg("-pb-days24test") != null) yield return Days24Test(Arg("-pb-days24test"));
             else if (Arg("-pb-demotest") != null) yield return DemoTest(Arg("-pb-demotest"));
             else if (Arg("-pb-settingstest") != null) yield return SettingsTest(Arg("-pb-settingstest"));
