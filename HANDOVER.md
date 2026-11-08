@@ -84,7 +84,7 @@ Open questions for Manan:
 
 ---
 
-## 0b. M7 "demo polish", in progress (from 8 Nov 2026, branch `m7`; plan `docs/plan/M7-PLAN.md`)
+## 0b. M7 "demo polish", done and on `main` (8 Nov 2026, branch `m7`; plan `docs/plan/M7-PLAN.md`)
 
 Tushar asked for the next module while nobody can test by hand. M7 is built step by step on `m7`. Each step is tested headless and committed, and the branch is pushed. It is **not merged** until Tushar or Manan plays it (rule 10).
 
@@ -131,7 +131,7 @@ His decisions, 8 Nov:
 - The music player with empty slots for Manan (`docs/MUSIC-SLOTS.md`).
 - Demo mode (`PortBoss demo.bat`), the performance and store-shot tests, and **`docs/M7-HOW-TO-TEST.md`**.
 
-**M7 is waiting for a hand test (★).** After that, merge `m7` to `main`.
+**M7 passed the hand test (★):** Tushar and Manan played it (8 Nov, "we have tested"), and `m7` was merged into `main`. Next: M8 on branch `m8`.
 
 **Tests:**
 - `tools/companycheck.sh` (Company.StoryTest, OrderTest, MoorerTest)
