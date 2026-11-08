@@ -38,6 +38,17 @@ namespace PortBoss.M1
         public float LineKg => Tackle.LineKg(Kit, RodTier);
         public int Retries => Tackle.RetriesOf(Kit);
         public int Tries = 1;
+        // M8 step 3: a crewmate's landing net (LandingNet): one more go and a 10% wider green for the rest of this fight
+        public bool Netted; public string NetBy;
+        public Vector3 FishAt => fishUnder;
+        public void NetReady(string by)
+        {
+            if (Netted || !(State is St.Strike or St.Heavy or St.Minigame)) return;
+            Netted = true; NetBy = by;
+            if (State == St.Minigame) { Tries = Mathf.Min(Tackle.MaxStops, Tries + 1); ZoneW = Mathf.Min(0.6f, ZoneW * 1.1f); }
+            Alerts.Push("Landing net", $"{by} has the net ready: one more go, a wider green.", Alerts.Kind.Info);
+            OnLog?.Invoke("netted by " + by);
+        }
 
         // --- live state the HUD reads ---
         public float Power; public bool InSweet; public Vector3 Marker; public bool MarkerSnapped; public float MarkerDist;
@@ -240,7 +251,7 @@ namespace PortBoss.M1
                 markerT.gameObject.SetActive(false);
                 if (!IsWater(Marker)) { creakVol = 0; Go(St.Ready); return; }   // (walked off from the water while charging: no cast onto land)
                 CastFrom = transform.position;
-                rolled = false; rollId = NewRoll(); if (Coop.On) Coop.AskRoll(rollId, RodTier, BaitId); // answered long before the bite (≥ 4 s)
+                rolled = false; rollId = NewRoll(); Netted = false; if (Coop.On) Coop.AskRoll(rollId, RodTier, BaitId); // answered long before the bite (≥ 4 s)
                 flightT0 = Time.time; flightLen = 0.55f + 0.03f * dist; flightFrom = rod.Tip.position;
                 bob.gameObject.SetActive(true); bob.Floating = false; bob.Dip = bob.Yank = 0;
                 line.Live = true; line.Slack = 0.02f; line.Arc = true; line.Reset(rod.Tip.position, rod.Tip.position);
@@ -489,7 +500,7 @@ namespace PortBoss.M1
         {
             if (!me.Bar.Sel.Rod) me.Select(0);
             SetRod(c.Tier, true); BaitI = c.Bait;
-            rollId = c.RollId; rolled = c.Rolled; RolledByHost = c.ByHost; Hooked = c.Sp; rolledSp = c.Sp; rolledCm = c.Cm; rolledKg = c.Kg; rolledFish = c.Fish;
+            rollId = c.RollId; rolled = c.Rolled; RolledByHost = c.ByHost; Hooked = c.Sp; Netted = false; rolledSp = c.Sp; rolledCm = c.Cm; rolledKg = c.Kg; rolledFish = c.Fish;
             bob.gameObject.SetActive(true); bob.Pos = c.Float; bob.Floating = true; bob.Dip = 0.25f; bob.Yank = 0;
             line.Live = true; line.Arc = false; line.Slack = 0; line.Reset(rod.Tip.position, bob.transform.position);
             Marker = c.Float; CastFrom = transform.position; BiteSeenAt = Time.time; markerT.gameObject.SetActive(false); cancelHeld = 0; dragT = 0;
@@ -545,14 +556,14 @@ namespace PortBoss.M1
         void StartMinigame()
         {
             Go(St.Minigame);
-            Tries = Mathf.Min(Tackle.MaxStops, 1 + Retries + (HeavyFight ? 1 : 0));
+            Tries = Mathf.Min(Tackle.MaxStops, 1 + Retries + (HeavyFight ? 1 : 0) + (Netted ? 1 : 0));
             NextStop(first: true);
         }
 
         void NextStop(bool first)
         {
             int c = (int)Hooked.Class;
-            ZoneW = Mathf.Min(0.6f, FishDb.Green[c] * Rod.GreenMul * ZoneScale * (Settings.EasyFishing ? 1.3f : 1f));   // (M7: easy fishing, +30%)
+            ZoneW = Mathf.Min(0.6f, FishDb.Green[c] * Rod.GreenMul * ZoneScale * (Settings.EasyFishing ? 1.3f : 1f) * (Netted ? 1.1f : 1f));   // (M7: easy fishing, +30%; M8: a crewmate's net +10%)
             PtrSpeed = FishDb.Speed[c] * Rod.SpeedMul * SpeedScale * (first ? 1.00f : 1.08f) * Settings.Needle;          // (M7: the needle 70-100%)
             // the stop: the green in the middle (Manan); a heavy fish's retry: 50% ± 8–18% on a random side
             ZoneC = first ? 0.5f : 0.5f + (Rng.Next(2) == 0 ? -1 : 1) * (0.08f + 0.10f * (float)Rng.NextDouble());
@@ -639,6 +650,7 @@ namespace PortBoss.M1
             fishGo.transform.position = fishUnder;
             FishView.Swim(fishGo, 0.16f, 3f);
             if (Coop.On) Coop.Landed(rollId, Catch, stopTimes); // the host checks it against its roll (fishing §4.4)
+            if (Coop.On && Netted && Catch.Grade == 1) Coop.I.SendScoop(Catch.Species.Id);   // M8: the crewmate with the net scoops a Rare
             Go(St.Reel);
             OnLog?.Invoke($"landed {Catch.Species.Id} {Catch.Cm:F0} cm {Catch.Kg:F2} kg grade {Ponyo.GradeName[Catch.Grade]}");
         }

@@ -570,6 +570,7 @@ namespace PortBoss.M1
             Prompt = null;
             var s = Boat;
             var holder = RodHolders.Prompt(this); if (holder != null) { Prompt = holder; return; }   // M8: rod holders (with a line out, too)
+            var net = LandingNet.Prompt(this); if (net != null) { Prompt = net; return; }             // M8: the landing net for a crewmate's fight
             if (Busy || Fish.Locked || Shop.Open || YShop.Open || Wardrobe.Open || StoreUi.Open) return;
             // ladders from the water
             if (Swimming)

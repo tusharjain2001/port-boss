@@ -67,7 +67,7 @@ namespace PortBoss.M1
             if (!synced && co.Kits.TryGetValue(MyKey, out var theirs))
             {
                 mine.Rod = theirs.Rod; mine.Bait = theirs.Bait; mine.BaitI = theirs.BaitI; mine.Pouch5 = theirs.Pouch5; mine.Best = theirs.Best;
-                mine.Rods = theirs.Rods; mine.Reel = theirs.Reel; mine.Line = theirs.Line; mine.Hooks = theirs.Hooks; mine.Hook = theirs.Hook; mine.Sight = theirs.Sight;   // (M8 tackle)
+                mine.Rods = theirs.Rods; mine.Reel = theirs.Reel; mine.Line = theirs.Line; mine.Hooks = theirs.Hooks; mine.Hook = theirs.Hook; mine.Sight = theirs.Sight; mine.Net = theirs.Net;   // (M8 tackle)
             }
             co.Kits[MyKey] = mine;
             if (!synced) { seenMsg = 0; foreach (var m in co.Msgs) seenMsg = Mathf.Max(seenMsg, m.Id); seenLedger = co.Ledger.Count; StoryUi.I?.Mark(co); Log($"the crew's bank: ${co.Cash}, {co.Ledger.Count} ledger lines"); }
@@ -174,8 +174,8 @@ namespace PortBoss.M1
             Log($"bought {Company.ItemName(item, qty)}: bank ${c.Cash}");
             Snd.Play2D(Synth.Chime, 0.3f, 1.3f);
             if (item.StartsWith("rod:")) Bind();
-            if (item.StartsWith("reel:") || item.StartsWith("line:") || item.StartsWith("hook:") || item == "float")
-                Alerts.Push("Hook, Line & Sinker", item == "float" ? "The Sight float's on your line." : $"{Company.ItemName(item, 1)} on your rods.", Alerts.Kind.Info);
+            if (item.StartsWith("reel:") || item.StartsWith("line:") || item.StartsWith("hook:") || item == "float" || item == "net")
+                Alerts.Push("Hook, Line & Sinker", item == "float" ? "The Sight float's on your line." : item == "net" ? "The landing net's on your back. E beside a crewmate's fight." : $"{Company.ItemName(item, 1)} on your rods.", Alerts.Kind.Info);
         }
 
         public void AnswerMari(bool yes)

@@ -161,6 +161,12 @@ Tushar and Manan played M7 and Tushar said "start with m8". This round covers su
 - Co-op: `pb.hold`, plus the host's held rolls (`Coop.HoldBook`).
 - Tests: `-pb-holdertest`, `-pb-holdercoop`.
 
+**Step 3, the landing net** (`LandingNet.cs`):
+- $150 at June's, carried once bought.
+- E beside a crewmate's fight gives them +1 stop and a 10% wider green, and you scoop a Rare.
+- Co-op only: `pb.net`, `pb.scoop`.
+- Test: `-pb-netcoop`.
+
 **Tests:** `tools/m8test.sh <exe>`.
 
 ---

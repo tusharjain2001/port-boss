@@ -61,10 +61,16 @@
      - Leaving the tiller eases the throttle to stop (as before), so taking a trolled bite slows the boat while you fight.
      - Co-op: `pb.hold`. The host keeps each holder's roll aside (`Coop.HoldBook`), so a second line in the hands doesn't free it, and a bite taken becomes the hands' roll for the landed-fish check.
      - Test `-pb-holdercoop` covers this.
-3. **The landing net (F11).**
+3. **The landing net (F11).** *(built 8 Nov)*
    - $150 at June's, a hotbar tool.
    - A crewmate with the net within 2 m of a fighting angler presses E ("Ready the net"). The angler gets +1 retry and +10% green, and on a Rare the friend scoops it.
    - Test `-pb-netcoop` host and rider.
+   - **Built as:**
+     - `LandingNet.cs`. Once bought, the net is carried rather than taking a hotbar slot (a hotbar tool would touch the synced hotbar and the save). It's on June's Tackle tab.
+     - E within 2 m of a crewmate's fight: the net shows in both hands on every screen (the character's two-hand grip), angled at the fish.
+     - The angler gets +1 stop and a ×1.1 green zone for that fight (`Fishing.NetReady`). If the net arrives during the strike, the fight starts with both.
+     - On a Rare the helper scoops it: the net dips and lifts, a splash, a cheer, and "Scooped!" for both.
+     - Co-op: `pb.net` and `pb.scoop`.
 4. **Swell Surf Co. and Kai.**
    - The shop is the building already at the Cut.
    - Kai Rennick keeps the counter. He is a new keeper look: sun-bleached hair, open shirt, shell necklace, barefoot.

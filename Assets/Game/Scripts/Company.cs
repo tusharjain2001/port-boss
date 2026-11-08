@@ -55,12 +55,13 @@ namespace PortBoss.M1
         public int Reel, Line, Hooks = 1, Hook;                    // M8 tackle (Tackle.cs): the best reel and bought line (always on),
         public bool Sight;                                         //   the hooks owned (a bit each) and the one on; the Sight float
         public int Hand;                                           // M8: the rod in my hands (0: the best); not saved
+        public bool Net;                                           // M8: a landing net (co-op: E beside a crewmate's fight)
         public int HandRod => Hand > 0 && (Rods >> (Hand - 1) & 1) != 0 ? Hand : Rod;
         public int[] Bait = { 10, 0, 0, 0, 0 };                    // June's free bag of worms (10)
         public int BaitI;                                          // the bait on the hook
         public bool Pouch5;
         public Dictionary<string, float> Best = new();              // the journal: species -> the biggest landed (cm)
-        public Kit Copy() => new() { Rod = Rod, Rods = Rods, Reel = Reel, Line = Line, Hooks = Hooks, Hook = Hook, Sight = Sight, Bait = (int[])Bait.Clone(), BaitI = BaitI, Pouch5 = Pouch5, Best = new(Best) };
+        public Kit Copy() => new() { Rod = Rod, Rods = Rods, Reel = Reel, Line = Line, Hooks = Hooks, Hook = Hook, Sight = Sight, Net = Net, Bait = (int[])Bait.Clone(), BaitI = BaitI, Pouch5 = Pouch5, Best = new(Best) };
     }
 
     public enum DealSt { None, Offered, Declined, Active, GaveUp }
@@ -319,7 +320,7 @@ namespace PortBoss.M1
         public static void WriteKit(Json.W w, Kit k)
         {
             w.Obj().K("rod").V(k.Rod).K("baitI").V(k.BaitI).K("pouch5").V(k.Pouch5).K("bait").Arr(); foreach (var b in k.Bait) w.V(b); w.End();
-            w.K("rods").V(k.Rods).K("reel").V(k.Reel).K("line").V(k.Line).K("hooks").V(k.Hooks).K("hook").V(k.Hook).K("sight").V(k.Sight);
+            w.K("rods").V(k.Rods).K("reel").V(k.Reel).K("line").V(k.Line).K("hooks").V(k.Hooks).K("hook").V(k.Hook).K("sight").V(k.Sight).K("net").V(k.Net);
             w.K("best").Obj(); var ks = new List<string>(k.Best.Keys); ks.Sort(StringComparer.Ordinal); foreach (var id in ks) w.K(id).V(k.Best[id]); w.End();
             w.End();
         }
@@ -328,7 +329,7 @@ namespace PortBoss.M1
             var k = new Kit { Rod = Json.I(o, "rod", 1), BaitI = Json.I(o, "baitI"), Pouch5 = Json.B(o, "pouch5") };
             // M8: the tackle; an older save had only its best rod (and Walt's bamboo)
             k.Rods = Json.I(o, "rods", 1 | 1 << (Math.Clamp(k.Rod, 1, 5) - 1)) | 1; k.Reel = Math.Clamp(Json.I(o, "reel"), 0, 3); k.Line = Math.Clamp(Json.I(o, "line"), 0, 3);
-            k.Hooks = Json.I(o, "hooks", 1) | 1; k.Hook = Math.Clamp(Json.I(o, "hook"), 0, 3); if (!Tackle.Owns(k, k.Hook)) k.Hook = 0; k.Sight = Json.B(o, "sight");
+            k.Hooks = Json.I(o, "hooks", 1) | 1; k.Hook = Math.Clamp(Json.I(o, "hook"), 0, 3); if (!Tackle.Owns(k, k.Hook)) k.Hook = 0; k.Sight = Json.B(o, "sight"); k.Net = Json.B(o, "net");
             if (o.TryGetValue("bait", out var b) && b is List<object> l) for (int i = 0; i < 5 && i < l.Count; i++) k.Bait[i] = Convert.ToInt32(l[i], CultureInfo.InvariantCulture);
             if (o.TryGetValue("best", out var bo) && bo is Dictionary<string, object> bd) foreach (var kv in bd) k.Best[kv.Key] = (float)Convert.ToDouble(kv.Value, CultureInfo.InvariantCulture);
             return k;
@@ -376,7 +377,7 @@ namespace PortBoss.M1
                         for (int j = 0; j < k; j++) { var s = sp[r.Next(4)]; lots.Add(new Lot { Species = s, Everyday = s != "garfish", Value = 6 + r.Next(30), Fresh = r.Next(5) }); }
                         applied = c.Sell(Tx(), w, r.Next(2) == 0 ? Buyer.Pratt : Buyer.Mari, lots, t, out _) != null; break;
                     }
-                    case 2: { string[] items = { "bait:0", "bait:1", "bait:2", "bait:3", "bait:4", "rod:2", "rod:3", "pouch", "reel:1", "reel:3", "line:2", "hook:1", "hook:3", "float" }; applied = c.Buy(Tx(), w, w, items[r.Next(items.Length)], 1 + r.Next(3), t, out _); break; }
+                    case 2: { string[] items = { "bait:0", "bait:1", "bait:2", "bait:3", "bait:4", "rod:2", "rod:3", "pouch", "reel:1", "reel:3", "line:2", "hook:1", "hook:3", "float", "net" }; applied = c.Buy(Tx(), w, w, items[r.Next(items.Length)], 1 + r.Next(3), t, out _); break; }
                     case 3: applied = c.Spend(Tx(), w, "test spend", r.Next(200), t); break;
                     case 4: applied = txs.Count > 0 && (r.Next(2) == 0 ? c.Spend(txs[r.Next(txs.Count)], w, "replay", 1, t) : c.Earn(txs[r.Next(txs.Count)], w, "replay", 1, t)); if (applied) return $"step {i}: a replayed transaction was applied"; break;
                     case 5: applied = c.AnswerMari(r.Next(3) > 0, w, t); break;

@@ -71,6 +71,8 @@ namespace PortBoss.M1
                                 Mathf.Min(Seg(p, V(-0.34f, -0.3f), V(0.34f, -0.3f)) - w * 0.8f, Poly(p, V(0.34f, 0.3f), V(0.62f, 0.12f), V(0.78f, -0.3f)) - w * 0.7f))),
                 "float" => p => Mathf.Min(Mathf.Min(Mathf.Abs(Disc(p, V(0, -0.05f), 0.36f)) - w, Mathf.Max(Disc(p, V(0, -0.05f), 0.36f), -0.05f - p.y)),
                                 Mathf.Min(Seg(p, V(0, 0.3f), V(0, 0.74f)) - w, Seg(p, V(-0.78f, -0.5f), V(0.78f, -0.5f)) - w * 0.7f)),
+                "net" => p => Mathf.Min(Mathf.Min(Ring(p, V(0.18f, 0.3f), 0.38f) - w, Seg(p, V(-0.08f, 0.02f), V(-0.72f, -0.66f)) - w * 1.1f),
+                                Mathf.Min(Mathf.Min(Seg(p, V(-0.08f, 0.3f), V(0.44f, 0.3f)) - w * 0.6f, Seg(p, V(0.18f, 0.0f), V(0.18f, 0.62f)) - w * 0.6f), Poly(p, V(-0.1f, 0.12f), V(0.18f, -0.3f), V(0.46f, 0.12f)) - w * 0.7f)),
                 "saw" => p => Mathf.Min(Poly(p, V(-0.72f, -0.12f), V(0.42f, -0.12f), V(0.42f, 0.26f), V(-0.6f, 0.08f), V(-0.72f, -0.12f)) - w,
                                 Mathf.Min(Poly(p, V(-0.66f, -0.12f), V(-0.57f, -0.26f), V(-0.48f, -0.12f), V(-0.39f, -0.26f), V(-0.3f, -0.12f), V(-0.21f, -0.26f), V(-0.12f, -0.12f), V(-0.03f, -0.26f), V(0.06f, -0.12f), V(0.15f, -0.26f), V(0.24f, -0.12f)) - w * 0.8f,
                                 Mathf.Abs(RBox(p, V(0.6f, 0.06f), V(0.16f, 0.24f), 0.08f)) - w)),

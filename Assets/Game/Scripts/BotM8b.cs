@@ -131,6 +131,66 @@ namespace PortBoss.M1
             Application.Quit();
         }
 
+        // -pb-netcoop host|rider (M8 step 3): the landing net. The rider buys a net through the host and stands beside the
+        // host on the quay. The host casts; while the host fights, the rider sees "Ready the net for Host" and presses E:
+        // the host gets 2 stops (one more go) and a 10% wider green. The host misses the first stop and hits the second:
+        // a Rare, so the rider scoops it (both machines: the net out, the scoop).
+        IEnumerator NetCoop(string role)
+        {
+            Ctl.Bot = true; Sleep.Off = true; int fails = 0;
+            void Ok(bool ok, string what) { if (!ok) fails++; Debug.Log($"[PB] netcoop {role}: {what}: {(ok ? "ok" : "FAIL")}"); }
+            IEnumerator Until(System.Func<bool> c, float secs) { for (float t = 0; t < secs && !c(); t += Time.unscaledDeltaTime) yield return null; }
+            for (float t = 0; t < 40 && !(Coop.Joined && Coop.I.Roster.Count >= 2); t += Time.unscaledDeltaTime) yield return null;
+            Ok(Coop.Joined && Coop.I.Roster.Count >= 2, "the crew is together");
+            if (!Coop.Joined) { Debug.Log($"[PB] RESULT netcoop {role}: FAIL (never connected)"); Application.Quit(); yield break; }
+            var port = Landing.I != null ? Landing.I.transform.Find("Port") : null;
+            Vector3 P(float x, float y) => port.TransformPoint(new Vector3(-x, 1.32f, -y));
+            if (role == "host")
+            {
+                Firm.C.Earn(Firm.I.NewTx("test"), Firm.MyName, "netcoop", 5000, Sky.Minutes); Firm.I.Dirty = true;
+                me.Teleport(P(-8, -0.9f), 180); yield return new WaitForSeconds(0.5f);
+                var rider = Coop.I.Roster.Find(e => e.Id != Coop.Me);
+                yield return Until(() => Firm.C.Kits.TryGetValue(rider.Key ?? Coop.MyKey(rider.Name), out var rk) && rk.Net && Coop.I.Mates.TryGetValue(rider.Id, out var ra) && ra != null && (ra.transform.position - me.transform.position).magnitude < 2.5f, 40);
+                Ok(Coop.I.Mates.TryGetValue(rider.Id, out var rb) && (rb.transform.position - me.transform.position).magnitude < 2.5f, "the rider is beside me with a net");
+                Fishing.Bot.FightHeavy = true;
+                me.Select(0); yield return Until(() => fish.State == Fishing.St.Ready, 4);
+                Ctl.BotUse = true; Ctl.BotUsePressed = true; yield return null; Ctl.BotUsePressed = false;
+                yield return Until(() => fish.Power > 0.55f, 3); Ctl.BotUse = false;
+                yield return Until(() => fish.State == Fishing.St.Bite, 20);
+                yield return new WaitForSeconds(0.3f); Ctl.BotStrike = true; yield return null; Ctl.BotStrike = false;
+                yield return Until(() => fish.State == Fishing.St.Minigame, 4);
+                yield return Until(() => fish.Netted, 3);
+                float w0 = Mathf.Min(0.6f, FishDb.Green[(int)fish.Hooked.Class] * fish.Rod.GreenMul * Fishing.ZoneScale); int tries0 = 1 + fish.Retries + (fish.HeavyFight ? 1 : 0);
+                Ok(fish.Netted && fish.Tries == tries0 + 1 && Mathf.Abs(fish.ZoneW - Mathf.Min(0.6f, w0 * 1.1f)) < 1e-4f, $"the rider's net: {fish.Tries} stops (without it {tries0}), green {w0:F3} -> {fish.ZoneW:F3}");
+                yield return FightOnce(new[] { false, true }, "netted", false, true);
+                Ok(lastFight.landed && lastFight.grade == 1 && lastFight.stops == 2, $"missed, then hit: a Rare ({lastFight.stops} stops)");
+                yield return Until(() => LandingNet.I.Scoops > 0, 5);
+                Ok(LandingNet.I.Scoops == 1, "the rider scooped it (here)");
+                yield return new WaitForSeconds(4f);
+            }
+            else
+            {
+                yield return Until(() => Firm.C.Cash >= 5000, 30);
+                Firm.I.Buy("net", 1); yield return Until(() => Firm.I.MyKit.Net, 10);
+                Ok(Firm.I.MyKit.Net, "a landing net, bought through the host");
+                me.Teleport(P(-6.9f, -0.9f), 180); yield return new WaitForSeconds(0.5f);
+                var host = Coop.I.Mates.Count > 0 ? new System.Collections.Generic.List<Angler>(Coop.I.Mates.Values).Find(a => a != null) : null;
+                yield return Until(() => host != null && host.Fish.State is Fishing.St.Minigame or Fishing.St.Strike, 60);
+                yield return Until(() => me.Prompt != null && me.Prompt.StartsWith("Ready the net"), 2);
+                Ok(me.Prompt != null && me.Prompt.StartsWith("Ready the net for"), $"beside the host's fight: \"{me.Prompt}\"");
+                Ctl.BotInteract = true; yield return null; Ctl.BotInteract = false; yield return null;
+                Ok(LandingNet.I.On.Count == 1 && LandingNet.I.On[0].Net != null, "the net out in my hands");
+                shots = Arg("-pb-netshots"); if (shots != null) { Directory.CreateDirectory(shots); CameraRig.I.Yaw = me.transform.eulerAngles.y + 120; yield return new WaitForSeconds(0.5f); yield return Shot("net-ready"); }
+                yield return Until(() => LandingNet.I.Scoops > 0, 30);
+                Ok(LandingNet.I.Scoops == 1, "the Rare came up: I scooped it");
+                if (shots != null) { yield return new WaitForSeconds(0.45f); yield return Shot("net-scoop"); }
+                yield return new WaitForSeconds(4f);
+            }
+            Ok(Firm.C.Check() == "", "the company's invariants");
+            Debug.Log($"[PB] RESULT netcoop {role}: {(fails == 0 ? "PASS" : "FAIL")} ({fails} off)");
+            Application.Quit();
+        }
+
         IEnumerator CastLine(float power)
         {
             float t0 = Time.time; while (fish.State != Fishing.St.Ready && Time.time - t0 < 5) yield return null;

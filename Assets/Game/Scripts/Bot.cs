@@ -62,6 +62,7 @@ namespace PortBoss.M1
             else if (Arg("-pb-tacklecoop") != null) yield return TackleCoop(Arg("-pb-tacklecoop"));
             else if (Arg("-pb-holdertest") != null) yield return HolderTest(Arg("-pb-holdertest"));
             else if (Arg("-pb-holdercoop") != null) yield return HolderCoop(Arg("-pb-holdercoop"));
+            else if (Arg("-pb-netcoop") != null) yield return NetCoop(Arg("-pb-netcoop"));
             else if (Arg("-pb-days24test") != null) yield return Days24Test(Arg("-pb-days24test"));
             else if (Arg("-pb-demotest") != null) yield return DemoTest(Arg("-pb-demotest"));
             else if (Arg("-pb-settingstest") != null) yield return SettingsTest(Arg("-pb-settingstest"));

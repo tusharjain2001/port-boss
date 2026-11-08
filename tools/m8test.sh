@@ -9,6 +9,8 @@
 #     landed; worms at speed: dragged in, the rod rests, taken)
 #  4. -pb-holdercoop host + rider with -pb-netsim 150 2: the rider's holder rod on the host's screen, its roll kept aside
 #     while the rider casts a second line, the holder bite taken and landed: checked out on the host
+#  5. -pb-netcoop host + rider with -pb-netsim 150 2: the landing net (the rider readies it beside the host's fight: one
+#     more stop and a wider green; a Rare, the rider scoops it)
 # (the tackle's plain rules: tools/companycheck.sh, Company.TackleTest)
 . "$(dirname "$0")/env.sh"
 EXE=$1; PROOF=${2:-$PB_LOGS/m8}; D=$PB_LOGS/m8; rm -rf "$D"; mkdir -p "$D" "$PROOF"
@@ -35,6 +37,12 @@ hidden "$EXE" -batchmode -pb-join 127.0.0.1:$PORT -pb-name Rider1 -pb-holdercoop
 wait
 sum "holdercoop host" "$D/holdercoop-host.txt"; sum "holdercoop rider" "$D/holdercoop-rider.txt"
 
+PORT=$((7900 + RANDOM % 90))
+hidden "$EXE" -batchmode -pb-host -pb-port $PORT -pb-name Host -pb-seed 7 -pb-netcoop host -pb-netsim 150 2 -pb-quit 240 -logFile "$(W "$D/netcoop-host.txt")" &
+sleep 4
+hidden "$EXE" -batchmode -pb-join 127.0.0.1:$PORT -pb-name Rider1 -pb-netcoop rider -pb-netshots "$(W "$PROOF/net")" -pb-netsim 150 2 -pb-quit 240 -logFile "$(W "$D/netcoop-rider.txt")" &
+wait
+sum "netcoop host" "$D/netcoop-host.txt"; sum "netcoop rider" "$D/netcoop-rider.txt"
 
 cp "$D"/*.txt "$PROOF/" 2>/dev/null
 echo "== logs: $D  proof: $PROOF"

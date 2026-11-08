@@ -292,6 +292,8 @@ namespace PortBoss.M1
             if (k.Hook != 0) { int h0 = 0; var r0 = Row(y, 60, true); T(r0, "Bent hook (Walt's)", UiKit.Bold, 17, Ponyo.InkSoft, 88, 18, 300, 24); Pill(r0, "Use", RW - 120, 8, 104, 44, Ponyo.Paper2, Ponyo.Ink, () => Firm.I.UseHook(h0)).name = "btn Use hook:0"; y += 68; }
             Head("FLOATS");
             One("float", "float", Ponyo.Hex("E2553F"), null, "1.5x bigger with a bright halo: easy to spot far out", "On your line");
+            Head("THE LANDING NET · for a crewmate's fish");
+            One("net", "net", Ponyo.Hex("4E8F6E"), new Tackle.Piece { Name = "Landing net" }, "E beside a crewmate's fight: one more go, +10% green; a Rare, you scoop it", "On your back");
             Head("POUCH");
             return y;
         }

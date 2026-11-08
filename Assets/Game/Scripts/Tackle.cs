@@ -9,7 +9,7 @@ namespace PortBoss.M1
     // (FishDb.Rod.LineKg: the bamboo's frayed mono 8 kg ... Old Faithful's Walt's Line), so a bought line only helps a rod
     // strung lighter. One stop (rule 29): a hook's retries redo a missed stop (Barbed once, Treble twice); a heavy fish
     // keeps its own retry on top; never more than 5 stops (the host's check).
-    // Items on June's shelf: "reel:<1..3>", "line:<1..3>", "hook:<1..3>", "float".
+    // Items on June's shelf: "reel:<1..3>", "line:<1..3>", "hook:<1..3>", "float", and M8 step 3's "net" (the landing net).
     public static class Tackle
     {
         public class Piece { public string Name, Short, What; public int Price; public float Strike, Kg; public int Retries; }
@@ -35,7 +35,7 @@ namespace PortBoss.M1
             new() { Name = "Barbed hook", Short = "Barbed", Price = 250, Retries = 1, What = "A missed stop is redone once" },
             new() { Name = "Treble hook", Short = "Treble", Price = 1200, Retries = 2, What = "A missed stop is redone twice" },
         };
-        public const int FloatPrice = 30, MaxStops = 5;
+        public const int FloatPrice = 30, NetPrice = 150, MaxStops = 5;   // (the net: CHANGES B13, $150)
 
         public static float StrikeOf(Kit k) => Reels[Math.Clamp(k.Reel, 0, 3)].Strike + Hooks[Math.Clamp(k.Hook, 0, 3)].Strike;
         public static int RetriesOf(Kit k) => Hooks[Math.Clamp(k.Hook, 0, 3)].Retries;
@@ -44,17 +44,18 @@ namespace PortBoss.M1
         public static string Label(Kit k, int rodTier) => $"{Reels[Math.Clamp(k.Reel, 0, 3)].Short} · {Lines[LineOf(k, rodTier)].Short} · {Hooks[Math.Clamp(k.Hook, 0, 3)].Short}";
         public static bool Owns(Kit k, int hook) => hook == 0 || (k.Hooks >> hook & 1) != 0;
 
-        public static bool Is(string item) => item.StartsWith("reel:") || item.StartsWith("line:") || item.StartsWith("hook:") || item == "float";
+        public static bool Is(string item) => item.StartsWith("reel:") || item.StartsWith("line:") || item.StartsWith("hook:") || item == "float" || item == "net";
         static int N(string item) => int.Parse(item.Substring(5));
         static Piece[] Of(string item) => item.StartsWith("reel:") ? Reels : item.StartsWith("line:") ? Lines : Hooks;
-        static bool Valid(string item) => item == "float" || int.TryParse(item.Substring(5), out int n) && n >= 1 && n <= 3;
-        public static int Price(string item) => !Valid(item) ? -1 : item == "float" ? FloatPrice : Of(item)[N(item)].Price;
-        public static string Name(string item) => !Valid(item) ? item : item == "float" ? "Sight float" : Of(item)[N(item)].Name;
+        static bool Valid(string item) => item == "float" || item == "net" || item.Length > 5 && int.TryParse(item.Substring(5), out int n) && n >= 1 && n <= 3;
+        public static int Price(string item) => !Valid(item) ? -1 : item == "float" ? FloatPrice : item == "net" ? NetPrice : Of(item)[N(item)].Price;
+        public static string Name(string item) => !Valid(item) ? item : item == "float" ? "Sight float" : item == "net" ? "Landing net" : Of(item)[N(item)].Name;
         // why this can't be bought ("" = it can)
         public static string WhyNot(Kit k, string item)
         {
             if (!Valid(item)) return "Not for sale.";
             if (item == "float") return k.Sight ? "You own it." : "";
+            if (item == "net") return k.Net ? "You own it." : "";
             int n = N(item);
             if (item.StartsWith("reel:")) return k.Reel == n ? "You own it." : k.Reel > n ? "You've a better one." : "";
             if (item.StartsWith("line:")) { int have = Math.Max(k.Rod - 1, k.Line); return k.Line == n ? "You own it." : have >= n ? "Your rods hold as much." : ""; }
@@ -65,6 +66,7 @@ namespace PortBoss.M1
         {
             if (!Valid(item)) return;
             if (item == "float") { k.Sight = true; return; }
+            if (item == "net") { k.Net = true; return; }
             int n = N(item);
             if (item.StartsWith("reel:")) k.Reel = Math.Max(k.Reel, n);
             else if (item.StartsWith("line:")) k.Line = Math.Max(k.Line, n);
@@ -95,12 +97,13 @@ namespace PortBoss.M1
             if (!c.Buy("t8", "solo", "Pip", "hook:2", 1, 600, out why) || k.Hook != 2 || Tackle.RetriesOf(k) != 1 || Math.Abs(Tackle.StrikeOf(k) - 0.15f) > 1e-4) return "the Barbed hook goes on: one retry";
             if (!Tackle.UseHook(k, 1) || k.Hook != 1 || Tackle.UseHook(k, 3) || k.Hook != 1) return "the hook choice (owned only)";
             if (!c.Buy("t9", "solo", "Pip", "float", 1, 600, out _) || !k.Sight) return "the Sight float";
+            if (c.PriceOf("net", 1) != 150 || !c.Buy("t10", "solo", "Pip", "net", 1, 600, out _) || !k.Net || c.Buy("t11", "solo", "Pip", "net", 1, 600, out _)) return "the landing net, once";
             if (Tackle.Label(k, 2) != "Smooth reel · Mono 15 kg · Circle hook") return "the label: " + Tackle.Label(k, 2);
             // the save, and an old (M7) kit: the rod it had and Walt's bamboo
             var w = new Json.W(); WriteKit(w, k); var back = ReadKit((Dictionary<string, object>)Json.Parse(w.ToString()));
-            if (back.Reel != 2 || back.Line != 1 || back.Hooks != k.Hooks || back.Hook != 1 || !back.Sight || back.Rods != k.Rods) return "the kit through a save";
+            if (back.Reel != 2 || back.Line != 1 || back.Hooks != k.Hooks || back.Hook != 1 || !back.Sight || !back.Net || back.Rods != k.Rods) return "the kit through a save";
             var old = ReadKit((Dictionary<string, object>)Json.Parse("{\"rod\":3,\"baitI\":0,\"pouch5\":false,\"bait\":[1,0,0,0,0]}"));
-            if (old.Rods != 5 || old.Reel != 0 || old.Hook != 0 || old.Hooks != 1) return "an M7 save's kit: rods " + old.Rods;
+            if (old.Rods != 5 || old.Reel != 0 || old.Hook != 0 || old.Hooks != 1 || old.Net) return "an M7 save's kit: rods " + old.Rods;
             if (c.Check() != "") return c.Check();
             return "";
         }

@@ -91,7 +91,7 @@ namespace PortBoss.M1
             Reg(m, "pb.ask", OnAsk); Reg(m, "pb.clock", OnClock);
             Reg(m, "pb.roll", OnRoll); Reg(m, "pb.rolled", OnRolled);
             Reg(m, "pb.landed", OnLanded); Reg(m, "pb.tangle", OnTangle);
-            RegisterItems(m); Reg(m, "pb.voice", OnVoice); Reg(m, "pb.place", OnPlace); RegisterDay(m); RegisterSleep(m); RegisterFirm(m); RegisterM5(m); RegisterHold(m); Reg(m, "pb.shove", OnShove);
+            RegisterItems(m); Reg(m, "pb.voice", OnVoice); Reg(m, "pb.place", OnPlace); RegisterDay(m); RegisterSleep(m); RegisterFirm(m); RegisterM5(m); RegisterHold(m); RegisterNet(m); Reg(m, "pb.shove", OnShove);
             StartVoice();
             if (!host && System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-pb-oldjoin") < 0) gameObject.AddComponent<JoinView>(); // M3.1: the view waits till I'm me, where I was (JoinView)
             if (host)
