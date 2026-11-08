@@ -1,6 +1,6 @@
 # M8: surfing and fishing gear (plan, 8 Nov 2026)
 
-**Branch:** `m8` (from `main` @ `4e4a209`, after M7 was played and merged). **Status:** all 8 steps built (8 Nov). **Waiting for Manan's hand test (★)**: Tushar said "manan will test once m8 will be fully completed". Each step is tested headless and committed on `m8`. The branch is pushed to GitHub, and it goes to `main` only after Tushar or Manan plays it (HANDOVER rule 10).
+**Branch:** `m8` (from `main` @ `4e4a209`, after M7 was played and merged). **Status:** all 8 steps built (8 Nov). **Merged into `main` (8 Nov), waiting for Manan's hand test (★)**: Tushar said "push to main please then manan will check", so this time `main` got it before the test. Each step was tested headless and committed on `m8`. Manan's changes go on a new branch from `main`.
 
 **Scope** (systems §5.2 M8):
 - Swell Surf Co. and surfing (systems §1.7, world §10.3, economy §4.2);

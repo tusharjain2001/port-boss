@@ -142,7 +142,7 @@ His decisions, 8 Nov:
 
 ---
 
-## 0c. M8 "surfing and fishing gear", built, waiting for Manan's hand test (8 Nov 2026, branch `m8`; plan `docs/plan/M8-PLAN.md`; guide `docs/M8-HOW-TO-TEST.md`)
+## 0c. M8 "surfing and fishing gear", built and merged to `main`, waiting for Manan's hand test (8 Nov 2026, branch `m8`; plan `docs/plan/M8-PLAN.md`; guide `docs/M8-HOW-TO-TEST.md`)
 
 Tushar and Manan played M7 and Tushar said "start with m8". This round covers surfing and the fishing gear (F10–F11). **The gear guns wait for Manan's Q1 (§9).** Same way of working as M7: branch `m8`, each step tested headless and committed, the branch pushed, merged after a hand test (★). Unity may be closed and reopened for Blender.
 
@@ -187,7 +187,7 @@ Tushar and Manan played M7 and Tushar said "start with m8". This round covers su
 **Step 8, the build:**
 - `Builds\m1\PortBoss.exe` with `HOW-TO-TEST.md` (the same as `docs/M8-HOW-TO-TEST.md`).
 - **Manan tests the finished M8 (★):** Tushar, 8 Nov, "manan will test once m8 will be fully completed".
-- After his OK, merge `m8` into `main`.
+- **Merged into `main` before the hand test**, at Tushar's call (8 Nov: "push to main please then manan will check"). Manan plays it from `main`; his changes go on a new branch from `main`.
 
 **Tests:** `tools/m8test.sh <exe>`.
 

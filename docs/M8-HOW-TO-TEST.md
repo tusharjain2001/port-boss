@@ -1,6 +1,6 @@
 # Port Boss M8 (surfing and the fishing gear): how to test
 
-Build: `Builds\m1\PortBoss.exe`, branch `m8`. It isn't on `main` yet: it gets merged once one of you has played it.
+Build: `Builds\m1\PortBoss.exe`, from `main` (M8 was merged on 8 Nov, before this test, at Tushar's call).
 The plan, and the choices made in it: `docs/plan/M8-PLAN.md`. Allow about 60 minutes. Start with a **New game**.
 **The gear guns aren't in.** They wait for Manan's answer on Q1: guns as tools that never hurt anyone, and their prices.
 
