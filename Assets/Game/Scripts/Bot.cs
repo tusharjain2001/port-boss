@@ -58,6 +58,8 @@ namespace PortBoss.M1
             else if (Arg("-pb-openingtest") != null) yield return OpeningTest(Arg("-pb-openingtest"));
             else if (Arg("-pb-probe") != null) yield return Probe();
             else if (Arg("-pb-pelicantest") != null) yield return PelicanTest(Arg("-pb-pelicantest"));
+            else if (Arg("-pb-days24test") != null) yield return Days24Test(Arg("-pb-days24test"));
+            else if (Arg("-pb-demotest") != null) yield return DemoTest(Arg("-pb-demotest"));
             else if (Arg("-pb-staminatest") != null) yield return StaminaTest(Arg("-pb-staminatest") is string sd && sd != "" && !sd.StartsWith("-") ? sd : null);
             else if (Arg("-pb-laddertest") != null) yield return LadderTest(Arg("-pb-laddertest"));
             else if (Arg("-pb-camtest") != null) yield return CamTest((int)ArgF("-pb-camtest", 6));

@@ -162,7 +162,7 @@ namespace PortBoss.M1
         public PaintJob Copy() => (PaintJob)MemberwiseClone();
     }
     // a build waiting for the morning (Ingrid's crew, Doyle's slipway)
-    public sealed class Order { public string Tx, Item, Who; public int Ready; public double At; }
+    public sealed class Order { public string Tx, Item, Who; public int Ready; public double At, ReadyAt = -1; }   // ReadyAt (M7): a job done within the hour (Doyle's engine)
     public enum AskSt { Open, Approved, Declined, Lapsed }
     public sealed class Ask { public int Id; public string Key, Who, Item, Tx, Answer; public int Qty, Price, Arg; public double At; public AskSt St; }
     public enum Policy { Anyone, Ask, HostOnly }
@@ -241,7 +241,7 @@ namespace PortBoss.M1
                 case Fit.Repair:
                 {
                     var b = BoatOf(w.Boat); bool done = item.EndsWith(":engine") ? b.Engine : b.Hull;
-                    if (done) return "Done"; if (Ordered(item)) return instant ? "" : "On the slipway: ready 07:00"; break;
+                    if (done) return "Done"; if (Ordered(item)) { var od = Orders.Find(o => o.Item == item); return instant ? "" : od.ReadyAt >= 0 ? $"On the slipway: ready by {DayTime.Clock(od.ReadyAt)}" : "On the slipway: ready 07:00"; } break;
                 }
                 default:
                     if (Has(item)) return "Owned";
@@ -286,12 +286,22 @@ namespace PortBoss.M1
                 case Fit.Paint: StartPaint(w, arg, at); break;
                 case Fit.Repair:
                     if (instant) { Orders.RemoveAll(o => o.Item == item); Repair(w); }
-                    else Orders.Add(new Order { Tx = tx, Item = item, Who = who, At = at, Ready = DayTime.Day(DayTime.NextWake(at)) });
+                    else Orders.Add(new Order { Tx = tx, Item = item, Who = who, At = at, Ready = DayTime.Day(DayTime.NextWake(at)), ReadyAt = item.EndsWith(":engine") ? at + EngineHour : -1 });   // M7: Fergus does an engine in the hour (world §4.2)
                     break;
                 case Fit.Overnight: Orders.Add(new Order { Tx = tx, Item = item, Who = who, At = at, Ready = DayTime.Day(DayTime.NextWake(at)) + w.Nights - 1 }); break;
                 default: Install(item); break;
             }
             return true;
+        }
+        // M7: Doyle's engine rebuild is done within the in-game hour (Manan 31 Oct, world §4.2), not overnight
+        public const double EngineHour = 60;
+        void TickRepairs(double m)
+        {
+            for (int i = 0; i < Orders.Count; i++)
+            {
+                var o = Orders[i]; if (o.ReadyAt < 0 || m < o.ReadyAt) continue;
+                Orders.RemoveAt(i--); storyNow = Math.Max(storyNow, o.ReadyAt); var w = Catalog.Get(o.Item); if (w != null) Repair(w);
+            }
         }
         void Repair(Ware w) { var b = BoatOf(w.Boat); if (w.Id.EndsWith(":engine")) b.Engine = true; else b.Hull = true; Owned.Add(w.Id); Installed?.Invoke(w.Id); Event("fixed:" + w.Id, storyNow); }
         void Install(string item)
@@ -429,7 +439,7 @@ namespace PortBoss.M1
         {
             w.K("act").V(Act).K("spending").V((int)Spending).K("askNext").V(askNext);
             var own = new List<string>(Owned); own.Sort(StringComparer.Ordinal); w.K("owned").Arr(); foreach (var o in own) w.V(o); w.End();
-            w.K("orders").Arr(); foreach (var o in Orders) w.Obj().K("tx").V(o.Tx).K("item").V(o.Item).K("who").V(o.Who).K("ready").V(o.Ready).K("at").V(o.At).End(); w.End();
+            w.K("orders").Arr(); foreach (var o in Orders) w.Obj().K("tx").V(o.Tx).K("item").V(o.Item).K("who").V(o.Who).K("ready").V(o.Ready).K("at").V(o.At).K("readyAt").V(o.ReadyAt).End(); w.End();
             var bk = new List<string>(Boats.Keys); bk.Sort(StringComparer.Ordinal);
             w.K("boats").Obj();
             foreach (var k in bk)
@@ -465,7 +475,7 @@ namespace PortBoss.M1
         {
             Act = Json.I(o, "act", 1); Spending = (Policy)Json.I(o, "spending", (int)Policy.Ask); askNext = Json.I(o, "askNext", 1);
             if (o.TryGetValue("owned", out var ow) && ow is List<object> ol) foreach (var x in ol) Owned.Add((string)x);
-            if (o.TryGetValue("orders", out var od) && od is List<object> odl) foreach (Dictionary<string, object> e in odl) Orders.Add(new Order { Tx = Json.S(e, "tx"), Item = Json.S(e, "item"), Who = Json.S(e, "who"), Ready = Json.I(e, "ready"), At = Json.D(e, "at") });
+            if (o.TryGetValue("orders", out var od) && od is List<object> odl) foreach (Dictionary<string, object> e in odl) Orders.Add(new Order { Tx = Json.S(e, "tx"), Item = Json.S(e, "item"), Who = Json.S(e, "who"), Ready = Json.I(e, "ready"), At = Json.D(e, "at") , ReadyAt = Json.D(e, "readyAt", -1) });
             if (o.TryGetValue("boats", out var bo) && bo is Dictionary<string, object> bd)
                 foreach (var kv in bd)
                 {

@@ -604,6 +604,7 @@ namespace PortBoss.M1
             }
             if (OnBoat && s.AnchorPt != null && Near(s.AnchorPt.position, 1.4f) && !s.Moored) { Prompt = s.AnchorT >= 0 ? "…" : s.Anchored ? "Raise the anchor" : "Drop the anchor"; if (Ctl.Interact) { if (s.Remote) Coop.Request(Coop.Ask.Anchor); else s.ToggleAnchor(); } return; }
             var leak = s.LeakPrompt(this); if (leak != null) { Prompt = leak; return; }  // M3: patch the leak, bail
+            var line = StoryUi.LinePrompt(this); if (line != null) { Prompt = line; return; } // M7: Mari's line, before her counter's prompt
             var shop = Firm.Prompt(this); if (shop != null) { Prompt = shop; return; } // M4: the shop counters
             var post = StoryUi.Prompt(this); if (post != null) { Prompt = post; return; } // M7: the mailbox
             var works = Works.Prompt(this) ?? Workers.Prompt(this); if (works != null) { Prompt = works; return; } // M5: Doyle's, Plank & Post, Hartley's, the wardrobe, the warehouse

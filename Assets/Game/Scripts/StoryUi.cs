@@ -15,6 +15,9 @@ namespace PortBoss.M1
     //   Journal). M7 step 2 adds the mailbox.
     // - M7 step 2: a new game opens in Walt's cot (Sleep.WakeOpening), then his letter on the desk. The post comes to the
     //   mailbox at the pier's head (a code-built box on a post, its red flag up while a letter waits; E reads it).
+    // - M7 step 4, moments in the world, played where you are (each raises its event once; the story texts after):
+    //   the conger's head under Walt's pier after dark from Day 2 (on foot, near the pier: June's text), a swordfish
+    //   leaping ahead of you at sea on Day 3 from 3 PM (Dot's), Mari's line to catch when she ties up (E at her bow).
     // - The ring, the captions and the page card run on game time (a pause holds them; tests at -pb-fps see them right).
     // - Event(): what the world tells the story. The host books it; a crewmate's machine sends it (CoopFirm "pb.ev").
     public class StoryUi : MonoBehaviour
@@ -37,6 +40,8 @@ namespace PortBoss.M1
         // the letter card
         RectTransform letRoot; float letAt; public Company.Letter Reading;
         public static bool LetterOpen => I != null && I.Reading != null;
+        // M7 step 5: the demo's end card
+        RectTransform endRoot; bool endShown, endReady; public bool EndUp => endRoot != null && endReady;   // (up: fully shown, taking input)
         // the opening (a new game) and the mailbox
         public static bool OpeningNext;                             // (Save.NewWorld; -pb-opening in a test)
         public bool InOpening;
@@ -55,6 +60,10 @@ namespace PortBoss.M1
             Company.PrattName => Ponyo.Hex("8D96A3"),
             Company.FergusName => Ponyo.Hex("D9822B"),
             Company.AmaraName => Ponyo.Hex("B5446E"),
+            Company.HugoName => Ponyo.Hex("7E6BB8"),
+            Company.IngridName => Ponyo.Hex("6E8B3D"),
+            Company.DotName => Ponyo.Hex("2E6FA8"),
+            Company.UnknownName => Ponyo.Hex("3F3A48"),
             "Notifications" => Ponyo.Hex("8C7468"),
             _ => Ponyo.Hex("4C5BB8"),
         };
@@ -97,6 +106,128 @@ namespace PortBoss.M1
             capLine.horizontalOverflow = HorizontalWrapMode.Wrap;
             capRoot.SetAsFirstSibling(); capRoot.gameObject.SetActive(false);   // (under the phone and the fades)
             BuildMailbox();
+        }
+
+        // ---- moments in the world (M7 step 4): played on my screen when I'm where they happen
+        GameObject show; float showT; System.Action<float> showTick;
+        public GameObject ShowObj => show;                          // (tests: the moment playing now)
+        void Moments(Company c)
+        {
+            if (show != null) { showT += Time.deltaTime; showTick?.Invoke(showT); return; }
+            var me = Angler.I; if (me == null || me.Remote || Sky.Minutes < 1) return;
+            double m = Sky.Minutes; int day = DayTime.Day(m); double h = DayTime.OfDay(m);
+            var l = Landing.I;
+            // the conger: after dark (20:00-01:00) from Day 2, on foot within 30 m of the pier's ladder
+            if (!c.Seen("conger") && day >= 2 && (h >= 20 * 60 || h < 60) && l != null && l.LadderBottom != null && !me.OnBoat && !me.Swimming
+                && Vector3.Distance(me.transform.position, l.LadderBottom.position) < 30f)
+            {
+                var o = l.LadderBottom.position - l.LadderTop.position; o.y = 0; o = o.sqrMagnitude > 1e-4f ? o.normalized : l.transform.right;   // (out from the pier: the ladder leans out)
+                PlayConger(l.LadderBottom.position + o * 2.2f);            // in open water beside the pier, not under its planks
+            }
+            // the swordfish: Day 3 on, 15:00-18:00, at sea more than 250 m from the landing
+            else if (!c.Seen("swordfish") && day >= 3 && h >= 15 * 60 && h < 18 * 60 && me.OnBoat && l != null && Vector3.Distance(me.transform.position, l.transform.position) > 250f) PlaySwordfish(me);
+        }
+        GameObject FishShow(string id, float cm)
+        {
+            var sp = FishDb.Get(id); if (sp == null) return null;
+            var v = FishView.Make(new Fish { Species = sp, Cm = cm }, null); return v != null ? v.gameObject : null;
+        }
+        void PlayConger(Vector3 near)
+        {
+            var g = FishShow("conger", 150); if (g == null) { Event("conger"); return; }
+            show = g; showT = 0; var at = near + Vector3.down * 0.3f; at.y = Sea.Height(at);
+            g.transform.position = at + Vector3.down * 0.9f; g.transform.rotation = Quaternion.Euler(-70, Random.Range(0f, 360f), 0);
+            Snd.Play(M1Assets.I.Splash, at, 0.35f, 0.7f); PortBoss.M1.Fx.Ring(at, 0.8f, 1.6f);
+            Log("the conger's head under Walt's pier");
+            showTick = t =>
+            {
+                float up = t < 1.2f ? Mathf.SmoothStep(0, 1, t / 1.2f) : t < 3.2f ? 1 : Mathf.SmoothStep(1, 0, (t - 3.2f) / 0.8f);
+                g.transform.position = at + Vector3.down * Mathf.Lerp(0.9f, 0.15f, up) + Vector3.right * Mathf.Sin(t * 3) * 0.04f;
+                if (t > 4.1f) { Snd.Play(M1Assets.I.Splash, at, 0.3f, 0.6f); End("conger"); }
+            };
+        }
+        void PlaySwordfish(Angler me)
+        {
+            var g = FishShow("swordfish", 260); if (g == null) { Event("swordfish"); return; }
+            show = g; showT = 0;
+            var cam = CameraRig.I != null ? CameraRig.I.Cam.transform : null;   // (where I'm looking: it's for being seen)
+            var fwd = cam != null ? cam.forward : me.Boat != null ? me.Boat.transform.forward : me.transform.forward; fwd.y = 0; fwd.Normalize();
+            var a = me.transform.position + fwd * 38 + Vector3.Cross(Vector3.up, fwd) * 6; a.y = Sea.Height(a);
+            var b = a + fwd * 14 + Vector3.Cross(Vector3.up, fwd) * 4; b.y = Sea.Height(b);
+            Snd.Play(M1Assets.I.Splash, a, 0.6f, 0.8f); PortBoss.M1.Fx.Splash(a, 0.5f, 18);
+            Log("a swordfish leaps");
+            showTick = t =>
+            {
+                float k = Mathf.Clamp01(t / 1.6f); var p = Vector3.Lerp(a, b, k) + Vector3.up * (6f * 4 * k * (1 - k) - 0.6f);
+                var v = (b - a) / 1.6f + Vector3.up * 6f * 4 * (1 - 2 * k) / 1.6f;
+                g.transform.SetPositionAndRotation(p, Quaternion.LookRotation(v.normalized) * Quaternion.Euler(0, 90, 0));
+                if (k >= 1) { Snd.Play(M1Assets.I.Splash, b, 0.6f, 0.7f); PortBoss.M1.Fx.Splash(b, 0.5f, 18); End("swordfish"); }
+            };
+        }
+        void End(string ev) { if (show != null) Destroy(show); show = null; showTick = null; Event(ev); }
+
+        // Mari's line (M7 step 4): for 12 minutes after she ties up, E at her bow catches it (Story: "mari:here" / "mari:tied")
+        public static string LinePrompt(Angler me)
+        {
+            var c = Firm.C; if (c == null || I == null || me.Remote || me.OnBoat || me.Swimming || !c.Fired("mari:here") || c.Seen("mari:tied") || c.Fired("mari:self")) return null;
+            var st = Firm.I?.Stalls.Find(s => s.K == Firm.Kind.Mari); if (st == null) return null;
+            var d = st.Front - me.transform.position; d.y *= 0.5f; if (d.magnitude > 3f) return null;
+            if (Ctl.Interact) { Event("mari:tied"); Snd.Play2D(Synth.Ratchet, 0.4f, 1.2f); Log("caught Mari's line"); }
+            return "Catch Mari's line";
+        }
+
+        // ---- M7 step 5: the demo's end. The phone buzzes with the unknown number; then the screen dims to a paper card: to be
+        //      continued, what comes next, the days and the money, Keep fishing / Quit. (The demo build only: Company.Demo.)
+        System.Collections.IEnumerator EndCard(Company c)
+        {
+            Log("the demo ends");
+            yield return new WaitForSeconds(1.5f);
+            if (Phone.IsOpen) Phone.I.Hide(); Close();
+            var dim = UiKit.Img(hud, null, new Color(0.11f, 0.12f, 0.24f, 0), "demo end"); dim.rectTransform.Stretch(); endRoot = dim.rectTransform; endRoot.SetAsLastSibling();
+            Ctl.Ui = 2; endReady = false;                                    // (no walking off while it dims)
+            for (float t = 0; t < 1.6f; t += Time.deltaTime) { if (dim == null) yield break; dim.color = new Color(0.11f, 0.12f, 0.24f, Mathf.SmoothStep(0, 0.78f, t / 1.6f)); yield return null; }
+            if (dim == null) yield break;
+            const float w = 720; float y = 40;
+            var card = UiKit.Card(endRoot, "card", 16, Ponyo.Hex("FFFBF2"), true, Ponyo.Line, 4);
+            Text T(string s, Font f, int size, Color col, TextAnchor a = TextAnchor.UpperCenter, float pad = 60)
+            {
+                var t = UiKit.Txt(card, s, f, size, col, a); t.horizontalOverflow = HorizontalWrapMode.Wrap; t.lineSpacing = 1.1f;
+                t.rectTransform.Place(new Vector2(0, 1), new Vector2(pad, -y), new Vector2(w - 2 * pad, 20), new Vector2(0, 1));
+                float h = t.preferredHeight; t.rectTransform.sizeDelta = new Vector2(w - 2 * pad, h); y += h; return t;
+            }
+            T(UiKit.Caps("Port Boss · the demo"), UiKit.Bold, 13, Phone.SubInk); y += 10;
+            T("To be continued", UiKit.DisplayBold, 52, Ponyo.Ink); y += 18;
+            T("Somebody has noticed the Landing is waking up. Pratt's been on the phone to Voss Harbour, and the number that texted you isn't done.", UiKit.Display, 21, Ponyo.Ink); y += 14;
+            T("In the full game: hire a crew and send them fishing, a second boat, the office restored, piers and ship orders, Voss and his men, and the vote for the Harbour Charter.", UiKit.Body, 17, Phone.SubInk); y += 22;
+            int days = DayTime.Day(Sky.Minutes); int fish = 0; foreach (var e in c.Ledger) if (e.Tx.StartsWith("sell") || e.What.StartsWith("Sold")) fish++;
+            T($"{days} days at Walt's Landing · ${c.Earned:N0} earned · {(c.Mari == DealSt.Active ? "Mari moored" : "no moorers yet")}{(c.Seen("amara:1") ? " · Amara's first order" : "")}", UiKit.Bold, 16, Ponyo.Ink); y += 18;
+            T("Wishlist Port Boss on Steam to hear when it's out.", UiKit.Body, 16, Phone.SubInk); y += 26;
+            float bw = 220;
+            var keep = UiKit.Card(card, "btn Keep fishing", 26, Ponyo.Paper2, true, Ponyo.Line, 3); keep.Place(new Vector2(0.5f, 1), new Vector2(-bw / 2 - 12, -y), new Vector2(bw, 52), new Vector2(0.5f, 1));
+            var kt = UiKit.Txt(keep, "Keep fishing", UiKit.Bold, 19, Ponyo.Ink, TextAnchor.MiddleCenter); kt.rectTransform.Stretch();
+            var quit = UiKit.Card(card, "btn Quit", 26, Ponyo.Sunflower, true, Ponyo.Line, 3); quit.Place(new Vector2(0.5f, 1), new Vector2(bw / 2 + 12, -y), new Vector2(bw, 52), new Vector2(0.5f, 1));
+            var qt = UiKit.Txt(quit, "Quit", UiKit.Bold, 19, Ponyo.Ink, TextAnchor.MiddleCenter); qt.rectTransform.Stretch();
+            keepBtn = keep; quitBtn = quit; y += 52 + 40;
+            card.Place(new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(w, y));
+            endReady = true; if (!Application.isBatchMode) { Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }
+            Snd.Play2D(Synth.Horn, 0.35f, 0.75f);
+            if (Sky.Authority && Save.Enabled) Save.Write("demo end");
+        }
+        RectTransform keepBtn, quitBtn;
+        void EndInput()
+        {
+            if (keepBtn == null) return;
+            var kb = Keyboard.current; var pad = Gamepad.current; var ms = Mouse.current; var cam = CameraRig.I != null ? CameraRig.I.UiCam : null;
+            bool Hit(RectTransform r) => ms != null && ms.leftButton.wasPressedThisFrame && RectTransformUtility.RectangleContainsScreenPoint(r, ms.position.ReadValue(), cam);
+            if (Hit(keepBtn) || kb != null && (kb.enterKey.wasPressedThisFrame || kb.escapeKey.wasPressedThisFrame) || pad != null && pad.buttonSouth.wasPressedThisFrame) KeepFishing();
+            else if (Hit(quitBtn) || kb != null && kb.qKey.wasPressedThisFrame || pad != null && pad.buttonEast.wasPressedThisFrame) { Log("quit from the demo's end"); Application.Quit(); }
+        }
+        public void KeepFishing()
+        {
+            if (endRoot == null) return;
+            Destroy(endRoot.gameObject); endRoot = null; endReady = false; keepBtn = quitBtn = null; Ctl.Ui = 0; Ctl.UiEsc = Time.frameCount;
+            if (!Application.isBatchMode && !Game.Paused) { Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false; }
+            Log("keep fishing after the demo's end");
         }
 
         // ---- the opening: wake in the cot, then Walt's letter on the desk
@@ -164,7 +295,9 @@ namespace PortBoss.M1
             foreach (var l in c.Letters) if (l.Id > seenLetter) { seenLetter = l.Id; NewLetter(l); }
             foreach (var k in c.Calls) if (k.Id > seenCall) { seenCall = k.Id; if (Sky.Minutes - k.At <= 20) Ring(k); else Missed.Add(k.Id); }
             foreach (var p in c.Pages) if (p.Id > seenPage) { seenPage = p.Id; ShowPage(p); }
-            Rings(); Captions(); PageCard(); LetterCard();
+            Rings(); Captions(); PageCard(); LetterCard(); Moments(c);
+            if (!endShown && c.Seen("demo:end")) { endShown = true; StartCoroutine(EndCard(c)); }
+            if (endRoot != null) EndInput();
             if (flag != null) flag.localRotation = Quaternion.Slerp(flag.localRotation, Quaternion.Euler(Post() != null ? 0 : -90, 0, 0), Time.deltaTime * 6);
         }
 

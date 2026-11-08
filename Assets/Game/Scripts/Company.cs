@@ -172,6 +172,7 @@ namespace PortBoss.M1
             if (item.StartsWith("bait:"))
             {
                 int i = int.Parse(item.Substring(5));
+                if (i == 1 && Morning < 2) return "In tomorrow";                  // M7: June's shrimp comes on Day 2 (world §9.1)
                 if (i == 4 && k.Rod < 5) return "Only for Old Faithful.";
                 if (Shelf.NeedsPouch(i) && !k.Pouch5) return "Needs the tackle pouch.";
                 if (k.Bait[i] + qty * Shelf.PackOf[i] > Shelf.BaitMax) return "Your pouch is full.";
@@ -208,7 +209,7 @@ namespace PortBoss.M1
             while (Morning < today) { Morning++; RunMorning(Morning, DayTime.At(Morning, DayTime.Wake)); }
             if (BoardDay == 0) RefreshBoard(Math.Max(1, today));   // M6: Rosie's first board (a new game, or a save from before M6)
             if (Mari == DealSt.None && (Earned >= MariEarned || m >= DayTime.At(MariDay, DayTime.Wake))) OfferMari(m);
-            TickOrders(m); TickStory(m);                         // M7: fish orders (Orders.cs), the story's beats (Story.cs)
+            TickRepairs(m); TickOrders(m); TickMoorers(m); TickStory(m);   // M7: Doyle's hour, fish orders, Hugo & Fifi, the story's beats
         }
 
         void RunMorning(int day, double at)
@@ -216,6 +217,7 @@ namespace PortBoss.M1
             storyNow = at; Sold.Clear(); MariToday = 0; MorningM5(day);
             if (Mari == DealSt.Active && day >= MariFirstPay) Earn($"rent:mari:{day}", "Mari Duarte", "Mari's mooring · B1", MariPrice, at);
             if (Mari == DealSt.Declined && day >= MariRetry) { MariPrice = MariFee + MariStep * MariAsk; OfferMari(at); }
+            MorningM7(day, at);   // M7: Hugo & Fifi's rent (Moorers.cs)
             MorningM6(day, at);   // M6: Rosie's board, then wages (after the morning's rent is in)
         }
 
@@ -300,7 +302,7 @@ namespace PortBoss.M1
             w.K("msgs").Arr(); foreach (var m in Msgs) w.Obj().K("id").V(m.Id).K("from").V(m.From).K("text").V(m.Text).K("at").V(m.At).K("me").V(m.Me).K("offer").V(m.Offer).K("read").V(m.Read).End(); w.End();
             var kk = new List<string>(Kits.Keys); kk.Sort(StringComparer.Ordinal);
             w.K("kits").Obj(); foreach (var k in kk) WriteKit(w.K(k), Kits[k]); w.End();
-            WriteM5(w); WriteM6(w); WriteStory(w); WriteOrders(w);
+            WriteM5(w); WriteM6(w); WriteStory(w); WriteOrders(w); WriteMoorers(w);
             w.End();
         }
         public static void WriteKit(Json.W w, Kit k)
@@ -332,7 +334,7 @@ namespace PortBoss.M1
             if (o.TryGetValue("msgs", out var ms) && ms is List<object> ml)
                 foreach (Dictionary<string, object> e in ml) c.Msgs.Add(new Msg { Id = Json.I(e, "id"), From = Json.S(e, "from"), Text = Json.S(e, "text"), At = Json.D(e, "at"), Me = Json.B(e, "me"), Offer = Json.S(e, "offer"), Read = Json.B(e, "read") });
             if (o.TryGetValue("kits", out var ko) && ko is Dictionary<string, object> kd) foreach (var kv in kd) c.Kits[kv.Key] = ReadKit((Dictionary<string, object>)kv.Value);
-            c.ReadM5(o); c.ReadM6(o); c.ReadStory(o); c.ReadOrders(o);
+            c.ReadM5(o); c.ReadM6(o); c.ReadStory(o); c.ReadOrders(o); c.ReadMoorers(o);
             return c;
         }
         public string ToJson() { var w = new Json.W(); Write(w); return w.ToString(); }
@@ -423,7 +425,7 @@ namespace PortBoss.M1
             var stale = mk; stale.Fresh = 2; if (s.Quote(Buyer.Pratt, new[] { stale }, DayTime.At(4, 600), out _)[0] != 4) return "a Stale $10 mackerel at Pratt's should be $4 (10 x 0.6 x 0.6)";
             var rot = mk; rot.Fresh = 4; if (s.Quote(Buyer.Pratt, new[] { rot }, DayTime.At(4, 600), out _) != null) return "Pratt bought a rotten fish";
             // 4) June's: no negative bank, pouch rule, the rod
-            var j = new Company();
+            var j = new Company(); j.Tick(DayTime.At(2, 420));                 // (M7: Day 2, when June has shrimp in)
             if (j.Buy("b1", "solo", "Pip", "rod:2", 1, 500, out why)) return "bought a $450 rod with $40";
             if (!j.Buy("b2", "solo", "Pip", "bait:1", 3, 500, out why) || j.Cash != 4 || j.KitOf("solo").Bait[1] != 30) return "3 packs of shrimp ($36): " + why;
             if (j.Buy("b3", "solo", "Pip", "bait:0", 1, 500, out _)) return "bought $5 worms with $4";

@@ -61,7 +61,7 @@ namespace PortBoss.M1
             }
             Hud.Create(rig.UiCam, p);
             Sleep.Create(); // M3: Walt's cot, tired, the night skip
-            Company.CrewSeed = Sky.Seed; Firm.Create(); Pelican.Create(); Works.Create(); Signs.Create(); Town.Create(); Workers.Create(); Phone.Create(); StoryUi.Create(); Shop.Create(); YShop.Create(); Wardrobe.Create(); StoreUi.Create(); Pouch.Create(); // M4: the company, the phone (Tab), the shop counters
+            Company.CrewSeed = Sky.Seed; Firm.Create(); Pelican.Create(); Yacht.Create(); Works.Create(); Signs.Create(); Town.Create(); Workers.Create(); Phone.Create(); StoryUi.Create(); Shop.Create(); YShop.Create(); Wardrobe.Create(); StoreUi.Create(); Pouch.Create(); // M4: the company, the phone (Tab), the shop counters
             BakeIcons(a);
 
             sea = gameObject.AddComponent<AudioSource>(); sea.clip = a.Waves; sea.loop = true; sea.volume = 0.32f; sea.spatialBlend = 0; sea.Play();
@@ -75,6 +75,9 @@ namespace PortBoss.M1
             Skiff.ColdStarts = !Application.isBatchMode || System.Array.IndexOf(args, "-pb-coldstart") >= 0;
             if (Application.isBatchMode && Skiff.ColdStarts) Skiff.I?.Fresh();
             if (System.Array.IndexOf(args, "-pb-opening") >= 0) StoryUi.OpeningNext = true;
+            // M7 step 5: the Steam demo ends on the evening of Day 4 (the demo build carries StreamingAssets/demo; -pb-demo in tests)
+            Company.Demo = System.Array.IndexOf(args, "-pb-demo") >= 0 || System.IO.File.Exists(System.IO.Path.Combine(Application.streamingAssetsPath, "demo"));
+            if (Company.Demo) Debug.Log("[PB] the demo build: it ends as Act 2 begins");
             void Welcome() { if (StoryUi.OpeningNext && StoryUi.I != null) StoryUi.I.StartCoroutine(StoryUi.I.Opening()); else StartCoroutine(Tips()); }
             IEnumerator Tips()
             {

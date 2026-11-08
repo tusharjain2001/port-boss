@@ -157,7 +157,7 @@ namespace PortBoss.M1
         string Key()
         {
             var c = Firm.C; int minute = (int)Sky.Minutes;
-            return $"{Screen}|{Thread}|{minute}|{c?.Cash}|{c?.Msgs.Count}|{c?.Mari}|{c?.Ledger.Count}|{c?.MariTracked}|{Unread()}|{Alerts.Queue.Count}|{mapFilter}|{(int)scroll}|{Settings.MouseSens:F2}|{Settings.Invert}|{Settings.TimingOffsetMs}|{Settings.Voice}|{H24}|{Firm.I?.MyKit.Rod}|{CrewTab}|{crewEdit}|{eWho}|{eSpot}|{eBait}|{eSh}|{eBack}|{c?.Staff.Count}|{c?.Board.Count}|{c?.BoardSeen}|{CrewLive(c)}|{c?.Act}|{c?.Letters.Count}|{c?.Calls.Count}|{c?.Pages.Count}|{StoryUi.I?.Ringing?.Id}|{StoryUi.I?.Answered.Count}|{StoryUi.I?.Missed.Count}|{StoryUi.I?.ReadLetters.Count}|{OrdKey(c)}";
+            return $"{Screen}|{Thread}|{minute}|{c?.Cash}|{c?.Msgs.Count}|{c?.Mari}|{c?.Ledger.Count}|{c?.MariTracked}|{Unread()}|{Alerts.Queue.Count}|{mapFilter}|{(int)scroll}|{Settings.MouseSens:F2}|{Settings.Invert}|{Settings.TimingOffsetMs}|{Settings.Voice}|{H24}|{Firm.I?.MyKit.Rod}|{CrewTab}|{crewEdit}|{eWho}|{eSpot}|{eBait}|{eSh}|{eBack}|{c?.Staff.Count}|{c?.Board.Count}|{c?.BoardSeen}|{CrewLive(c)}|{c?.Act}|{c?.Letters.Count}|{c?.Calls.Count}|{c?.Pages.Count}|{StoryUi.I?.Ringing?.Id}|{StoryUi.I?.Answered.Count}|{StoryUi.I?.Missed.Count}|{StoryUi.I?.ReadLetters.Count}|{OrdKey(c)}|{c?.Hugo}|{c?.HugoFrom}";
         }
 
         // ---------------------------------------------------------------- input: mouse, keys, pad
@@ -476,6 +476,14 @@ namespace PortBoss.M1
             // M7: an order waiting for an answer: the card, then Deal / Not this time
             var ord = c.OpenOrd(Thread);
             if (ord != null) y = OrderCard(c, ord, y + 6) + 10;
+            // M7 step 4: Hugo & Fifi's request
+            if (Thread == Company.HugoName && c.Hugo == DealSt.Offered)
+            {
+                y += 6; float bw = (CW - 10) / 2;
+                Pill(list, "Not now", 0, y, bw, 40, Ponyo.Paper, Ponyo.Ink, () => Firm.I.AnswerHugo(false), UiKit.Body, 15);
+                Pill(list, "Lovely, come", bw + 10, y, bw, 40, Ponyo.Sunflower, Ponyo.Ink, () => Firm.I.AnswerHugo(true), UiKit.Bold, 15);
+                y += 50;
+            }
             // quick replies (never free text)
             if (Thread == Company.MariName && c.Mari == DealSt.Offered)
             {
@@ -500,6 +508,9 @@ namespace PortBoss.M1
             Company.PrattName => "Old Saltmouth Fish Market · Voss Maritime",
             Company.FergusName => "Doyle Boatworks",
             Company.AmaraName => "Chef · The Pelican, Lantern Key",
+            Company.HugoName => "Houseboat The Last Word",
+            Company.IngridName => "Plank & Post",
+            Company.DotName => "Harbour master · the lighthouse",
             "Notifications" => "Everything that popped up, newest first",
             _ => "",
         };

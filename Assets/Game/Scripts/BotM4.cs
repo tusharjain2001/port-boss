@@ -294,7 +294,7 @@ namespace PortBoss.M1
                 Catch(r, 8, DayTime.At(1, 480), Sky.Minutes, _ => 0.3f);
                 var sell = new List<Fish>(); foreach (var sl in me.Bar.S) if (sl.Fish.Count > 0 && sell.Count < 3) sell.Add(sl.Fish[0]);
                 Firm.I.Sell(Buyer.Pratt, sell);
-                Firm.I.Buy("bait:1", 2);
+                Firm.I.Buy("bait:2", 2);   // (M7: sardines; shrimp is in on Day 2)
                 c.Earn(Firm.I.NewTx("test"), Firm.MyName, "A test windfall", 260, Sky.Minutes); c.Tick(Sky.Minutes);
                 Firm.I.AnswerMari(true); Firm.I.Track(true);
                 Sky.Jump(DayTime.At(2, 920)); yield return null; yield return null;
@@ -372,8 +372,8 @@ namespace PortBoss.M1
                 M4(sale != null, $"{rn}'s sale is in the crew's bank: {sale?.What} +${sale?.Amount}");
                 M4(Coop.I.Book.Bar(rider.Id).FishCount == 0, "and the fish left their hotbar (the host's book)");
                 for (float t = 0; t < 30 && !C().Ledger.Exists(e => e.Who == rn && e.Amount < 0); t += Time.unscaledDeltaTime) yield return null;
-                M4(C().Ledger.Exists(e => e.Who == rn && e.What.StartsWith("Shrimp")), $"{rn} bought shrimp from the crew's bank");
-                for (float t = 0; t < 10 && C().KitOf(rider.Key).Bait[1] < 10; t += Time.unscaledDeltaTime) yield return null;
+                M4(C().Ledger.Exists(e => e.Who == rn && e.What.StartsWith("Sardine")), $"{rn} bought sardines from the crew's bank");   // (M7: shrimp is in on Day 2)
+                for (float t = 0; t < 10 && C().KitOf(rider.Key).Bait[2] < 10; t += Time.unscaledDeltaTime) yield return null;
                 M4(C().KitOf(rider.Key).Bait[1] >= 10, $"{rn}'s kit report: {C().KitOf(rider.Key).Bait[1]} shrimp");
                 Sky.Jump(DayTime.At(3, DayTime.Wake + 1)); yield return null;
                 M4(C().Mari == DealSt.Offered, "Day 3: Mari texts the crew");
@@ -399,9 +399,9 @@ namespace PortBoss.M1
                 var sale = Firm.C.Ledger.Find(e => e.Who == Firm.MyName && e.Amount > 0);
                 M4(sale != null && me.Bar.FishCount == 0, $"my sale, by the host: +${sale?.Amount}, the hotbar empty ({me.Bar.FishCount})");
                 M4(Alerts.Queue.Exists(a => a.Sender == "Sold"), "the Sold toast");
-                yield return Buy("Shrimp", 1);
-                for (float t = 0; t < 10 && Firm.I.MyKit.Bait[1] < 10; t += Time.unscaledDeltaTime) yield return null;
-                M4(Firm.I.MyKit.Bait[1] == 10, $"my shrimp: {Firm.I.MyKit.Bait[1]}");
+                yield return Buy("Sardine", 1);
+                for (float t = 0; t < 10 && Firm.I.MyKit.Bait[2] < 10; t += Time.unscaledDeltaTime) yield return null;
+                M4(Firm.I.MyKit.Bait[2] == 10, $"my sardines: {Firm.I.MyKit.Bait[2]}");
                 for (float t = 0; t < 40 && Firm.C.Mari != DealSt.Offered; t += Time.unscaledDeltaTime) yield return null;
                 M4(Firm.C.Mari == DealSt.Offered && Alerts.Queue.Exists(a => a.Sender == Company.MariName), "Mari's text reaches me too");
                 Phone.I.Show(Phone.Scr.Thread, Company.MariName); yield return null; yield return null;

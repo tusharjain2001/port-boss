@@ -117,9 +117,17 @@ His decisions, 8 Nov:
 - The Pelican on Lantern Key (`Pelican.cs`, `art-src/m7/build_pelican.py`).
 - Visiting berths (`SkiffBerth.cs`).
 
+**Step 4, Days 2–4:**
+- Doyle's engine rebuild in an hour; shrimp from Day 2; Ingrid's offer.
+- Mari's line; the conger and the swordfish (`StoryUi.Moments`).
+- Voss's yacht in the Day 4 fog (`Yacht.cs`, `build_yacht.py`).
+- Hugo & Fifi (`Moorers.cs`).
+
+**Step 5, the demo's end:** `Company.Demo` (marker `StreamingAssets/demo`). The unknown number's texts, then the "To be continued" card.
+
 **Tests:**
-- `tools/companycheck.sh` (Company.StoryTest, OrderTest)
-- `-pb-pelicantest`
+- `tools/companycheck.sh` (Company.StoryTest, OrderTest, MoorerTest)
+- `-pb-pelicantest`, `-pb-days24test`, `-pb-demotest -pb-demo`
 - `tools/m7test.sh`:
   - `-pb-storytest`, `-pb-openingtest -pb-opening -pb-coldstart`
   - `-pb-storycoop host|rider` at 150 ms + 2% loss

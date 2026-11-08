@@ -108,6 +108,8 @@ namespace PortBoss.M1
             JumpTo(5, 18); yield return Until(() => Firm.C.Act == 2, 3);
             Ok(Firm.C.Act == 2 && Firm.C.Msgs.Exists(m => m.From == Company.WaltName && m.Text.StartsWith("Rosie")), $"Day 5, 6 PM: Act 2 and Walt's text about Rosie (act {Firm.C.Act})");
             Ok(Firm.C.CanBuy(Firm.MyKey, "rod:3", 1) != "Act 2", $"the Carbon rod isn't act-locked any more ({Firm.C.CanBuy(Firm.MyKey, "rod:3", 1)})");
+            JumpTo(5, 18.5); yield return new WaitForSeconds(1f);
+            Ok(!Company.Demo && !Firm.C.Msgs.Exists(m => m.From == Company.UnknownName) && !S.EndUp, "the full game: no demo end (no unknown number, no card)");
             Phone.I.Show(); yield return null; yield return null;
             if (shots != null) { yield return new WaitForSeconds(0.4f); yield return Shot("phone-home-act2"); }
             Phone.I.Hide();
@@ -231,6 +233,126 @@ namespace PortBoss.M1
             Ok(C.Msgs.Exists(m => m.From == Company.WaltName && m.Text.StartsWith("AMARA CALLED ME")), "7:30 PM: Walt: AMARA CALLED ME");
             Ok(C.Check() == "", $"the company's invariants ({C.Check()})");
             Debug.Log($"[PB] RESULT pelicantest: {(fails == 0 ? "PASS" : "FAIL")} ({fails} off)");
+            Application.Quit();
+        }
+
+        // -pb-days24test <dir> (M7 step 4): Days 1-4 and the start of Act 2. Shrimp refused on Day 1 (June's text at 6 PM);
+        // Doyle's engine done within the hour (Fergus); Mari ties up and I catch her line; the conger's head under the pier
+        // after dark; a swordfish leaping at sea on Day 3; Ingrid's planks offer; Voss's yacht across the bay in the Day 4
+        // fog (Dot); Mari's Day 4 text; Act 2: Hugo & Fifi ask, Lovely on the phone, B2 built, they tie up and pay $35.
+        IEnumerator Days24Test(string dir)
+        {
+            shots = string.IsNullOrEmpty(dir) ? null : dir; if (shots != null) Directory.CreateDirectory(shots);
+            Ctl.Bot = true; Sleep.Off = true; int fails = 0;
+            void Ok(bool ok, string what) { if (!ok) fails++; Debug.Log($"[PB] days24: {what}: {(ok ? "ok" : "FAIL")}"); }
+            IEnumerator Until(System.Func<bool> c, float secs) { for (float t = 0; t < secs && !c(); t += Time.deltaTime) yield return null; }
+            bool Said(string from, string start) => Firm.C.Msgs.Exists(m => m.From == from && !m.Me && m.Text.StartsWith(start));
+            var C = Firm.C; var l = Landing.I; var s = Skiff.I;
+            yield return new WaitForSeconds(1f);
+            C.Earn(Firm.I.NewTx("tester"), Works.MyName, "Tester cash (days 2-4)", 2000, Sky.Minutes); Firm.I.Dirty = true;
+            // 1) shrimp: not on Day 1; June at 6 PM
+            Ok(C.CanBuy(Firm.MyKey, "bait:1", 1) == "In tomorrow", $"Day 1: June's shrimp: \"{C.CanBuy(Firm.MyKey, "bait:1", 1)}\"");
+            // 2) Doyle's engine at 4 PM: done by 5 PM, Fergus texts
+            JumpTo(1, 16); yield return null;
+            Ok(Works.HostBuy(Firm.I.NewTx("t"), Works.MyKey, Works.MyName, "rep:biscuit:engine", 0, false, out var ew) && !C.EngineFixed, $"the engine rebuild ordered at 4 PM ({ew})");
+            JumpTo(1, 16.5); yield return null; Ok(!C.EngineFixed, "not done at 4:30");
+            JumpTo(1, 17.05); yield return Until(() => Said(Company.FergusName, "She's done"), 3);
+            Ok(C.EngineFixed && Said(Company.FergusName, "She's done") && Mathf.Abs(s.Top - 6) < 0.05f, $"done within the hour, Fergus texts, top speed {s.Top:F1}");
+            JumpTo(1, 18.05); yield return Until(() => Said(Company.JuneName, "Shrimp in stock"), 3);
+            Ok(Said(Company.JuneName, "Shrimp in stock tomorrow"), "June at 6 PM: shrimp in stock tomorrow");
+            // 3) Mari: yes now; she ties up within the hour; I catch her line at her bow
+            C.Earn(Firm.I.NewTx("tester"), Works.MyName, "Tester sales", 260, Sky.Minutes); C.Tick(Sky.Minutes); yield return null;
+            Firm.I.AnswerMari(true); double acc = C.MariAccepted;
+            JumpTo(1, (acc + Company.MariComes) / 60.0 % 24 + 0.02); yield return Until(() => Said(Company.MariName, "here! can someone grab my line"), 3);
+            Ok(Said(Company.MariName, "here! can someone grab my line"), "Mari ties up: here! can someone grab my line??");
+            var ms = Firm.I.Stalls.Find(x => x.K == Firm.Kind.Mari);
+            me.Teleport(ms.Front + ms.At.forward * 0.3f, Quaternion.LookRotation(-ms.At.forward).eulerAngles.y); yield return new WaitForSeconds(0.5f);
+            Ok(me.Prompt == "Catch Mari's line", $"at her bow: \"{me.Prompt}\"");
+            if (shots != null) yield return Shot("mari-line");
+            Ctl.BotInteract = true; yield return null; Ctl.BotInteract = false; yield return Until(() => Said(Company.MariName, "thank youuu"), 3);
+            Ok(C.Seen("mari:tied") && Said(Company.MariName, "thank youuu"), "caught it: thank youuu!");
+            // 4) Day 2 after dark: the conger's head under Walt's pier
+            JumpTo(2, 20.2); me.Teleport(l.LadderTop.position + l.LadderTop.forward * -1.2f + Vector3.up * 0.1f, l.LadderTop.eulerAngles.y + 180); yield return new WaitForSeconds(0.4f);
+            yield return Until(() => StoryUi.I.ShowObj != null, 3); yield return new WaitForSeconds(1.8f);
+            { var so = StoryUi.I.ShowObj; Ok(so != null && so.activeInHierarchy, $"the conger is up ({(so != null ? $"{so.transform.position.x:F1} {so.transform.position.y:F2} {so.transform.position.z:F1}, scale {so.transform.lossyScale.x:F2}" : "none")})");
+              if (shots != null && so != null) { var d = so.transform.position - me.transform.position; CameraRig.I.Yaw = Mathf.Atan2(d.x, d.z) * Mathf.Rad2Deg; yield return new WaitForSeconds(0.5f); yield return Shot("conger"); } }
+            yield return Until(() => Said(Company.JuneName, "Was that a conger"), 8);
+            Ok(C.Seen("conger") && Said(Company.JuneName, "Was that a conger"), "the conger under the pier, then June: Not on Walt's bamboo");
+            // 5) Day 3, 3:30 PM, at sea: a swordfish leaps
+            JumpTo(3, 15.5);
+            var sea = l.transform.forward; sea.y = 0; sea.Normalize(); var bp = l.transform.position + sea * 320; bp.y = s.transform.position.y;
+            s.CastOff(true); s.transform.SetPositionAndRotation(bp, Quaternion.LookRotation(sea)); s.TakeOver(); s.AnchorNow();
+            me.Teleport(s.Helm.position + Vector3.up * 0.05f, s.transform.eulerAngles.y); yield return null; me.TakeHelm(); yield return new WaitForSeconds(0.6f);
+            yield return Until(() => StoryUi.I.ShowObj != null, 3); yield return new WaitForSeconds(0.7f);
+            { var so = StoryUi.I.ShowObj; Ok(so != null && so.activeInHierarchy, $"the swordfish is in the air ({(so != null ? $"{Vector3.Distance(so.transform.position, me.transform.position):F0} m off, {so.transform.position.y:F1} m up, scale {so.transform.lossyScale.x:F2}" : "none")})");
+              if (shots != null) yield return Shot("swordfish");
+              if (shots != null && so != null) { var sp = so.transform.position; FlyCam(sp + (me.transform.position - sp).normalized * 14 + Vector3.up * 2, sp); yield return Shot("swordfish-close"); CameraRig.I.enabled = true; } }
+            yield return Until(() => Said(Company.DotName, "Saw that leap"), 8);
+            Ok(C.Seen("swordfish") && Said(Company.DotName, "Saw that leap"), "a swordfish leaps; Dot: Not on that rod");
+            Ctl.BotInteract = true; yield return null; Ctl.BotInteract = false; yield return null;
+            // 6) Day 3, 7 PM: Ingrid's planks offer
+            JumpTo(3, 19.05); yield return Until(() => Said(Company.IngridName, "Saw your pier"), 3);
+            Ok(Said(Company.IngridName, "Saw your pier"), "Ingrid: three planks, a bench thrown in");
+            // 7) Day 4, 7:30: Voss's yacht across the bay in the fog
+            s.CastOff(true); var mb = l.Moor.position; s.transform.SetPositionAndRotation(new Vector3(mb.x, s.transform.position.y, mb.z), l.Moor.rotation); s.TakeOver(); s.Moor(true);
+            me.Teleport(l.LadderTop.position + Vector3.up * 0.1f, l.transform.eulerAngles.y); yield return null;
+            JumpTo(4, 7.6); yield return Until(() => Yacht.I != null && Yacht.I.Out, 3);
+            Ok(Yacht.I != null && Yacht.I.Out, "Day 4, 7:36: Efficiency is out in the bay");
+            yield return new WaitForSeconds(2f);
+            if (shots != null) yield return Shot("yacht-in-the-fog");
+            if (shots != null) { FlyCam(Yacht.I.At + Vector3.up * 6 + (l.transform.position - Yacht.I.At).normalized * 30, Yacht.I.At + Vector3.up * 2); yield return Shot("yacht-close"); CameraRig.I.enabled = true; }
+            yield return Until(() => Said(Company.DotName, "That's Voss's yacht"), 8);
+            Ok(Said(Company.DotName, "That's Voss's yacht"), "Dot: That's Voss's yacht. Efficiency.");
+            JumpTo(4, 8.5); yield return null; Ok(!Yacht.I.Out, "gone by 8:30");
+            // 8) Day 4, 9:40 PM: Mari
+            JumpTo(4, 21.7); yield return Until(() => Said(Company.MariName, "people keep asking"), 3);
+            Ok(Said(Company.MariName, "people keep asking"), "Mari: the Hales are back");
+            // 9) Act 2 (Day 5, 6 PM at the latest): Hugo & Fifi ask; Lovely; B2; they come; $35
+            JumpTo(5, 18.05); yield return Until(() => C.Hugo == DealSt.Offered, 3);
+            Ok(C.Act == 2 && C.Hugo == DealSt.Offered, $"Act 2: Hugo & Fifi ask (act {C.Act})");
+            Phone.I.Show(Phone.Scr.Thread, Company.HugoName); yield return null; yield return null;
+            if (shots != null) { yield return new WaitForSeconds(0.4f); yield return Shot("phone-hugo"); }
+            Ok(Phone.I.Tap("Lovely, come"), "Lovely, come (the phone)"); yield return null; Phone.I.Hide();
+            Ok(C.Hugo == DealSt.Active, "they'll come once there's a berth");
+            JumpTo(6, 10); yield return null;                            // (Plank & Post shuts at 6 PM: order B2 in the morning)
+            Ok(Works.HostBuy(Firm.I.NewTx("t"), Works.MyKey, Works.MyName, "dock:b2", 0, false, out var bw), $"B2 ordered from Plank & Post ({bw})");
+            JumpTo(7, 7.1); yield return null; yield return null; JumpTo(7, 9); yield return Until(() => C.HugoFrom > 0, 3);
+            Ok(C.Has("dock:b2") && C.HugoFrom == 9, $"B2 built overnight: they tie up Day 8, rent from Day 9 (from {C.HugoFrom})");
+            JumpTo(9, 7.1); yield return Until(() => C.Ledger.Exists(e => e.Tx == "rent:hugo:9"), 3);
+            Ok(C.Ledger.Exists(e => e.Tx == "rent:hugo:9" && e.Amount == 35), "Day 9, 7 AM: Hugo & Fifi's $35");
+            Ok(C.Check() == "", $"the company's invariants ({C.Check()})");
+            Debug.Log($"[PB] RESULT days24: {(fails == 0 ? "PASS" : "FAIL")} ({fails} off)");
+            Application.Quit();
+        }
+
+        // -pb-demotest <dir> (M7 step 5, with -pb-demo): the demo's end. Act 2 (Day 5 6 PM at the latest), Hugo & Fifi ask;
+        // 45 s on, the unknown number's three texts; then the end card (To be continued, the days and the money,
+        // Keep fishing / Quit); Keep fishing closes it and play goes on. Without -pb-demo none of it (storytest).
+        IEnumerator DemoTest(string dir)
+        {
+            shots = string.IsNullOrEmpty(dir) ? null : dir; if (shots != null) Directory.CreateDirectory(shots);
+            Ctl.Bot = true; Sleep.Off = true; int fails = 0;
+            void Ok(bool ok, string what) { if (!ok) fails++; Debug.Log($"[PB] demotest: {what}: {(ok ? "ok" : "FAIL")}"); }
+            IEnumerator Until(System.Func<bool> c, float secs) { for (float t = 0; t < secs && !c(); t += Time.deltaTime) yield return null; }
+            var C = Firm.C; var S = StoryUi.I;
+            yield return new WaitForSeconds(1f);
+            Ok(Company.Demo, "the demo build (-pb-demo)");
+            C.Earn(Firm.I.NewTx("tester"), Works.MyName, "Tester sales", 400, Sky.Minutes); C.Tick(Sky.Minutes); Firm.I.AnswerMari(true);
+            JumpTo(5, 18.02); yield return Until(() => C.Act == 2, 3);
+            Ok(C.Act == 2 && C.Hugo == DealSt.Offered, "Act 2: Hugo & Fifi ask");
+            Ok(!C.Seen("demo:end"), "not the end yet");
+            yield return Until(() => C.Msgs.Exists(m => m.From == Company.UnknownName), 70);
+            Ok(C.Msgs.FindAll(m => m.From == Company.UnknownName).Count == 3, "45 s on: the unknown number (nice dock. be a shame)");
+            if (shots != null) yield return Shot("unknown-texts");
+            yield return Until(() => S.EndUp, 20);
+            Ok(S.EndUp && Ctl.Ui == 2, "the end card is up (input held)");
+            yield return new WaitForSeconds(2.2f);
+            if (shots != null) yield return Shot("demo-end-card");
+            S.KeepFishing(); yield return null;
+            Ok(!S.EndUp && Ctl.Ui == 0, "Keep fishing: the card goes, play goes on");
+            yield return new WaitForSeconds(1f);
+            Ok(!S.EndUp, "and it doesn't come back");
+            Debug.Log($"[PB] RESULT demotest: {(fails == 0 ? "PASS" : "FAIL")} ({fails} off)");
             Application.Quit();
         }
 

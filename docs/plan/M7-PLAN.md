@@ -44,13 +44,31 @@
      - Amara, in chef whites, keeps the counter (a Works keeper).
      - Her order card is in the thread and in Contracts, and on Home's "next up".
    - Not built (SUGGESTED in economy): The Pelican as an everyday walk-in buyer at 110%.
-4. **Days 2–4.**
+4. **Days 2–4.** *(built 8 Nov)*
    - Fergus's $90 rebuild takes one in-game hour (not overnight); his hull offer.
    - June's shrimp from Day 2; Ingrid's "3 planks fixed, a bench free".
    - Mari's line to catch and tie, her string lights and music.
    - Gulls over the fish; the conger at night; a swordfish leaping.
    - Day 4: the fog, Voss's yacht *Efficiency* gliding past (a 4 s beat), Hugo & Fifi's request (Act 2).
-5. **The demo's ending.** The "to be continued" card with Voss's goons, and a demo build that stops there (the full build plays on).
+   - Built:
+     - Doyle's engine rebuild is done within the in-game hour (Fergus texts); the hull patch is still overnight.
+     - Shrimp at June's from Day 2 (her 6 PM text on Day 1).
+     - Ingrid's Day 3 offer.
+     - Mari's arrival text, then E at her bow catches her line (or she ties it herself after 12 minutes); her Day 4 text.
+     - The world's moments, played where you are (`StoryUi.Moments`): the conger's head beside Walt's pier after dark (June's text), a swordfish leaping where you look at sea on Day 3 (Dot's).
+     - *Efficiency* (`art-src/m7/build_yacht.py`, 2.2k tris, Voss on the flybridge) crosses the bay 07:25–07:55 on Day 4, worked out from the clock so every crew member sees it. The camera eases toward it for 4 s (Dot's text).
+     - Hugo & Fifi (`Moorers.cs`): they ask as Act 2 begins, come once B2 is built, and pay $35 a day.
+   - Not built:
+     - Mari's string lights and music (the music waits for Manan's tracks).
+     - Gulls over the fish (rule 34: no fishing zones, so only as decoration).
+     - Hugo & Fifi's houseboat model.
+5. **The demo's ending.** *(built 8 Nov)*
+   - In the demo build (marker file `StreamingAssets/demo`, or `-pb-demo`), 45 s into Act 2 (after Hugo & Fifi's request) an unknown number texts "nice dock. be a shame" / "sorry" / "ok".
+   - 12 s later the screen dims to a paper card:
+     - "To be continued", and what the full game has.
+     - Your days and earnings, and "Wishlist Port Boss on Steam".
+     - **Keep fishing** and **Quit**.
+   - The world is saved as the card comes up. Co-op: the end is a story event, so every crew member gets the card. The full game plays on (no card).
 6. **Settings and accessibility** (systems §1.12): volume (master, music, SFX, ambience, voice), text size, captions, camera shake and FOV, a tap option for every hold, rebinding, colour-blind-safe shapes. The Esc menu links to them.
 7. **Controller.** Pad glyphs on every prompt; a Steam Deck screen-size (1280×800) check.
 8. **Sound.** The music player with its silent slots; more CC0 sounds where the game is quiet.

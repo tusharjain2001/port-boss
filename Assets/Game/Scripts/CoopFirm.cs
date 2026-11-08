@@ -145,6 +145,7 @@ namespace PortBoss.M1
                     case 0: case 1: if (c.AnswerMari(op == 1, e.Name, Sky.Minutes)) Log($"Mari's mooring: {(op == 1 ? "accepted" : "declined")} by {e.Name}"); break;
                     case 2: c.HaggleMari(Sky.Minutes); break;
                     case 3: case 4: c.MariTracked = op == 3; break;
+                    case 5: case 6: if (c.AnswerHugo(op == 5, e.Name, Sky.Minutes)) Log($"Hugo & Fifi: {(op == 5 ? "accepted" : "declined")} by {e.Name}"); break;   // M7
                 }
                 Firm.I.Dirty = true;
             }, true);

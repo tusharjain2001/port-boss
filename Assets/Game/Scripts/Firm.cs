@@ -194,6 +194,11 @@ namespace PortBoss.M1
             Log($"delivered {o.From}'s order {o.Id}: {o.Count} {o.What} for ${o.Total}"); Snd.Play2D(Synth.Fanfare, 0.35f, 1.1f);
             Dirty = true;
         }
+        public void AnswerHugo(bool yes)                            // M7 step 4 (Moorers.cs)
+        {
+            if (Coop.On && !Coop.IsHost) { CoopFirm.AskDeal(yes ? 5 : 6); return; }
+            if (c.AnswerHugo(yes, MyName, Sky.Minutes)) { Log($"Hugo & Fifi: {(yes ? "accepted" : "declined")} by {MyName}"); Dirty = true; }
+        }
         public void Track(bool on) { if (Coop.On && !Coop.IsHost) { CoopFirm.AskDeal(on ? 3 : 4); return; } c.MariTracked = on; Dirty = true; }
 
         // ---------------------------------------------------------------- the counters

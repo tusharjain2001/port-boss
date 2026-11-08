@@ -18,7 +18,11 @@ namespace PortBoss.M1
     // - Calls ring on every machine. Each player answers or misses theirs (StoryUi). The transcript is the same for all.
     public partial class Company
     {
-        public const string WaltName = "Grandpa Walt", JuneName = "June Pike", PrattName = "Gideon Pratt", FergusName = "Fergus Doyle";
+        // M7 step 5: the Steam demo (Tushar 8 Nov: it ends on the evening of Day 4, as Act 2 begins). The game sets it from
+        // the demo build's marker (StreamingAssets/demo) or -pb-demo; the full game plays on.
+        public static bool Demo;
+        public const string UnknownName = "Unknown number";
+        public const string WaltName = "Grandpa Walt", JuneName = "June Pike", PrattName = "Gideon Pratt", FergusName = "Fergus Doyle", IngridName = "Ingrid Marsh", DotName = "Dot";
 
         public class Letter { public int Id; public string From, Title, Where = "mail"; public string[] Lines; public double At; }
         public class Call { public int Id; public string From; public string[] Lines; public double At; }
@@ -117,6 +121,37 @@ namespace PortBoss.M1
             } },
             new Beat { Id = "walt:night1", Due = c => At(1, 21), Window = 150, Run = (c, m) =>
                 c.Text(WaltName, "lights out here. Dont stay up", m) },
+            // M7 step 4: June's shrimp (Day 1, 6 PM: it's in on Day 2)
+            new Beat { Id = "june:shrimp", Due = c => At(1, 18), Window = 4 * 60, Run = (c, m) =>
+                c.Text(JuneName, "Shrimp in stock tomorrow. Mackerel like shrimp. So does everyone, so come early", m) },
+            // Mari ties up (an hour after yes): her line to catch (StoryUi: E at her bow) or she ties it herself
+            new Beat { Id = "mari:here", Due = c => c.Mari == DealSt.Active ? c.MariAccepted + MariComes : double.NaN, Window = 24 * 60, Run = (c, m) =>
+                c.Text(MariName, "here! can someone grab my line??", m) },
+            new Beat { Id = "mari:tied", Due = c => c.EvAt("mari:tied"), Window = 24 * 60, Run = (c, m) =>
+                c.Text(MariName, "thank youuu! ok this pier is... vintage. love it though", m) },
+            new Beat { Id = "mari:self", Due = c => c.Fired("mari:here") && !c.Seen("mari:tied") ? c.BeatAt["mari:here"] + 12 : double.NaN, If = c => !c.Seen("mari:tied"), Run = (c, m) =>
+                c.Text(MariName, "got it myself, no worries! this pier is... vintage. love it though", m) },
+            new Beat { Id = "mari:day4", Due = c => At(4, 21, 40), If = c => c.MariHere(At(4, 21, 40)), Window = 120, Run = (c, m) =>
+                c.Text(MariName, "people keep asking who owns the pier. I say \"the Hales are back\" and they get weird and smiley", m) },
+            // Day 3, 7 PM: Ingrid's first dock job (Plank & Post: three planks, a bench thrown in)
+            new Beat { Id = "ingrid:planks", Due = c => At(3, 19), If = c => !c.Has("dock:planks") && !c.Ordered("dock:planks"), Window = 3 * 60, Run = (c, m) =>
+                c.Text(IngridName, "Saw your pier from the causeway. Three planks are rotten through. $100 and I'll fix them overnight, and I'll throw in a bench. Plank & Post, by the market.", m) },
+            // what was seen in the world (StoryUi plays them where you are): the conger at night, the swordfish, Voss's yacht
+            new Beat { Id = "june:conger", Due = c => c.EvAt("conger", 1), Window = 12 * 60, Run = (c, m) =>
+                c.Text(JuneName, "Was that a conger under Walt's pier? Not on Walt's bamboo, love. Fibreglass.", m) },
+            new Beat { Id = "dot:swordfish", Due = c => c.EvAt("swordfish", 1), Window = 12 * 60, Run = (c, m) =>
+                c.Text(DotName, "Saw that leap from here. Swordfish. Not on that rod.", m) },
+            new Beat { Id = "dot:yacht", Due = c => c.EvAt("yacht", 2), Window = 12 * 60, Run = (c, m) =>
+                c.Text(DotName, "That's Voss's yacht. Efficiency. Don't wave. He won't.", m) },
+            // M7 step 5, the demo only: 45 s into Act 2 (after Hugo & Fifi's request) a number you don't know texts the
+            // goons' line (world §7.2's first rival texts, Act 3 in the full game); 12 s later the demo ends (StoryUi's card)
+            new Beat { Id = "demo:unknown", Due = c => Demo && c.Act >= 2 && c.Fired("act:2") ? c.ActAt + 45 : double.NaN, Window = Forever, Run = (c, m) =>
+            {
+                c.Text(UnknownName, "nice dock. be a shame", m);
+                c.Text(UnknownName, "sorry", m);
+                c.Text(UnknownName, "ok", m);
+            } },
+            new Beat { Id = "demo:end", Due = c => c.Fired("demo:unknown") ? c.BeatAt["demo:unknown"] + 12 : double.NaN, Window = Forever, Run = (c, m) => c.Event("demo:end", m) },
             // Days 2-3: Pratt's price list at 7, Walt's call at 8, Fergus about the hull
             new Beat { Id = "pratt:prices:2", Due = c => At(2, 7), Window = 240, Run = (c, m) =>
                 c.Text(PrattName, $"Good morning. Today at the Fish Market: {PriceList(2)}. Thank you for choosing Voss Maritime.", m) },
@@ -151,6 +186,7 @@ namespace PortBoss.M1
             new Beat { Id = "act:2", Due = c => c.Act1Done ? At(4, 18) : At(5, 18), If = c => c.Act < 2, Window = Forever, Run = (c, m) =>
             {
                 c.SetAct(2, m);
+                if (c.Hugo == DealSt.None) c.OfferHugo(m);                 // M7 step 4: the second moorers open Act 2 (Moorers.cs)
                 c.Text(WaltName, "Rosie at the Mooring Line rang me. Says someone keeps asking her for work. Go and see her board kid. Two pairs of hands catch more than one", m);
             } },
         };

@@ -5,6 +5,8 @@
 #  1b. -pb-openingtest -pb-opening -pb-coldstart: a new game's first morning (the cot, the desk letter, Biscuit half full
 #     and cold, bail her, three pulls, Walt's text, drive out), with stills
 #  1c. -pb-pelicantest: Amara's order end to end at The Pelican (Deal, moor at its jetty, deliver, Walt), with stills
+#  1d. -pb-days24test: Days 1-4 (shrimp, Doyle's hour, Mari's line, the conger, the swordfish, Ingrid, Voss's yacht, Hugo & Fifi)
+#  1e. -pb-demotest -pb-demo: the demo's end (the unknown number, the To be continued card, Keep fishing)
 #  2. -pb-storycoop host + rider with -pb-netsim 150 2: Walt welcomes the rider, the rider's rod raises page 1 through the
 #     host, the call rings on both, the letter reaches the rider
 # (the story's plain rules: tools/companycheck.sh, Company.StoryTest)
@@ -19,6 +21,10 @@ hidden "$EXE" -batchmode -pb-seed 7 -pb-fps 60 -pb-opening -pb-coldstart -pb-ope
 sum openingtest "$D/openingtest.txt"
 hidden "$EXE" -batchmode -pb-seed 7 -pb-fps 60 -pb-pelicantest "$(W "$PROOF/pelican")" -pb-quit 240 -logFile "$(W "$D/pelicantest.txt")"
 sum pelicantest "$D/pelicantest.txt"
+hidden "$EXE" -batchmode -pb-seed 7 -pb-fps 60 -pb-days24test "$(W "$PROOF/days24")" -pb-quit 400 -logFile "$(W "$D/days24.txt")"
+sum days24 "$D/days24.txt"
+hidden "$EXE" -batchmode -pb-seed 7 -pb-fps 60 -pb-demo -pb-demotest "$(W "$PROOF/demo")" -pb-quit 300 -logFile "$(W "$D/demotest.txt")"
+sum demotest "$D/demotest.txt"
 
 PORT=$((7900 + RANDOM % 90))
 hidden "$EXE" -batchmode -pb-host -pb-port $PORT -pb-name Host -pb-seed 7 -pb-storycoop host -pb-netsim 150 2 -pb-quit 240 -logFile "$(W "$D/coop-host.txt")" &
